@@ -6,21 +6,36 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "data:nomenclator": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/01-fetch-nomenclator.ts",
+    "data:geo": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/02-fetch-geo.ts",
+    "data:geocode": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/03-geocode-entitats.ts",
+    "data:stations": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/04-fetch-stations.ts",
+    "data:build": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/06-build-territory.ts",
+    "data:validate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/07-validate.ts",
+    "data:all": "npm run data:nomenclator && npm run data:geo && npm run data:stations && npm run data:geocode && npm run data:elevation && npm run data:build && npm run data:validate",
+    "test:catalan": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-catalan.ts",
+    "data:elevation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/05-fetch-elevation.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
+    "data:import": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/08-import-db.ts"
   },
   "dependencies": {
     "next": "16.3.3",
+    "pg": "^8.23.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "type": "module"
 }

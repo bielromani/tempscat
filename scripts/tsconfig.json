@@ -1,0 +1,17 @@
+{
+  "//": "Los scripts de datos los ejecuta Node 24 directamente, sin build. Node exige la extensión .ts explícita en los imports, que el tsconfig de Next no admite; por eso viven en su propio proyecto.",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"]
+}

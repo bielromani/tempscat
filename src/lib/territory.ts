@@ -1,0 +1,220 @@
+import 'server-only';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * Acceso al territorio construido por el pipeline de `scripts/`.
+ *
+ * De momento lee los artefactos JSON de `data/build/`. Cuando exista la base de
+ * datos (fase 1) esta capa cambia por dentro y las páginas no se enteran: la
+ * frontera está aquí a propósito.
+ */
+
+const BUILD = join(process.cwd(), 'data', 'build');
+
+export type Level = 'comarca' | 'municipi' | 'entitat_colectiva' | 'entitat_singular' | 'nucli' | 'disseminat';
+export type Tier = 'A' | 'B' | 'C' | 'D';
+
+export interface StationRef {
+  codi: string;
+  nom: string;
+  distKm: number;
+  dAltM: number | null;
+}
+
+export interface Location {
+  id: string;
+  level: Level;
+  parentId: string | null;
+  comarcaCodi: string;
+  municipiCodi?: string;
+  municipiIne5?: string;
+  nom: string;
+  nomIndexat: string;
+  slug: string;
+  path: string;
+  lat: number | null;
+  lon: number | null;
+  altitud: number | null;
+  geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | null;
+  geocodeConfidence: number;
+  poblacio: number | null;
+  stationRef?: StationRef;
+  tier: Tier;
+  published: boolean;
+  canonicalOf?: string;
+  reason?: string;
+}
+
+export interface Comarca {
+  codi: string;
+  nom: string;
+  slug: string;
+  path: string;
+  lat: number;
+  lon: number;
+  nMunicipis: number;
+  poblacio: number;
+  altitudMin: number | null;
+  altitudMax: number | null;
+}
+
+export interface Station {
+  codi: string;
+  nom: string;
+  slug: string;
+  lat: number;
+  lon: number;
+  altitud: number | null;
+  emplacament?: string;
+  municipiNom?: string;
+  comarcaCodi?: string;
+  comarcaNom?: string;
+  operativa: boolean;
+  estat?: string;
+  nearestLocation: { id: string; nom: string; path: string; distKm: number } | null;
+}
+
+function load<T>(file: string): T {
+  return JSON.parse(readFileSync(join(BUILD, file), 'utf8')) as T;
+}
+
+// Los artefactos son estáticos: se leen una vez por proceso y se indexan.
+let cache: {
+  locations: Location[];
+  comarques: Comarca[];
+  stations: Station[];
+  byId: Map<string, Location>;
+  byPath: Map<string, Location>;
+  comarcaBySlug: Map<string, Comarca>;
+  comarcaByCodi: Map<string, Comarca>;
+  childrenOf: Map<string, Location[]>;
+  municipisOf: Map<string, Location[]>;
+} | null = null;
+
+function db() {
+  if (cache) return cache;
+
+  const locations = load<Location[]>('locations.json');
+  const comarques = load<Comarca[]>('comarques.json');
+  const stations = load<Station[]>('stations.json');
+
+  const byId = new Map(locations.map((l) => [l.id, l]));
+  const byPath = new Map(locations.filter((l) => l.published).map((l) => [l.path, l]));
+  const childrenOf = new Map<string, Location[]>();
+  const municipisOf = new Map<string, Location[]>();
+
+  for (const l of locations) {
+    if (!l.published) continue;
+    if (l.parentId) {
+      const arr = childrenOf.get(l.parentId) ?? [];
+      arr.push(l);
+      childrenOf.set(l.parentId, arr);
+    }
+    if (l.level === 'municipi') {
+      const arr = municipisOf.get(l.comarcaCodi) ?? [];
+      arr.push(l);
+      municipisOf.set(l.comarcaCodi, arr);
+    }
+  }
+
+  const byPop = (a: Location, b: Location) => (b.poblacio ?? 0) - (a.poblacio ?? 0);
+  for (const arr of childrenOf.values()) arr.sort(byPop);
+  for (const arr of municipisOf.values()) arr.sort((a, b) => a.nom.localeCompare(b.nom, 'ca'));
+
+  cache = {
+    locations, comarques, stations, byId, byPath,
+    comarcaBySlug: new Map(comarques.map((c) => [c.slug, c])),
+    comarcaByCodi: new Map(comarques.map((c) => [c.codi, c])),
+    childrenOf, municipisOf,
+  };
+  return cache;
+}
+
+// ── Consultas ───────────────────────────────────────────────────────────────
+
+/** Resuelve una URL a su ubicación. La consulta más frecuente del sitio. */
+export function locationByPath(path: string): Location | undefined {
+  return db().byPath.get(path);
+}
+
+export function locationById(id: string): Location | undefined {
+  return db().byId.get(id);
+}
+
+export function allComarques(): Comarca[] {
+  return db().comarques.slice().sort((a, b) => a.nom.localeCompare(b.nom, 'ca'));
+}
+
+export function comarcaBySlug(slug: string): Comarca | undefined {
+  return db().comarcaBySlug.get(slug);
+}
+
+export function comarcaOf(loc: Location): Comarca | undefined {
+  return db().comarcaByCodi.get(loc.comarcaCodi);
+}
+
+/** Municipios de una comarca, en orden alfabético catalán. */
+export function municipisOfComarca(comarcaCodi: string): Location[] {
+  return db().municipisOf.get(comarcaCodi) ?? [];
+}
+
+/** Entidades y núcleos que cuelgan de una ubicación, de mayor a menor población. */
+export function childrenOf(id: string): Location[] {
+  return db().childrenOf.get(id) ?? [];
+}
+
+/** Todas las entidades publicadas de un municipio, sea cual sea su nivel. */
+export function entitatsOfMunicipi(municipiCodi: string): Location[] {
+  return db().locations
+    .filter((l) => l.published && l.municipiCodi === municipiCodi && l.level !== 'municipi')
+    .sort((a, b) => (b.poblacio ?? 0) - (a.poblacio ?? 0));
+}
+
+/** Migas de pan, de Catalunya hacia abajo. */
+export function breadcrumbs(loc: Location): Array<{ nom: string; path: string }> {
+  const out: Array<{ nom: string; path: string }> = [{ nom: 'Catalunya', path: '/' }];
+  const comarca = comarcaOf(loc);
+  if (comarca) out.push({ nom: comarca.nom, path: comarca.path });
+  if (loc.level !== 'municipi' && loc.municipiCodi) {
+    const mun = db().locations.find((l) => l.level === 'municipi' && l.municipiCodi === loc.municipiCodi);
+    if (mun) out.push({ nom: mun.nom, path: mun.path });
+  }
+  out.push({ nom: loc.nom, path: loc.path });
+  return out;
+}
+
+export function stationByCodi(codi: string): Station | undefined {
+  return db().stations.find((s) => s.codi === codi);
+}
+
+export function operativeStations(): Station[] {
+  return db().stations.filter((s) => s.operativa);
+}
+
+/**
+ * Rutas a prerenderizar en el build. Solo el núcleo duro: comarcas y
+ * municipios grandes. El resto se genera bajo demanda en la primera visita y
+ * queda cacheado — la diferencia es un build de 2 minutos en vez de 40.
+ */
+export function highPriorityPaths(): string[] {
+  const { comarques, locations } = db();
+  return [
+    ...comarques.map((c) => c.path),
+    ...locations.filter((l) => l.published && l.tier === 'A').map((l) => l.path),
+  ];
+}
+
+/** Todas las rutas publicadas, para los sitemaps. */
+export function allPublishedPaths(): Array<{ path: string; tier: Tier; level: Level }> {
+  const { comarques, locations } = db();
+  return [
+    ...comarques.map((c) => ({ path: c.path, tier: 'A' as Tier, level: 'comarca' as Level })),
+    ...locations.filter((l) => l.published).map((l) => ({ path: l.path, tier: l.tier, level: l.level })),
+  ];
+}
+
+/** Estadísticas de la construcción, para el panel interno y la página de fuentes. */
+export function buildSummary(): Record<string, unknown> {
+  return load<Record<string, unknown>>('summary.json');
+}

@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Datos crudos descargados: se regeneran con `npm run data:all`
+/data/raw/

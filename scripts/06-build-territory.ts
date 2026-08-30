@@ -1,0 +1,411 @@
+/**
+ * Fase 0 · paso 6 — Construcción del territorio unificado.
+ *
+ * Junta nomenclátor, coordenadas, altitudes y estaciones en un único árbol
+ * navegable, resuelve slugs y rutas, decide qué se publica y asigna a cada
+ * ubicación su estación XEMA de referencia.
+ *
+ * Salidas en data/build/:
+ *   comarques.json   43 comarcas con centroide y agregados
+ *   locations.json   el árbol completo (municipios, entidades, núcleos)
+ *   paths.json       índice ruta → id, para resolver URLs con un solo lookup
+ *   stations.json    estaciones con su ubicación más cercana
+ *   summary.json     estadísticas de la construcción
+ */
+import { readFileSync, writeFileSync } from 'node:fs';
+import { build, ensureDirs, raw } from './lib/paths.ts';
+import { slugify, toNaturalName, sameName } from './lib/catalan.ts';
+import { haversineKm, stationCost, centroid, nearest } from './lib/geo.ts';
+import type { NomenclatorRow } from './01-fetch-nomenclator.ts';
+import type { MunicipiPoint } from './02-fetch-geo.ts';
+import type { GeocodeResult } from './03-geocode-entitats.ts';
+import type { Station } from './04-fetch-stations.ts';
+
+export type Level = 'comarca' | 'municipi' | 'entitat_colectiva' | 'entitat_singular' | 'nucli' | 'disseminat';
+export type Tier = 'A' | 'B' | 'C' | 'D';
+
+export interface Location {
+  id: string;              // codi_13, o 'C##' para comarcas
+  level: Level;
+  parentId: string | null;
+  comarcaCodi: string;
+  municipiCodi?: string;   // 6 dígitos
+  municipiIne5?: string;   // 5 dígitos, el que usa AEMET
+
+  nom: string;             // 'la Guàrdia dels Prats'
+  nomIndexat: string;      // 'Guàrdia dels Prats, la'
+  slug: string;
+  path: string;            // '/conca-de-barbera/montblanc/la-guardia-dels-prats'
+
+  lat: number | null;
+  lon: number | null;
+  altitud: number | null;
+  geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | null;
+  geocodeConfidence: number;
+
+  poblacio: number | null;
+
+  stationRef?: { codi: string; nom: string; distKm: number; dAltM: number | null };
+
+  tier: Tier;
+  published: boolean;
+  /** Si no se publica, a qué ruta apunta el canonical. */
+  canonicalOf?: string;
+  reason?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function levelOf(r: NomenclatorRow): Level {
+  if (r.entitat_colectiva === '00' && r.entitat_singular === '00') return 'municipi';
+  if (r.entitat_singular === '00') return 'entitat_colectiva';
+  if (r.nucli_poblacio === '00') return 'entitat_singular';
+  if (r.nucli_poblacio === '99') return 'disseminat';
+  return 'nucli';
+}
+
+const num = (s?: string) => (s == null || s === '' ? null : Number(s));
+
+/** Asegura slugs únicos dentro de un mismo padre añadiendo un sufijo estable. */
+function uniqueSlug(base: string, taken: Set<string>, fallbackId: string): string {
+  if (!taken.has(base)) { taken.add(base); return base; }
+  const suffixed = `${base}-${fallbackId.slice(-4)}`;
+  if (!taken.has(suffixed)) { taken.add(suffixed); return suffixed; }
+  let i = 2;
+  while (taken.has(`${base}-${i}`)) i++;
+  taken.add(`${base}-${i}`);
+  return `${base}-${i}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function main() {
+  ensureDirs();
+
+  const { rows, edition } = JSON.parse(readFileSync(raw('nomenclator.json'), 'utf8')) as { rows: NomenclatorRow[]; edition: string };
+  const { municipis: munGeo, comarques: comGeo } = JSON.parse(readFileSync(raw('municipis-geo.json'), 'utf8')) as {
+    municipis: MunicipiPoint[];
+    comarques: Array<{ codi: string; nom: string; municipis: number }>;
+  };
+  const geocodes = new Map(
+    (JSON.parse(readFileSync(raw('geocode.json'), 'utf8')) as GeocodeResult[]).map((g) => [g.codi13, g]),
+  );
+  const elevations: Record<string, number> = JSON.parse(readFileSync(raw('elevation.json'), 'utf8'));
+  const { stations } = JSON.parse(readFileSync(raw('stations.json'), 'utf8')) as { stations: Station[] };
+
+  const munByCodi = new Map(munGeo.map((m) => [m.codi, m]));
+
+  // ── Comarcas ───────────────────────────────────────────────────────────────
+  // La comarca la manda el dataset de caps de municipi, que está al día: el
+  // Nomenclàtor es de 2021 y no conoce el Lluçanès, creado en 2023.
+  const comarcaSlugs = new Set<string>();
+  const comarques = comGeo.map((c) => {
+    const members = munGeo.filter((m) => m.comarcaCodi === c.codi);
+    const cen = centroid(members);
+    return {
+      codi: c.codi,
+      nom: c.nom,
+      slug: uniqueSlug(slugify(c.nom), comarcaSlugs, c.codi),
+      path: '',
+      lat: cen.lat,
+      lon: cen.lon,
+      nMunicipis: members.length,
+      poblacio: 0,
+      altitudMin: null as number | null,
+      altitudMax: null as number | null,
+    };
+  });
+  for (const c of comarques) c.path = `/${c.slug}`;
+  const comarcaByCodi = new Map(comarques.map((c) => [c.codi, c]));
+
+  // ── Ubicaciones ────────────────────────────────────────────────────────────
+  const locations: Location[] = [];
+  const byId = new Map<string, Location>();
+
+  const municipiRows = rows.filter((r) => levelOf(r) === 'municipi');
+  const slugsByParent = new Map<string, Set<string>>();
+  const takenIn = (parent: string) => {
+    let s = slugsByParent.get(parent);
+    if (!s) { s = new Set(); slugsByParent.set(parent, s); }
+    return s;
+  };
+
+  // Municipios
+  for (const r of municipiRows) {
+    const geo = munByCodi.get(r.codi_ine);
+    if (!geo) { console.warn(`  sin geo: ${r.nom_municipi} (${r.codi_ine})`); continue; }
+    const com = comarcaByCodi.get(geo.comarcaCodi);
+    if (!com) { console.warn(`  sin comarca: ${r.nom_municipi}`); continue; }
+
+    const nom = toNaturalName(r.nom_normalitzat);
+    const slug = uniqueSlug(slugify(nom), takenIn(`C${com.codi}`), r.codi_ine);
+    const loc: Location = {
+      id: r.codi_13,
+      level: 'municipi',
+      parentId: `C${com.codi}`,
+      comarcaCodi: com.codi,
+      municipiCodi: r.codi_ine,
+      municipiIne5: geo.codiIne5,
+      nom,
+      nomIndexat: r.nom_normalitzat,
+      slug,
+      path: `${com.path}/${slug}`,
+      lat: geo.lat,
+      lon: geo.lon,
+      altitud: elevations[`M${r.codi_ine}`] ?? null,
+      geocodeSource: 'cap-municipi',
+      geocodeConfidence: 100,
+      poblacio: num(r.poblaci),
+      tier: 'B',
+      published: true,
+    };
+    locations.push(loc);
+    byId.set(loc.id, loc);
+    com.poblacio += loc.poblacio ?? 0;
+  }
+
+  const municipiByCodi = new Map(locations.filter((l) => l.level === 'municipi').map((l) => [l.municipiCodi!, l]));
+
+  // Entidades y núcleos
+  const singularByKey = new Map<string, Location>();
+
+  for (const pass of ['entitat_colectiva', 'entitat_singular', 'nucli', 'disseminat'] as Level[]) {
+    for (const r of rows) {
+      if (levelOf(r) !== pass) continue;
+      const mun = municipiByCodi.get(r.codi_ine);
+      if (!mun) continue;
+
+      const nom = toNaturalName(r.nom_normalitzat);
+      const g = geocodes.get(r.codi_13);
+      const singularKey = r.codi_ine + r.entitat_colectiva + r.entitat_singular;
+
+      // Punto: propio si se geocodificó con confianza; si no, heredado del padre.
+      let lat: number | null = null, lon: number | null = null;
+      let source: Location['geocodeSource'] = null;
+      let confidence = 0;
+      if (g && g.lat != null && g.lon != null && g.confidence >= 60) {
+        lat = g.lat; lon = g.lon; source = 'icgc'; confidence = g.confidence;
+      } else if (pass === 'nucli' || pass === 'disseminat') {
+        const parent = singularByKey.get(singularKey);
+        if (parent?.lat != null) { lat = parent.lat; lon = parent.lon; source = 'heretat'; confidence = 40; }
+      }
+
+      // ¿Publica página?
+      let published = false;
+      let reason: string | undefined;
+      let canonicalOf: string | undefined;
+
+      if (pass === 'disseminat') {
+        reason = 'diseminado: se agrega a su entidad padre';
+        canonicalOf = singularByKey.get(singularKey)?.path ?? mun.path;
+      } else if (confidence < 60) {
+        reason = 'sin coordenada fiable';
+        canonicalOf = mun.path;
+      } else if (sameName(nom, mun.nom)) {
+        // El núcleo cabecera no duplica al municipio: canonical al municipio.
+        reason = 'núcleo cabecera del municipio';
+        canonicalOf = mun.path;
+      } else if (pass === 'nucli') {
+        const parent = singularByKey.get(singularKey);
+        if (parent && sameName(nom, parent.nom)) {
+          reason = 'mismo topónimo que su entidad singular';
+          canonicalOf = parent.path;
+        } else {
+          published = true;
+        }
+      } else {
+        published = true;
+      }
+
+      const parentLoc = pass === 'nucli' || pass === 'disseminat'
+        ? singularByKey.get(singularKey) ?? mun
+        : mun;
+
+      const slug = published
+        ? uniqueSlug(slugify(nom), takenIn(mun.path), r.codi_13)
+        : slugify(nom);
+
+      const loc: Location = {
+        id: r.codi_13,
+        level: pass,
+        parentId: parentLoc.id,
+        comarcaCodi: mun.comarcaCodi,
+        municipiCodi: r.codi_ine,
+        municipiIne5: mun.municipiIne5,
+        nom,
+        nomIndexat: r.nom_normalitzat,
+        slug,
+        path: published ? `${mun.path}/${slug}` : (canonicalOf ?? mun.path),
+        lat,
+        lon,
+        altitud: lat != null ? elevations[r.codi_13] ?? null : null,
+        geocodeSource: source,
+        geocodeConfidence: confidence,
+        poblacio: num(r.poblaci),
+        tier: 'C',
+        published,
+        canonicalOf: published ? undefined : canonicalOf,
+        reason,
+      };
+
+      locations.push(loc);
+      byId.set(loc.id, loc);
+      if (pass === 'entitat_singular') singularByKey.set(singularKey, loc);
+    }
+  }
+
+  // ── Estación de referencia ─────────────────────────────────────────────────
+  const operatives = stations.filter((s) => s.operativa && Number.isFinite(s.lat) && Number.isFinite(s.lon));
+  let withStation = 0;
+  for (const loc of locations) {
+    if (!loc.published || loc.lat == null || loc.lon == null) continue;
+    let best: { s: Station; d: number; cost: number } | null = null;
+    for (const s of operatives) {
+      const d = haversineKm(loc.lat, loc.lon, s.lat, s.lon);
+      if (d > 60) continue;
+      const dAlt = loc.altitud != null && s.altitud != null ? loc.altitud - s.altitud : 0;
+      const cost = stationCost(d, dAlt);
+      if (!best || cost < best.cost) best = { s, d, cost };
+    }
+    if (best) {
+      loc.stationRef = {
+        codi: best.s.codi,
+        nom: best.s.nom,
+        distKm: Math.round(best.d * 10) / 10,
+        dAltM: loc.altitud != null && best.s.altitud != null ? loc.altitud - best.s.altitud : null,
+      };
+      withStation++;
+    }
+  }
+
+  // ── Niveles de indexación ──────────────────────────────────────────────────
+  for (const loc of locations) {
+    if (!loc.published) { loc.tier = 'D'; continue; }
+    if (loc.level === 'municipi') {
+      loc.tier = (loc.poblacio ?? 0) >= 2000 ? 'A' : 'B';
+    } else {
+      loc.tier = (loc.poblacio ?? 0) >= 50 ? 'B' : 'C';
+    }
+  }
+
+  // Altitudes extremas por comarca
+  for (const c of comarques) {
+    const alts = locations
+      .filter((l) => l.comarcaCodi === c.codi && l.altitud != null)
+      .map((l) => l.altitud!);
+    if (alts.length) { c.altitudMin = Math.min(...alts); c.altitudMax = Math.max(...alts); }
+  }
+
+  // ── Vecindades, para el enlazado interno ───────────────────────────────────
+  // Sin los polígonos del ICGC no se puede calcular colindancia real
+  // (`ST_Touches`), así que se calcula proximidad y **se etiqueta como tal**.
+  // Llamar "limítrofe" a lo que solo es cercano sería mentir en el texto de la
+  // página, y esas son las que Google penaliza.
+  const neighbours: Array<{ locationId: string; neighbourId: string; relation: string; distKm: number; rank: number }> = [];
+
+  const municipisPub = locations.filter((l) => l.level === 'municipi' && l.lat != null) as Array<Location & { lat: number; lon: number }>;
+  for (const m of municipisPub) {
+    const near = nearest({ lat: m.lat, lon: m.lon }, municipisPub.filter((o) => o.id !== m.id), { k: 6, maxKm: 40 });
+    near.forEach((n, i) => neighbours.push({
+      locationId: m.id, neighbourId: n.item.id, relation: 'nearest',
+      distKm: Math.round(n.distKm * 10) / 10, rank: i + 1,
+    }));
+  }
+
+  // Hermanos: entidades publicadas del mismo municipio, de mayor a menor población.
+  const byMunicipi = new Map<string, Location[]>();
+  for (const l of locations) {
+    if (!l.published || l.level === 'municipi' || !l.municipiCodi) continue;
+    const arr = byMunicipi.get(l.municipiCodi) ?? [];
+    arr.push(l);
+    byMunicipi.set(l.municipiCodi, arr);
+  }
+  for (const arr of byMunicipi.values()) {
+    const sorted = arr.slice().sort((a, b) => (b.poblacio ?? 0) - (a.poblacio ?? 0));
+    for (const l of sorted) {
+      sorted.filter((o) => o.id !== l.id).slice(0, 8).forEach((o, i) => neighbours.push({
+        locationId: l.id, neighbourId: o.id, relation: 'sibling',
+        distKm: l.lat != null && o.lat != null ? Math.round(haversineKm(l.lat, l.lon!, o.lat, o.lon!) * 10) / 10 : 0,
+        rank: i + 1,
+      }));
+    }
+  }
+
+  // ── Estaciones con su ubicación más cercana ────────────────────────────────
+  const published = locations.filter((l) => l.published && l.lat != null);
+  const stationsOut = stations.map((s) => {
+    const near = Number.isFinite(s.lat)
+      ? nearest({ lat: s.lat, lon: s.lon }, published as Array<Location & { lat: number; lon: number }>, { k: 1 })[0]
+      : undefined;
+    return {
+      ...s,
+      slug: slugify(s.nom),
+      nearestLocation: near ? { id: near.item.id, nom: near.item.nom, path: near.item.path, distKm: Math.round(near.distKm * 10) / 10 } : null,
+    };
+  });
+
+  // ── Salidas ────────────────────────────────────────────────────────────────
+  const paths: Record<string, string> = {};
+  for (const c of comarques) paths[c.path] = `C${c.codi}`;
+  for (const l of locations) if (l.published) paths[l.path] = l.id;
+
+  const tierCount = (t: Tier) => locations.filter((l) => l.tier === t).length;
+  const levelCount = (lv: Level) => locations.filter((l) => l.level === lv).length;
+  const publishedBy = (lv: Level) => locations.filter((l) => l.level === lv && l.published).length;
+
+  const summary = {
+    builtAt: new Date().toISOString(),
+    nomenclatorEdition: edition,
+    comarques: comarques.length,
+    locations: locations.length,
+    published: locations.filter((l) => l.published).length,
+    indexablePages: Object.keys(paths).length,
+    byLevel: Object.fromEntries(
+      (['municipi', 'entitat_colectiva', 'entitat_singular', 'nucli', 'disseminat'] as Level[])
+        .map((lv) => [lv, { total: levelCount(lv), published: publishedBy(lv) }]),
+    ),
+    byTier: { A: tierCount('A'), B: tierCount('B'), C: tierCount('C'), D: tierCount('D') },
+    withStationRef: withStation,
+    stations: { total: stations.length, operatives: operatives.length },
+    neighbours: neighbours.length,
+  };
+
+  writeFileSync(build('comarques.json'), JSON.stringify(comarques, null, 1), 'utf8');
+  writeFileSync(build('locations.json'), JSON.stringify(locations), 'utf8');
+  writeFileSync(build('paths.json'), JSON.stringify(paths), 'utf8');
+  writeFileSync(build('stations.json'), JSON.stringify(stationsOut), 'utf8');
+  writeFileSync(build('neighbours.json'), JSON.stringify(neighbours), 'utf8');
+  writeFileSync(build('summary.json'), JSON.stringify(summary, null, 2), 'utf8');
+
+  // ── Informe ────────────────────────────────────────────────────────────────
+  console.log(`Comarcas          ${comarques.length}`);
+  console.log(`Ubicaciones       ${locations.length.toLocaleString('es-ES')}`);
+  console.log(`Publicables       ${summary.published.toLocaleString('es-ES')}`);
+  console.log(`Rutas indexables  ${summary.indexablePages.toLocaleString('es-ES')}\n`);
+
+  console.log('Por nivel                total  publica');
+  for (const [lv, v] of Object.entries(summary.byLevel)) {
+    console.log(`  ${lv.padEnd(20)} ${String(v.total).padStart(6)}   ${String(v.published).padStart(6)}`);
+  }
+
+  console.log('\nPor nivel de indexación');
+  for (const [t, n] of Object.entries(summary.byTier)) {
+    console.log(`  ${t}  ${String(n).padStart(6)}`);
+  }
+
+  console.log(`\nCon estación de referencia: ${withStation.toLocaleString('es-ES')} / ${summary.published.toLocaleString('es-ES')}`);
+
+  const noPublica = new Map<string, number>();
+  for (const l of locations) if (!l.published && l.reason) noPublica.set(l.reason, (noPublica.get(l.reason) ?? 0) + 1);
+  console.log('\nMotivos de no publicar');
+  for (const [k, v] of [...noPublica].sort((a, b) => b[1] - a[1])) {
+    console.log(`  ${String(v).padStart(6)}  ${k}`);
+  }
+
+  console.log(`\n→ data/build/ (5 ficheros)`);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
