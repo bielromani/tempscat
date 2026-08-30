@@ -1,0 +1,42 @@
+{
+  "builtAt": "2026-08-30T23:06:09.017Z",
+  "nomenclatorEdition": "2021",
+  "comarques": 43,
+  "locations": 11019,
+  "published": 4250,
+  "indexablePages": 4293,
+  "byLevel": {
+    "municipi": {
+      "total": 947,
+      "published": 947
+    },
+    "entitat_colectiva": {
+      "total": 11,
+      "published": 11
+    },
+    "entitat_singular": {
+      "total": 3903,
+      "published": 2759
+    },
+    "nucli": {
+      "total": 3283,
+      "published": 533
+    },
+    "disseminat": {
+      "total": 2875,
+      "published": 0
+    }
+  },
+  "byTier": {
+    "A": 354,
+    "B": 2300,
+    "C": 1596,
+    "D": 6769
+  },
+  "withStationRef": 4250,
+  "stations": {
+    "total": 245,
+    "operatives": 189
+  },
+  "neighbours": 24622
+}

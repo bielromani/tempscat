@@ -124,11 +124,14 @@ Console. **Nunca se abre un nivel si el anterior no está bien indexado.**
 Google penaliza plantillas rellenadas con números distintos. Cada página necesita sustancia
 que solo pueda tener ella. Lo que hace única a una página de núcleo:
 
-1. **Altitud real y su consecuencia.** "Lilla està a 715 m, 365 m per sobre del nucli de
-   Montblanc: a l'hivern hi sol fer entre 2 i 3 °C menys."
+1. **Altitud real y su consecuencia.** "Rojals està a 971 m, 620 m per sobre del nucli de
+   Montblanc: a l'hivern hi sol fer uns 4 °C menys." Cifras reales del territorio ya
+   construido, no ejemplos inventados: los cinco núcleos publicados de Montblanc van de
+   367 m (la Guàrdia dels Prats) a 971 m (Rojals).
 2. **Estación XEMA de referencia, con distancia y desnivel explícitos.** "L'estació més propera
-   és Vimbodí (12,4 km, −180 m de desnivell)." Esto es honestidad radical sobre la
-   procedencia del dato y **ningún competidor lo hace**.
+   és l'Espluga de Francolí (10,6 km, +22 m de desnivell)." Esto es honestidad radical sobre la
+   procedencia del dato y **ningún competidor lo hace**. En todo el territorio la distancia
+   mediana a la estación de referencia es de 5,6 km y el peor caso 23,8 km.
 3. **Posición relativa dentro de la comarca.** "És el tercer nucli més fred de la Conca de
    Barberà aquest mes."
 4. **Récords propios** extraídos de la serie histórica de su estación de referencia.
@@ -168,8 +171,8 @@ Rigor aquí, porque hay mucha desinformación circulando:
     { "@type": "Place",
       "name": "Lilla",
       "containedInPlace": { "@type": "AdministrativeArea", "name": "Montblanc" },
-      "geo": { "@type": "GeoCoordinates", "latitude": 41.34, "longitude": 1.20,
-               "elevation": 715 } },
+      "geo": { "@type": "GeoCoordinates", "latitude": 41.3493, "longitude": 1.2124,
+               "elevation": 468 } },
     { "@type": "BreadcrumbList", "itemListElement": [ /* Catalunya → Conca → Montblanc → Lilla */ ] },
     { "@type": "Dataset",
       "name": "Observacions i predicció per a Lilla",

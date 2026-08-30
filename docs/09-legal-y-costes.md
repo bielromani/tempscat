@@ -72,7 +72,8 @@ CC-BY no es un formalismo del pie de página. La atribución debe ser:
 
 Implementación propuesta:
 
-- Bajo cada bloque de dato, una línea discreta: *"Dada de l'estació de Vimbodí · Meteocat XEMA"*
+- Bajo cada bloque de dato, una línea discreta: *"Dada de l'estació de l'Espluga de Francolí ·
+  Meteocat XEMA"*
   — que además de cumplir la licencia **es la mejor decisión de producto del sitio**: decir de
   dónde viene cada número genera confianza y ningún competidor lo hace.
 - Página `/fonts` con el detalle completo de cada fuente, su licencia y su frecuencia.

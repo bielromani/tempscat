@@ -191,28 +191,33 @@ async function main() {
       }
 
       // ¿Publica página?
+      //
+      // El orden importa: primero las razones estructurales (este lugar ya
+      // tiene página con otro nombre) y solo después la calidad del dato. Al
+      // revés, un núcleo que se llama igual que su entidad se reportaría como
+      // "sin coordenada fiable", que es falso y esconde el estado real de la
+      // geocodificación.
       let published = false;
       let reason: string | undefined;
       let canonicalOf: string | undefined;
+      const parentSingular = singularByKey.get(singularKey);
 
       if (pass === 'disseminat') {
         reason = 'diseminado: se agrega a su entidad padre';
-        canonicalOf = singularByKey.get(singularKey)?.path ?? mun.path;
-      } else if (confidence < 60) {
-        reason = 'sin coordenada fiable';
-        canonicalOf = mun.path;
+        canonicalOf = parentSingular?.path ?? mun.path;
+      } else if (pass === 'nucli' && parentSingular && sameName(nom, parentSingular.nom)) {
+        reason = 'mismo topónimo que su entidad singular';
+        canonicalOf = parentSingular.path;
       } else if (sameName(nom, mun.nom)) {
         // El núcleo cabecera no duplica al municipio: canonical al municipio.
         reason = 'núcleo cabecera del municipio';
         canonicalOf = mun.path;
-      } else if (pass === 'nucli') {
-        const parent = singularByKey.get(singularKey);
-        if (parent && sameName(nom, parent.nom)) {
-          reason = 'mismo topónimo que su entidad singular';
-          canonicalOf = parent.path;
-        } else {
-          published = true;
-        }
+      } else if (g?.note?.startsWith('unidad estadística')) {
+        reason = 'unidad estadística, no es un topónimo';
+        canonicalOf = mun.path;
+      } else if (confidence < 60) {
+        reason = 'sin coordenada fiable';
+        canonicalOf = mun.path;
       } else {
         published = true;
       }

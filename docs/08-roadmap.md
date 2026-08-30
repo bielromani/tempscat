@@ -5,23 +5,36 @@ sin cumplirlos. Las estimaciones asumen una persona a tiempo parcial con asisten
 
 ---
 
-## Fase 0 — Fundamentos de datos · 1 semana
+## Fase 0 — Fundamentos de datos · ✅ COMPLETADA
 
 Construir el territorio antes que la web. Sin territorio correcto, todo lo demás se reconstruye.
 
-- [ ] Proyecto Next.js 15 + TypeScript strict + Tailwind v4
-- [ ] Neon PostgreSQL con PostGIS y TimescaleDB; migraciones del doc 04
-- [ ] Importar `tssr-jqsj` → 947 municipios + 3.903 entidades + 6.158 núcleos
-- [ ] Importar `wpyq-we8x` → coordenadas de los 947 municipios
-- [ ] Importar ICGC "Noms geogràfics" → geocodificar entidades y núcleos
-- [ ] Polígonos de comarcas y municipios
-- [ ] Generar slugs y `path`, resolver colisiones, validar unicidad
-- [ ] Calcular vecindades con `ST_Touches`
-- [ ] Importar 245 estaciones XEMA y el catálogo de variables
+- [x] Proyecto Next.js 16 + TypeScript strict + Tailwind v4
+- [x] Migración PostgreSQL con PostGIS escrita (`db/migrations/001_territory.sql`) e
+      importador listo (`scripts/08-import-db.ts`). **Sin aplicar todavía**: el territorio es
+      estático y los JSON de `data/build/` bastan hasta la fase 1
+- [x] Importar `tssr-jqsj` → 947 municipios, 11 entidades colectivas, 3.903 entidades
+      singulares, 3.283 núcleos, 2.875 diseminados
+- [x] Importar `wpyq-we8x` → coordenadas de los 947 municipios y las **43** comarcas
+- [x] Geocodificar entidades y núcleos — vía **geocodificador oficial del ICGC**, no el CSV
+- [x] Altitud real de los 5.127 puntos poblados (Open-Meteo Elevation)
+- [x] Generar slugs y `path`, resolver colisiones, validar unicidad
+- [x] Calcular vecindades — por proximidad, etiquetadas como tal
+- [x] Importar 245 estaciones XEMA (189 operativas) y 68 variables
+- [x] Asignar estación de referencia ponderando distancia y desnivel
+- [ ] Polígonos de comarcas y municipios → pendiente, no bloquea (ver doc 10)
 
-**Aceptación:** `/conca-de-barbera/montblanc/lilla` resuelve a una fila con coordenada,
-altitud y estación de referencia correctas. **Más del 85 % de las entidades geocodificadas con
-confianza > 60.** Las que no lleguen quedan como tier D y no publican página.
+**Aceptación: cumplida, 0 fallos y 0 avisos** (`npm run data:validate`).
+
+| Criterio | Objetivo | Resultado |
+|---|---|---|
+| `/conca-de-barbera/montblanc/lilla` resuelve | sí | ✅ 468 m, estación l'Espluga de Francolí a 10,6 km |
+| Entidades geocodificadas con confianza ≥ 60 | > 85 % | **93,1 %** |
+| Municipios con coordenada y altitud | 947 | **947** |
+| Ubicaciones publicadas con estación de referencia | 100 % | **4.250 / 4.250** |
+| Colisiones de ruta | 0 | **0** |
+| Rutas territoriales indexables | — | **4.293** |
+| Distancia mediana a la estación de referencia | — | 5,6 km (máx. 23,8 km) |
 
 ---
 

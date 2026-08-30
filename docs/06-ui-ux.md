@@ -56,12 +56,12 @@ gráficos, para que las columnas de números no bailen.
 │ ⚠  Aviso oficial (solo si existe — nunca ocupa hueco)  │
 ├────────────────────────────────────────────────────────┤
 │  LILLA                                    ☀           │  ← LCP
-│  Montblanc · Conca de Barberà · 715 m                  │     HTML puro,
+│  Montblanc · Conca de Barberà · 468 m                  │     HTML puro,
 │                                                        │     cero JS
 │      18,4°     Sensació 17°                            │
 │      ↑24° ↓11°  Vent 12 km/h NO  ·  HR 62 %            │
 │                                                        │
-│  Dada de l'estació de Vimbodí, a 12,4 km i −180 m      │  ← honestidad
+│  Dada de l'Espluga de Francolí, a 10,6 km i +22 m      │  ← honestidad
 │  Fa 34 min · Meteocat XEMA                             │     radical
 ├────────────────────────────────────────────────────────┤
 │  PRÒXIMES 48 HORES                                     │

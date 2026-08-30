@@ -36,6 +36,16 @@ Esto no es decoración: **es la estrategia SEO entera**. "El temps a Lilla" tien
 cero. Multiplicado por ~3.900 entidades es un foso defensivo que a un competidor le cuesta
 años replicar, porque implica geocodificar y modelar el territorio, no solo llamar a una API.
 
+> **Cuantificado sobre el territorio ya construido.** De las 3.303 entidades publicadas con
+> altitud comparable, **el 29 % está a 100 m o más del núcleo de su municipio** y **el 15 % a
+> 200 m o más** — un error sistemático de 1,3 °C o superior para 38.341 habitantes, todos los
+> días del año, en toda web que muestre un único valor por municipio. El desnivel interno medio
+> de los 619 municipios con más de un núcleo es de 182 m; el máximo, 1.059 m en Soriguera
+> (Pallars Sobirà), que reparte 16 lugares habitados entre los 649 y los 1.708 m.
+>
+> Eso es exactamente el hueco: no es que la competencia sea menos precisa, es que para uno de
+> cada siete núcleos **muestra la temperatura de otro sitio**.
+
 ### 2. Observación real catalana, gratis y legal
 
 245 estaciones automáticas de la XEMA con lectura semihoraria, vía portal de datos abiertos
@@ -66,11 +76,19 @@ correctos. Ver [03 — SEO y árbol de rutas](03-seo-y-rutas.md).
 
 | Nivel | Cantidad | ¿Página propia? |
 |---|---|---|
-| Comarcas | 43 (Aran y el Lluçanès incluidos) | Sí |
-| Municipios | 947 | Sí |
-| Entidades singulares (pedanías, aldeas) | 3.903 | Sí |
-| Núcleos y diseminados | 6.158 | Núcleos sí, diseminados se agregan al padre |
-| Estaciones XEMA | 245 | Sí |
+| Comarcas | 43 (Aran y el Lluçanès incluidos) | 43 |
+| Municipios | 947 | 947 |
+| Entidades colectivas | 11 | 11 |
+| Entidades singulares (pedanías, aldeas) | 3.903 | 2.759 |
+| Núcleos | 3.283 | 533 |
+| Diseminados | 2.875 | 0, se agregan al padre |
+| Estaciones XEMA | 245 (189 operativas) | 245 |
+| **Rutas territoriales indexables** | | **4.293** |
+
+Cifras del territorio ya construido (fase 0 completada). Las entidades que no publican página
+lo hacen por una razón concreta: 2.611 núcleos repiten el topónimo de su entidad singular, 879
+son el núcleo cabecera del municipio, 350 no tienen coordenada fiable y 54 son unidades
+estadísticas que no designan ningún lugar.
 
 ## Lo que NO vamos a hacer (y por qué)
 
