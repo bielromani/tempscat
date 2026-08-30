@@ -42,9 +42,11 @@ CREATE TABLE comarca (
   nom_es        text,
   nom_en        text,
   centroid      geography(Point, 4326) NOT NULL,
-  geom          geometry(MultiPolygon, 4326),   -- pendiente: polígonos ICGC
+  geom          geometry(MultiPolygon, 4326),   -- GML INSPIRE del ICGC, vía data/build/geo/
   n_municipis   smallint NOT NULL,
   poblacio      integer,
+  area_km2      numeric(9,2),
+  densitat      numeric(9,2),
   altitud_min   integer,
   altitud_max   integer,
   es_pirinenca  boolean  NOT NULL DEFAULT false,
@@ -118,6 +120,8 @@ CREATE TABLE location (
   geocode_confidence  smallint NOT NULL DEFAULT 0,
 
   poblacio            integer,
+  area_km2            numeric(9,2),   -- solo a nivel municipio
+  geom                geometry(MultiPolygon, 4326),
 
   station_ref_codi    text REFERENCES station(codi),
   station_ref_dist_km numeric(6,2),
@@ -153,7 +157,9 @@ CREATE TABLE location_neighbour (
   neighbour_id  char(13) NOT NULL REFERENCES location(id) ON DELETE CASCADE,
   -- 'sibling'  mismo municipio
   -- 'nearest'  más próximo por distancia (lo que tenemos hoy)
-  -- 'adjacent' comparte frontera, vía ST_Touches (pendiente de polígonos)
+  -- 'adjacent' comparte frontera. No se calcula con ST_Touches: se lee de las
+  --            líneas au:boundary del GML del ICGC, que es la topología oficial
+  --            y no tiene los falsos positivos de una comparación geométrica
   relation      text     NOT NULL,
   distance_km   numeric(6,2),
   rank          smallint NOT NULL,

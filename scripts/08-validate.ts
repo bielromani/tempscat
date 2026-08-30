@@ -5,15 +5,18 @@
  * roadmap. Está pensado para correr en CI: si esto pasa en verde, la fase 0
  * está terminada de verdad, no "casi".
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { build } from './lib/paths.ts';
-import type { Location } from './06-build-territory.ts';
+import type { Location } from './07-build-territory.ts';
 
 interface Comarca { codi: string; nom: string; slug: string; path: string; nMunicipis: number; poblacio: number; altitudMin: number | null; altitudMax: number | null }
 
 const locations: Location[] = JSON.parse(readFileSync(build('locations.json'), 'utf8'));
 const comarques: Comarca[] = JSON.parse(readFileSync(build('comarques.json'), 'utf8'));
 const paths: Record<string, string> = JSON.parse(readFileSync(build('paths.json'), 'utf8'));
+interface Neighbour { locationId: string; neighbourId: string; relation: string; distKm: number; rank: number }
+const neighbours: Neighbour[] = JSON.parse(readFileSync(build('neighbours.json'), 'utf8'));
 
 const byId = new Map(locations.map((l) => [l.id, l]));
 const publicades = locations.filter((l) => l.published);
@@ -77,6 +80,44 @@ check('coordenadas dentro de Catalunya',
   publicades.every((l) => l.lat! > 40.4 && l.lat! < 42.9 && l.lon! > 0.1 && l.lon! < 3.4),
   publicades.filter((l) => !(l.lat! > 40.4 && l.lat! < 42.9 && l.lon! > 0.1 && l.lon! < 3.4))
     .slice(0, 3).map((l) => `${l.nom} ${l.lat},${l.lon}`).join(' | '));
+
+console.log('\n── Polígonos y colindancia ─────────────────────────────────────');
+const geoDir = build('geo');
+const hasGeo = existsSync(join(geoDir, 'municipis.geojson'));
+check('GeoJSON de municipios y comarcas presente', hasGeo);
+if (hasGeo) {
+  const munFc = JSON.parse(readFileSync(join(geoDir, 'municipis.geojson'), 'utf8')) as {
+    features: Array<{ id: string; properties: { areaKm2: number }; geometry: { type: string; coordinates: unknown[] } }>;
+  };
+  const comFc = JSON.parse(readFileSync(join(geoDir, 'comarques.geojson'), 'utf8')) as { features: unknown[] };
+  check('947 polígonos de municipio', munFc.features.length === 947, `${munFc.features.length}`);
+  check('43 polígonos de comarca', comFc.features.length === 43, `${comFc.features.length}`);
+  check('todas las geometrías son MultiPolygon',
+    munFc.features.every((f) => f.geometry.type === 'MultiPolygon' && f.geometry.coordinates.length > 0));
+
+  // La superficie oficial de Catalunya es 32.108 km². Sobre esfera y con la
+  // costa generalizada, un 1 % de desviación es lo esperable; más querría decir
+  // que hay polígonos perdidos o duplicados.
+  const total = munFc.features.reduce((s, f) => s + f.properties.areaKm2, 0);
+  check('superficie total ≈ 32.108 km² (±2 %)', Math.abs(total - 32108) / 32108 < 0.02,
+    `${Math.round(total).toLocaleString('es-ES')} km²`);
+
+  const municipisConArea = municipis.filter((m) => m.areaKm2);
+  check('todos los municipios tienen superficie', municipisConArea.length === 947,
+    `${municipisConArea.length}`);
+}
+
+const adjacent = neighbours.filter((n) => n.relation === 'adjacent');
+const fallback = neighbours.filter((n) => n.relation === 'nearest');
+check('hay colindancia real calculada', adjacent.length > 5000, `${adjacent.length} relaciones`);
+check('la colindancia es simétrica',
+  adjacent.every((n) => adjacent.some((m) => m.locationId === n.neighbourId && m.neighbourId === n.locationId)),
+  'si A linda con B, B linda con A');
+const conAdjacent = new Set(adjacent.map((n) => n.locationId));
+warn('todos los municipios menos Llívia tienen colindantes',
+  municipis.filter((m) => !conAdjacent.has(m.id)).length <= 1,
+  municipis.filter((m) => !conAdjacent.has(m.id)).map((m) => m.nom).join(', ') || 'ninguno sin colindantes');
+console.log(`        ${fallback.length} relaciones de respaldo por proximidad, etiquetadas como tales`);
 
 console.log('\n── Estación de referencia ──────────────────────────────────────');
 const conEstacio = publicades.filter((l) => l.stationRef);

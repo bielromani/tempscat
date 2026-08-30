@@ -12,7 +12,7 @@
  *   stations.json    estaciones con su ubicación más cercana
  *   summary.json     estadísticas de la construcción
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { build, ensureDirs, raw } from './lib/paths.ts';
 import { slugify, toNaturalName, sameName } from './lib/catalan.ts';
 import { haversineKm, stationCost, centroid, nearest } from './lib/geo.ts';
@@ -44,6 +44,8 @@ export interface Location {
   geocodeConfidence: number;
 
   poblacio: number | null;
+  /** Superficie del término municipal, km². Solo a nivel municipio. */
+  areaKm2?: number | null;
 
   stationRef?: { codi: string; nom: string; distKm: number; dAltM: number | null };
 
@@ -93,6 +95,20 @@ async function main() {
   const elevations: Record<string, number> = JSON.parse(readFileSync(raw('elevation.json'), 'utf8'));
   const { stations } = JSON.parse(readFileSync(raw('stations.json'), 'utf8')) as { stations: Station[] };
 
+  // Los polígonos son opcionales: si aún no se han descargado, el territorio se
+  // construye igual con centroides aproximados y vecindad por proximidad. Lo que
+  // no se hace nunca es fingir que hay colindancia real cuando no la hay.
+  type PolyRec = { code: string; name: string; areaKm2: number; centroid: { lat: number; lon: number } };
+  let polygons: { municipis: PolyRec[]; comarques: PolyRec[]; adjacency: Record<string, string[]> } | null = null;
+  if (existsSync(raw('polygons.json'))) {
+    polygons = JSON.parse(readFileSync(raw('polygons.json'), 'utf8'));
+  } else {
+    console.warn('  aviso: sin data/raw/polygons.json — ejecuta `npm run data:polygons`');
+    console.warn('  se usarán centroides aproximados y vecindad por proximidad\n');
+  }
+  const polyMun = new Map((polygons?.municipis ?? []).map((p) => [p.code, p]));
+  const polyCom = new Map((polygons?.comarques ?? []).map((p) => [p.code.padStart(2, '0'), p]));
+
   const munByCodi = new Map(munGeo.map((m) => [m.codi, m]));
 
   // ── Comarcas ───────────────────────────────────────────────────────────────
@@ -101,7 +117,10 @@ async function main() {
   const comarcaSlugs = new Set<string>();
   const comarques = comGeo.map((c) => {
     const members = munGeo.filter((m) => m.comarcaCodi === c.codi);
-    const cen = centroid(members);
+    const poly = polyCom.get(c.codi);
+    // Con polígono, el centroide es el real ponderado por área; sin él, el de la
+    // nube de cabeceras municipales, que en comarcas alargadas se desvía bastante.
+    const cen = poly?.centroid ?? centroid(members);
     return {
       codi: c.codi,
       nom: c.nom,
@@ -109,8 +128,10 @@ async function main() {
       path: '',
       lat: cen.lat,
       lon: cen.lon,
+      areaKm2: poly ? Math.round(poly.areaKm2 * 10) / 10 : null,
       nMunicipis: members.length,
       poblacio: 0,
+      densitat: null as number | null,
       altitudMin: null as number | null,
       altitudMax: null as number | null,
     };
@@ -156,6 +177,7 @@ async function main() {
       geocodeSource: 'cap-municipi',
       geocodeConfidence: 100,
       poblacio: num(r.poblaci),
+      areaKm2: polyMun.get(r.codi_ine) ? Math.round(polyMun.get(r.codi_ine)!.areaKm2 * 100) / 100 : null,
       tier: 'B',
       published: true,
     };
@@ -293,6 +315,11 @@ async function main() {
     }
   }
 
+  // Densidad, ahora que ya está sumada la población
+  for (const c of comarques) {
+    if (c.areaKm2 && c.poblacio) c.densitat = Math.round((c.poblacio / c.areaKm2) * 10) / 10;
+  }
+
   // Altitudes extremas por comarca
   for (const c of comarques) {
     const alts = locations
@@ -302,19 +329,48 @@ async function main() {
   }
 
   // ── Vecindades, para el enlazado interno ───────────────────────────────────
-  // Sin los polígonos del ICGC no se puede calcular colindancia real
-  // (`ST_Touches`), así que se calcula proximidad y **se etiqueta como tal**.
-  // Llamar "limítrofe" a lo que solo es cercano sería mentir en el texto de la
-  // página, y esas son las que Google penaliza.
+  // Con los polígonos del ICGC la colindancia es **real**: dos municipios que
+  // comparten una línea de frontera se tocan. Es el equivalente de `ST_Touches`
+  // leído de la topología oficial, sin tolerancias ni falsos positivos.
+  //
+  // La distinción importa porque acaba en el texto de la página: llamar
+  // "limítrofe" a lo que solo está cerca es una afirmación falsa, y son
+  // exactamente esas las que hunden la credibilidad de un sitio generado.
   const neighbours: Array<{ locationId: string; neighbourId: string; relation: string; distKm: number; rank: number }> = [];
 
   const municipisPub = locations.filter((l) => l.level === 'municipi' && l.lat != null) as Array<Location & { lat: number; lon: number }>;
+  const munByCode = new Map(municipisPub.map((m) => [m.municipiCodi!, m]));
+  let nAdjacent = 0;
+  let nFallback = 0;
+
   for (const m of municipisPub) {
-    const near = nearest({ lat: m.lat, lon: m.lon }, municipisPub.filter((o) => o.id !== m.id), { k: 6, maxKm: 40 });
-    near.forEach((n, i) => neighbours.push({
-      locationId: m.id, neighbourId: n.item.id, relation: 'nearest',
+    const adjacentCodes = polygons?.adjacency[m.municipiCodi!] ?? [];
+    const adjacent = adjacentCodes
+      .map((code) => munByCode.get(code))
+      .filter((o): o is typeof m => !!o)
+      .map((o) => ({ item: o, distKm: haversineKm(m.lat, m.lon, o.lat, o.lon) }))
+      .sort((a, b) => a.distKm - b.distKm);
+
+    adjacent.forEach((n, i) => neighbours.push({
+      locationId: m.id, neighbourId: n.item.id, relation: 'adjacent',
       distKm: Math.round(n.distKm * 10) / 10, rank: i + 1,
     }));
+    nAdjacent += adjacent.length;
+
+    // Llívia no linda con ningún municipio catalán: es un enclave dentro de
+    // Francia. Para esos casos (y si faltaran polígonos) se completa con
+    // proximidad, etiquetada como tal para no mentir.
+    if (adjacent.length < 3) {
+      const already = new Set(adjacent.map((a) => a.item.id));
+      nearest({ lat: m.lat, lon: m.lon }, municipisPub.filter((o) => o.id !== m.id && !already.has(o.id)), { k: 5, maxKm: 60 })
+        .forEach((n, i) => {
+          neighbours.push({
+            locationId: m.id, neighbourId: n.item.id, relation: 'nearest',
+            distKm: Math.round(n.distKm * 10) / 10, rank: i + 1,
+          });
+          nFallback++;
+        });
+    }
   }
 
   // Hermanos: entidades publicadas del mismo municipio, de mayor a menor población.
@@ -372,7 +428,8 @@ async function main() {
     byTier: { A: tierCount('A'), B: tierCount('B'), C: tierCount('C'), D: tierCount('D') },
     withStationRef: withStation,
     stations: { total: stations.length, operatives: operatives.length },
-    neighbours: neighbours.length,
+    neighbours: { total: neighbours.length, adjacent: nAdjacent, nearest: nFallback },
+    polygons: polygons ? { municipis: polyMun.size, comarques: polyCom.size } : null,
   };
 
   writeFileSync(build('comarques.json'), JSON.stringify(comarques, null, 1), 'utf8');
@@ -407,7 +464,20 @@ async function main() {
     console.log(`  ${String(v).padStart(6)}  ${k}`);
   }
 
-  console.log(`\n→ data/build/ (5 ficheros)`);
+  console.log(`\nVecindades: ${neighbours.length.toLocaleString('es-ES')}`);
+  console.log(`  colindancia real (equivale a ST_Touches)  ${nAdjacent.toLocaleString('es-ES')}`);
+  console.log(`  proximidad, solo de respaldo              ${nFallback.toLocaleString('es-ES')}`);
+  console.log(`  hermanos del mismo municipio             ${(neighbours.length - nAdjacent - nFallback).toLocaleString('es-ES')}`);
+
+  if (polygons) {
+    const conArea = locations.filter((l) => l.level === 'municipi' && l.areaKm2).length;
+    const total = comarques.reduce((s, c) => s + (c.areaKm2 ?? 0), 0);
+    console.log(`\nSuperficie: ${conArea}/947 municipios · ${Math.round(total).toLocaleString('es-ES')} km² en total`);
+    const dens = comarques.filter((c) => c.densitat != null).sort((a, b) => b.densitat! - a.densitat!);
+    console.log(`Densidad: ${dens[0].nom} ${dens[0].densitat!.toLocaleString('es-ES')} hab/km² · ${dens[dens.length - 1].nom} ${dens[dens.length - 1].densitat} hab/km²`);
+  }
+
+  console.log(`\n→ data/build/ (6 ficheros + geo/)`);
 }
 
 main().catch((err) => {

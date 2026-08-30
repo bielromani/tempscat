@@ -1,5 +1,5 @@
 {
-  "builtAt": "2026-08-30T23:06:09.017Z",
+  "builtAt": "2026-08-30T23:29:42.322Z",
   "nomenclatorEdition": "2021",
   "comarques": 43,
   "locations": 11019,
@@ -38,5 +38,13 @@
     "total": 245,
     "operatives": 189
   },
-  "neighbours": 24622
+  "neighbours": {
+    "total": 24484,
+    "adjacent": 5424,
+    "nearest": 120
+  },
+  "polygons": {
+    "municipis": 947,
+    "comarques": 43
+  }
 }

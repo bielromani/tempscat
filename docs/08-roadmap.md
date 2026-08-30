@@ -19,10 +19,11 @@ Construir el territorio antes que la web. Sin territorio correcto, todo lo demá
 - [x] Geocodificar entidades y núcleos — vía **geocodificador oficial del ICGC**, no el CSV
 - [x] Altitud real de los 5.127 puntos poblados (Open-Meteo Elevation)
 - [x] Generar slugs y `path`, resolver colisiones, validar unicidad
-- [x] Calcular vecindades — por proximidad, etiquetadas como tal
 - [x] Importar 245 estaciones XEMA (189 operativas) y 68 variables
 - [x] Asignar estación de referencia ponderando distancia y desnivel
-- [ ] Polígonos de comarcas y municipios → pendiente, no bloquea (ver doc 10)
+- [x] Polígonos de comarcas y municipios (GML INSPIRE del ICGC)
+- [x] **Colindancia real** desde la topología oficial: 5.424 relaciones simétricas
+- [x] Superficie y centroide reales; GeoJSON simplificado para el mapa
 
 **Aceptación: cumplida, 0 fallos y 0 avisos** (`npm run data:validate`).
 
@@ -35,6 +36,9 @@ Construir el territorio antes que la web. Sin territorio correcto, todo lo demá
 | Colisiones de ruta | 0 | **0** |
 | Rutas territoriales indexables | — | **4.293** |
 | Distancia mediana a la estación de referencia | — | 5,6 km (máx. 23,8 km) |
+| Polígonos de municipio y comarca | 947 / 43 | **947 / 43** |
+| Superficie total frente a los 32.108 km² oficiales | ±2 % | **32.068 km² (−0,1 %)** |
+| Colindancia simétrica | sí | ✅ 5.424 relaciones, 5,7 de media |
 
 ---
 
@@ -177,7 +181,7 @@ Lo que el usuario pidió "para más adelante".
 
 | Riesgo | Prob. | Impacto | Mitigación |
 |---|---|---|---|
-| Geocodificación incompleta de núcleos | Media | **Alto** | Tres fuentes en cascada; sin coordenada verificada, no hay página |
+| ~~Geocodificación incompleta de núcleos~~ | — | — | **Resuelto en fase 0: 93,1 %.** Sin coordenada verificada no hay página |
 | Index bloat / Google no indexa | Media | **Alto** | Niveles A/B/C/D; contenido único real; apertura escalonada |
 | Cambio en el portal de datos abiertos | Baja | **Alto** | Abstracción por fuente; caché local; alertas de frescura |
 | Open-Meteo cambia su tier gratuito | Baja | Medio | AEMET y OWM como respaldo; plan de pago presupuestado |

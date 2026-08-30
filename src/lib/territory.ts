@@ -39,6 +39,8 @@ export interface Location {
   geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | null;
   geocodeConfidence: number;
   poblacio: number | null;
+  /** Superficie del término municipal, km². Solo a nivel municipio. */
+  areaKm2?: number | null;
   stationRef?: StationRef;
   tier: Tier;
   published: boolean;
@@ -53,10 +55,40 @@ export interface Comarca {
   path: string;
   lat: number;
   lon: number;
+  /** Superficie real, del polígono oficial del ICGC. */
+  areaKm2: number | null;
   nMunicipis: number;
   poblacio: number;
+  densitat: number | null;
   altitudMin: number | null;
   altitudMax: number | null;
+}
+
+export type NeighbourRelation =
+  /** Comparten frontera. Calculado sobre la topología oficial del ICGC. */
+  | 'adjacent'
+  /** Del mismo municipio. */
+  | 'sibling'
+  /** Solo cercano. Se usa donde no hay colindancia — Llívia es enclave en Francia. */
+  | 'nearest';
+
+export interface Neighbour {
+  locationId: string;
+  neighbourId: string;
+  relation: NeighbourRelation;
+  distKm: number;
+  rank: number;
+}
+
+/** FeatureCollection simplificada para el mapa. No es la geometría de cálculo. */
+export interface GeoFeatureCollection {
+  type: 'FeatureCollection';
+  features: Array<{
+    type: 'Feature';
+    id: string;
+    properties: { code: string; name: string; areaKm2: number };
+    geometry: { type: 'MultiPolygon'; coordinates: number[][][][] };
+  }>;
 }
 
 export interface Station {
@@ -84,6 +116,7 @@ let cache: {
   locations: Location[];
   comarques: Comarca[];
   stations: Station[];
+  neighboursByLocation: Map<string, Neighbour[]>;
   byId: Map<string, Location>;
   byPath: Map<string, Location>;
   comarcaBySlug: Map<string, Comarca>;
@@ -98,6 +131,7 @@ function db() {
   const locations = load<Location[]>('locations.json');
   const comarques = load<Comarca[]>('comarques.json');
   const stations = load<Station[]>('stations.json');
+  const neighbours = load<Neighbour[]>('neighbours.json');
 
   const byId = new Map(locations.map((l) => [l.id, l]));
   const byPath = new Map(locations.filter((l) => l.published).map((l) => [l.path, l]));
@@ -122,8 +156,16 @@ function db() {
   for (const arr of childrenOf.values()) arr.sort(byPop);
   for (const arr of municipisOf.values()) arr.sort((a, b) => a.nom.localeCompare(b.nom, 'ca'));
 
+  const neighboursByLocation = new Map<string, Neighbour[]>();
+  for (const n of neighbours) {
+    const arr = neighboursByLocation.get(n.locationId) ?? [];
+    arr.push(n);
+    neighboursByLocation.set(n.locationId, arr);
+  }
+  for (const arr of neighboursByLocation.values()) arr.sort((a, b) => a.rank - b.rank);
+
   cache = {
-    locations, comarques, stations, byId, byPath,
+    locations, comarques, stations, neighboursByLocation, byId, byPath,
     comarcaBySlug: new Map(comarques.map((c) => [c.slug, c])),
     comarcaByCodi: new Map(comarques.map((c) => [c.codi, c])),
     childrenOf, municipisOf,
@@ -182,6 +224,37 @@ export function breadcrumbs(loc: Location): Array<{ nom: string; path: string }>
   }
   out.push({ nom: loc.nom, path: loc.path });
   return out;
+}
+
+/**
+ * Vecinos de una ubicación.
+ *
+ * La relación importa y no se debe mezclar: `adjacent` significa que comparten
+ * frontera de verdad, y solo eso puede describirse como "limítrofe" en el texto
+ * de una página. `nearest` es un respaldo por proximidad — decir "limítrofe" de
+ * un municipio que solo está cerca es afirmar algo falso.
+ */
+export function neighboursOf(id: string, relation?: NeighbourRelation): Array<{ location: Location; distKm: number }> {
+  const { byId, neighboursByLocation } = db();
+  return (neighboursByLocation.get(id) ?? [])
+    .filter((n) => !relation || n.relation === relation)
+    .map((n) => ({ location: byId.get(n.neighbourId), distKm: n.distKm }))
+    .filter((n): n is { location: Location; distKm: number } => !!n.location && n.location.published);
+}
+
+/** Municipios que comparten frontera con este. Vacío solo para Llívia. */
+export function adjacentMunicipis(id: string) {
+  return neighboursOf(id, 'adjacent');
+}
+
+/** Geometría simplificada de las comarcas, para el mapa. */
+export function comarquesGeoJson(): GeoFeatureCollection {
+  return load<GeoFeatureCollection>('geo/comarques.geojson');
+}
+
+/** Geometría simplificada de los municipios, para el mapa. 1,6 MB. */
+export function municipisGeoJson(): GeoFeatureCollection {
+  return load<GeoFeatureCollection>('geo/municipis.geojson');
 }
 
 export function stationByCodi(codi: string): Station | undefined {

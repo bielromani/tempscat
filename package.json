@@ -11,13 +11,14 @@
     "data:geo": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/02-fetch-geo.ts",
     "data:geocode": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/03-geocode-entitats.ts",
     "data:stations": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/04-fetch-stations.ts",
-    "data:build": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/06-build-territory.ts",
-    "data:validate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/07-validate.ts",
-    "data:all": "npm run data:nomenclator && npm run data:geo && npm run data:stations && npm run data:geocode && npm run data:elevation && npm run data:build && npm run data:validate",
+    "data:build": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/07-build-territory.ts",
+    "data:validate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/08-validate.ts",
+    "data:all": "npm run data:nomenclator && npm run data:geo && npm run data:stations && npm run data:geocode && npm run data:elevation && npm run data:polygons && npm run data:build && npm run data:validate",
     "test:catalan": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-catalan.ts",
     "data:elevation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/05-fetch-elevation.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
-    "data:import": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/08-import-db.ts"
+    "data:import": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/09-import-db.ts",
+    "data:polygons": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/06-fetch-polygons.ts"
   },
   "dependencies": {
     "next": "16.3.3",

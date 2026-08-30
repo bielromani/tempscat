@@ -6,12 +6,12 @@ Cómo se construye el territorio, cómo reejecutarlo y qué decisiones lleva den
 npm run data:all
 ```
 
-Tarda unos 25 minutos en frío, casi todo en la geocodificación. Es idempotente: las descargas
+Tarda unos 35 minutos en frío: 22 min de geocodificación, 9 de altitudes (Open-Meteo limita por ubicaciones, no por peticiones) y 2 de polígonos. Es idempotente: las descargas
 se cachean en `data/raw/` y reejecutarlo no vuelve a pedir lo que ya tiene.
 
 ---
 
-## Los siete pasos
+## Los ocho pasos
 
 | # | Script | Qué hace | Fuente | Duración |
 |---|---|---|---|---|
@@ -19,9 +19,11 @@ se cachean en `data/raw/` y reejecutarlo no vuelve a pedir lo que ya tiene.
 | 2 | `02-fetch-geo.ts` | Coordenadas de los 947 municipios y las 43 comarcas | Socrata `wpyq-we8x` | ~3 s |
 | 3 | `03-geocode-entitats.ts` | Punto de cada entidad y núcleo | Geocodificador ICGC | ~22 min |
 | 4 | `04-fetch-stations.ts` | 245 estaciones XEMA y 68 variables | Socrata `yqwd-vj5e`, `4fb2-n3yi` | ~4 s |
-| 5 | `05-fetch-elevation.ts` | Altitud real de cada punto | Open-Meteo Elevation | ~2 min |
-| 6 | `06-build-territory.ts` | Une todo, resuelve rutas y decide qué publica | local | ~3 s |
-| 7 | `07-validate.ts` | Criterios de aceptación de la fase 0 | local | ~1 s |
+| 5 | `05-fetch-elevation.ts` | Altitud real de cada punto | Open-Meteo Elevation | ~9 min |
+| 6 | `06-fetch-polygons.ts` | Polígonos, superficie y colindancia real | GML INSPIRE del ICGC | ~2 min |
+| 7 | `07-build-territory.ts` | Une todo, resuelve rutas y decide qué publica | local | ~5 s |
+| 8 | `08-validate.ts` | Criterios de aceptación de la fase 0 | local | ~2 s |
+| — | `09-import-db.ts` | Carga en PostgreSQL. Opcional, requiere `DATABASE_URL` | local | — |
 
 `data/raw/` está en `.gitignore` — se regenera. `data/build/` **sí se versiona**: es el
 artefacto del que vive la aplicación.
@@ -118,11 +120,15 @@ altura.
 
 ```
 data/build/
-├── comarques.json   43 comarcas con centroide, población y altitudes extremas
+├── comarques.json   43 comarcas con centroide y superficie reales, densidad
 ├── locations.json   el árbol completo, publicado y no publicado
 ├── paths.json       índice ruta → id, para resolver URLs en un solo lookup
 ├── stations.json    245 estaciones con su ubicación poblada más cercana
-└── summary.json     estadísticas de la construcción
+├── neighbours.json  24.484 relaciones: colindancia, hermanos y proximidad
+├── summary.json     estadísticas de la construcción
+└── geo/
+    ├── municipis.geojson   947 polígonos simplificados · 1,63 MB
+    └── comarques.geojson    43 polígonos simplificados · 0,28 MB
 ```
 
 La aplicación no los lee directamente: pasa por `src/lib/territory.ts`, que es la frontera.
@@ -130,14 +136,37 @@ Cuando en la fase 1 exista PostgreSQL, ese módulo cambia por dentro y las pági
 
 ---
 
+## Polígonos: colindancia sin PostGIS
+
+El GML INSPIRE del ICGC pesa 88 MB entre los dos ficheros, pero trae un regalo que no esperaba:
+cada unidad **declara sus líneas de frontera** (`au:boundary`). Dos municipios que comparten
+una línea se tocan, y eso es exactamente lo que responde `ST_Touches` — pero leído de la
+topología oficial, sin tolerancias geométricas ni falsos positivos por vértices sueltos.
+
+Resultado: **5.424 relaciones de colindancia**, simétricas, con una media de 5,7 vecinos por
+municipio. Un solo municipio se queda sin ninguna: **Llívia**, que es un enclave español rodeado
+por Francia. Que precisamente ese sea el único caso es la mejor prueba de que el cálculo está
+bien.
+
+Donde no hay colindancia se completa con proximidad, **etiquetada como `nearest`**. La
+distinción no es cosmética: acaba en el texto de la página, y llamar "limítrofe" a un municipio
+que solo está cerca es afirmar algo falso.
+
+Los polígonos aportan además superficie y centroide reales. El total sale **32.068 km²** frente
+a los 32.108 oficiales — un 0,1 % de desviación, atribuible a la aproximación esférica y a la
+generalización de la costa. Que municipios y comarcas den la misma cifra por separado es otra
+comprobación cruzada que sale gratis.
+
+Para el mapa se simplifican con Douglas–Peucker: los municipios pierden el 95 % de los vértices
+(1.577.193 → 79.120) y quedan en 1,63 MB; las comarcas, el 97,9 % y 0,28 MB. A escala de mapa
+web la diferencia no se ve.
+
+---
+
 ## Lo que falta y por qué no bloquea
 
-- **Polígonos de comarca y municipio.** El ICGC los publica en GML INSPIRE, que es pesado de
-  parsear. Hacen falta para el mapa y para calcular colindancia real con `ST_Touches`; de
-  momento la vecindad se calcula por distancia y se etiqueta como tal, sin fingir que es
-  colindancia.
-- **Orientación y pendiente** de cada núcleo (solana/obaga, fondo de valle). Requiere el
-  modelo de elevación en malla, no puntos sueltos. Es lo que alimenta el texto único de cada
-  página, así que entra en la fase 2.
+- **Orientación y pendiente** de cada núcleo (solana/obaga, fondo de valle propenso a inversión
+  térmica). Requiere el modelo de elevación en malla, no puntos sueltos. Es lo que alimenta el
+  texto único de cada página, así que entra en la fase 2.
 - **PostgreSQL.** La migración está escrita en `db/migrations/001_territory.sql` y se aplica en
   cuanto haya un `DATABASE_URL`. Hasta entonces los JSON bastan: el territorio es estático.
