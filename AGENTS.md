@@ -150,6 +150,9 @@ cuota para exactamente la misma información.
 - **En catalán el artículo forma parte del topónimo y se contrae.** «de el Prat» y «a el Prat» son
   faltas visibles; usa `deName()` y `aName()` de `src/lib/format.ts`, nunca concatenes la
   preposición a mano. Lo mismo con los meses: `monthOf()`, porque es «d'agost» y «de setembre».
+- **Las comarcas llevan artículo y el fichero del ICGC no lo trae.** Es «l'Alt Camp», «el Bages»,
+  «les Garrigues» — y **Osona** es la única sin artículo. Hay tabla de las 43 en `format.ts`:
+  `comarcaName()`, `deComarca()`, `aComarca()`. No hay regla que lo deduzca de la terminación.
 - **`Date.now()` dentro de un componente hace saltar `react-hooks/purity`** y el lint es un error,
   no un aviso. La hora del reloj es un dato: se calcula en `src/lib/weather.ts` y llega por props.
   Es lo que hizo aparecer `dayFraction` en `Astronomy` y `ageMin` en `radar()`.

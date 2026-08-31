@@ -30,10 +30,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="scroll-x flex gap-5 whitespace-nowrap text-sm text-[var(--muted)]">
               <Link href="/" className="no-underline hover:text-[var(--ink)]">Comarques</Link>
               <Link href="/radar" className="no-underline hover:text-[var(--ink)]">Radar</Link>
+              <Link href="/avisos" className="no-underline hover:text-[var(--ink)]">Avisos</Link>
               <Link href="/ranquings" className="no-underline hover:text-[var(--ink)]">Rànquings</Link>
               <Link href="/estacions" className="no-underline hover:text-[var(--ink)]">Estacions</Link>
               <Link href="/aigua" className="no-underline hover:text-[var(--ink)]">Aigua</Link>
               <Link href="/neu" className="no-underline hover:text-[var(--ink)]">Neu</Link>
+              <Link href="/bolets" className="no-underline hover:text-[var(--ink)]">Bolets</Link>
               <Link href="/dades" className="no-underline hover:text-[var(--ink)]">Dades obertes</Link>
               <Link href="/estat" className="no-underline hover:text-[var(--ink)]">Estat de les dades</Link>
             </nav>

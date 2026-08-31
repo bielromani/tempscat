@@ -182,6 +182,59 @@ export function aName(nom: string): string {
   }
 }
 
+// ── Comarcas ────────────────────────────────────────────────────────────────
+
+/**
+ * El artículo de cada comarca.
+ *
+ * En catalán la comarca lleva artículo y forma parte de cómo se nombra: es
+ * **l'Alt Camp**, **el Bages**, **la Selva**, **les Garrigues**. El fichero de
+ * territorio guarda el nombre pelado —«Alt Camp»— porque así viene del ICGC, y
+ * eso hacía que la web escribiera «Municipis de Alt Camp» y «va de Alt Camp».
+ *
+ * Es una tabla y no una regla porque no hay regla: el género y el número no se
+ * deducen de la terminación. La Selva y el Solsonès acaban distinto por casualidad,
+ * y la Val d'Aran es femenina donde un castellanoparlante pondría masculino.
+ *
+ * **Osona es la única sin artículo**, y por eso está en la tabla con cadena
+ * vacía en vez de faltar: así se distingue «no lleva» de «se nos ha olvidado».
+ */
+const COMARCA_ARTICLE: Record<string, string> = {
+  'Alt Camp': "l'", 'Alt Empordà': "l'", 'Alt Penedès': "l'", 'Alt Urgell': "l'",
+  'Alta Ribagorça': "l'", 'Anoia': "l'", 'Urgell': "l'",
+  'Bages': 'el ', 'Baix Camp': 'el ', 'Baix Ebre': 'el ', 'Baix Empordà': 'el ',
+  'Baix Llobregat': 'el ', 'Baix Penedès': 'el ', 'Barcelonès': 'el ', 'Berguedà': 'el ',
+  'Garraf': 'el ', 'Gironès': 'el ', 'Lluçanès': 'el ', 'Maresme': 'el ', 'Moianès': 'el ',
+  'Montsià': 'el ', 'Pallars Jussà': 'el ', 'Pallars Sobirà': 'el ',
+  "Pla d'Urgell": 'el ', "Pla de l'Estany": 'el ', 'Priorat': 'el ', 'Ripollès': 'el ',
+  'Segrià': 'el ', 'Solsonès': 'el ', 'Tarragonès': 'el ',
+  'Vallès Occidental': 'el ', 'Vallès Oriental': 'el ',
+  'Cerdanya': 'la ', 'Conca de Barberà': 'la ', 'Garrotxa': 'la ', 'Noguera': 'la ',
+  "Ribera d'Ebre": 'la ', 'Segarra': 'la ', 'Selva': 'la ', 'Terra Alta': 'la ',
+  "Val d'Aran": 'la ',
+  'Garrigues': 'les ',
+  // La única que no lleva artículo.
+  'Osona': '',
+};
+
+/** «l'Alt Camp», «el Bages», «Osona». */
+export function comarcaName(nom: string): string {
+  const article = COMARCA_ARTICLE[nom];
+  // Si aparece una comarca nueva y no está en la tabla, se devuelve pelada: es
+  // preferible un artículo que falta a uno inventado del género equivocado.
+  return article == null ? nom : `${article}${nom}`;
+}
+
+/** «de l'Alt Camp», «del Bages», «d'Osona». */
+export function deComarca(nom: string): string {
+  return deName(comarcaName(nom));
+}
+
+/** «a l'Alt Camp», «al Bages», «a Osona». */
+export function aComarca(nom: string): string {
+  return aName(comarcaName(nom));
+}
+
 // ── Fecha y hora juntas ─────────────────────────────────────────────────────
 
 /**

@@ -13,7 +13,8 @@ import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
 import {
-  aName, ago, dateTiny, deName, int, num, relativeDayTiny, signed, tempTiny,
+  aName, ago, comarcaName, dateTiny, deComarca, deName, int, num, relativeDayTiny,
+  signed, tempTiny,
 } from '@/lib/format';
 import { localNowHour, localToday } from '@/lib/weather';
 import type {
@@ -313,6 +314,8 @@ export function LocationView({
    */
   const nowIso = localNowHour();
   const today = localToday();
+  // La comarca se nombra con su artículo: és «l'Alt Camp», no «Alt Camp».
+  const comarcaLabel = comarcaName(comarca.nom);
   const nowHour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
 
   return (
@@ -326,7 +329,7 @@ export function LocationView({
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{loc.nom}</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           {loc.level !== 'municipi' && breadcrumbs.length > 2 && `${breadcrumbs[breadcrumbs.length - 2].nom} · `}
-          {comarca.nom}
+          {comarcaLabel}
           {loc.altitud != null && ` · ${loc.altitud} m`}
           {loc.poblacio != null && loc.poblacio > 0 && ` · ${loc.poblacio.toLocaleString('ca-ES')} hab.`}
         </p>
@@ -403,7 +406,7 @@ export function LocationView({
       {comparison && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">
-            Com queda dins {deName(comparison.comarca.nom)}
+            Com queda dins {deComarca(comparison.comarca.nom)}
           </h2>
           <ComarcaCompare cmp={comparison} nom={loc.nom} />
         </section>

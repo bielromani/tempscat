@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { monthOf, num, ordinal, signed, temp } from '@/lib/format';
+import { aName, deName, monthOf, num, ordinal, signed, temp } from '@/lib/format';
 import type { ComarcaComparison, Ranking } from '@/lib/comparison';
 
 /**
@@ -60,13 +60,13 @@ function Strip({ r, unit }: { r: Ranking; unit: string }) {
 function Extremes({ r }: { r: Ranking }) {
   return (
     <p className="mt-2 text-xs text-[var(--muted)]">
-      A la comarca, de{' '}
+      A la comarca, {' '}
       <Link href={r.coldest.path} className="text-[var(--ink-2)] no-underline hover:underline">
-        {r.coldest.nom}
+        {deName(r.coldest.nom)}
       </Link>{' '}
-      <span className="tnum">({temp(r.coldest.value)})</span> a{' '}
+      <span className="tnum">({temp(r.coldest.value)})</span>{' '}
       <Link href={r.warmest.path} className="text-[var(--ink-2)] no-underline hover:underline">
-        {r.warmest.nom}
+        {aName(r.warmest.nom)}
       </Link>{' '}
       <span className="tnum">({temp(r.warmest.value)})</span>.
     </p>

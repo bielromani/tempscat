@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { allComarques, comarcaBySlug, municipisOfComarca } from '@/lib/territory';
-import { currentFor } from '@/lib/weather';
-import { deName } from '@/lib/format';
+import { activeWarnings, currentFor } from '@/lib/weather';
+import { comarcaSummary } from '@/lib/comparison';
+import { aName, comarcaName, dateLong, deComarca, num, temp } from '@/lib/format';
+import { localToday } from '@/lib/weather';
 
 /** Página de comarca: 43 rutas, todas prerenderizadas. */
 export const dynamicParams = false;
@@ -21,8 +23,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const c = comarcaBySlug(comarca);
   if (!c) return {};
   return {
-    title: `El temps a ${c.nom} · ${c.nMunicipis} municipis`,
-    description: `Temperatura actual i predicció per als ${c.nMunicipis} municipis de ${c.nom}, `
+    title: `El temps ${aName(comarcaName(c.nom))} · ${c.nMunicipis} municipis`,
+    description: `Temperatura actual i predicció per als ${c.nMunicipis} municipis ${deComarca(c.nom)}, `
       + `amb dades de les estacions automàtiques del Meteocat.`,
     alternates: { canonical: c.path },
   };
@@ -34,6 +36,9 @@ export default async function ComarcaPage({ params }: { params: Params }) {
   if (!c) notFound();
 
   const municipis = municipisOfComarca(c.codi);
+  const summary = comarcaSummary(c.codi);
+  const warnings = activeWarnings().filter((w) => w.comarcaCodis.includes(c.codi));
+  const today = localToday();
 
   // Observación actual de cada municipio. Sale del snapshot ya en memoria, así
   // que no cuesta nada aunque sean 68 municipios.
@@ -61,6 +66,39 @@ export default async function ComarcaPage({ params }: { params: Params }) {
           {c.altitudMin != null && c.altitudMax != null && ` · dels ${c.altitudMin} als ${c.altitudMax} m`}
         </p>
       </header>
+
+      {summary && summary.withData >= 3 && (
+        <p className="mb-6 max-w-[64ch] leading-relaxed text-[var(--ink-2)]">
+          {/*
+            Frase de observación, no de predicción: agregar el consenso de hasta
+            68 municipios convertiría esta página de listado en la más cara del
+            sitio a cambio de una línea.
+          */}
+          Ara mateix {comarcaName(c.nom)} va dels{' '}
+          <strong className="tnum font-medium text-[var(--ink)]">{temp(summary.coldest?.value)}</strong>{' '}
+          {summary.coldest && aName(summary.coldest.nom)} als{' '}
+          <strong className="tnum font-medium text-[var(--ink)]">{temp(summary.warmest?.value)}</strong>{' '}
+          {summary.warmest && aName(summary.warmest.nom)}.
+          {summary.dayMax && summary.dayMin && (
+            <> Avui s&apos;ha arribat als {temp(summary.dayMax.value)} {aName(summary.dayMax.nom)} i
+              la mínima ha estat de {temp(summary.dayMin.value)} {aName(summary.dayMin.nom)}.</>
+          )}
+          {summary.rainedCount > 0 && summary.rainMax && (
+            <> Ha plogut en {summary.rainedCount} {summary.rainedCount === 1 ? 'municipi' : 'municipis'},
+              amb {num(summary.rainMax.value, 1)} mm {aName(summary.rainMax.nom)}.</>
+          )}
+        </p>
+      )}
+
+      {warnings.length > 0 && (
+        <p className="mb-6 rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--ink-2)]">
+          Hi ha {warnings.length} {warnings.length === 1 ? 'avís oficial vigent' : 'avisos oficials vigents'}{' '}
+          {aName(comarcaName(c.nom))}.{' '}
+          <Link href="/avisos" className="text-[var(--accent)] no-underline hover:underline">
+            Veure els avisos ›
+          </Link>
+        </p>
+      )}
 
       {sorted.length >= 3 && (
         <section className="mb-8 grid gap-3 sm:grid-cols-2">
@@ -90,7 +128,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
       )}
 
       <h2 className="mb-3 text-lg font-semibold tracking-tight">
-        Municipis {deName(c.nom)}
+        Municipis {deComarca(c.nom)}
       </h2>
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {rows.map(({ m, current }) => {
@@ -121,10 +159,14 @@ export default async function ComarcaPage({ params }: { params: Params }) {
         })}
       </ul>
 
-      <p className="mt-8 text-xs text-[var(--muted)]">
+      <p className="mt-8 max-w-[70ch] text-xs leading-relaxed text-[var(--muted)]">
         Temperatures de les estacions automàtiques de la XEMA més properes a cada
         municipi, corregides pel desnivell. {conTemp.length} de {municipis.length} municipis
-        tenen lectura recent.
+        tenen lectura recent
+        {summary && summary.nStations > 0 && (
+          <>, i darrere hi ha {summary.nStations}{' '}
+            {summary.nStations === 1 ? 'estació' : 'estacions'} diferents</>
+        )}. Dades {dateLong(today)}.
       </p>
     </article>
   );

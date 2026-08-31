@@ -159,3 +159,70 @@ export function comarcaComparison(loc: Location): ComarcaComparison | null {
       : null,
   };
 }
+
+// ── Resumen de comarca ──────────────────────────────────────────────────────
+
+export interface ComarcaSummary {
+  /** Municipios con lectura reciente. */
+  withData: number;
+  total: number;
+  coldest: { nom: string; path: string; value: number } | null;
+  warmest: { nom: string; path: string; value: number } | null;
+  /** Extremos del día natural, medidos, no previstos. */
+  dayMax: { nom: string; path: string; value: number } | null;
+  dayMin: { nom: string; path: string; value: number } | null;
+  /** Municipios donde ha llovido hoy y cuánto en el que más. */
+  rainedCount: number;
+  rainMax: { nom: string; path: string; value: number } | null;
+  /** Estaciones distintas que alimentan la comarca. */
+  nStations: number;
+}
+
+/**
+ * Lo que está pasando en una comarca, a partir de la observación.
+ *
+ * Sale solo de `xema-current`, que ya está en memoria: nada de predicción. La
+ * predicción por comarca exigiría agregar `forecastFor` de hasta 68 municipios —
+ * cada uno con su consenso hora a hora sobre 168 horas— y eso convierte una
+ * página de listado en la más cara del sitio a cambio de una frase.
+ *
+ * Con la observación basta para lo que la frase tiene que decir: dónde hace más
+ * frío y más calor **ahora**, cuánto se ha llegado a hacer hoy y si ha llovido.
+ */
+export function comarcaSummary(comarcaCodi: string): ComarcaSummary | null {
+  const municipis = municipisOfComarca(comarcaCodi);
+  if (!municipis.length) return null;
+
+  const rows = municipis
+    .map((m) => ({ m, cur: currentFor(m) }))
+    .filter((r): r is { m: Location; cur: NonNullable<ReturnType<typeof currentFor>> } => r.cur != null);
+
+  const place = (m: Location, value: number) => ({ nom: m.nom, path: m.path, value });
+
+  const best = (
+    get: (c: NonNullable<ReturnType<typeof currentFor>>) => number | null,
+    dir: 'max' | 'min',
+  ) => {
+    let out: { nom: string; path: string; value: number } | null = null;
+    for (const { m, cur } of rows) {
+      const v = get(cur);
+      if (v == null) continue;
+      if (!out || (dir === 'max' ? v > out.value : v < out.value)) out = place(m, v);
+    }
+    return out;
+  };
+
+  const rained = rows.filter((r) => (r.cur.todayPrecip ?? 0) > 0);
+
+  return {
+    withData: rows.filter((r) => r.cur.temperatureAdjusted != null).length,
+    total: municipis.length,
+    coldest: best((c) => c.temperatureAdjusted, 'min'),
+    warmest: best((c) => c.temperatureAdjusted, 'max'),
+    dayMax: best((c) => c.todayMax, 'max'),
+    dayMin: best((c) => c.todayMin, 'min'),
+    rainedCount: rained.length,
+    rainMax: best((c) => c.todayPrecip, 'max'),
+    nStations: new Set(rows.map((r) => r.cur.station.codi)).size,
+  };
+}

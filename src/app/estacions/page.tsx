@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { int, num } from '@/lib/format';
+import { comarcaName, int, num } from '@/lib/format';
 import { allObservations } from '@/lib/weather';
 import { allComarques, operativeStations } from '@/lib/territory';
 
@@ -79,7 +79,7 @@ export default function EstacionsPage() {
           {without.length > 0 && (
             <>
               {without.length === 1 ? 'Hi ha una comarca' : `Hi ha ${without.length} comarques`}{' '}
-              sense cap estació en servei: {without.map((c) => c.nom).join(', ')}.
+              sense cap estació en servei: {without.map((c) => comarcaName(c.nom)).join(', ')}.
             </>
           )}
         </p>
@@ -93,7 +93,7 @@ export default function EstacionsPage() {
           <section key={c.codi} className="mb-6">
             <h2 className="mb-2 flex items-baseline gap-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
               <Link href={c.path} className="no-underline text-[var(--ink-2)] hover:text-[var(--ink)]">
-                {c.nom}
+                {comarcaName(c.nom)}
               </Link>
               <span className="tnum font-normal normal-case">{list.length}</span>
             </h2>

@@ -233,42 +233,45 @@ helado. Se descartaron 22 lecturas en 11 estaciones, y el récord de Mollò pas�
 El valor descartado se pone a **null, no a cero**: no sabemos cuánta nieve había,
 sabemos que la cifra no es creíble. Un cero diría que no había.
 
-### 7. Condiciones para actividades
+### 7. Condiciones para actividades · 🟡 bolets hecho
 
-Es la generalización del bloque de preguntas que ya existe. Mismo motor,
-`src/lib/narrative.ts`, y una página por actividad, que además es una entrada de
-búsqueda que nadie está atendiendo bien.
+`/bolets`, con la lluvia acumulada de quince y treinta días en cada estación,
+cuándo fue el último aguacero de más de 5 mm y con qué temperaturas.
 
-- **Bolets.** Lluvia acumulada de los últimos 10–15 días más temperatura: los dos
-  datos están en `xema-history.json`, que guarda 45 días por estación. No hace
-  falta pedir nada. Es la más catalana y la más compartible de la lista.
-- **Senderisme.** Sensación térmica, lluvia, viento, UV y cota de nieve. Todo
-  calculado ya.
-- **Nàutica i surf.** Necesita el punto 4.
+**Sin índice ni nota del cero al diez**, que era la regla escrita aquí antes de
+empezar: un número compuesto oculta qué lo mueve —si baja, el lector no sabe si
+es la lluvia, la temperatura o un peso que alguien eligió a ojo— y nadie lo puede
+discutir. Los tres datos por separado no ocultan nada, y quien sabe de bolets los
+interpreta mejor que nosotros.
 
-Regla para todas: **la condición se explica, no se puntúa.** Un «7,5/10 per anar a
-buscar bolets» es un número inventado que nadie puede discutir. «Ha plogut 42 mm
-en dotze dies i la mínima no ha baixat de 12 °C» es un dato que el que sabe de
-bolets sabe interpretar mejor que nosotros.
+La página **funciona todo el año** porque en realidad es una página de lluvia
+acumulada con el título por el que la gente la busca. En mayo sirve igual para
+saber si el campo está seco.
 
-### 8. Resumen de comarca y de Catalunya
+Falta **senderisme** (todo calculado ya) y **nàutica**, que necesita el punto 4.
 
-El titular de ficha, un nivel arriba: «Avui, mig Ponent per damunt de 35 °C i
-ruixats al Pirineu a la tarda». Es un agregado sobre datos ya en memoria, y es lo
-que se comparte y lo que alimenta el digest del punto 10.
+### 8. Resumen de comarca · ✅ hecho
 
-### 9. Avisos: página por comarca, y avisos propios separados
+Una frase en cada página de comarca: de dónde a dónde va ahora, a cuánto se ha
+llegado hoy y dónde ha llovido. Más la franja de avisos vigentes cuando los hay.
 
-- **`/avisos`** y `/avisos/[comarca]`: los oficiales ya están en `warnings.json`
-  con sus `comarcaCodis`. Es solo página.
-- **Avisos propios**, en una franja visualmente **distinta** de la oficial:
-  primera helada de la temporada, noche tropical, racha de días por encima de lo
-  normal, crecida de un río con el caudal del punto 5. Los contadores ya están en
-  `xema-history.json`.
+**Sale solo de la observación, no de la predicción.** Agregar `forecastFor` de
+hasta 68 municipios —cada uno con su consenso hora a hora sobre 168 horas—
+convertiría una página de listado en la más cara del sitio a cambio de una línea.
+Con la observación basta para lo que la frase tiene que decir.
 
-La regla dura: los avisos oficiales no se reescriben ni se recolorean, y los
-propios no pueden parecerse a uno oficial. Si un lector no distingue de un vistazo
-quién firma el aviso, el bloque está mal hecho aunque el dato sea correcto.
+### 9. Avisos: página propia · ✅ hecho
+
+`/avisos`, con los oficiales vigentes y su reparto por comarca. Las reglas no
+cambian por estar en su propia página: colores del CAP, texto sin reescribir,
+nivel sin ajustar, enlace al original. Se revalida cada cinco minutos y no cada
+quince — en un episodio, quince minutos de retraso en la página que se consulta
+*porque* hay un aviso son quince minutos de más.
+
+Quedan los **avisos propios** —primera helada, noche tropical, crecida— en una
+franja visualmente distinta de la oficial. La regla: si un lector no distingue de
+un vistazo quién firma el aviso, el bloque está mal hecho aunque el dato sea
+correcto.
 
 ### 10. Alertas geolocalizadas **sin backend**: RSS, Atom e ICS
 
