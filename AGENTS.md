@@ -4,6 +4,9 @@
 > [`docs/12-estado-y-continuacion.md`](docs/12-estado-y-continuacion.md).**
 > Tiene el estado exacto, lo que falta y —lo que más tiempo ahorra— las trampas ya descubiertas
 > de cada fuente. Casi ninguna da error: dan datos plausibles y equivocados.
+>
+> Los siguientes pasos, en orden y con la decisión técnica tomada, están en
+> [`docs/13-full-de-ruta.md`](docs/13-full-de-ruta.md).
 
 Plataforma meteorológica de Catalunya con cobertura hasta el núcleo de población.
 Diseño completo en [`docs/`](docs/); la tesis está en
@@ -16,6 +19,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `scripts/` | Pipeline de datos. Node ejecuta el TypeScript directamente, sin build |
 | `scripts/workers/` | Ingesta periódica: observación, predicción, avisos |
 | `src/lib/` | Frontera entre datos y aplicación |
+| `src/lib/narrative.ts` | Del dato a la frase: el titular, las franjas del día, las preguntas |
 | `data/cache/radar/` | Teselas de radar ya descargadas. Las sirve una route handler |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
@@ -39,7 +43,7 @@ Comprueba ambos proyectos con `npm run typecheck`.
 
 ## Código compartido entre scripts y aplicación
 
-Hay cuatro ficheros que importan los dos lados, así que **ninguno puede importar nada**: los
+Hay cinco ficheros que importan los dos lados, así que **ninguno puede importar nada**: los
 scripts los cargan con extensión `.ts` y la aplicación con el alias `@/`. Si alguno necesita
 dependencias, duplica antes que romper uno de los dos.
 
@@ -88,6 +92,15 @@ Cumple CC-BY y es la mejor decisión de producto del sitio.
 
 **No se promete precisión no demostrada.** Mientras no exista la verificación de la fase 4, los
 modelos pesan igual y la página lo dice.
+
+**Las frases se generan con plantillas, nunca con un modelo en tiempo de ejecución.** Con 4.293
+páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado. `describe.ts` y
+`narrative.ts` son deterministas y auditables, y si el dato no está, la frase no se escribe.
+
+**Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
+interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí. La prueba de
+que la frontera aguanta es medible: la página de un municipio sigue por debajo de 40 KB por la
+red y sin hidratación.
 
 ## Cuotas: la restricción que manda
 

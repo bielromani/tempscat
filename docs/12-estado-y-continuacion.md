@@ -104,98 +104,16 @@ Por orden de valor. Ninguna necesita nada del usuario.
 
 ---
 
-## Ideas para enriquecer la fase 1
+## Hacia dónde va
 
-Ordenadas por relación entre lo que aportan y lo que cuestan. Las tres primeras
-no necesitan ningún dato nuevo: **son las que más cambian la experiencia**, porque
-el problema de la web ahora mismo no es que falten datos, es que hay que
-interpretarlos.
+Los pasos a seguir, en orden y con la decisión técnica de cada uno ya tomada,
+están en **[13 — Hoja de ruta](13-full-de-ruta.md)**: qué cabe con la
+arquitectura de hoy, qué necesita fuentes nuevas —con las cinco ya verificadas
+contra la API real—, qué va en su propia ruta porque llevaría JavaScript, y qué
+se descarta y por qué.
 
-### A. Entender sin leer números (coste: cero datos nuevos)
-
-1. **Un titular en catalán arriba de cada ficha.** «Avui sol i 30 °C, sense
-   pluja. Demà baixa 2 graus.» Generado con plantillas deterministas como
-   `describe.ts`, nunca con un modelo en tiempo de ejecución. Es lo que la mayoría
-   de la gente viene a buscar: una frase, no una gráfica. Debería ir **por encima**
-   del panel de temperatura.
-
-2. **La hora del cambio, no la serie entera.** «Comença a ploure cap a les 17 h i
-   para cap a les 20 h», «el vent arrenca a mig matí». Sale de recorrer la serie
-   horaria buscando transiciones, y es exactamente la pregunta que la gente
-   contesta hoy mirando 48 filas.
-
-3. **Franjas del día en vez de horas sueltas.** Matí, migdia, tarda, nit, con un
-   valor y un icono cada una. Cuatro cifras en lugar de veinticuatro, y para el
-   90 % del tráfico es suficiente. La tabla horaria se queda para quien la quiera.
-
-4. **Respuestas de decisión.** ¿Cal paraigua? ¿Es pot estendre la roba? ¿Bon dia
-   per sortir a córrer? ¿Glaçarà aquesta nit? Todas se derivan de datos que ya
-   están. Es el tipo de bloque que hace que alguien vuelva y lo comparta.
-
-5. **Comparación con ayer y con lo normal.** «3 °C més que ahir a aquesta hora» y
-   «2,4 °C per damunt del normal d'agost». La anomalía mensual ya está en
-   `xema-history.json` (`monthAnomaly`) y no se está usando en la ficha. Lo de
-   ayer necesita guardar la serie horaria del día anterior: un fichero pequeño.
-
-6. **La incertidumbre en palabras.** Hoy el desacuerdo entre modelos es una
-   franja sombreada que nadie sabe leer. «Els models coincideixen» / «a partir de
-   dijous hi ha bastant incertesa» dice lo mismo y se entiende.
-
-7. **Avisos propios, claramente separados de los oficiales.** Primera glaçada de
-   la temporada, nit tropical, ratxa de dies per damunt de la normal. Los
-   contadores ya están calculados en `xema-history.json`. Con una etiqueta que
-   deje clarísimo que no son avisos de Protecció Civil.
-
-### B. Fuentes nuevas ya verificadas
-
-8. **Temperatura del mar y onatge.** `marine-api.open-meteo.com`, **comprobado
-   hoy**: devuelve `sea_surface_temperature`, `wave_height`, `wave_period`,
-   `wave_direction` y `swell_wave_height` para puntos de la costa catalana (27 °C
-   de mar el 31 de agosto). Catalunya tiene 580 km de costa y «quina temperatura
-   té l'aigua» es una de las búsquedas de verano. Solo hace falta pedirlo en los
-   puntos costeros, no en los 3.190. **Falta verificar si tiene contador propio**
-   como la de calidad del aire; si lo comparte con la predicción, hay que medir el
-   coste antes de activarlo.
-
-9. **Calidad del aire medida: la XVPCA.** Dataset `tasf-thgu` del portal de datos
-   abiertos, **comprobado hoy**: puntos de medición automáticos con nombre,
-   municipio, comarca, coordenadas, altitud, contaminante y las 24 columnas
-   horarias `h01`…`h24`. Son estaciones reales frente a un modelo de 11 km —
-   exactamente el mismo argumento que ya se usa con la XEMA frente a la
-   predicción. El bloque de aire debería enseñar la medida cuando haya una cerca y
-   el modelo cuando no.
-
-   *Aviso ya detectado*: a mediodía la fila del día solo traía hasta `h04`, así que
-   el retraso parece bastante mayor que el de la XEMA. Hay que medirlo antes de
-   presentarlo como «ara mateix». Y ojo: Socrata **omite los campos nulos**, así que
-   la ausencia de `h05` no es un cero, es que aún no está.
-
-10. **Embalses y sequía.** `gn9e-3qhr` y `vjx7-6kcp` (agua en los embalses de las
-    Conques Internes) y `i5n8-43cw` (estado de sequía por unidad de explotación y
-    **por municipio**). El último encaja directamente en la ficha de municipio, y
-    en Catalunya el estado de sequía es información de primera necesidad.
-
-11. **Polen medido.** En el portal de datos abiertos **no hay** dataset de polen
-    (buscado: cero resultados). La referencia es el Punt d'Informació
-    Aerobiològica de la UAB, que publica recuentos semanales pero no como API.
-    Mientras no haya feed, el modelo de CAMS es lo que hay y la página ya lo dice.
-
-12. **Riesgo de incendio.** En el portal solo hay estadística histórica de
-    incendios (`9r29-e8ha`, `bks7-dkfd`), **no** el nivel del pla ALFA en vigor.
-    Habría que buscarlo por otra vía antes de prometerlo.
-
-### C. Estructura
-
-13. **Ficha de estación** con rosa de vientos (ya en la lista de pendientes). Son
-    245 páginas nuevas con datos que ya están descargados.
-
-14. **Página de comarca mucho más rica.** Los polígonos municipales ya están en
-    `data/build/geo/municipis.geojson` y la proyección ya existe en
-    `src/lib/mercator.ts`: se puede pintar un mapa de temperaturas de la comarca
-    en SVG servidor, sin JavaScript, con la misma técnica del radar.
-
-15. **Feeds por ubicación.** Un JSON o CSV por punto, en una route handler. Cuesta
-    casi nada, y es lo que hace que otros enlacen.
+Este documento sigue siendo el que dice **dónde estamos**; ese dice **hacia
+dónde**.
 
 ---
 
