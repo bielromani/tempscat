@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Datos crudos descargados: se regeneran con `npm run data:all`
 /data/raw/
+
+# Datos vivos: caducan en minutos, se regeneran con los workers
+/data/cache/

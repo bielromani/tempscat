@@ -49,6 +49,11 @@ export interface Location {
 
   stationRef?: { codi: string; nom: string; distKm: number; dAltM: number | null };
 
+  /** Punto de predicción compartido. Ver la deduplicación en el build. */
+  forecastPointId?: string;
+  /** Desnivel respecto a ese punto. Lo corrige después el motor de fusión. */
+  forecastDAltM?: number;
+
   tier: Tier;
   published: boolean;
   /** Si no se publica, a qué ruta apunta el canonical. */
@@ -392,6 +397,55 @@ async function main() {
     }
   }
 
+  // ── Puntos de predicción ───────────────────────────────────────────────────
+  // Pedir predicción para las 4.250 ubicaciones publicadas sería tirar cuota:
+  // dos núcleos separados por 1 km y 50 m de desnivel caen en la misma celda de
+  // AROME, así que la respuesta sería idéntica.
+  //
+  // Se agrupan por celda de ~0,02° (≈ 1,7 km) y banda de altitud de 100 m. Cada
+  // ubicación guarda el desnivel respecto a su punto representativo, que es lo
+  // que después corrige el motor de fusión: un núcleo a 700 m no puede mostrar
+  // la temperatura de uno a 350 m aunque compartan celda.
+  const GRID_DEG = 0.02;
+  const ALT_BAND_M = 100;
+
+  const pointGroups = new Map<string, Location[]>();
+  for (const loc of locations) {
+    if (!loc.published || loc.lat == null || loc.lon == null) continue;
+    const key = [
+      Math.round(loc.lat / GRID_DEG),
+      Math.round(loc.lon / GRID_DEG),
+      Math.floor((loc.altitud ?? 0) / ALT_BAND_M),
+    ].join(':');
+    const arr = pointGroups.get(key) ?? [];
+    arr.push(loc);
+    pointGroups.set(key, arr);
+  }
+
+  const forecastPoints: Array<{
+    id: string; lat: number; lon: number; altitud: number | null;
+    nLocations: number; tier: Tier;
+  }> = [];
+
+  let pid = 0;
+  for (const [, group] of pointGroups) {
+    // Representante: la ubicación más poblada del grupo. Es la que más visitas
+    // recibirá, así que es la que conviene que tenga el dato sin corregir.
+    const rep = group.slice().sort((a, b) => (b.poblacio ?? 0) - (a.poblacio ?? 0))[0];
+    const id = `P${String(++pid).padStart(4, '0')}`;
+    // El nivel del punto es el más alto de sus ubicaciones: determina con qué
+    // frecuencia se refresca.
+    const tier = group.map((l) => l.tier).sort()[0];
+    forecastPoints.push({
+      id, lat: rep.lat!, lon: rep.lon!, altitud: rep.altitud,
+      nLocations: group.length, tier,
+    });
+    for (const loc of group) {
+      loc.forecastPointId = id;
+      loc.forecastDAltM = loc.altitud != null && rep.altitud != null ? loc.altitud - rep.altitud : 0;
+    }
+  }
+
   // ── Estaciones con su ubicación más cercana ────────────────────────────────
   const published = locations.filter((l) => l.published && l.lat != null);
   const stationsOut = stations.map((s) => {
@@ -410,6 +464,7 @@ async function main() {
   for (const c of comarques) paths[c.path] = `C${c.codi}`;
   for (const l of locations) if (l.published) paths[l.path] = l.id;
 
+  const publishedCount = locations.filter((l) => l.published).length;
   const tierCount = (t: Tier) => locations.filter((l) => l.tier === t).length;
   const levelCount = (lv: Level) => locations.filter((l) => l.level === lv).length;
   const publishedBy = (lv: Level) => locations.filter((l) => l.level === lv && l.published).length;
@@ -429,6 +484,7 @@ async function main() {
     withStationRef: withStation,
     stations: { total: stations.length, operatives: operatives.length },
     neighbours: { total: neighbours.length, adjacent: nAdjacent, nearest: nFallback },
+    forecastPoints: forecastPoints.length,
     polygons: polygons ? { municipis: polyMun.size, comarques: polyCom.size } : null,
   };
 
@@ -437,6 +493,7 @@ async function main() {
   writeFileSync(build('paths.json'), JSON.stringify(paths), 'utf8');
   writeFileSync(build('stations.json'), JSON.stringify(stationsOut), 'utf8');
   writeFileSync(build('neighbours.json'), JSON.stringify(neighbours), 'utf8');
+  writeFileSync(build('forecast-points.json'), JSON.stringify(forecastPoints), 'utf8');
   writeFileSync(build('summary.json'), JSON.stringify(summary, null, 2), 'utf8');
 
   // ── Informe ────────────────────────────────────────────────────────────────
@@ -477,7 +534,14 @@ async function main() {
     console.log(`Densidad: ${dens[0].nom} ${dens[0].densitat!.toLocaleString('es-ES')} hab/km² · ${dens[dens.length - 1].nom} ${dens[dens.length - 1].densitat} hab/km²`);
   }
 
-  console.log(`\n→ data/build/ (6 ficheros + geo/)`);
+  const perPoint = forecastPoints.map((p) => p.nLocations);
+  console.log(`\nPuntos de predicción: ${forecastPoints.length.toLocaleString('es-ES')} para ${publishedCount.toLocaleString('es-ES')} ubicaciones`);
+  console.log(`  factor de ahorro: ${(publishedCount / forecastPoints.length).toFixed(1)}× · hasta ${Math.max(...perPoint)} ubicaciones comparten punto`);
+  console.log(`  peticiones por modelo y refresco: ${Math.ceil(forecastPoints.length / 200)} (lotes de 200)`);
+  const byTier = forecastPoints.reduce((a, p) => { a[p.tier] = (a[p.tier] ?? 0) + 1; return a; }, {} as Record<string, number>);
+  console.log(`  por nivel: ${Object.entries(byTier).sort().map(([t, n]) => `${t}=${n}`).join(' · ')}`);
+
+  console.log(`\n→ data/build/ (7 ficheros + geo/)`);
 }
 
 main().catch((err) => {

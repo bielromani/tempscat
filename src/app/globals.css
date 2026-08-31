@@ -1,26 +1,145 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/**
+ * Sistema de color.
+ *
+ * Regla dura: si un color codifica un valor, no se usa para nada más. La
+ * interfaz es neutra y nada compite con el dato.
+ *
+ * Las escalas van en OKLCH, no HSL. En HSL, pasos iguales de tono producen
+ * saltos de luminosidad desiguales, y el ojo los interpreta como umbrales que
+ * no existen en los datos — un gradiente de temperatura en HSL parece tener
+ * fronteras donde solo hay una rampa continua.
+ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  /* Neutros con sesgo frío: es una web de mapas y cartas sinópticas, no un
+     panel de administración. Un gris puro se lee como no elegido. */
+  --paper: oklch(98.2% 0.004 240);
+  --surface: oklch(100% 0 0);
+  --surface-2: oklch(96.2% 0.006 240);
+  --ink: oklch(24% 0.02 250);
+  --ink-2: oklch(44% 0.018 250);
+  --muted: oklch(58% 0.015 250);
+  --line: oklch(90% 0.008 240);
+  --line-soft: oklch(94% 0.006 240);
+
+  --accent: oklch(48% 0.09 235);
+  --accent-soft: oklch(94% 0.03 235);
+
+  /* Colores semánticos, independientes del acento. */
+  --good: oklch(52% 0.11 155);
+  --warn: oklch(60% 0.13 75);
+  --bad: oklch(53% 0.16 28);
+
+  /* Avisos: los colores oficiales CAP. No se inventan otros — el usuario ya
+     los reconoce, y cambiarlos es un fallo de seguridad, no de estilo. */
+  --cap-green: oklch(62% 0.14 150);
+  --cap-yellow: oklch(83% 0.15 95);
+  --cap-orange: oklch(70% 0.16 55);
+  --cap-red: oklch(55% 0.20 27);
+
+  --shadow: 0 1px 2px oklch(24% 0.02 250 / 0.05), 0 8px 24px oklch(24% 0.02 250 / 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --paper: oklch(17% 0.014 250);
+    --surface: oklch(21% 0.016 250);
+    --surface-2: oklch(25% 0.018 250);
+    --ink: oklch(93% 0.008 240);
+    --ink-2: oklch(80% 0.012 245);
+    --muted: oklch(64% 0.015 245);
+    --line: oklch(32% 0.018 250);
+    --line-soft: oklch(27% 0.016 250);
+
+    --accent: oklch(75% 0.09 235);
+    --accent-soft: oklch(29% 0.04 235);
+
+    /* No se invierten mecánicamente: una escala que funciona sobre blanco es
+       ilegible sobre negro, y al revés. */
+    --good: oklch(74% 0.13 155);
+    --warn: oklch(80% 0.13 80);
+    --bad: oklch(70% 0.15 28);
+
+    --cap-green: oklch(70% 0.14 150);
+    --cap-yellow: oklch(85% 0.15 95);
+    --cap-orange: oklch(75% 0.15 55);
+    --cap-red: oklch(66% 0.18 27);
+
+    --shadow: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.28);
   }
 }
 
+:root[data-theme="dark"] {
+  --paper: oklch(17% 0.014 250);
+  --surface: oklch(21% 0.016 250);
+  --surface-2: oklch(25% 0.018 250);
+  --ink: oklch(93% 0.008 240);
+  --ink-2: oklch(80% 0.012 245);
+  --muted: oklch(64% 0.015 245);
+  --line: oklch(32% 0.018 250);
+  --line-soft: oklch(27% 0.016 250);
+  --accent: oklch(75% 0.09 235);
+  --accent-soft: oklch(29% 0.04 235);
+  --good: oklch(74% 0.13 155);
+  --warn: oklch(80% 0.13 80);
+  --bad: oklch(70% 0.15 28);
+  --cap-green: oklch(70% 0.14 150);
+  --cap-yellow: oklch(85% 0.15 95);
+  --cap-orange: oklch(75% 0.15 55);
+  --cap-red: oklch(66% 0.18 27);
+  --shadow: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.28);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono-stack);
+}
+
+html {
+  --font-body: "Inter Tight", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono-stack: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Las columnas de números no deben bailar al cambiar de valor. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Todo contenido ancho scrollea dentro de su caja, nunca la página. */
+.scroll-x { overflow-x: auto; overscroll-behavior-x: contain; }
+
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

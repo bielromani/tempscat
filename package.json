@@ -18,7 +18,10 @@
     "data:elevation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/05-fetch-elevation.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
     "data:import": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/09-import-db.ts",
-    "data:polygons": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/06-fetch-polygons.ts"
+    "data:polygons": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/06-fetch-polygons.ts",
+    "worker:xema": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/xema-observations.ts",
+    "worker:forecast": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/forecast-refresh.ts",
+    "workers": "npm run worker:xema && npm run worker:forecast"
   },
   "dependencies": {
     "next": "16.3.3",

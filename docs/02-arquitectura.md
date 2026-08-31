@@ -118,12 +118,20 @@ de 2 km y menos de 100 m de desnivel comparten punto de predicción, porque **ca
 celda de AROME de todos modos**: pedir dos veces la misma celda no aporta información.
 
 ```
-4.900 ubicaciones
+4.250 ubicaciones publicadas
    ↓  agrupación espacial (grid 0,02° ≈ 1,7 km) + bandas de altitud de 100 m
-~1.500 puntos representativos
+3.190 puntos representativos          ← medido, no estimado
    ↓  lotes de 200 por petición
-8 llamadas por modelo y refresco
+16 peticiones por modelo y refresco
 ```
+
+> **La estimación original de este documento era optimista.** Suponía ~1.500 puntos (3× de
+> ahorro) y salen 3.190 (1,3×): los núcleos catalanes están más dispersos de lo que asumía, y
+> muy pocos comparten celda.
+>
+> La tentación es agrandar la celda. Es la decisión equivocada: AROME resuelve a 1,5 km, así
+> que agrupar a 4 km tiraría justo la resolución que nos diferencia. La palanca correcta es
+> repartir **modelos** por nivel, no fusionar puntos.
 
 Cada ubicación guarda su `forecast_point_id` y su **delta de altitud** respecto al punto
 representativo. La corrección por lapse rate (doc 05) devuelve después la diferencia real. Un
@@ -131,9 +139,31 @@ núcleo a 700 m no muestra la temperatura de uno a 350 m.
 
 ### Manejo de cuota
 
-Cada worker declara su cuota y un `QuotaGuard` compartido en Redis la contabiliza. Al llegar
-al 80 % pasa a modo degradado (menos modelos, menos frecuencia) y al 95 % se detiene y avisa.
-Nunca se descubre que se agotó la cuota porque el sitio dejó de funcionar.
+Cada worker declara su cuota y un `QuotaGuard` compartido la contabiliza. Al 80 % entra en modo
+degradado (menos modelos, menos frecuencia) y al 95 % se detiene y avisa. Nunca se descubre que
+se agotó la cuota porque el sitio dejó de funcionar.
+
+**La cuota de Open-Meteo es la restricción que manda sobre todo el diseño.** Factura
+ubicaciones, no peticiones: 10 variables × 7 días × 1 ubicación = 1 llamada. Con nuestras 8
+variables y 7 días, cada punto y modelo cuesta 1 unidad.
+
+| Escenario | Unidades/día | ¿Cabe en 10.000? |
+|---|---|---|
+| 3.190 puntos × 5 modelos × 4 refrescos | 63.800 | ✗ |
+| 3.190 puntos × 5 modelos × **1 refresco** | 15.950 | ✗ |
+| Política por niveles (la que se implementa) | **3.890** | ✓ |
+
+La política por niveles reparte los modelos según dónde mira la gente:
+
+| Nivel | Puntos | Modelos | Cadencia |
+|---|---|---|---|
+| A · comarcas y municipios grandes | 350 | AROME-HD + HARMONIE + ECMWF | 6 h |
+| B · resto de municipios y entidades pobladas | 1.679 | AROME-HD | 12 h |
+| C · cola larga | 1.161 | `best_match` de Open-Meteo | 24 h |
+
+El nivel C sigue llevando corrección de altitud propia, que es lo que ningún competidor hace
+para esos núcleos. La licencia comercial (obligatoria en cuanto haya monetización) elimina la
+restricción por completo.
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "builtAt": "2026-08-30T23:29:42.322Z",
+  "builtAt": "2026-08-30T23:36:51.290Z",
   "nomenclatorEdition": "2021",
   "comarques": 43,
   "locations": 11019,
@@ -43,6 +43,7 @@
     "adjacent": 5424,
     "nearest": 120
   },
+  "forecastPoints": 3190,
   "polygons": {
     "municipis": 947,
     "comarques": 43

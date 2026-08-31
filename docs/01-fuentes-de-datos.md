@@ -16,9 +16,13 @@ no copiado de documentación. Donde algo no se pudo comprobar, se dice explícit
 | Metadatos de estaciones | `yqwd-vj5e` | 245 | Nombre, lat/lon, altitud, municipio, comarca, estado |
 | Metadatos de variables | `4fb2-n3yi` | ~90 | Código, nombre, unidad, tipo |
 
-**Latencia real medida:** última lectura disponible `2026-08-30T20:30 UTC`, portal actualizado
-a las `21:16 UTC`. Es decir, **~45 minutos de retraso** con cadencia semihoraria. Suficiente
-para "condiciones actuales".
+**Latencia real medida:** el retraso oscila entre **45 y 65 minutos** con cadencia semihoraria.
+Medido en ejecuciones sucesivas del worker: mediana 66 min, máximo 96 min en la peor estación.
+No es constante y no se puede acortar — es lo que tarda el dato en llegar al portal.
+
+Consecuencia de producto: cada página dice **la hora exacta de la lectura**, no finge que es de
+ahora mismo. Es la diferencia entre "18,8 °C" y "18,8 °C fa 1 hora", y la segunda es la única
+que un usuario puede evaluar.
 
 Esquema de una lectura:
 
@@ -27,9 +31,13 @@ Esquema de una lectura:
   "data_lectura":"2017-03-30T13:00:00.000", "valor_lectura":"0", "codi_estat":"V" }
 ```
 
-`codi_estat` es el control de calidad: `V` = validado, `T` = pendiente de validar. **Hay que
-filtrarlo o etiquetarlo**; publicar datos `T` como si fueran definitivos es un error de
-credibilidad que se paga caro.
+`codi_estat` es el control de calidad: `V` = validado, `T` = pendiente.
+
+> ⚠️ **Corrección tras ejecutarlo de verdad.** En los datos recientes el campo **viene vacío**,
+> no con `T`: la validación del Meteocat es posterior y tarda. Filtrar por `codi_estat='V'`
+> —que es lo que decía este documento antes— habría dejado la web **sin ningún dato actual**.
+>
+> Lo correcto es publicarlos etiquetados como provisionales, que es lo que hace el worker.
 
 Consulta incremental (el patrón que usará el worker de ingesta):
 
@@ -112,14 +120,31 @@ Pero **cuidado con confundir peticiones con cuota**, que es el error que casi co
 > contra el límite de 600/minuto. Con ~11 s entre lotes se pasa sin incidencias.
 >
 > Consecuencia para el diseño: el multi-punto **no abarata la cuota**, abarata la latencia y el
-> número de conexiones. El presupuesto real hay que calcularlo en ubicaciones × variables ×
-> días. Con 1.500 puntos representativos y 5 modelos, un refresco completo consume del orden de
-> 7.500 unidades; a 4 refrescos diarios son ~30.000/día contra un límite de 10.000. **No cabe en
-> el tier gratuito si se refresca todo el territorio 4 veces al día.**
+> número de conexiones. El presupuesto se calcula en ubicaciones × variables × días.
 >
-> Mitigación, por orden: refrescar por niveles (los municipios grandes cada 3 h, las entidades
-> pequeñas cada 12 h), reducir el número de modelos por punto según su nivel, y pasar al plan de
-> pago cuando el proyecto monetice — que es en cualquier caso obligatorio por licencia.
+> Con las cifras ya medidas —3.190 puntos representativos— refrescar todo con 5 modelos cuesta
+> **15.950 unidades en un solo refresco**, contra un límite de 10.000 al día. **No cabe ni una
+> vez al día.** La política por niveles que se implementa (doc 02) baja el refresco completo a
+> 3.890 unidades.
+
+### Una rareza que rompe el parser: `nan` sin comillas
+
+Cuando un punto cae fuera del dominio de un modelo, Open-Meteo responde `"latitude":nan` — que
+**no es JSON válido**. `JSON.parse` lanza y, sin protección, se pierde el lote entero de 200
+puntos, incluidos los 185 que sí tenían datos.
+
+Hay que sanear el texto antes de parsear. Y pasa de verdad: **HARMONIE cubre 335 de los 350
+puntos de nivel A**, así que 15 de ellos hacen el consenso con dos modelos en vez de tres. Es
+información que la página necesita, no un detalle de implementación.
+
+### Modelos activos por nivel
+
+| Nivel | Puntos | Modelos | Cadencia | Unidades/día |
+|---|---|---|---|---|
+| A | 350 | AROME-HD + HARMONIE + ECMWF | 6 h | 4.200 |
+| B | 1.679 | AROME-HD | 12 h | 3.358 |
+| C | 1.161 | `best_match` | 24 h | 1.161 |
+| | | | **Total** | **8.719 / 10.000** |
 
 ### APIs hermanas (todas verificadas, HTTP 200)
 

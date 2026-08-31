@@ -42,6 +42,10 @@ export interface Location {
   /** Superficie del término municipal, km². Solo a nivel municipio. */
   areaKm2?: number | null;
   stationRef?: StationRef;
+  /** Punto de predicción compartido con otras ubicaciones de la misma celda. */
+  forecastPointId?: string;
+  /** Desnivel respecto a ese punto, que el motor de fusión corrige. */
+  forecastDAltM?: number;
   tier: Tier;
   published: boolean;
   canonicalOf?: string;

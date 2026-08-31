@@ -42,15 +42,23 @@ Construir el territorio antes que la web. Sin territorio correcto, todo lo demá
 
 ---
 
-## Fase 1 — Ingesta y primera vertical completa · 2 semanas
+## Fase 1 — Ingesta y primeras páginas · en curso
 
-- [ ] Worker `xema-observations` cada 10 min con carga incremental
-- [ ] Deduplicación de puntos de predicción (4.900 → ~1.500)
-- [ ] Worker `forecast-refresh` multi-punto, 5 modelos
-- [ ] Worker `aemet-warnings` (requiere API key de AEMET — pedirla ya)
-- [ ] Panel de frescura de datos y `QuotaGuard`
-- [ ] Página de municipio completa: hero, meteograma SVG, 7 días, estación de referencia
-- [ ] Página de comarca con listado y comparativa
+- [x] Worker `xema-observations`: 188 estaciones, precipitación acumulada 24 h
+- [x] Deduplicación de puntos de predicción: 4.250 → **3.190** (1,3×, no 3× como se estimó)
+- [x] Worker `forecast-refresh` multi-punto con política de modelos por nivel
+- [x] `QuotaGuard` con corte al 95 % y degradación al 80 %
+- [x] Panel público de frescura de datos (`/estat`)
+- [x] Página de municipio: hero, meteograma SVG de servidor, 7 días, estación de referencia
+- [x] Página de comarca con listado, temperaturas en vivo y extremos
+- [x] Página de entidad y núcleo, con texto único generado de datos reales
+- [x] JSON-LD `Place` + `BreadcrumbList` (nunca `WeatherForecast`, que no existe)
+- [ ] Worker `aemet-warnings` — bloqueado: falta la API key de AEMET
+- [ ] Sitemaps y niveles de indexación → fase 2
+
+**Estado medido:** 402 páginas prerenderizadas en 6,4 s. TTFB 7,7 ms en caliente y 530 ms al
+generar bajo demanda. Predicción para las 4.250 ubicaciones publicadas. Consumo diario
+proyectado de Open-Meteo: 8.719 de 10.000 unidades.
 
 **Aceptación:** las 947 páginas de municipio se renderizan con datos reales. **LCP < 1,2 s en
 móvil 4G simulado.** Ningún worker supera el 30 % de su cuota.
