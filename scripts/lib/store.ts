@@ -92,7 +92,13 @@ export function readFreshness(): Record<string, FreshnessEntry> {
 
 // ── Control de cuota ────────────────────────────────────────────────────────
 
-interface QuotaState { day: string; used: Record<string, number> }
+interface Spend { at: number; units: number }
+interface QuotaState {
+  day: string;
+  used: Record<string, number>;
+  /** Gastos recientes con marca de tiempo, para el límite por hora. */
+  recent?: Record<string, Spend[]>;
+}
 
 /**
  * Contador de consumo por fuente y día.
@@ -136,7 +142,56 @@ export class QuotaGuard {
 
   spend(source: string, units: number): void {
     this.state.used[source] = this.used(source) + units;
+    this.state.recent ??= {};
+    const list = this.state.recent[source] ?? [];
+    list.push({ at: Date.now(), units });
+    this.state.recent[source] = this.prune(list);
     writeFileSync(this.path, JSON.stringify(this.state), 'utf8');
+  }
+
+  // ── Límite por hora ───────────────────────────────────────────────────────
+  //
+  // El límite diario no es el único, y descubrirlo cuesta caro: un refresco
+  // completo del territorio con el conjunto rico gastó 5.396 unidades en 18
+  // minutos y la API respondió `429 Hourly API request limit exceeded`. Los
+  // lotes fallidos parecían cortes de red, y no lo eran.
+  //
+  // Con lotes de 200 puntos y 19 variables —380 unidades cada uno— a un lote
+  // cada 21 segundos salen unas 65.000 unidades por hora, trece veces el techo.
+  // El ritmo no puede ser un intervalo fijo: tiene que derivarse del coste.
+
+  private prune(list: Spend[]): Spend[] {
+    const cutoff = Date.now() - 3_600_000;
+    return list.filter((s) => s.at > cutoff);
+  }
+
+  /** Unidades gastadas en los últimos 60 minutos. */
+  usedThisHour(source: string): number {
+    const list = this.prune(this.state.recent?.[source] ?? []);
+    return list.reduce((a, s) => a + s.units, 0);
+  }
+
+  /**
+   * Milisegundos que hay que esperar para poder gastar `units` sin superar el
+   * límite horario. Cero si cabe ahora mismo.
+   */
+  waitForHourly(source: string, units: number): number {
+    const limit = HOURLY_LIMITS[source];
+    if (!limit) return 0;
+
+    const list = this.prune(this.state.recent?.[source] ?? []).sort((a, b) => a.at - b.at);
+    let inWindow = list.reduce((a, s) => a + s.units, 0);
+    if (inWindow + units <= limit * 0.95) return 0;
+
+    // Se espera a que caduquen los gastos más antiguos, uno a uno, hasta que
+    // quepa lo que viene.
+    for (const s of list) {
+      inWindow -= s.units;
+      if (inWindow + units <= limit * 0.95) {
+        return Math.max(0, s.at + 3_600_000 - Date.now()) + 1_000;
+      }
+    }
+    return 3_600_000;
   }
 
   report(): string {
@@ -150,8 +205,24 @@ export class QuotaGuard {
  * Límites diarios. Los de Open-Meteo son los del tier gratuito y se cuentan en
  * ubicaciones consultadas, no en peticiones HTTP.
  */
-export const DAILY_LIMITS = {
+export const DAILY_LIMITS: Record<string, number> = {
   'open-meteo': 10_000,
   'aemet': 5_000,
   'socrata': 100_000,   // sin límite duro documentado; se vigila igual
-} as const;
+};
+
+/**
+ * Límites por hora. Open-Meteo tiene tres techos simultáneos —600/minuto,
+ * 5.000/hora y 10.000/día— y además un tope mensual de 300.000, que a 30 días
+ * sale a 9.677/día: más apretado que el diario.
+ *
+ * El que corta primero en un refresco masivo es el horario.
+ */
+export const HOURLY_LIMITS: Record<string, number> = {
+  'open-meteo': 5_000,
+};
+
+/** Tope mensual, el que de verdad limita el diseño a largo plazo. */
+export const MONTHLY_LIMITS: Record<string, number> = {
+  'open-meteo': 300_000,
+};

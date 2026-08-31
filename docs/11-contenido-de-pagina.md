@@ -151,12 +151,22 @@ Resultado para Malgrat de Mar, con 21 años de serie: máxima 38,8 °C (16/8/202
 Open-Meteo factura **datos**, no peticiones: `peso = max(1, variables/10) × max(1, días/14) ×
 ubicaciones`. Pedir 19 variables en vez de 10 casi duplica el coste de cada punto.
 
-Por eso hay dos conjuntos:
+Hay dos conjuntos:
 
-| Conjunto | Variables | Peso | A quién |
-|---|---|---|---|
-| **Esencial** | temperatura, sensación, precipitación, probabilidad, código de tiempo, nubosidad, humedad, viento, dirección, racha | 1,0 | todos los niveles |
-| **Rico** | lo anterior + punto de rocío, presión, UV, visibilidad, isocero, nieve, gruesor, radiación, CAPE | 1,9 | solo nivel A |
+| Conjunto | Variables | Peso |
+|---|---|---|
+| **Esencial** | temperatura, sensación, precipitación, probabilidad, código de tiempo, nubosidad, humedad, viento, dirección, racha | 1,0 |
+| **Rico** | lo anterior + punto de rocío, presión, UV, visibilidad, isocero, nieve, gruesor, radiación, CAPE | 1,9 |
+
+> **Un cambio de criterio tras ver una página terminada.** El primer reparto daba el conjunto
+> rico solo al nivel A y el esencial dos veces al día a los demás. Al mirar la ficha de Lilla
+> quedó claro que era el intercambio equivocado: le faltaban índice UV, punto de rocío,
+> nubosidad y visibilidad —justo lo que enriquece una ficha— a cambio de refrescar más a menudo
+> una predicción que apenas cambia en doce horas.
+>
+> Ahora **todos los niveles reciben el conjunto rico**. Lo que da sensación de "vivo" en una
+> página no es la predicción: es la observación de la XEMA, que entra cada diez minutos por otra
+> vía.
 
 Presupuesto resultante:
 
@@ -164,12 +174,37 @@ Presupuesto resultante:
 |---|---|
 | A · rico · `best_match` · 2 refrescos | 1.330 |
 | A · esencial · AROME + ECMWF · 3 refrescos | 2.100 |
-| B · esencial · 2 refrescos | 3.358 |
-| C · esencial · 1 refresco | 1.161 |
-| **Total** | **7.949 / 10.000 diario · 238.470 / 300.000 mensual** |
+| B · rico · 1 refresco | 3.190 |
+| C · rico · 1 refresco | 2.206 |
+| **Total** | **8.826 / 10.000 diario · 264.780 / 300.000 mensual** |
 
 > **El techo que aprieta es el mensual, no el diario.** 300.000/mes son 9.677/día de media, no
 > 10.000. Es un detalle fácil de pasar por alto y que se descubre tarde.
+
+### El límite que corta primero es el horario
+
+Hay **tres techos simultáneos**: 600/minuto, 5.000/hora y 10.000/día, más el mensual.
+
+En un refresco masivo salta el horario, y su síntoma engaña: los lotes fallan con lo que parece
+un corte de red, se reintentan seis veces y siguen fallando, porque el límite no se ha renovado
+mientras tanto. El mensaje real solo aparece pidiéndolo a mano:
+`429 Hourly API request limit exceeded`.
+
+Con lotes de 200 puntos y el conjunto rico —380 unidades cada uno— a un lote cada 21 segundos
+salen 65.000 unidades por hora: **trece veces el techo**. Caben 13 lotes por hora, no 170.
+
+Por eso el ritmo del worker **se deriva del coste** y no es un intervalo fijo, y el
+`QuotaGuard` lleva una ventana móvil de una hora además del contador diario. Espera *antes* de
+pedir: un 429 no solo pierde el lote, gasta un reintento y deja el contador igual de lleno.
+
+Cuando aun así queda algo fuera:
+
+```bash
+npm run worker:forecast -- --tiers=C --fill
+```
+
+pide **solo los puntos sin dato**. Recuperar 161 puntos costó 306 unidades, frente a las 2.206
+de relanzar el nivel entero.
 
 ### Por qué `best_match` y no AROME en los niveles B y C
 

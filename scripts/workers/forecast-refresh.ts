@@ -13,18 +13,31 @@
  *
  * Consecuencias que condicionan todo:
  *
- *  · Pedir 19 variables en vez de 10 casi duplica el coste de cada punto. Por
- *    eso hay dos conjuntos: el rico solo va a los 350 puntos de nivel A.
+ *  · Pedir 19 variables en vez de 10 casi duplica el coste de cada punto.
  *  · El multi-punto abarata conexiones y latencia, **no cuota**.
  *  · El orto, el ocaso y la fase lunar no se piden: se calculan en
  *    `src/lib/astronomy.ts`, exactos y gratis.
+ *
+ * ## El límite que corta primero no es el diario
+ *
+ * Hay tres techos simultáneos: 600/minuto, **5.000/hora** y 10.000/día. En un
+ * refresco masivo el que salta es el horario, y su síntoma engaña: los lotes
+ * fallan con lo que parece un corte de red, se reintentan seis veces, y siguen
+ * fallando porque el límite no se ha renovado.
+ *
+ * Con lotes de 200 puntos y 19 variables —380 unidades cada uno— a un lote cada
+ * 21 segundos salen 65.000 unidades por hora: trece veces el techo. Por eso el
+ * ritmo **se deriva del coste** y no es un intervalo fijo.
  *
  * Salida: data/cache/forecast.json
  */
 import { readFileSync } from 'node:fs';
 import { fetchWithRetry, sleep } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
-import { DAILY_LIMITS, QuotaGuard, readSnapshot, recordFreshness, writeSnapshot } from '../lib/store.ts';
+import {
+  DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard,
+  readSnapshot, recordFreshness, writeSnapshot,
+} from '../lib/store.ts';
 import {
   VARIABLES, ESSENTIAL_HOURLY, RICH_HOURLY, callWeight, type VariableSlug,
 } from '../../src/lib/variables.ts';
@@ -81,8 +94,8 @@ const PLAN_BY_TIER: Record<Tier, ModelSpec[]> = {
 
 const BATCH = 200;
 const FORECAST_DAYS = 7;
-/** El límite que nos frenó de verdad fue el de 600 llamadas por minuto. */
-const PAUSE_MS = 21_000;
+/** Pausa mínima entre lotes, por el límite de 600 unidades por minuto. */
+const MIN_PAUSE_MS = 21_000;
 
 interface OpenMeteoResponse {
   latitude: number;
@@ -173,11 +186,35 @@ async function main() {
   const onlyTiers = (process.argv.find((a) => a.startsWith('--tiers='))?.split('=')[1] ?? 'A,B,C')
     .split(',') as Tier[];
 
+  /*
+   * `--fill` pide **solo los puntos que faltan** en el snapshot anterior.
+   *
+   * Cuando un lote se cae por un corte de red, volver a lanzar el nivel entero
+   * gasta miles de unidades para recuperar doscientos puntos. Este modo cuesta
+   * lo que falta y nada más.
+   */
+  const fillOnly = process.argv.includes('--fill');
+
+  const before = readSnapshot<ForecastData>('forecast');
+
   const steps: Array<{ tier: Tier; spec: ModelSpec; points: ForecastPoint[] }> = [];
   for (const tier of onlyTiers) {
     const tierPoints = points.filter((p) => p.tier === tier);
     if (!tierPoints.length) continue;
-    for (const spec of PLAN_BY_TIER[tier]) steps.push({ tier, spec, points: tierPoints });
+    for (const spec of PLAN_BY_TIER[tier]) {
+      const target = fillOnly
+        ? tierPoints.filter((p) => !before?.data.points[p.id]?.[spec.model])
+        : tierPoints;
+      if (target.length) steps.push({ tier, spec, points: target });
+    }
+  }
+
+  if (fillOnly) {
+    const missing = steps.reduce((a, st) => a + st.points.length, 0);
+    console.log(missing
+      ? `Mode --fill: ${missing} punts sense dada`
+      : 'Mode --fill: no falta cap punt.');
+    if (!missing) return;
   }
 
   // ── Presupuesto ───────────────────────────────────────────────────────────
@@ -200,9 +237,12 @@ async function main() {
       ` · cada ${st.spec.everyHours} h`,
     );
   }
+  const perBatch = callWeight(RICH_HOURLY.length, FORECAST_DAYS, BATCH);
   console.log(`\nCost d'aquest refresc: ${Math.round(cost).toLocaleString('ca-ES')} unitats`);
+  console.log(`  ja gastades avui: ${Math.round(quota.used('open-meteo')).toLocaleString('ca-ES')} · aquesta hora: ${Math.round(quota.usedThisHour('open-meteo')).toLocaleString('ca-ES')} / ${HOURLY_LIMITS['open-meteo'].toLocaleString('ca-ES')}`);
   console.log(`Projecció diària: ${Math.round(daily).toLocaleString('ca-ES')} / ${DAILY_LIMITS['open-meteo'].toLocaleString('ca-ES')}`);
-  console.log(`Projecció mensual: ${Math.round(daily * 30).toLocaleString('ca-ES')} / 300.000`);
+  console.log(`Projecció mensual: ${Math.round(daily * 30).toLocaleString('ca-ES')} / ${MONTHLY_LIMITS['open-meteo'].toLocaleString('ca-ES')}`);
+  console.log(`Un lot de ${BATCH} punts amb el conjunt ric costa ${Math.round(perBatch)} unitats: cap ${Math.floor(HOURLY_LIMITS['open-meteo'] / perBatch)} lots per hora`);
 
   if (!quota.canSpend('open-meteo', cost)) {
     console.error(`\nQuota insuficient: ${quota.used('open-meteo')} ja gastades avui. S'atura abans que ens talli l'API.`);
@@ -213,8 +253,9 @@ async function main() {
   // ── Se parte del snapshot anterior ────────────────────────────────────────
   // Cada nivel tiene su cadencia, así que un refresco de B no puede borrar lo
   // que trajo el de A hace dos horas.
-  const previous = readSnapshot<ForecastData>('forecast');
-  const refreshed = new Set(onlyTiers);
+  const previous = before;
+  // En modo --fill no se descarta nada: se conserva todo y solo se añade.
+  const refreshed = fillOnly ? new Set<Tier>() : new Set(onlyTiers);
   const kept: ForecastData['points'] = {};
   if (previous) {
     const tierOf = new Map(points.map((p) => [p.id, p.tier]));
@@ -237,7 +278,13 @@ async function main() {
   for (const st of steps) requested.set(st.spec.model, (requested.get(st.spec.model) ?? 0) + st.points.length);
 
   const totalBatches = steps.reduce((s, st) => s + Math.ceil(st.points.length / BATCH), 0);
-  console.log(`\nLots: ${totalBatches} · ritme ${PAUSE_MS / 1000} s · ~${Math.ceil((totalBatches * PAUSE_MS) / 60_000)} min\n`);
+  // La duración la marca el límite horario, no la pausa mínima.
+  const batchesPerHour = Math.max(1, Math.floor(HOURLY_LIMITS['open-meteo'] / perBatch));
+  const estMin = Math.max(
+    Math.ceil((totalBatches * MIN_PAUSE_MS) / 60_000),
+    Math.ceil((totalBatches / batchesPerHour) * 60),
+  );
+  console.log(`\nLots: ${totalBatches} · ~${estMin} min (limitat per la quota horària)\n`);
 
   let batches = 0;
   let ok = 0;
@@ -258,10 +305,22 @@ async function main() {
   for (const st of steps) {
     for (let i = 0; i < st.points.length; i += BATCH) {
       const chunk = st.points.slice(i, i + BATCH);
+      const chunkCost = callWeight(st.spec.variables.length, FORECAST_DAYS, chunk.length);
+
+      // Se espera **antes** de pedir, no después de que la API nos corte. Un
+      // 429 no solo pierde el lote: gasta un reintento y deja el contador
+      // igual de lleno.
+      const wait = quota.waitForHourly('open-meteo', chunkCost);
+      if (wait > 0) {
+        const min = Math.ceil(wait / 60_000);
+        process.stdout.write(`\n  límit horari a tocar: esperant ${min} min abans del lot ${batches + 1}\n`);
+        await sleep(wait);
+      }
+
       try {
         const res = await fetchBatch(chunk, st.spec);
         for (const [id, fc] of res) { absorb(id, st.spec.model, fc); ok++; }
-        quota.spend('open-meteo', callWeight(st.spec.variables.length, FORECAST_DAYS, chunk.length));
+        quota.spend('open-meteo', chunkCost);
       } catch (err) {
         failed += chunk.length;
         retryQueue.push({ spec: st.spec, points: chunk });
@@ -269,17 +328,28 @@ async function main() {
       }
       batches++;
       process.stdout.write(`\r  ${batches}/${totalBatches} lots · ${ok.toLocaleString('ca-ES')} sèries${failed ? ` · ${failed} fallides` : ''}   `);
-      if (batches < totalBatches) await sleep(PAUSE_MS);
+      if (batches < totalBatches) await sleep(MIN_PAUSE_MS);
     }
   }
   process.stdout.write('\n');
 
-  // Segunda oportunidad: estos cortes suelen ser transitorios, y dejar 200
-  // puntos sin predicción medio día por un timeout no es aceptable.
+  /*
+   * Segunda oportunidad. Dejar doscientos puntos sin predicción medio día por
+   * un timeout no es aceptable.
+   *
+   * Se espera mucho más que entre lotes normales, y no por prudencia genérica:
+   * en una ejecución real, los seis reintentos internos **y** la recuperación
+   * fallaron todos, porque a veinte segundos de distancia se volvía a chocar
+   * con el mismo tramo de red caído. Minuto y medio da tiempo a que pase.
+   *
+   * Si aun así queda algo fuera, `--fill` lo recupera después sin volver a
+   * pedir el nivel entero.
+   */
+  const RETRY_PAUSE_MS = 90_000;
   if (retryQueue.length) {
-    console.log(`\nReintentant ${retryQueue.length} lots caiguts…`);
+    console.log(`\nReintentant ${retryQueue.length} lots caiguts d'aquí a ${RETRY_PAUSE_MS / 1000} s…`);
     for (const item of retryQueue) {
-      await sleep(PAUSE_MS);
+      await sleep(RETRY_PAUSE_MS);
       try {
         const res = await fetchBatch(item.points, item.spec);
         for (const [id, fc] of res) { absorb(id, item.spec.model, fc); ok++; failed--; }
