@@ -36,14 +36,20 @@ tiempo de ejecución falla al arrancar:
 - ❌ `namespace`, decoradores
 - ✅ Todo lo demás, incluidos genéricos y `satisfies`
 
-Los imports relativos **necesitan la extensión `.ts` explícita**, cosa que el `tsconfig.json` de
-Next no admite. Por eso `scripts/` tiene su propio `tsconfig.json` y la raíz lo excluye.
+Los imports relativos **necesitan la extensión `.ts` explícita**. Por eso `scripts/` tiene su
+propio `tsconfig.json` y la raíz lo excluye.
+
+La raíz ahora lleva `allowImportingTsExtensions`, así que un fichero de `src/lib/` **puede** usar
+la extensión y quedar ejecutable por Node. Lo hace solo `narrative.ts`, para que
+`scripts/test-narrative.ts` lo pueda cargar; el resto de la aplicación sigue con el alias `@/` y
+sin extensión. Si añades otro, la condición es la misma: que toda su cadena de imports acabe en
+ficheros que no importan nada.
 
 Comprueba ambos proyectos con `npm run typecheck`.
 
 ## Código compartido entre scripts y aplicación
 
-Hay cinco ficheros que importan los dos lados, así que **ninguno puede importar nada**: los
+Hay seis ficheros que importan los dos lados, así que **ninguno puede importar nada**: los
 scripts los cargan con extensión `.ts` y la aplicación con el alias `@/`. Si alguno necesita
 dependencias, duplica antes que romper uno de los dos.
 
@@ -54,6 +60,7 @@ dependencias, duplica antes que romper uno de los dos.
 | `src/lib/air-grid.ts` | La celda de 0,1° que es la unidad de consulta del aire |
 | `src/lib/mercator.ts` | Proyección de las teselas del radar y de los polígonos que van encima |
 | `src/lib/format.ts` | Fechas, horas, números y contracciones del catalán |
+| `src/lib/forecast-types.ts` | Las formas de la observación y de la predicción, sin `node:fs` detrás |
 
 ## Comandos
 
@@ -73,6 +80,13 @@ npm run worker:warnings   # avisos AEMET, cada 15 min · necessita .env.local
 npm run worker:air        # qualitat de l'aire i pol·len, cada 12 h
 npm run worker:forecast   # predicció · accepta --tiers=A,B,C i --fill
 npm run worker:history    # rècords i normals, un cop al dia
+```
+
+Pruebas:
+
+```bash
+npm run test              # topónimos, astronomía y frases
+npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
 ## Principios que no se negocian

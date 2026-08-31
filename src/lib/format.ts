@@ -242,10 +242,17 @@ export function ago(minutes: number): string {
 /**
  * Número con coma decimal, que es la que se usa en catalán. El código estaba
  * lleno de toFixed(1).replace('.', ',') repetido.
+ *
+ * El signo negativo es el **menos tipográfico** (U+2212), no el guion del
+ * teclado. No es preciosismo: el guion es más corto y más alto, así que en una
+ * columna de temperaturas con cifras tabulares los negativos quedan
+ * desalineados y a −4 °C se le ve un guion de separación en vez de un signo.
+ * signed() ya lo hacía; num() escribía «-4» al lado de «−4» dos líneas más
+ * arriba.
  */
 export function num(value: number | null | undefined, decimals = 0): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  return value.toFixed(decimals).replace('.', ',');
+  return value.toFixed(decimals).replace('.', ',').replace('-', '−');
 }
 
 /** Millares agrupados: 10 899 */

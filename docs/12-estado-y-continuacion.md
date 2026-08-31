@@ -284,8 +284,10 @@ npm run workers:daily     # history + air
 Pruebas:
 
 ```bash
+npm run test              # los tres de abajo
 npm run test:catalan      # topónimos, slugs y emparejamiento
 npm run test:astronomy    # sol y luna contra valores conocidos
+npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
 ---

@@ -28,7 +28,9 @@
     "test:astronomy": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-astronomy.ts",
     "worker:air": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-quality.ts",
     "worker:radar": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/radar.ts",
-    "workers:frequent": "npm run worker:xema && npm run worker:radar"
+    "workers:frequent": "npm run worker:xema && npm run worker:radar",
+    "test:narrative": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-narrative.ts",
+    "test": "npm run test:catalan && npm run test:astronomy && npm run test:narrative"
   },
   "dependencies": {
     "next": "16.3.3",

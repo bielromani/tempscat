@@ -1,7 +1,7 @@
-import { msToKmh } from './variables';
-import { dailySummaryCode, weatherCode } from './weather-codes';
-import { hour, num, relativeDay } from './format';
-import type { CurrentConditions, HourlyPoint, LocationForecast } from './weather';
+import { msToKmh } from './variables.ts';
+import { dailySummaryCode, weatherCode } from './weather-codes.ts';
+import { num, relativeDay } from './format.ts';
+import type { CurrentConditions, HourlyPoint, LocationForecast } from './forecast-types.ts';
 
 /**
  * Del dato a la frase.
@@ -25,6 +25,11 @@ import type { CurrentConditions, HourlyPoint, LocationForecast } from './weather
  *  4. **Nada de leer el reloj aquí.** La hora en curso y el día llegan como
  *     argumentos. Es lo que permite probar este módulo y lo que evita que un
  *     componente deje de ser puro.
+ *
+ * Los imports llevan la extensión `.ts` explícita a propósito: este fichero lo
+ * carga también `scripts/test-narrative.ts` con Node, y Node la exige. Sus cuatro
+ * dependencias son ficheros que no importan nada, así que la cadena se corta ahí
+ * y no arrastra `node:fs`. Ver `src/lib/forecast-types.ts`.
  */
 
 // ── Franjas del día ─────────────────────────────────────────────────────────
@@ -147,24 +152,71 @@ export function dayParts(
 
 // ── Ventanas de lluvia ──────────────────────────────────────────────────────
 
+/**
+ * Intensidad de la precipitación, en milímetros por hora.
+ *
+ * Son los cortes **de la escala de AEMET**, no unos propios: débil hasta 2 mm/h,
+ * moderada hasta 15, fuerte hasta 30, muy fuerte hasta 60 y torrencial por
+ * encima. Se usan tal cual porque es la escala con la que se redactan los avisos
+ * que la gente ya oye en la radio, y tener dos escalas distintas para lo mismo
+ * es peor que no tener ninguna.
+ *
+ * La serie de Open-Meteo da milímetros **por hora**, así que el valor horario ya
+ * es directamente la intensidad. No hay que dividir por nada, y conviene decirlo
+ * porque el error de tratar el acumulado del tramo como intensidad convierte
+ * cuatro gotas repartidas en cinco horas en «pluja moderada».
+ */
+export type RainIntensity = 'feble' | 'moderada' | 'forta' | 'molt forta' | 'torrencial';
+
+const INTENSITY: Array<{ max: number; nom: RainIntensity }> = [
+  { max: 2, nom: 'feble' },
+  { max: 15, nom: 'moderada' },
+  { max: 30, nom: 'forta' },
+  { max: 60, nom: 'molt forta' },
+  { max: Infinity, nom: 'torrencial' },
+];
+
+export function rainIntensity(mmPerHour: number): RainIntensity {
+  return (INTENSITY.find((i) => mmPerHour <= i.max) ?? INTENSITY[INTENSITY.length - 1]).nom;
+}
+
 export interface RainWindow {
   from: string;
   to: string;
+  /** Acumulado de todo el tramo. */
   mm: number;
   prob: number;
+  /** Horas que dura el tramo. */
+  hours: number;
+  /**
+   * La hora que concentra el chaparrón, y cuánto cae en ella.
+   *
+   * Es el dato que faltaba. «Plou de 4 a 7» describe el tramo y esconde
+   * justamente lo que hay que saber: a las cuatro pueden ser cuatro gotas y a
+   * las seis una tromba. El acumulado del tramo tampoco lo dice — 12 mm
+   * repartidos en cinco horas y 12 mm en una sola hora son dos días distintos.
+   */
+  peak: { time: string; mm: number };
+  /** Intensidad de la hora punta, que es la que decide si hace falta refugio. */
+  intensity: RainIntensity;
+  /** La punta concentra buena parte del total: el tramo no es plano. */
+  concentrated: boolean;
+  /** Alguna hora del tramo con código de tormenta. */
+  thunder: boolean;
 }
 
 /**
- * Cuándo empieza y cuándo para.
+ * Cuándo empieza, cuándo para y cuándo aprieta.
  *
  * Es la pregunta que hoy se contesta recorriendo 48 filas a mano, y la respuesta
- * está entera en la serie. Dos detalles que cambian el resultado:
+ * está entera en la serie. Tres detalles que cambian el resultado:
  *
  *  · **Se cuenta como lluvia también la probabilidad alta sin cantidad.** Un 70 %
  *    con 0,0 mm es un chubasco que el modelo sitúa cerca pero no encima; decir
  *    que no llueve sería quedarse con media respuesta.
  *  · **Los huecos de una hora se cosen.** «Plou de 5 a 6, para a les 6 i torna a
  *    les 7» describe la aritmética del modelo, no el día de nadie.
+ *  · **Se guarda la hora punta**, no solo el total. Ver  peak.
  */
 export function rainWindows(hourly: HourlyPoint[], nowHour: string, hours = 24): RainWindow[] {
   const from = Math.max(0, hourly.findIndex((h) => h.time.slice(0, 13) === nowHour));
@@ -187,21 +239,40 @@ export function rainWindows(hourly: HourlyPoint[], nowHour: string, hours = 24):
   }
   if (current.length) runs.push(current);
 
-  return runs.map((run) => ({
-    from: run[0].time,
-    to: run[run.length - 1].time,
-    mm: Math.round(run.reduce((s, h) => s + (h.precipitation ?? 0), 0) * 10) / 10,
-    prob: Math.max(...run.map((h) => h.precipProbability ?? 0)),
-  }));
+  return runs.map((run) => {
+    const total = Math.round(run.reduce((s2, h) => s2 + (h.precipitation ?? 0), 0) * 10) / 10;
+    const peakHour = run.reduce((a, b) => ((b.precipitation ?? 0) > (a.precipitation ?? 0) ? b : a));
+    const peakMm = Math.round((peakHour.precipitation ?? 0) * 10) / 10;
+
+    return {
+      from: run[0].time,
+      to: run[run.length - 1].time,
+      mm: total,
+      prob: Math.max(...run.map((h) => h.precipProbability ?? 0)),
+      hours: run.length,
+      peak: { time: peakHour.time, mm: peakMm },
+      intensity: rainIntensity(peakMm),
+      // Concentrado si una sola hora se lleva la mitad del tramo y además cae lo
+      // suficiente para notarlo. Sin el segundo requisito, 0,4 mm de 0,6 salían
+      // como «el gruix cau a les sis», que es ridículo.
+      concentrated: run.length > 1 && peakMm >= 2 && peakMm >= total * 0.5,
+      thunder: run.some((h) => THUNDER_CODES.has(h.weatherCode ?? -1)),
+    };
+  });
 }
 
+/** Códigos WMO de tormenta. Cambian la respuesta, no solo el icono. */
+const THUNDER_CODES = new Set([95, 96, 99]);
+
+// ── Frases de hora ──────────────────────────────────────────────────────────
+
 /**
- * Frases de hora, y por qué llevan el día pegado.
+ * Por qué llevan el día pegado.
  *
  * Todas las ventanas se buscan en las **próximas 24 horas contadas desde la hora
  * en curso**, así que a media tarde la mitad caen ya en el día siguiente. Sin el
- * día delante salían cosas como «es pot estendre la roba de les 10 a les 14 h»
- * a las tres de la tarde, que el lector solo puede entender como un error.
+ * día delante salían cosas como «de les 10 a les 14 h» a las tres de la tarde,
+ * que el lector solo puede entender como un error.
  *
  * Nunca con minutos: la predicción horaria no distingue el minuto y escribir
  * «a les 17.00» sería fingir que sí.
@@ -213,9 +284,13 @@ function dayPrefix(iso: string, today: string): string {
   return r === 'avui' ? '' : `${r} `;
 }
 
-/** «cap a les 8 h» / «demà cap a les 8 h». */
-function atPhrase(iso: string, today: string): string {
-  return `${dayPrefix(iso, today)}cap a les ${Number(iso.slice(11, 13))} h`;
+/** «cap a les 8 h» / «demà cap a les 8 h». El desplazamiento sirve para el final de un tramo. */
+function atPhrase(iso: string, today: string, plus = 0): string {
+  const h = Number(iso.slice(11, 13)) + plus;
+  // 23 h + 1 no son las 24: se dice medianoche, y sin prefijo de día porque
+  // «demà a mitjanit» apuntaría a la noche siguiente.
+  if (h >= 24) return 'cap a mitjanit';
+  return `${dayPrefix(iso, today)}cap a les ${h} h`;
 }
 
 /** «de les 15 a les 18 h» / «demà de les 10 a les 14 h». */
@@ -233,88 +308,97 @@ function rangePhrase(from: string, to: string, today: string): string {
   return `${p0}des de les ${h0} h fins ${dayPrefix(to, today)}a les ${h1 + 1} h`;
 }
 
-function windowPhrase(w: RainWindow, today: string): string {
-  return rangePhrase(w.from, w.to, today);
+/**
+ * La frase de la lluvia.
+ *
+ * Cuatro formas distintas según lo que diga el perfil, porque los cuatro casos
+ * son cuatro días diferentes y aplanarlos en una plantilla única es lo que hacía
+ * que la frase no sirviera:
+ *
+ *  1. **Cuatro gotas.** Probabilidad apreciable y acumulado insignificante. Hay
+ *     que decir que es poca cosa, o el lector se queda en casa por 0,3 mm.
+ *  2. **Concentrada.** Una hora se lleva la mitad del tramo: se nombra esa hora y
+ *     su intensidad, que es lo único que condiciona los planes.
+ *  3. **Continua.** El tramo es plano: se dice cuánto dura y con qué intensidad.
+ *  4. **Intermitente.** Varios tramos: se listan y se nombra el peor.
+ */
+function rainSentence(windows: RainWindow[], today: string): string | null {
+  if (!windows.length) return null;
+
+  const storm = (w: RainWindow) => (w.thunder ? ', amb tempesta' : '');
+
+  if (windows.length === 1) {
+    const w = windows[0];
+
+    /*
+     * El umbral va en la **punta**, no en el total.
+     *
+     * Con el total, «0,6 mm repartits en tres hores» pasaba de largo y se
+     * describía como «plou de forma contínua», que es exactamente lo contrario de
+     * lo que pasa. Si ninguna hora del tramo llega a medio milímetro, la lluvia
+     * no pasa de plugim por mucho que dure — y da igual que sean tres horas o
+     * nueve.
+     */
+    if (w.peak.mm < 0.5) {
+      return `Ruixats possibles ${rangePhrase(w.from, w.to, today)}, amb un ${w.prob} % de `
+        + `probabilitat, però amb prou feines ${num(w.mm, 1)} mm en tot el tram: `
+        + `quatre gotes${storm(w)}.`;
+    }
+
+    if (w.concentrated) {
+      return `La pluja entra ${atPhrase(w.from, today)} i para ${atPhrase(w.to, today, 1)}, `
+        + `però el gruix cau ${atPhrase(w.peak.time, today)}: ${num(w.peak.mm, 1)} mm en una hora, `
+        + `pluja ${w.intensity}${storm(w)}. En total, ${num(w.mm, 1)} mm.`;
+    }
+
+    if (w.hours === 1) {
+      return `Un ruixat curt ${atPhrase(w.from, today)}, ${num(w.mm, 1)} mm `
+        + `de pluja ${w.intensity}${storm(w)}.`;
+    }
+
+    return `Plou de forma contínua ${rangePhrase(w.from, w.to, today)}: ${num(w.mm, 1)} mm `
+      + `en ${w.hours} h, sempre ${w.intensity}${storm(w)}.`;
+  }
+
+  const worst = windows.reduce((a, b) => (b.peak.mm > a.peak.mm ? b : a));
+  const total = Math.round(windows.reduce((s2, w) => s2 + w.mm, 0) * 10) / 10;
+  const ranges = windows.map((w) => rangePhrase(w.from, w.to, today)).join(' i ');
+
+  return `Ruixats intermitents, ${ranges}. El més fort ${atPhrase(worst.peak.time, today)}: `
+    + `${num(worst.peak.mm, 1)} mm en una hora, pluja ${worst.intensity}${storm(worst)}. `
+    + `En total, ${num(total, 1)} mm.`;
 }
+
+// ── Lo que hay que tener en cuenta ──────────────────────────────────────────
 
 /**
- * «La pluja entra cap a les 15 h i para cap a les 19 h.»
+ * Las advertencias del día, en prosa.
  *
- * Para el titular se dice el principio y el final por separado, no el intervalo.
- * Es la forma en que la gente hace la pregunta —«a quina hora comença a
- * ploure?»— y la que se puede usar para decidir a qué hora salir.
+ * La primera versión de esto era una rejilla de tarjetas de preguntas y
+ * respuestas —«cal paraigua?», «es pot estendre la roba?»— y se descartó por dos
+ * razones distintas:
+ *
+ *  1. **Media rejilla no informaba de nada.** «Es pot estendre la roba» no tiene
+ *     umbral real: la respuesta es sí casi siempre, y tender a otra hora tampoco
+ *     pasa nada. Y «millor moment per sortir» salía de una puntuación de
+ *     comodidad con pesos inventados por nosotros, que es exactamente lo que este
+ *     proyecto no hace: un número que nadie puede discutir porque no sale de
+ *     ninguna parte.
+ *  2. **Lo que sí informaba estaba duplicado.** El índice UV y la racha máxima ya
+ *     salen en las tarjetas de franja, y allí además están situados en el tiempo.
+ *
+ * Lo que queda son solo las cosas con **umbral real y citable**, y van en prosa,
+ * que es el idioma del resto del sitio. Casi todos los días esta lista está vacía
+ * o tiene un elemento, y eso es lo correcto.
  */
-function startStopPhrase(w: RainWindow, today: string): string {
-  const h0 = Number(w.from.slice(11, 13));
-  const h1 = Number(w.to.slice(11, 13));
-  const p0 = dayPrefix(w.from, today);
-  if (h0 === h1) return `un ruixat curt ${p0}cap a les ${h0} h`;
-  const p1 = dayPrefix(w.to, today);
-  return `entra ${p0}cap a les ${h0} h i para ${p1}cap a les ${h1 + 1} h`;
-}
-
-// ── Consejos de decisión ────────────────────────────────────────────────────
-
-export type AdviceTone = 'good' | 'info' | 'warn' | 'bad';
-
-export interface Advice {
-  key: string;
-  /** La pregunta, tal como la haría alguien. */
-  question: string;
-  /** La respuesta corta. */
-  answer: string;
-  detail?: string;
-  tone: AdviceTone;
-}
-
-/**
- * Las preguntas que la gente hace de verdad.
- *
- * Nadie busca «probabilitat de precipitació 62 %»: busca si tiene que coger el
- * paraguas. Todas las respuestas salen de datos que ya están en la página, así
- * que esto no cuesta ni una petición — solo consiste en decidirse a contestar en
- * vez de dejar el número y marcharse.
- *
- * Se muestran únicamente las que aplican. Un bloque con «no cal paraigua», «no
- * glaçarà», «no fa vent» los 300 días que no pasa nada es ruido.
- */
-export function adviceFor(
-  hourly: HourlyPoint[],
-  nowHour: string,
-  today: string,
-  windows: RainWindow[],
-): Advice[] {
+export function dayNotes(hourly: HourlyPoint[], nowHour: string, today: string): string[] {
   const from = Math.max(0, hourly.findIndex((h) => h.time.slice(0, 13) === nowHour));
   const next24 = hourly.slice(from, from + 24);
   if (next24.length < 6) return [];
 
-  const out: Advice[] = [];
+  const notes: string[] = [];
 
-  // ── Paraguas ──
-  const soon = windows.filter((w) => Date.parse(`${w.to}:00`) >= Date.parse(`${nowHour}:00:00`));
-  if (soon.length) {
-    const first = soon[0];
-    out.push({
-      key: 'paraigua',
-      question: 'Cal paraigua?',
-      answer: `Sí, ${windowPhrase(first, today)}`,
-      detail: first.mm >= 0.1
-        ? `${num(first.mm, 1)} mm previstos, ${first.prob} % de probabilitat`
-        : `${first.prob} % de probabilitat, sense acumulació apreciable`,
-      tone: first.mm >= 5 ? 'bad' : 'warn',
-    });
-  } else if (next24.every((h) => (h.precipProbability ?? 0) < 20)) {
-    out.push({
-      key: 'paraigua',
-      question: 'Cal paraigua?',
-      answer: 'No, en 24 h',
-      tone: 'good',
-    });
-  }
-
-  // ── Heladas ──
-  // La mínima de la noche, no la del día natural: la que interesa es la que cae
-  // entre esta tarde y mañana por la mañana, que cruza la medianoche.
+  // ── Helada ── 0 °C es un umbral físico, no una opinión.
   const night = next24.filter((h) => {
     const hh = Number(h.time.slice(11, 13));
     return hh >= 20 || hh <= 9;
@@ -323,97 +407,65 @@ export function adviceFor(
   if (nightTemps.length >= 4) {
     const min = Math.min(...nightTemps);
     const at = night.find((h) => h.temperature === min);
+    const when = at ? ` ${atPhrase(at.time, today)}` : '';
     if (min <= 0) {
-      out.push({
-        key: 'glacada',
-        question: 'Glaçarà aquesta nit?',
-        answer: `Sí, ${num(min, 0)} °C`,
-        detail: at ? `mínima ${atPhrase(at.time, today)}` : undefined,
-        tone: 'bad',
-      });
+      notes.push(`Glaçarà: la mínima baixa a ${num(min, 0)} °C${when}.`);
     } else if (min <= 3) {
-      out.push({
-        key: 'glacada',
-        question: 'Glaçarà aquesta nit?',
-        answer: `A tocar, ${num(min, 0)} °C`,
-        detail: 'als fondals i les zones arrecerades pot baixar més',
-        tone: 'warn',
-      });
+      notes.push(`Nit freda, ${num(min, 0)} °C${when}; als fondals i les zones `
+        + 'arrecerades pot glaçar.');
     }
   }
 
-  // ── Sol ──
-  //
-  // La **racha contigua**, no el primer y el último elemento de la lista
-  // filtrada. Con el filtro simple, a las dos de la tarde las horas con UV alto
-  // eran «hoy a las 14» y «mañana a las 13», y el rango salía como «de les 14 a
-  // les 14 h»: dos tramos distintos presentados como uno solo.
+  // ── Ultravioleta ── el 6 es el límite de la banda «alt» de l'OMS, no nuestro.
   const uvRun = longestRun(next24, (h) => (h.uvIndex ?? 0) >= 6);
   if (uvRun.length) {
     const uvMax = Math.max(...uvRun.map((h) => h.uvIndex ?? 0));
-    out.push({
-      key: 'sol',
-      question: 'Cal protecció solar?',
-      answer: `Sí, ${rangePhrase(uvRun[0].time, uvRun[uvRun.length - 1].time, today)}`,
-      detail: `índex UV màxim de ${uvMax}`,
-      tone: uvMax >= 8 ? 'bad' : 'warn',
-    });
+    notes.push(`L'índex UV arriba a ${uvMax} ${rangePhrase(uvRun[0].time, uvRun[uvRun.length - 1].time, today)}, `
+      + `dins la banda ${uvMax >= 8 ? 'molt alta' : 'alta'} de l’OMS.`);
   }
 
-  // ── Viento ──
-  const gusts = next24.map((h) => h.windGust).filter((v): v is number => v != null);
-  if (gusts.length) {
-    const gmax = msToKmh(Math.max(...gusts));
-    if (gmax >= 60) {
-      const at = next24.find((h) => h.windGust != null && msToKmh(h.windGust) >= gmax - 1);
-      out.push({
-        key: 'vent',
-        question: 'Farà vent?',
-        answer: `Ratxes de ${gmax.toFixed(0)} km/h`,
-        detail: at ? `màxim ${atPhrase(at.time, today)}` : undefined,
-        tone: gmax >= 90 ? 'bad' : 'warn',
-      });
+  // ── Viento ── 62 km/h es el inicio de la fuerza 8 de Beaufort: «vent dur».
+  const gustHour = next24.reduce<HourlyPoint | null>(
+    (a, b) => ((b.windGust ?? 0) > (a?.windGust ?? 0) ? b : a), null,
+  );
+  if (gustHour?.windGust != null && msToKmh(gustHour.windGust) >= 62) {
+    const kmh = msToKmh(gustHour.windGust);
+    notes.push(`Ratxes de fins a ${kmh.toFixed(0)} km/h ${atPhrase(gustHour.time, today)}, `
+      + `${kmh >= 89 ? 'força 10 de Beaufort' : 'força 8 de Beaufort'}.`);
+  }
+
+  /*
+   * ── Sensación térmica ──
+   *
+   * No hay umbral que citar, así que se dice el hecho y la causa. Pero la causa
+   * **hay que comprobarla**, no deducirla del signo: la sensación solo se separa
+   * de la temperatura por dos mecanismos, y cada uno tiene su rango.
+   *
+   * El índice de calor solo aplica por encima de 27 °C y el enfriamiento eólico
+   * por debajo de 10 °C — son los mismos límites que usa apparentTemperature() en
+   * variables.ts, y fuera de ellos la sensación *es* la temperatura.
+   *
+   * Sin esta comprobación, un desajuste de los datos escribía «la humitat fa que
+   * els 0 °C es notin com 14 °C», que es una frase imposible. Lo detectó el test
+   * con un perfil sintético mal formado, que es exactamente para lo que sirve.
+   */
+  const gaps = next24
+    .map((h) => (h.apparent != null && h.temperature != null
+      ? { h, gap: h.apparent - h.temperature, t: h.temperature } : null))
+    .filter((x): x is { h: HourlyPoint; gap: number; t: number } => x != null)
+    // Bochorno solo con calor; sensación de frío solo con frío o viento de verdad.
+    .filter((x) => (x.gap > 0 ? x.t >= 25 : x.t <= 12 || msToKmh(x.h.windSpeed ?? 0) >= 20));
+
+  if (gaps.length) {
+    const worst = gaps.reduce((a, b) => (Math.abs(b.gap) > Math.abs(a.gap) ? b : a));
+    if (Math.abs(worst.gap) >= 3) {
+      const cause = worst.gap > 0 ? 'La humitat' : 'El vent';
+      notes.push(`${cause} fa que els ${num(worst.t, 0)} °C `
+        + `${atPhrase(worst.h.time, today)} es notin com ${num(worst.h.apparent, 0)} °C.`);
     }
   }
 
-  // ── Tender la ropa ──
-  // Cuatro horas seguidas de día, sin lluvia y con el aire no saturado. La
-  // humedad importa tanto como la lluvia: a 90 % de humedad la ropa no seca
-  // aunque no caiga una gota, y eso lo sabe cualquiera que la haya tendido.
-  const dryRun = longestRun(
-    next24,
-    (h) => h.isDay
-      && (h.precipitation ?? 0) < 0.1
-      && (h.precipProbability ?? 0) < 30
-      && (h.humidity ?? 100) <= 75,
-  );
-  if (dryRun.length >= 4) {
-    out.push({
-      key: 'roba',
-      question: 'Es pot estendre la roba?',
-      answer: `Sí, ${rangePhrase(dryRun[0].time, dryRun[dryRun.length - 1].time, today)}`,
-      detail: `${dryRun.length} h seguides sense pluja i amb l'aire sec`,
-      tone: 'good',
-    });
-  }
-
-  // ── Mejor momento para salir ──
-  const best = bestOutdoorHour(next24);
-  if (best) {
-    out.push({
-      key: 'sortir',
-      question: 'Millor moment per sortir?',
-      answer: atPhrase(best.time, today).replace(/^./, (c) => c.toUpperCase()),
-      detail: [
-        best.temperature != null ? `${num(best.temperature, 0)} °C` : null,
-        best.windSpeed != null ? `vent de ${msToKmh(best.windSpeed).toFixed(0)} km/h` : null,
-        best.uvIndex != null && best.uvIndex > 0 ? `UV ${best.uvIndex}` : null,
-      ].filter(Boolean).join(' · '),
-      tone: 'info',
-    });
-  }
-
-  return out.slice(0, 5);
+  return notes;
 }
 
 /** La racha más larga que cumple una condición. */
@@ -431,31 +483,6 @@ function longestRun(data: HourlyPoint[], ok: (h: HourlyPoint) => boolean): Hourl
   return best;
 }
 
-/**
- * La hora más cómoda para estar fuera, entre las de luz.
- *
- * El óptimo se ancla en 18 °C de sensación térmica, que es donde la mayoría de
- * la gente no busca sombra ni abrigo. Penaliza lluvia, ultravioleta y viento con
- * pesos distintos a propósito: la lluvia descarta la hora, el UV la empeora y el
- * viento molesta pero no impide.
- */
-function bestOutdoorHour(data: HourlyPoint[]): HourlyPoint | null {
-  const daylight = data.filter((h) => h.isDay && h.temperature != null);
-  if (daylight.length < 3) return null;
-
-  const score = (h: HourlyPoint): number => {
-    const t = h.apparent ?? h.temperature ?? 18;
-    let s = Math.abs(t - 18) * 1.0;
-    s += (h.precipitation ?? 0) >= 0.1 ? 40 : 0;
-    s += (h.precipProbability ?? 0) / 10;
-    s += Math.max(0, (h.uvIndex ?? 0) - 5) * 1.5;
-    s += Math.max(0, msToKmh(h.windSpeed ?? 0) - 25) * 0.2;
-    return s;
-  };
-
-  return daylight.reduce((a, b) => (score(b) < score(a) ? b : a));
-}
-
 // ── El titular ──────────────────────────────────────────────────────────────
 
 export interface Narrative {
@@ -470,7 +497,8 @@ export interface Narrative {
   /** Hasta dónde coinciden los modelos, en palabras. */
   uncertainty: string | null;
   parts: DayPart[];
-  advice: Advice[];
+  /** Lo que hay que tener en cuenta, en prosa y solo con umbrales citables. */
+  notes: string[];
   windows: RainWindow[];
 }
 
@@ -622,20 +650,11 @@ export function narrativeFor(
     : 'Avui no hi ha prou dades per resumir el dia.';
 
   // ── Frase 2: lo que condiciona el día ──
-  let change: string | null = null;
-  if (windows.length === 1) {
-    const w = windows[0];
-    change = w.mm >= 0.1
-      ? `La pluja ${startStopPhrase(w, today)}, amb ${num(w.mm, 1)} mm previstos.`
-      : `Ruixats possibles ${windowPhrase(w, today)} — ${w.prob} % de probabilitat, sense gaire acumulació.`;
-  } else if (windows.length > 1) {
-    const total = Math.round(windows.reduce((s, w) => s + w.mm, 0) * 10) / 10;
-    change = `Ruixats intermitents: ${windows.map((w) => windowPhrase(w, today)).join(' i ')}`
-      + (total >= 0.1 ? `, ${num(total, 1)} mm en total.` : '.');
-  } else if (d0.gustMax != null && msToKmh(d0.gustMax) >= 60) {
-    change = `El que marca el dia és el vent: ratxes de fins a ${msToKmh(d0.gustMax).toFixed(0)} km/h.`;
-  } else if (d0.snowLevel != null) {
+  let change: string | null = rainSentence(windows, today);
+  if (!change && d0.snowLevel != null) {
     change = `Nevarà per damunt dels ${d0.snowLevel} m.`;
+  } else if (!change && d0.gustMax != null && msToKmh(d0.gustMax) >= 62) {
+    change = `El que marca el dia és el vent: ratxes de fins a ${msToKmh(d0.gustMax).toFixed(0)} km/h.`;
   }
 
   // ── Frase 3: mañana ──
@@ -659,10 +678,7 @@ export function narrativeFor(
     vsYesterday: yesterdayPhrase(current, max.value),
     uncertainty: uncertaintyPhrase(forecast, today),
     parts,
-    advice: adviceFor(forecast.hourly, nowHour, today, windows),
+    notes: dayNotes(forecast.hourly, nowHour, today),
     windows,
   };
 }
-
-/** Reexportado para que los componentes no tengan que importar de dos sitios. */
-export { hour as hourLabel };

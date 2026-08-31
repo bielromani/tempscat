@@ -2,7 +2,7 @@ import { WeatherIcon } from './WeatherIcon';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh } from '@/lib/variables';
 import { hour, num, tempTiny } from '@/lib/format';
-import type { Advice, AdviceTone, DayPart, Narrative } from '@/lib/narrative';
+import type { DayPart, Narrative } from '@/lib/narrative';
 
 /**
  * El titular: la interpretación de los datos, en catalán.
@@ -12,29 +12,32 @@ import type { Advice, AdviceTone, DayPart, Narrative } from '@/lib/narrative';
  * meteograma de 48 horas, y ahí se perdía a quien solo quería saber si hoy
  * llovería.
  *
- * Tres bloques, de más general a más concreto:
+ * ## Por qué no hay tarjetas de preguntas frecuentes
  *
- *  1. **Las frases.** Hoy, lo que condiciona el día, mañana, y cómo va respecto
- *     de ayer. Texto de verdad, no números metidos en cajas: es lo que la gente
- *     repite y lo que puede acabar en un fragmento destacado de Google.
- *  2. **Las franjas.** Cuatro cifras en lugar de veinticuatro.
- *  3. **Las preguntas.** Paraigua, glaçada, protecció solar. Solo las que
- *     aplican — un bloque que dice «no cal paraigua» los 300 días que no llueve
- *     deja de leerse.
+ * La primera versión llevaba una rejilla de «cal paraigua?», «es pot estendre la
+ * roba?», «millor moment per sortir?». Se quitó, y no por gusto:
+ *
+ *  · **Mitad de las preguntas no tenían umbral.** Tender la ropa se puede hacer a
+ *    otra hora y no pasa nada, y el «mejor momento para salir» salía de una
+ *    puntuación de comodidad con pesos que nos habíamos inventado. Este sitio no
+ *    publica números que nadie pueda discutir.
+ *  · **La otra mitad estaba duplicada.** El índice UV y la racha ya salen en las
+ *    tarjetas de franja, y allí además están situados en el tiempo.
+ *  · **El formato tampoco era el del sitio.** Aquí la información va en prosa o
+ *    en tarjetas de datos con etiqueta en versalitas; una rejilla de tarjetas de
+ *    pregunta y respuesta con un filete de color es un idioma distinto, y que
+ *    dos partes de la misma página hablen distinto se nota antes que cualquier
+ *    argumento.
+ *
+ * Lo que queda son tres cosas, en el orden en que se leen: la frase, la tira de
+ * franjas, y lo que hay que tener en cuenta — solo con umbrales citables.
  */
-
-const TONE: Record<AdviceTone, string> = {
-  good: 'var(--good)',
-  info: 'var(--accent)',
-  warn: 'var(--warn)',
-  bad: 'var(--bad)',
-};
 
 function PartCard({ part }: { part: DayPart }) {
   const gust = part.gustMax != null ? msToKmh(part.gustMax) : null;
 
   return (
-    <li className="w-[128px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] p-2.5">
+    <li className="w-[136px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] p-2.5">
       <p className="truncate text-xs font-semibold text-[var(--ink-2)]" title={part.label}>
         {part.label}
       </p>
@@ -84,28 +87,12 @@ function PartCard({ part }: { part: DayPart }) {
   );
 }
 
-function AdviceCard({ a }: { a: Advice }) {
-  return (
-    <li
-      className="rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2.5"
-      // El tono va en un filete lateral, no en el fondo. El color de fondo ya
-      // está reservado para codificar temperatura y calidad del aire, y usarlo
-      // aquí para "esto es un consejo" haría competir dos significados.
-      style={{ borderLeft: `3px solid ${TONE[a.tone]}` }}
-    >
-      <p className="text-xs text-[var(--muted)]">{a.question}</p>
-      <p className="mt-0.5 font-medium text-[var(--ink)]">{a.answer}</p>
-      {a.detail && <p className="mt-0.5 text-xs text-[var(--muted)]">{a.detail}</p>}
-    </li>
-  );
-}
-
 export function Headline({ narrative }: { narrative: Narrative }) {
-  const { today, change, tomorrow, vsYesterday, parts, advice } = narrative;
+  const { today, change, tomorrow, vsYesterday, parts, notes } = narrative;
 
   return (
     <section className="mt-5">
-      <div className="max-w-[62ch]">
+      <div className="max-w-[64ch]">
         <p className="text-lg leading-snug text-[var(--ink)]">
           {today}
           {change && <span className="font-medium"> {change}</span>}
@@ -125,10 +112,12 @@ export function Headline({ narrative }: { narrative: Narrative }) {
         </div>
       )}
 
-      {advice.length > 0 && (
-        <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {advice.map((a) => <AdviceCard key={a.key} a={a} />)}
-        </ul>
+      {/* Las advertencias van después de la tira, no antes: primero la respuesta
+          y el panorama, luego los matices. Y en prosa, como el resto del sitio. */}
+      {notes.length > 0 && (
+        <p className="mt-3 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
+          {notes.join(' ')}
+        </p>
       )}
     </section>
   );
