@@ -17,6 +17,7 @@ const LABELS: Record<string, string> = {
   'xema-history': 'Rècords i normals (XEMA)',
   'air-quality': 'Qualitat de l’aire i pol·len (CAMS)',
   'radar': 'Radar de precipitació (RainViewer)',
+  'water': 'Embassaments, cabals i sequera (ACA)',
 };
 
 function age(minutes: number | null): string {

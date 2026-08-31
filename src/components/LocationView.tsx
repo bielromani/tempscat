@@ -8,6 +8,7 @@ import { ClimateBlock } from './ClimateBlock';
 import { AirQuality } from './AirQuality';
 import { ComarcaCompare } from './ComarcaCompare';
 import { Headline } from './Headline';
+import { WaterBlock } from './WaterBlock';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
@@ -21,6 +22,7 @@ import type {
 } from '@/lib/weather';
 import type { ComarcaComparison } from '@/lib/comparison';
 import type { Narrative } from '@/lib/narrative';
+import type { WaterNearby } from '@/lib/water';
 import type { Comarca, Location } from '@/lib/territory';
 
 /**
@@ -292,12 +294,14 @@ interface Props {
   comparison: ComarcaComparison | null;
   /** El titular en catalán, las franjas del día y las respuestas de decisión. */
   narrative: Narrative | null;
+  /** Embalse, aforo y estado de sequía cercanos. Null cuando no hay nada que decir. */
+  water: WaterNearby | null;
 }
 
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
-  air, comparison, narrative,
+  air, comparison, narrative, water,
 }: Props) {
   /*
    * La hora en curso dentro de la serie, para completar el bloque actual con las
@@ -389,10 +393,17 @@ export function LocationView({
         </section>
       )}
 
+      {water && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Aigua</h2>
+          <WaterBlock water={water} nom={loc.nom} />
+        </section>
+      )}
+
       {comparison && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">
-            Com queda dins de {comparison.comarca.nom}
+            Com queda dins {deName(comparison.comarca.nom)}
           </h2>
           <ComarcaCompare cmp={comparison} nom={loc.nom} />
         </section>

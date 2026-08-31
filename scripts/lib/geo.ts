@@ -88,3 +88,66 @@ export function centroid(points: Array<{ lat: number; lon: number }>): { lat: nu
     lon: points.reduce((s, p) => s + p.lon, 0) / n,
   };
 }
+
+/**
+ * UTM 31N (ETRS89, EPSG:25831) a coordenadas geográficas.
+ *
+ * Hace falta porque los datasets de agua de la ACA —embalses y aforos— dan la
+ * posición en UTM y no en grados, y sin convertirla no se puede decir qué río
+ * pasa cerca de un pueblo.
+ *
+ * Es la serie inversa de Kruger sobre el elipsoide GRS80, que es el de ETRS89.
+ * No hace falta ninguna dependencia: son treinta líneas y el error frente a
+ * proj4 se queda por debajo del metro en todo el ámbito catalán, que para situar
+ * un aforo en un mapa sobra.
+ *
+ * Ojo con confundir ETRS89 y WGS84: en Europa difieren ya unos 80 cm por la
+ * deriva de la placa, y aquí se tratan como el mismo sistema **a propósito**,
+ * porque 80 cm no cambian a qué municipio pertenece un embalse.
+ */
+export function utm31ToLatLon(easting: number, northing: number): { lat: number; lon: number } {
+  const a = 6378137.0;              // semieje mayor GRS80
+  const f = 1 / 298.257222101;      // achatamiento GRS80
+  const k0 = 0.9996;                // factor de escala UTM
+  const lon0 = (31 * 6 - 183) * Math.PI / 180;   // meridiano central del huso 31
+
+  const e2 = f * (2 - f);
+  const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+
+  const x = easting - 500_000;      // falso este
+  const y = northing;               // hemisferio norte: sin falso norte
+
+  const m = y / k0;
+  const mu = m / (a * (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * e2 ** 3 / 256));
+
+  const phi1 = mu
+    + (3 * e1 / 2 - 27 * e1 ** 3 / 32) * Math.sin(2 * mu)
+    + (21 * e1 * e1 / 16 - 55 * e1 ** 4 / 32) * Math.sin(4 * mu)
+    + (151 * e1 ** 3 / 96) * Math.sin(6 * mu)
+    + (1097 * e1 ** 4 / 512) * Math.sin(8 * mu);
+
+  const sinPhi1 = Math.sin(phi1);
+  const cosPhi1 = Math.cos(phi1);
+  const tanPhi1 = Math.tan(phi1);
+
+  const ep2 = e2 / (1 - e2);
+  const c1 = ep2 * cosPhi1 ** 2;
+  const t1 = tanPhi1 ** 2;
+  const n1 = a / Math.sqrt(1 - e2 * sinPhi1 ** 2);
+  const r1 = a * (1 - e2) / (1 - e2 * sinPhi1 ** 2) ** 1.5;
+  const d = x / (n1 * k0);
+
+  const lat = phi1 - (n1 * tanPhi1 / r1) * (
+    d * d / 2
+    - (5 + 3 * t1 + 10 * c1 - 4 * c1 * c1 - 9 * ep2) * d ** 4 / 24
+    + (61 + 90 * t1 + 298 * c1 + 45 * t1 * t1 - 252 * ep2 - 3 * c1 * c1) * d ** 6 / 720
+  );
+
+  const lon = lon0 + (
+    d
+    - (1 + 2 * t1 + c1) * d ** 3 / 6
+    + (5 - 2 * c1 + 28 * t1 - 3 * c1 * c1 + 8 * ep2 + 24 * t1 * t1) * d ** 5 / 120
+  ) / cosPhi1;
+
+  return { lat: lat * 180 / Math.PI, lon: lon * 180 / Math.PI };
+}

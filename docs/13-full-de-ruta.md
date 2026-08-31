@@ -156,24 +156,50 @@ refresco pequeño y vigilar el 429.
 Con esto entra gratis el bloque de **condiciones náuticas**: oleaje, período y
 viento son las tres cifras que decide un surfista o un patrón.
 
-### 5. Sequía y embalses · datos por municipio
+### 5. Agua: embalses, aforos y sequía · ✅ hecho
 
-Tres datasets verificados y frescos hoy mismo:
+`/aigua` con los nueve embalses de las conques internes —porcentaje de volumen,
+tendencia a 30 días y volumen en hm³—, los 73 aforos con caudal agrupados por
+cuenca, y el estado de sequía. Más un bloque en cada ficha con el embalse y el
+aforo más cercanos dentro de 25 km.
 
-- **`i5n8-43cw`** — estado de sequía por unidad de explotación **y por
-  municipio**, con `codi_municipi`. Se une con `municipiIne5` de nuestras
-  ubicaciones cortando los seis dígitos a cinco. Va directamente en la ficha: en
-  Catalunya el estado de sequía es información de primera necesidad y hoy hay que
-  buscarla en un PDF.
-- **`vjx7-6kcp`** — nivel de los embalses, en tiempo casi real.
-- **`3yr3-vq6y`** — **caudal de los ríos en tiempo real**, con coordenadas UTM.
+**El orden previsto era el equivocado y se cambió al mirar los datos.** La
+sequía iba primero en esta lista; los embalses eran el acompañamiento. Es al
+revés:
 
-Un detalle a resolver: las coordenadas vienen en **UTM 31N**, no en grados. Hace
-falta un conversor a WGS84 en `scripts/lib/geo.ts`; son unas cuarenta líneas de
-fórmula estándar y ninguna dependencia.
+- **El registro de sequía no es un dato en vivo.** `i5n8-43cw` anota *cambios de
+  estado*: 8.677 filas para 630 municipios, y la más reciente es del 16 de mayo
+  de 2025. Hoy 628 de esos 630 están en NORMALITAT. No está roto —la sequía se
+  acabó y no ha habido decretos nuevos— pero **no se puede distinguir «no ha
+  cambiado» de «han dejado de publicarlo»**, así que el estado no se muestra
+  jamás sin la fecha del último cambio al lado. Y en la ficha solo aparece cuando
+  **no** es normalidad: una línea idéntica en 628 páginas deja de leerse.
+- **Los embalses sí son de hoy** y traen el porcentaje de volumen, que es la
+  cifra que la gente busca. «Com està el pantà de Sau» tiene respuesta y es 72,6 %.
 
-El caudal en tiempo real es además la base honesta de un aviso propio de riesgo
-de crecida — ver el punto 9.
+Lo que cubre y lo que no: solo las **conques internes**. El Segre y el Ebro son
+de la Confederación Hidrográfica del Ebro, así que Rialb, Oliana, Mequinensa y
+Riba-roja no están. La página lo dice arriba en vez de dejar el hueco.
+
+Notas de implementación que ahorran tiempo:
+
+- Las coordenadas vienen en **UTM 31N** y hay un conversor propio en
+  `scripts/lib/geo.ts`, treinta líneas y ninguna dependencia. **Verificado con
+  los propios datos**: cada embalse cae dentro del municipio que lleva en su
+  nombre —Sau en Vilanova de Sau, Susqueda en Osor— y 80 de 81 aforos caen dentro
+  de algún municipio. Un error de huso o de elipsoide no da excepción: mueve los
+  puntos unos kilómetros y solo se ve en un mapa, así que la comprobación se
+  quedó dentro del worker.
+- Las consultas van **filtradas por día**. Son datasets de 12 y 45 millones de
+  filas y un `$group` sin filtro de fecha tarda minutos — la misma lección que ya
+  costó tiempo con la XEMA.
+- El nivel del embalse **no lleva semáforo**. No hay ningún umbral oficial que
+  diga a partir de qué porcentaje un embalse está mal: depende del embalse, de la
+  época y de para qué sirve. Tres bandas de colores serían una norma inventada,
+  así que va un degradado continuo.
+
+El caudal en tiempo real queda como base honesta de un aviso propio de riesgo de
+crecida — ver el punto 9.
 
 ### 6. Nieve **medida** en el Pirineo · hallazgo nuevo
 

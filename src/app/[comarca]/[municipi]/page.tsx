@@ -11,6 +11,7 @@ import {
   localNowHour, localToday, warningsFor,
 } from '@/lib/weather';
 import { comarcaComparison } from '@/lib/comparison';
+import { waterNear } from '@/lib/water';
 import { aName } from '@/lib/format';
 import { narrativeFor } from '@/lib/narrative';
 
@@ -93,6 +94,7 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         air={airQualityFor(loc)}
         comparison={comarcaComparison(loc)}
         narrative={narrativeFor(forecast, current, localNowHour(), localToday())}
+        water={waterNear(loc)}
         siblings={entitats}
         siblingsLabel={`Nuclis i entitats de ${loc.nom}`}
         neighbours={adjacent}

@@ -32,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/radar" className="no-underline hover:text-[var(--ink)]">Radar</Link>
               <Link href="/ranquings" className="no-underline hover:text-[var(--ink)]">Rànquings</Link>
               <Link href="/estacions" className="no-underline hover:text-[var(--ink)]">Estacions</Link>
+              <Link href="/aigua" className="no-underline hover:text-[var(--ink)]">Aigua</Link>
               <Link href="/dades" className="no-underline hover:text-[var(--ink)]">Dades obertes</Link>
               <Link href="/estat" className="no-underline hover:text-[var(--ink)]">Estat de les dades</Link>
             </nav>
@@ -52,6 +53,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <p>
               Predicció: <strong className="font-medium text-[var(--ink-2)]">Open-Meteo</strong> (CC-BY 4.0) ·
               models AROME, HARMONIE i ECMWF. Altituds del model digital Copernicus GLO-90.
+            </p>
+            <p>
+              Embassaments, cabals i sequera: <strong className="font-medium text-[var(--ink-2)]">Agència Catalana de l&apos;Aigua</strong>.
             </p>
             <p>
               Qualitat de l&apos;aire i pol·len: <strong className="font-medium text-[var(--ink-2)]">CAMS Europa</strong>,

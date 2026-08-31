@@ -1,0 +1,199 @@
+import 'server-only';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Location } from './territory';
+
+/**
+ * Embalses, aforos de río y estado de sequía.
+ *
+ * Todo sale de la Agència Catalana de l'Aigua y todo cubre **solo las conques
+ * internes**. El Segre y el Ebro son de la Confederación Hidrográfica del Ebro y
+ * no están: un lector de Lleida no verá su embalse, y la página lo dice en vez
+ * de dejar el hueco sin explicar.
+ */
+
+const CACHE = join(process.cwd(), 'data', 'cache');
+
+export interface Reservoir {
+  code: string;
+  name: string;
+  basin: string;
+  lat: number;
+  lon: number;
+  pct: number | null;
+  volumeHm3: number | null;
+  levelM: number | null;
+  pct30d: number | null;
+  at: string;
+}
+
+export interface RiverGauge {
+  code: string;
+  name: string;
+  basin: string;
+  subbasin: string;
+  lat: number;
+  lon: number;
+  flow: number | null;
+  levelM: number | null;
+  at: string;
+}
+
+export interface DroughtEntry {
+  unit: string;
+  hydro: string;
+  rain: string;
+  since: string;
+}
+
+interface WaterData {
+  reservoirs: Reservoir[];
+  rivers: RiverGauge[];
+  drought: {
+    byMunicipality: Record<string, DroughtEntry>;
+    lastChange: string | null;
+    counts: Record<string, number>;
+  };
+}
+
+interface Snap { fetchedAt: string; dataTs: string | null; source: string; data: WaterData }
+
+let memo: { mtimeMs: number; checkedAt: number; snap: Snap } | null = null;
+const STAT_TTL_MS = 1_000;
+
+function snapshot(): Snap | null {
+  if (memo && Date.now() - memo.checkedAt < STAT_TTL_MS) return memo.snap;
+  const p = join(CACHE, 'water.json');
+  if (!existsSync(p)) return null;
+  try {
+    const { mtimeMs } = statSync(p);
+    if (memo && memo.mtimeMs === mtimeMs) {
+      memo.checkedAt = Date.now();
+      return memo.snap;
+    }
+    const snap = JSON.parse(readFileSync(p, 'utf8')) as Snap;
+    memo = { mtimeMs, checkedAt: Date.now(), snap };
+    return snap;
+  } catch {
+    return null;
+  }
+}
+
+export function reservoirs(): { list: Reservoir[]; source: string; at: string | null } | null {
+  const snap = snapshot();
+  return snap ? { list: snap.data.reservoirs, source: snap.source, at: snap.dataTs } : null;
+}
+
+export function riverGauges(): RiverGauge[] {
+  return snapshot()?.data.rivers ?? [];
+}
+
+export function droughtSummary(): WaterData['drought'] | null {
+  return snapshot()?.data.drought ?? null;
+}
+
+/** Distancia en km entre dos puntos. Copia local para no arrastrar el pipeline. */
+function distKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const R = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLon = ((bLon - aLon) * Math.PI) / 180;
+  const s = Math.sin(dLat / 2) ** 2
+    + Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/**
+ * Distancia máxima a la que un aforo o un embalse dice algo del sitio.
+ *
+ * Veinticinco kilómetros. Más allá, el caudal es de otra cuenca o de otro tramo
+ * y presentarlo como «el riu que tens a prop» es afirmar algo que no se sostiene
+ * — el mismo criterio que separa `adjacent` de `nearest` en el territorio.
+ */
+const MAX_KM = 25;
+
+export interface WaterNearby {
+  reservoir: (Reservoir & { distKm: number }) | null;
+  river: (RiverGauge & { distKm: number }) | null;
+  drought: DroughtEntry | null;
+  /** El registro de sequía solo cubre las conques internes. */
+  droughtCovered: boolean;
+  lastChange: string | null;
+  source: string;
+}
+
+/**
+ * El agua cerca de una ubicación.
+ *
+ * Devuelve null cuando no hay nada que decir: sin aforo cerca, sin embalse cerca
+ * y con el estado de sequía en normalidad, un bloque de agua sería una caja vacía
+ * con un título.
+ */
+export function waterNear(loc: Location): WaterNearby | null {
+  const snap = snapshot();
+  if (!snap || loc.lat == null || loc.lon == null) return null;
+
+  const nearest = <T extends { lat: number; lon: number }>(list: T[]) => {
+    let best: (T & { distKm: number }) | null = null;
+    for (const x of list) {
+      const d = distKm(loc.lat!, loc.lon!, x.lat, x.lon);
+      if (d <= MAX_KM && (!best || d < best.distKm)) best = { ...x, distKm: Math.round(d * 10) / 10 };
+    }
+    return best;
+  };
+
+  const ine5 = loc.municipiIne5 ?? '';
+  const drought = snap.data.drought.byMunicipality[ine5] ?? null;
+
+  // El aforo más cercano, pero solo si tiene caudal: uno que solo publica el
+  // nivel del agua en metros no le dice nada a nadie sin la escala del tramo.
+  const river = nearest(snap.data.rivers.filter((r) => r.flow != null));
+  const reservoir = nearest(snap.data.reservoirs);
+
+  const abnormal = drought != null && drought.hydro !== 'NORMALITAT';
+  if (!river && !reservoir && !abnormal) return null;
+
+  return {
+    reservoir,
+    river,
+    // El estado normal no se muestra en la ficha: 628 de 630 municipios lo tienen
+    // y una línea idéntica en todas las páginas deja de leerse. Cuando cambia, se
+    // ve — que es justo cuando importa.
+    drought: abnormal ? drought : null,
+    droughtCovered: drought != null,
+    lastChange: snap.data.drought.lastChange,
+    source: snap.source,
+  };
+}
+
+/** Colores del semáforo oficial de sequía de la Generalitat. */
+export const DROUGHT_LEVELS: Record<string, { label: string; color: string; ink: string }> = {
+  NORMALITAT: { label: 'Normalitat', color: 'var(--good)', ink: 'oklch(98% 0.01 155)' },
+  PREALERTA: { label: 'Prealerta', color: 'var(--cap-yellow)', ink: 'oklch(22% 0.04 95)' },
+  ALERTA: { label: 'Alerta', color: 'var(--cap-orange)', ink: 'oklch(20% 0.04 55)' },
+  EXCEPCIONALITAT: { label: 'Excepcionalitat', color: 'var(--cap-red)', ink: 'oklch(98% 0.01 27)' },
+  'PREEMERGÈNCIA': { label: 'Preemergència', color: 'oklch(45% 0.18 20)', ink: 'oklch(98% 0.01 20)' },
+  'EMERGÈNCIA': { label: 'Emergència', color: 'oklch(38% 0.16 15)', ink: 'oklch(98% 0.01 15)' },
+  'EMERGÈNCIA I': { label: 'Emergència I', color: 'oklch(38% 0.16 15)', ink: 'oklch(98% 0.01 15)' },
+  'EMERGÈNCIA II': { label: 'Emergència II', color: 'oklch(32% 0.15 12)', ink: 'oklch(98% 0.01 12)' },
+};
+
+export function droughtLevel(state: string) {
+  return DROUGHT_LEVELS[state] ?? { label: state, color: 'var(--muted)', ink: 'var(--paper)' };
+}
+
+/**
+ * Color del nivel de un embalse.
+ *
+ * Escala propia y continua, no un semáforo: no hay ningún umbral oficial que
+ * diga a partir de qué porcentaje un embalse está «mal». Depende del embalse, de
+ * la época del año y de para qué sirve, así que poner tres bandas de colores
+ * sería inventarse una norma. Un degradado dice «más o menos lleno» sin fingir
+ * que existe una línea roja.
+ */
+export function reservoirColor(pct: number): string {
+  const k = Math.max(0, Math.min(1, pct / 100));
+  const l = 55 + k * 12;
+  const c = 0.05 + k * 0.09;
+  const hue = 40 + k * 200;   // ocre seco → azul lleno
+  return `oklch(${l.toFixed(0)}% ${c.toFixed(3)} ${hue.toFixed(0)})`;
+}

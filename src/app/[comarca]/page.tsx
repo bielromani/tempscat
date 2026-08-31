@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { allComarques, comarcaBySlug, municipisOfComarca } from '@/lib/territory';
 import { currentFor } from '@/lib/weather';
+import { deName } from '@/lib/format';
 
 /** Página de comarca: 43 rutas, todas prerenderizadas. */
 export const dynamicParams = false;
@@ -89,7 +90,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
       )}
 
       <h2 className="mb-3 text-lg font-semibold tracking-tight">
-        Municipis de {c.nom}
+        Municipis {deName(c.nom)}
       </h2>
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {rows.map(({ m, current }) => {
