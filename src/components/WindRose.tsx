@@ -174,7 +174,10 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
         </ul>
         <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
           Cada dia compta una vegada, per la direcció de la seva ratxa màxima, sobre{' '}
-          {int(rose.days)} dies de sèrie. El radi va amb l&apos;arrel quadrada de la
+          {int(rose.days)} dies de sèrie, mesurats{' '}
+          <strong className="font-medium text-[var(--ink-2)]">a {rose.heightM} m</strong>
+          {rose.heightM < 10 && ' — les estacions de muntanya mesuren més baix, '
+            + 'perquè a 10 m el pal no aguanta el gel, i allà el vent es mesura més fluix'}. El radi va amb l&apos;arrel quadrada de la
           freqüència, perquè l&apos;ull compara àrees i no radis. I això diu d&apos;on
           ve el vent fort, no la freqüència de les brises fluixes: la marinada de
           cada tarda d&apos;estiu hi surt poc perquè poques vegades és la ratxa del dia.

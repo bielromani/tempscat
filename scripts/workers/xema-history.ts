@@ -45,8 +45,23 @@ const V = {
   precip: '1300',
   precipMax1h: '1303',
   solar: '1400',
+  /*
+   * Racha máxima diaria y su dirección, en las **tres alturas** de la XEMA.
+   *
+   * Es la misma historia que con los códigos semihorarios de `variables.ts`, y
+   * cayó en la misma trampa: las estaciones de alta montaña y las de
+   * emplazamiento difícil miden el viento a 6 o a 2 m, porque a 10 m el mástil no
+   * aguanta el hielo. Pidiendo solo la de 10 m, 87 de 189 estaciones se quedaron
+   * sin rosa de los vientos — incluidas algunas con cuatro mil días de serie.
+   *
+   * El orden es de preferencia: 10 m, luego 6, luego 2.
+   */
   gust: '1512',
+  gust6: '1513',
+  gust2: '1514',
   gustDir: '1515',
+  gustDir6: '1516',
+  gustDir2: '1517',
   et0: '1700',
 } as const;
 
@@ -95,6 +110,15 @@ export interface WindRose {
   /** Días con dirección y racha en la misma fecha. */
   days: number;
   prevailing: { label: string; share: number } | null;
+  /**
+   * Altura del anemómetro, en metros.
+   *
+   * Se publica porque cambia las cifras: a 2 m el viento es sensiblemente más
+   * flojo que a 10 m, y comparar la racha media de una estación de alta montaña
+   * medida a 2 m con una de llano medida a 10 sin decirlo es comparar dos cosas
+   * distintas.
+   */
+  heightM: number;
 }
 
 export interface StationHistory {
@@ -139,15 +163,30 @@ const r1 = (v: number | null) => (v == null ? null : Math.round(v * 10) / 10);
 const ALL_VARS = Object.values(V);
 
 /**
- * Variables que se descargan de toda la serie histórica. Solo estas seis: con
- * las trece, una estación de 1988 pasa de 40.000 registros a más de 100.000 y
- * la descarga deja de compensar.
+ * Variables que se descargan de toda la serie histórica.
  *
- * La dirección de la racha (1515) entra porque la rosa de los vientos la
- * necesita de toda la serie, y añadir una variable a una consulta que ya se hace
- * cuesta un 20 % más de filas; pedirla aparte costaría otra consulta por estación.
+ * No las treinta: con todas, una estación de 1988 pasa de 40.000 registros a más
+ * de 100.000 y la descarga deja de compensar. Estas diez son las cuatro de los
+ * récords más las tres parejas de racha y dirección, que la rosa necesita de toda
+ * la serie. Pedirlas aparte costaría otra consulta por estación.
  */
-const RECORD_VARS = [V.tMean, V.tMax, V.tMin, V.precip, V.gust, V.gustDir];
+const RECORD_VARS = [
+  V.tMean, V.tMax, V.tMin, V.precip,
+  V.gust, V.gust6, V.gust2,
+  V.gustDir, V.gustDir6, V.gustDir2,
+];
+
+/**
+ * Alturas de medida del viento, en orden de preferencia.
+ *
+ * Cada estación mide a una sola, así que en la práctica las tres parejas no
+ * inflan la descarga: solo aparecen las filas de la altura que esa estación usa.
+ */
+const WIND_HEIGHTS = [
+  { m: 10, gust: V.gust, dir: V.gustDir },
+  { m: 6, gust: V.gust6, dir: V.gustDir6 },
+  { m: 2, gust: V.gust2, dir: V.gustDir2 },
+] as const;
 
 /** Serie diaria: una sola consulta trae todas las variables de todos los días. */
 async function dailySeries(station: string, fromDay: string): Promise<DailyRecord[]> {
@@ -265,12 +304,23 @@ function count(daily: DailyRecord[], from: string, pred: (d: DailyRecord) => boo
 function roseOf(
   series: Array<{ day: string; variable: string; value: number }>,
 ): WindRose | null {
-  const dirByDay = new Map<string, number>();
-  const gustByDay = new Map<string, number>();
+  // La altura con más días de dirección gana. No se mezclan: una rosa que junta
+  // rachas de 10 m y de 2 m tiene dos escalas dentro y ninguna forma de decirlo.
+  const byHeight = WIND_HEIGHTS.map((h) => ({
+    ...h,
+    dirByDay: new Map<string, number>(),
+    gustByDay: new Map<string, number>(),
+  }));
+
   for (const r of series) {
-    if (r.variable === V.gustDir) dirByDay.set(r.day, r.value);
-    else if (r.variable === V.gust) gustByDay.set(r.day, r.value);
+    for (const h of byHeight) {
+      if (r.variable === h.dir) h.dirByDay.set(r.day, r.value);
+      else if (r.variable === h.gust) h.gustByDay.set(r.day, r.value);
+    }
   }
+
+  const chosen = byHeight.reduce((a, b) => (b.dirByDay.size > a.dirByDay.size ? b : a));
+  const { dirByDay, gustByDay } = chosen;
   if (dirByDay.size < 90) return null;   // menos de tres meses no es una rosa
 
   const sectors = Array.from({ length: 16 }, (_, i) => ({
@@ -315,6 +365,7 @@ function roseOf(
     sectors: out,
     days: total,
     prevailing: top.share > 0 ? { label: top.label, share: top.share } : null,
+    heightM: chosen.m,
   };
 }
 

@@ -93,8 +93,24 @@ un día entero cancela el ciclo diurno: en el litoral, marinada de tarde y terra
 de madrugada se anulan y la media apunta a un sector donde casi nunca sopla.
 
 Sale gratis en consultas: la dirección entra como una variable más en la consulta
-de serie completa que el worker ya hacía. 102 de las 189 estaciones tienen rosa;
-el resto no mide viento o no llega a tres meses de datos.
+de serie completa que el worker ya hacía.
+
+Y hay que pedirla **en las tres alturas**, no solo a 10 m. Es la misma trampa que
+`variables.ts` ya documentaba para los códigos semihorarios: las estaciones de
+alta montaña y las de emplazamiento difícil miden a 6 o a 2 m, porque a 10 m el
+mástil no aguanta el hielo. Pidiendo solo la de 10 m, **87 de 189 estaciones se
+quedaban sin rosa**, algunas con cuatro mil días de serie. Con la cascada
+10 → 6 → 2 son 166: cien miden a 10 m, quince a 6 y **cincuenta y una a 2**.
+
+La altura elegida se publica en la propia rosa, porque cambia las cifras: a 2 m el
+viento se mide sensiblemente más flojo, y comparar la racha media de una estación
+de montaña con una de llano sin decirlo es comparar dos cosas distintas. Las tres
+alturas no se mezclan nunca en la misma rosa: gana la que tenga más días.
+
+La rosa se muestra **también en el bloque de clima de cada ficha**, no solo en
+`/estacions`. Es una decisión de alcance: allí la ven 189 páginas y aquí 4.293, el
+dato es el mismo —es de la estación de referencia— y esa sección ya va toda
+atribuida a ella.
 
 Dos detalles de dibujo que cambian la lectura:
 
@@ -239,6 +255,16 @@ push de verdad está en la fase 4, y con motivo.
   `mtime` no se reparsea, pero en Vercel son 42 MB en el bundle de funciones.
 - **Aislar el bloque «ara mateix»** en su propio segmento cacheado. Ahora la
   página entera se revalida cada 30 min por un número que cambia cada hora.
+- **Un aviso de hidratación en desarrollo, sin diagnosticar.** Aparece en páginas
+  que no se han tocado —`/alt-camp`, `/estat`—, así que no lo ha traído nada
+  reciente. La sospecha razonable es el doble render de desarrollo con textos que
+  dependen del reloj: si el minuto cambia entre el HTML y la carga RSC, «fa 49
+  min» y «fa 50 min» no coinciden. Si es eso, en producción no se da, porque las
+  dos salen del mismo render.
+
+  Hay que **confirmarlo con `next start`** y no asumirlo, porque si de verdad hay
+  discrepancia el cliente vuelve a renderizar el árbol entero y eso se come la
+  ventaja de no llevar JavaScript, que es media tesis del proyecto.
 
 ---
 

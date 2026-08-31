@@ -415,7 +415,12 @@ export function LocationView({
       {history && current && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">Clima i rècords</h2>
-          <ClimateBlock history={history} station={current.station} month={new Date().getMonth() + 1} />
+          <ClimateBlock
+            history={history}
+            station={current.station}
+            month={Number(today.slice(5, 7))}
+            stationHref={`/estacions/${current.station.codi}`}
+          />
         </section>
       )}
 

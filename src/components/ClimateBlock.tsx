@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { WindRose } from './WindRose';
 import { msToKmh } from '@/lib/variables';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import type { StationHistory } from '@/lib/weather';
@@ -130,9 +132,14 @@ interface Props {
   station: StationRef;
   /** Mes en curso, 1–12. */
   month: number;
+  /**
+   * Enlace a la ficha de la estación. Se omite cuando el bloque **está** en esa
+   * ficha: un enlace a la página en la que ya estás es ruido.
+   */
+  stationHref?: string;
 }
 
-export function ClimateBlock({ history, station, month }: Props) {
+export function ClimateBlock({ history, station, month, stationHref }: Props) {
   const { records, counters, normals, monthAnomaly, dryStreak } = history;
   const normal = normals.find((n) => n.month === month);
   const monthName = MONTHS[month - 1];
@@ -237,7 +244,14 @@ export function ClimateBlock({ history, station, month }: Props) {
           </table>
         </div>
         <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-          Mesurats a l&apos;estació de <strong className="font-medium text-[var(--ink-2)]">{station.nom}</strong>,
+          Mesurats a l&apos;estació de{' '}
+          {stationHref
+            ? (
+              <Link href={stationHref} className="font-medium text-[var(--ink-2)] no-underline hover:underline">
+                {station.nom}
+              </Link>
+            )
+            : <strong className="font-medium text-[var(--ink-2)]">{station.nom}</strong>},
           a {station.distKm.toFixed(1).replace('.', ',')} km
           {station.dAltM != null && Math.abs(station.dAltM) >= 25 && ` i ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivell`}.
           {records.since && ` Sèrie des del ${fmtDate(records.since)}`}
@@ -245,6 +259,31 @@ export function ClimateBlock({ history, station, month }: Props) {
           {yearsOfSeries != null && yearsOfSeries > 0 && ` (${yearsOfSeries} anys)`}.
         </p>
       </div>
+
+      {/* ── De dónde viene el viento ── */}
+      {/*
+        La rosa vive aquí y no solo en la ficha de la estación, y es una decisión
+        de alcance: en /estacions la ven 189 páginas y en el bloque de clima la ven
+        4.293. El dato es el mismo —es de la estación de referencia— y esta sección
+        ya va toda atribuida a ella.
+      */}
+      {history.rose && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
+            D&apos;on ve el vent
+          </h3>
+          <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+            <WindRose rose={history.rose} />
+          </div>
+          {stationHref && (
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              <Link href={stationHref} className="text-[var(--ink-2)] no-underline hover:underline">
+                Fitxa completa de l&apos;estació de {station.nom} ›
+              </Link>
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ── Últimos 30 días ── */}
       {history.daily.length >= 5 && (

@@ -512,6 +512,8 @@ export interface WindRose {
   }>;
   days: number;
   prevailing: { label: string; share: number } | null;
+  /** Altura del anemómetro en metros: a 2 m el viento es más flojo que a 10. */
+  heightM: number;
 }
 
 export interface StationHistory {
