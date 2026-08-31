@@ -6,7 +6,9 @@ import {
   breadcrumbs, comarcaOf, entitatsOfMunicipi, highPriorityPaths,
   locationByPath, neighboursOf,
 } from '@/lib/territory';
-import { astronomyFor, currentFor, forecastFor, historyFor, warningsFor } from '@/lib/weather';
+import { airQualityFor, astronomyFor, currentFor, forecastFor, historyFor, warningsFor } from '@/lib/weather';
+import { comarcaComparison } from '@/lib/comparison';
+import { aName } from '@/lib/format';
 
 /**
  * Página de municipio. 947 rutas.
@@ -48,7 +50,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!loc) return {};
   const com = comarcaOf(loc);
   return {
-    title: `El temps a ${loc.nom} · ${com?.nom ?? 'Catalunya'}`,
+    title: `El temps ${aName(loc.nom)} · ${com?.nom ?? 'Catalunya'}`,
     description: com ? metaDescription(loc, com) : undefined,
     alternates: { canonical: loc.path },
   };
@@ -78,6 +80,8 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         warnings={warningsFor(loc)}
         astro={astronomyFor(loc)}
         history={historyFor(loc)}
+        air={airQualityFor(loc)}
+        comparison={comarcaComparison(loc)}
         siblings={entitats}
         siblingsLabel={`Nuclis i entitats de ${loc.nom}`}
         neighbours={adjacent}

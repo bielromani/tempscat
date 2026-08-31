@@ -7,6 +7,12 @@ import {
 } from './variables';
 import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
 import { consensusCode, dailySummaryCode } from './weather-codes';
+import { airCellKey } from './air-grid';
+import {
+  AIR_VARIABLES, POLLENS, POLLUTANTS, SUB_INDEX_OF, SUB_INDICES,
+  pollenLevel, type AirSlug, type PollenLevel,
+} from './air-variables';
+import type { TileGrid } from './mercator';
 import type { Location } from './territory';
 
 /**
@@ -31,32 +37,108 @@ interface Snapshot<T> { fetchedAt: string; dataTs: string | null; source: string
  * un worker, así que comprobar la fecha de modificación basta y cuesta
  * microsegundos.
  */
-const memo = new Map<string, { mtimeMs: number; snap: Snapshot<unknown> }>();
+const memo = new Map<string, { mtimeMs: number; checkedAt: number; snap: Snapshot<unknown> }>();
+
+/**
+ * Ventana durante la cual no se vuelve a preguntar al sistema de ficheros.
+ *
+ * `statSync` parece gratis y no lo es: es una llamada al sistema, y en Windows
+ * ronda los 0,3 ms. Con la comparativa comarcal cada página pregunta por la
+ * observación y por el histórico de **todos** los municipios de su comarca —
+ * hasta 68 en l'Alt Empordà, o 136 llamadas por página. El build subió de 31 a
+ * 56 segundos por eso.
+ *
+ * Un segundo es una eternidad al lado de las cadencias reales: los workers
+ * escriben cada diez minutos y las páginas se revalidan cada media hora. Nadie
+ * ve un dato más viejo por esto, y el mtime sigue mandando en cuanto pasa.
+ */
+const STAT_TTL_MS = 1_000;
 
 function snapshot<T>(name: string): Snapshot<T> | null {
+  const cached = memo.get(name);
+  if (cached && Date.now() - cached.checkedAt < STAT_TTL_MS) {
+    return cached.snap as Snapshot<T>;
+  }
+
   const p = join(CACHE, `${name}.json`);
   if (!existsSync(p)) return null;
   try {
     const { mtimeMs } = statSync(p);
-    const cached = memo.get(name);
-    if (cached && cached.mtimeMs === mtimeMs) return cached.snap as Snapshot<T>;
+    if (cached && cached.mtimeMs === mtimeMs) {
+      cached.checkedAt = Date.now();
+      return cached.snap as Snapshot<T>;
+    }
 
     const snap = JSON.parse(readFileSync(p, 'utf8')) as Snapshot<T>;
-    memo.set(name, { mtimeMs, snap: snap as Snapshot<unknown> });
+    memo.set(name, { mtimeMs, checkedAt: Date.now(), snap: snap as Snapshot<unknown> });
     return snap;
   } catch {
     return null;
   }
 }
 
+/**
+ * La hora en curso, en hora local de Madrid y con el formato de las series
+ * (2026-08-31T14).
+ *
+ * Estaba duplicada en LocationView con un comentario largo explicando por qué el
+ * replace no es cosmético. Al aparecer el tercer sitio que la necesitaba —aire,
+ * radar, comparativa— tocaba darle un solo hogar: es la clase de detalle que, si
+ * se copia, se arregla en un sitio y se queda roto en los otros dos.
+ *
+ * toLocaleString('sv-SE') devuelve 2026-08-31 14:30 con **espacio**, y las
+ * series de Open-Meteo usan T. Sin unificarlos, la búsqueda de la hora actual no
+ * encuentra nada y cae al primer elemento — las 00:00, con UV cero y cielo
+ * despejado. No da error: da datos plausibles y falsos.
+ */
+export function localNowHour(): string {
+  return new Date()
+    .toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
+    .replace(' ', 'T')
+    .slice(0, 13);
+}
+
+/** El día de hoy en hora local de Madrid, 2026-08-31. */
+export function localToday(): string {
+  return localNowHour().slice(0, 10);
+}
+
+/** Índice de la hora en curso dentro de una serie horaria. Cero si no la alcanza. */
+function nowIndex(times: string[]): number {
+  const now = localNowHour();
+  const i = times.findIndex((t) => t.slice(0, 13) === now);
+  return i >= 0 ? i : 0;
+}
+
 // ── Observación ─────────────────────────────────────────────────────────────
 
-interface RawObservation {
+export interface RawObservation {
   station: string;
   ts: string;
   ageMin: number;
   values: Partial<Record<VariableSlug, { value: number; ts: string; provisional: boolean }>>;
   precip24h?: number;
+  /**
+   * Extremos del día natural en curso, desde la medianoche de Madrid.
+   *
+   * No es lo mismo que las últimas 24 h, y la diferencia importa: a las nueve de
+   * la mañana, «el poble més càlid d'avui» no puede incluir la máxima de ayer a
+   * las cinco de la tarde, que es lo que devolvería una ventana móvil.
+   */
+  today?: { tMax: number | null; tMin: number | null; precip: number | null };
+}
+
+/**
+ * Observación cruda de todas las estaciones.
+ *
+ * La usan los ránquings, que preguntan por estación y no por ubicación. Se
+ * expone el snapshot entero en vez de duplicar el lector: la ventana de un
+ * segundo del  statSync  y la memorización por  mtime  valen igual aquí, y tener
+ * dos copias de esa lógica es tener una que se queda sin arreglar.
+ */
+export function allObservations(): { data: RawObservation[]; source: string } | null {
+  const snap = snapshot<RawObservation[]>('xema-current');
+  return snap ? { data: snap.data, source: snap.source } : null;
 }
 
 export interface CurrentConditions {
@@ -371,7 +453,6 @@ export function forecastFor(loc: Location, hours = 168): LocationForecast | null
       const gusts = nums((h) => h.windGust);
       const probs = nums((h) => h.precipProbability);
       const uvs = nums((h) => h.uvIndex);
-      const codes = nums((h) => h.weatherCode);
       const dirs = nums((h) => h.windDirection);
 
       const snowHours = hs.filter((h) => (h.snowfall ?? 0) > 0);
@@ -520,6 +601,14 @@ export interface Astronomy {
   moon: { phase: number; illumination: number; name: string; age: number };
   nextNewMoon: Date;
   nextFullMoon: Date;
+  /**
+   * Qué fracción del día solar ha transcurrido: 0 al amanecer, 1 al atardecer.
+   *
+   * Se calcula aquí y no en el componente porque depende del reloj, y la hora
+   * del reloj es un dato. Un componente que la lee por su cuenta deja de ser
+   * puro y su resultado cambia entre el marcado del servidor y el del cliente.
+   */
+  dayFraction: number | null;
 }
 
 /**
@@ -530,11 +619,190 @@ export function astronomyFor(loc: Location, date = new Date()): Astronomy | null
   if (loc.lat == null || loc.lon == null) return null;
   const t = sunTimes(date, loc.lat, loc.lon);
   const events = nextMoonEvents(date);
+
+  const rise = t.sunrise?.getTime();
+  const set = t.sunset?.getTime();
+  const dayFraction = rise != null && set != null && set > rise
+    ? Math.max(0, Math.min(1, (Date.now() - rise) / (set - rise)))
+    : null;
+
   return {
     ...t,
     moon: moonPhase(date),
     nextNewMoon: events.newMoon,
     nextFullMoon: events.fullMoon,
+    dayFraction,
+  };
+}
+
+// ── Calidad del aire ────────────────────────────────────────────────────────
+
+interface AirCellData { values: Partial<Record<AirSlug, Array<number | null>>> }
+interface AirQualityRaw {
+  times: string[];
+  cells: Record<string, AirCellData>;
+  cellDeg: number;
+}
+
+export interface PollenReading {
+  slug: AirSlug;
+  nom: string;
+  value: number;
+  level: PollenLevel;
+}
+
+export interface AirQuality {
+  /** Índice europeo ahora mismo. Es el número que encabeza el bloque. */
+  aqi: number | null;
+  /** Contaminante que determina el índice: el AQI europeo es el peor subíndice, no una media. */
+  driver: { slug: AirSlug; nom: string; value: number } | null;
+  pollutants: Array<{ slug: AirSlug; nom: string; curt: string; value: number; unit: string; decimals: number }>;
+  pollen: PollenReading[];
+  /** Máximo del índice por día, para saber si mañana empeora. */
+  daily: Array<{ date: string; max: number; maxHour: string }>;
+  /** Serie horaria del índice, para el perfil de las próximas 24 h. */
+  hourly: Array<{ time: string; aqi: number | null }>;
+  /** Lado de la celda en km, para poder decir a qué resolución es el dato. */
+  cellKm: number;
+  observedAt: string;
+  issuedAt: string;
+  source: string;
+}
+
+/**
+ * Calidad del aire de la celda que contiene esta ubicación.
+ *
+ * Devuelve la celda de 0,1° porque **esa es la resolución real de CAMS**.
+ * Presentar el mismo número como si fuera de este núcleo en concreto sería
+ * fingir una precisión de barrio que el modelo no tiene, y aquí eso se dice en
+ * la propia página en vez de esconderse.
+ */
+export function airQualityFor(loc: Location): AirQuality | null {
+  if (loc.lat == null || loc.lon == null) return null;
+  const snap = snapshot<AirQualityRaw>('air-quality');
+  if (!snap) return null;
+
+  const cell = snap.data.cells[airCellKey(loc.lat, loc.lon)];
+  if (!cell) return null;
+
+  const times = snap.data.times;
+  const i = nowIndex(times);
+  const at = (slug: AirSlug, idx = i): number | null => cell.values[slug]?.[idx] ?? null;
+
+  const aqi = at('aqi');
+
+  // El AQI europeo no es una media de contaminantes: es el **peor** de sus
+  // subíndices. Decir cuál manda es lo que convierte un número en información
+  // accionable — no es lo mismo un 62 por ozono en una tarde de julio que un 62
+  // por NO2 en hora punta.
+  let driver: AirQuality['driver'] = null;
+  for (const sub of SUB_INDICES) {
+    const v = at(sub);
+    const target = SUB_INDEX_OF[sub];
+    if (v == null || !target) continue;
+    if (!driver || v > driver.value) {
+      driver = { slug: target, nom: AIR_VARIABLES[target].nom.ca, value: v };
+    }
+  }
+
+  const pollutants = POLLUTANTS
+    .map((slug) => {
+      const value = at(slug);
+      const def = AIR_VARIABLES[slug];
+      return value == null ? null : {
+        slug, nom: def.nom.ca, curt: def.curt ?? def.nom.ca,
+        value, unit: def.unit, decimals: def.decimals,
+      };
+    })
+    .filter((p): p is NonNullable<typeof p> => p != null);
+
+  // El polvo mineral solo se muestra cuando de verdad hay intrusión. Una fila
+  // que pone 2 µg/m³ los 300 días que no hay calima no informa de nada y le
+  // quita sitio a lo que sí.
+  const filteredPollutants = pollutants.filter((p) => p.slug !== 'dust' || p.value >= 10);
+
+  const pollen: PollenReading[] = POLLENS
+    .map((slug) => {
+      const value = at(slug);
+      if (value == null) return null;
+      const level = pollenLevel(slug, value);
+      return level ? { slug, nom: AIR_VARIABLES[slug].nom.ca, value, level } : null;
+    })
+    .filter((p): p is PollenReading => p != null)
+    .sort((a, b) => b.value - a.value);
+
+  // Máximo diario del índice: la pregunta útil no es cómo está ahora sino si
+  // mañana conviene salir a correr.
+  const byDay = new Map<string, Array<{ time: string; v: number }>>();
+  times.forEach((t, idx) => {
+    const v = cell.values.aqi?.[idx];
+    if (v == null) return;
+    const day = t.slice(0, 10);
+    const arr = byDay.get(day) ?? [];
+    arr.push({ time: t, v });
+    byDay.set(day, arr);
+  });
+  const daily = [...byDay].map(([date, vs]) => {
+    const worst = vs.reduce((a, b) => (b.v > a.v ? b : a));
+    return { date, max: worst.v, maxHour: worst.time };
+  });
+
+  const hourly = times.slice(i, i + 24).map((time, k) => ({ time, aqi: at('aqi', i + k) }));
+
+  return {
+    aqi,
+    driver,
+    pollutants: filteredPollutants,
+    pollen,
+    daily,
+    hourly,
+    // 0,1° de latitud son 11,1 km; de longitud, a 41,5° N, unos 8,3. Se da el
+    // lado mayor: redondear a la baja vendería más precisión de la que hay.
+    cellKm: Math.round(snap.data.cellDeg * 111),
+    observedAt: times[i] ?? '',
+    issuedAt: snap.fetchedAt,
+    source: snap.source,
+  };
+}
+
+// ── Radar ───────────────────────────────────────────────────────────────────
+
+export interface RadarFrame {
+  time: number;
+  local: string;
+  kind: 'past' | 'nowcast';
+}
+
+export interface RadarData {
+  frames: RadarFrame[];
+  grid: TileGrid;
+  colorScheme: number;
+  tiles: Array<{ x: number; y: number }>;
+}
+
+/**
+ * Marcos de radar disponibles. Null mientras el worker no haya corrido nunca.
+ *
+ * La antigüedad de la última imagen observada se calcula aquí y no en la página:
+ * la hora del reloj es un dato, y los datos entran por esta capa.
+ */
+export function radar(): (RadarData & {
+  fetchedAt: string;
+  source: string;
+  /** Minutos desde la última imagen **observada**, no desde el nowcast. */
+  ageMin: number | null;
+  lastObserved: RadarFrame | null;
+}) | null {
+  const snap = snapshot<RadarData>('radar');
+  if (!snap || !snap.data.frames?.length) return null;
+
+  const lastObserved = snap.data.frames.filter((f) => f.kind === 'past').at(-1) ?? null;
+  return {
+    ...snap.data,
+    fetchedAt: snap.fetchedAt,
+    source: snap.source,
+    lastObserved,
+    ageMin: lastObserved ? Math.round((Date.now() - lastObserved.time * 1000) / 60_000) : null,
   };
 }
 

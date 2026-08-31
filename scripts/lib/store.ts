@@ -207,8 +207,27 @@ export class QuotaGuard {
  */
 export const DAILY_LIMITS: Record<string, number> = {
   'open-meteo': 10_000,
+  /*
+   * La API de calidad del aire de Open-Meteo tiene **contador propio**: no
+   * comparte cuota con la de predicción, aunque comparta empresa y formato.
+   *
+   * Es lo que hace que el bloque de aire salga gratis en términos de riesgo. Si
+   * compartiera contador no cabría: la predicción ya va al límite del techo
+   * mensual, y añadir aire habría obligado a quitar modelos.
+   *
+   * Se contabiliza aparte a propósito. Meterlo en el mismo cubo daría una
+   * lectura falsa en las dos direcciones: alarma cuando no la hay y holgura
+   * donde no la hay tampoco.
+   */
+  'open-meteo-air': 10_000,
   'aemet': 5_000,
   'socrata': 100_000,   // sin límite duro documentado; se vigila igual
+  /*
+   * RainViewer no publica límite y sirve teselas cacheadas por CDN. Se cuenta
+   * igual: una fuente gratuita sin contador es la que más fácil se abusa por
+   * accidente, y un bucle mal escrito no debe descubrirse en su registro.
+   */
+  'rainviewer': 20_000,
 };
 
 /**
@@ -220,9 +239,11 @@ export const DAILY_LIMITS: Record<string, number> = {
  */
 export const HOURLY_LIMITS: Record<string, number> = {
   'open-meteo': 5_000,
+  'open-meteo-air': 5_000,
 };
 
 /** Tope mensual, el que de verdad limita el diseño a largo plazo. */
 export const MONTHLY_LIMITS: Record<string, number> = {
   'open-meteo': 300_000,
+  'open-meteo-air': 300_000,
 };

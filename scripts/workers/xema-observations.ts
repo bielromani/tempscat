@@ -45,6 +45,28 @@ export interface StationObservation {
   values: Partial<Record<VariableSlug, { value: number; ts: string; provisional: boolean }>>;
   /** Precipitación acumulada en las últimas 24 h, sumando las semihorarias. */
   precip24h?: number;
+  /**
+   * Extremos del **día natural en curso**, desde la medianoche de Madrid.
+   *
+   * No es lo mismo que las últimas 24 h y la diferencia importa: «el poble més
+   * càlid d'avui» a las nueve de la mañana no puede incluir la máxima de ayer a
+   * las cinco de la tarde, que es lo que devuelve una ventana móvil.
+   */
+  today?: { tMax: number | null; tMin: number | null; precip: number | null };
+}
+
+/**
+ * Instante UTC de la última medianoche en hora de Madrid.
+ *
+ * El portal sirve las marcas en UTC, así que filtrar por la medianoche UTC
+ * dejaría fuera las dos primeras horas del día catalán en verano — y en esas
+ * horas es cuando cae la mínima.
+ */
+function localMidnightUtc(): string {
+  const now = new Date();
+  const local = now.toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const offsetMs = Date.parse(`${local.replace(' ', 'T')}Z`) - now.getTime();
+  return new Date(Date.parse(`${local.slice(0, 10)}T00:00:00Z`) - offsetMs).toISOString().slice(0, 19);
 }
 
 async function main() {
@@ -141,6 +163,60 @@ async function main() {
     if (obs) obs.precip24h = Math.round(Number(p.suma) * 10) / 10;
   }
 
+  /*
+   * Extremos del día natural, para los ránquings.
+   *
+   * Tres agregados en vez de descargar el día entero. Los agregados de Socrata
+   * van rápidos —es ORDER BY valor lo que expira, porque no hay índice en esa
+   * columna—, así que esto son tres consultas de menos de un segundo en lugar
+   * de 9.000 filas por procesar en local.
+   *
+   * Las variables son los códigos 40 y 42, que ya son la máxima y la mínima del
+   * medio hora. Su máximo y su mínimo del día son, por tanto, los extremos del
+   * día; usar el código 32 (temperatura instantánea) daría un valor más bajo en
+   * la máxima, porque se perdería lo que pasó entre lecturas.
+   */
+  const midnight = localMidnightUtc();
+  console.log(`\nExtrems del dia natural des de ${midnight} UTC (mitjanit de Madrid)`);
+
+  const aggregate = async (variable: string, fn: 'max' | 'min' | 'sum') =>
+    fetchJson<Array<{ codi_estacio: string; v: string }>>(
+      `https://${HOST}/resource/${DATASET}.json?` + new URLSearchParams({
+        $select: `codi_estacio,${fn}(valor_lectura) as v`,
+        $where: `data_lectura > '${midnight}' AND codi_variable='${variable}'`,
+        $group: 'codi_estacio',
+        $limit: '500',
+      }),
+      { timeoutMs: 60_000 },
+    );
+
+  const [dayMax, dayMin, daySum] = await Promise.all([
+    aggregate('40', 'max'),
+    aggregate('42', 'min'),
+    aggregate('35', 'sum'),
+  ]);
+  quota.spend('socrata', 3);
+
+  for (const obs of byStation.values()) {
+    obs.today = { tMax: null, tMin: null, precip: null };
+  }
+  const put = (
+    rows: Array<{ codi_estacio: string; v: string }>,
+    key: 'tMax' | 'tMin' | 'precip',
+  ) => {
+    for (const r of rows) {
+      const obs = byStation.get(r.codi_estacio);
+      const v = Number(r.v);
+      if (obs?.today && Number.isFinite(v)) obs.today[key] = Math.round(v * 10) / 10;
+    }
+  };
+  put(dayMax, 'tMax');
+  put(dayMin, 'tMin');
+  put(daySum, 'precip');
+
+  const withToday = [...byStation.values()].filter((o) => o.today?.tMax != null).length;
+  console.log(`  estaciones con extremos de hoy: ${withToday}`);
+
   const now = Date.now();
   let newest: string | null = null;
   for (const obs of byStation.values()) {
@@ -184,7 +260,7 @@ async function main() {
     lastDataTs: newest,
     stalenessLimitMin: 120,
     rows: rows.length,
-    apiCalls: 2,
+    apiCalls: 5,
   });
 
   console.log(`\n${quota.report()}`);

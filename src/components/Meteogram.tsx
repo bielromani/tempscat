@@ -1,5 +1,8 @@
 import { temperatureColor } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
+import { weatherCode } from '@/lib/weather-codes';
+import { weatherSpriteHref } from './WeatherIcon';
+import { dateTime, hour, num, relativeDay, temp } from '@/lib/format';
 import type { HourlyPoint } from '@/lib/weather';
 
 /**
@@ -7,12 +10,35 @@ import type { HourlyPoint } from '@/lib/weather';
  *
  * Es el componente que más importa del sitio y por eso no lleva JavaScript:
  *
- *  · El crawler ve los valores dentro del marcado, no un `<canvas>` vacío.
- *  · No hay salto de layout: el `viewBox` fija la relación de aspecto.
+ *  · El crawler ve los valores dentro del marcado, no un canvas vacío.
+ *  · No hay salto de layout: el viewBox fija la relación de aspecto.
  *  · No entra en el bundle, así que no penaliza el LCP de 4.293 páginas.
  *
- * La interacción básica la da el navegador: cada franja horaria lleva un
- * `<title>`, que produce tooltip nativo sin una línea de script.
+ * ## Segunda versión: qué le faltaba a la primera
+ *
+ * La primera dibujaba los datos correctamente y aun así no se entendía, que es
+ * el peor sitio donde puede estar un gráfico. Los cinco arreglos, por orden de
+ * cuánto cambian la lectura:
+ *
+ *  1. **No decía qué era cada franja.** Tres bandas apiladas sin etiquetas
+ *     obligan a deducir que la de abajo es viento. Ahora cada banda tiene su
+ *     rótulo dentro del gráfico y su unidad.
+ *
+ *  2. **No había iconos.** Una línea de temperatura no dice si está nublado. Con
+ *     una fila de iconos cada tres horas, la pregunta «¿lloverá esta tarde?» se
+ *     responde sin leer un número.
+ *
+ *  3. **No se veía dónde estamos.** Sin marca de la hora actual, la mitad
+ *     izquierda del gráfico es pasado que ya no interesa. Ahora hay una línea de
+ *     «ara» y lo anterior va atenuado.
+ *
+ *  4. **Las horas eran ambiguas.** El eje decía 00:00, 06:00, 12:00 sin decir de
+ *     qué día, y las cabeceras de día iban debajo, separadas de su columna.
+ *     Ahora el día va arriba, centrado sobre sus horas, y dice «avui» y «demà».
+ *
+ *  5. **Una probabilidad del 60 % con 0,2 mm era invisible.** La cantidad y la
+ *     probabilidad son dos preguntas distintas —cuánto y si— y ahora se ven las
+ *     dos: la sombra de fondo es la probabilidad, la barra sólida los milímetros.
  */
 
 interface Props {
@@ -20,17 +46,30 @@ interface Props {
   hours?: number;
   /** Franja de incertidumbre entre modelos. Solo si hay más de uno. */
   showSpread?: boolean;
+  /** Hora en curso (2026-08-31T14) para marcar el «ara». */
+  nowHour?: string | null;
 }
 
-const W = 960;
-const H = 300;
-const PAD = { top: 22, right: 46, bottom: 46, left: 46 };
-const PLOT_W = W - PAD.left - PAD.right;
-const TEMP_H = 168;
-const PRECIP_H = 52;
-const WIND_Y = PAD.top + TEMP_H + PRECIP_H + 16;
+const W = 1000;
+const H = 348;
 
-export function Meteogram({ hourly, hours = 48, showSpread = true }: Props) {
+const PAD = { left: 46, right: 54 };
+const DAY_Y = 14;           // rótulos de día
+const ICON_Y = 24;          // fila de iconos
+const ICON = 22;
+const TEMP_TOP = 56;
+const TEMP_H = 150;
+const PRECIP_H = 58;
+const WIND_Y = 300;
+const HOUR_Y = 334;
+
+const PLOT_W = W - PAD.left - PAD.right;
+const TEMP_BOTTOM = TEMP_TOP + TEMP_H;
+const PRECIP_BASE = TEMP_BOTTOM + PRECIP_H;
+
+const RAIN = 'oklch(52% 0.13 245)';
+
+export function Meteogram({ hourly, hours = 48, showSpread = true, nowHour = null }: Props) {
   const data = hourly.slice(0, hours);
   if (data.length < 2) return null;
 
@@ -44,34 +83,45 @@ export function Meteogram({ hourly, hours = 48, showSpread = true }: Props) {
   const tRange = Math.max(1, tMax - tMin);
 
   const maxPrecip = Math.max(1, ...data.map((d) => d.precipitation ?? 0));
+  const anyRain = data.some((d) => (d.precipitation ?? 0) >= 0.1);
 
   const x = (i: number) => PAD.left + (i / (data.length - 1)) * PLOT_W;
-  const yTemp = (t: number) => PAD.top + TEMP_H - ((t - tMin) / tRange) * TEMP_H;
-  const precipBase = PAD.top + TEMP_H + PRECIP_H;
-
+  const yTemp = (t: number) => TEMP_TOP + TEMP_H - ((t - tMin) / tRange) * TEMP_H;
   const step = PLOT_W / (data.length - 1);
 
-  // Bandas nocturnas: de 21 h a 7 h. Ayudan a leer el ciclo diario de un
-  // vistazo, que es la mitad de lo que se busca en un meteograma.
+  const today = data[0].time.slice(0, 10);
+  const nowIdx = nowHour ? data.findIndex((d) => d.time.slice(0, 13) === nowHour) : -1;
+
+  // ── Bandas nocturnas ──────────────────────────────────────────────────────
+  // Se derivan de isDay, que ya viene calculado con el orto y el ocaso reales de
+  // esta ubicación. La versión anterior usaba «de 21 h a 7 h» fijo, y en un
+  // pueblo del Pirineo en diciembre eso pintaba de día dos horas de noche.
   const nightBands: Array<{ x0: number; x1: number }> = [];
   let nightStart: number | null = null;
   data.forEach((d, i) => {
-    const hour = Number(d.time.slice(11, 13));
-    const isNight = hour >= 21 || hour < 7;
-    if (isNight && nightStart === null) nightStart = i;
-    if (!isNight && nightStart !== null) {
+    if (!d.isDay && nightStart === null) nightStart = i;
+    if (d.isDay && nightStart !== null) {
       nightBands.push({ x0: x(nightStart), x1: x(i) });
       nightStart = null;
     }
   });
   if (nightStart !== null) nightBands.push({ x0: x(nightStart), x1: x(data.length - 1) });
 
+  // ── Días ──────────────────────────────────────────────────────────────────
+  const days: Array<{ day: string; from: number; to: number }> = [];
+  data.forEach((d, i) => {
+    const day = d.time.slice(0, 10);
+    const last = days[days.length - 1];
+    if (!last || last.day !== day) days.push({ day, from: i, to: i });
+    else last.to = i;
+  });
+
   const tempPath = data
     .map((d, i) => (d.temperature == null ? null : `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${yTemp(d.temperature).toFixed(1)}`))
     .filter(Boolean)
     .join(' ');
 
-  const areaPath = `${tempPath} L${x(data.length - 1).toFixed(1)},${(PAD.top + TEMP_H).toFixed(1)} L${x(0).toFixed(1)},${(PAD.top + TEMP_H).toFixed(1)} Z`;
+  const areaPath = `${tempPath} L${x(data.length - 1).toFixed(1)},${TEMP_BOTTOM} L${x(0).toFixed(1)},${TEMP_BOTTOM} Z`;
 
   const spreadPath = showSpread && data.some((d) => d.spread != null)
     ? [
@@ -84,16 +134,22 @@ export function Meteogram({ hourly, hours = 48, showSpread = true }: Props) {
     ].join(' ')
     : null;
 
-  // Etiquetas de día: una por medianoche.
-  const dayTicks = data
-    .map((d, i) => ({ d, i }))
-    .filter(({ d }) => d.time.slice(11, 13) === '00');
-
   const gridTemps: number[] = [];
   const gridStep = tRange > 24 ? 10 : tRange > 12 ? 5 : 2;
   for (let t = Math.ceil(tMin / gridStep) * gridStep; t <= tMax; t += gridStep) gridTemps.push(t);
 
-  const describe = `Temperatura entre ${tMin} i ${tMax} °C, precipitació i vent per a les pròximes ${data.length} hores.`;
+  /** Extremos de cada día, para anotarlos con su cifra. */
+  const extremes = days.flatMap(({ from, to }) => {
+    const slice = data.slice(from, to + 1)
+      .map((d, k) => ({ d, i: from + k }))
+      .filter((p): p is { d: HourlyPoint & { temperature: number }; i: number } => p.d.temperature != null);
+    if (slice.length < 4) return [];
+    const hi = slice.reduce((a, b) => (b.d.temperature > a.d.temperature ? b : a));
+    const lo = slice.reduce((a, b) => (b.d.temperature < a.d.temperature ? b : a));
+    return [{ ...hi, kind: 'max' as const }, { ...lo, kind: 'min' as const }];
+  });
+
+  const describe = `Temperatura de ${tMin} a ${tMax} °C, precipitació i vent per a les pròximes ${data.length} hores.`;
 
   return (
     <figure className="m-0">
@@ -103,17 +159,71 @@ export function Meteogram({ hourly, hours = 48, showSpread = true }: Props) {
           width="100%"
           role="img"
           aria-label={describe}
-          style={{ minWidth: 640, display: 'block' }}
+          style={{ minWidth: 700, display: 'block' }}
         >
           <title>{describe}</title>
 
+          <defs>
+            <linearGradient id="tempGradient" x1="0" y1="0" x2="1" y2="0">
+              {data.map((d, i) => (d.temperature == null ? null : (
+                <stop key={`s${i}`} offset={`${(i / (data.length - 1)) * 100}%`} stopColor={temperatureColor(d.temperature)} />
+              )))}
+            </linearGradient>
+          </defs>
+
+          {/* Noche */}
           {nightBands.map((b, i) => (
             <rect
-              key={`n${i}`} x={b.x0} y={PAD.top} width={b.x1 - b.x0} height={TEMP_H + PRECIP_H}
-              fill="var(--ink)" opacity={0.04}
+              key={`n${i}`} x={b.x0} y={TEMP_TOP} width={b.x1 - b.x0} height={TEMP_H + PRECIP_H}
+              fill="var(--ink)" opacity={0.05}
             />
           ))}
 
+          {/* Pasado atenuado: lo que ya ha ocurrido no es lo que se viene a
+              consultar, y quitarle contraste hace que la vista vaya a la derecha. */}
+          {nowIdx > 0 && (
+            <rect
+              x={PAD.left} y={TEMP_TOP} width={x(nowIdx) - PAD.left} height={TEMP_H + PRECIP_H}
+              fill="var(--surface-2)" opacity={0.75}
+            />
+          )}
+
+          {/* Separadores y rótulos de día */}
+          {days.map(({ day, from, to }, k) => {
+            const x0 = k === 0 ? PAD.left : x(from) - step / 2;
+            const x1 = to === data.length - 1 ? W - PAD.right : x(to) + step / 2;
+            return (
+              <g key={day}>
+                {k > 0 && (
+                  <line x1={x0} x2={x0} y1={DAY_Y - 8} y2={PRECIP_BASE} stroke="var(--line)" strokeWidth={1} />
+                )}
+                <text
+                  x={(x0 + x1) / 2} y={DAY_Y} textAnchor="middle"
+                  fontSize={12} fontWeight={600} fill="var(--ink-2)"
+                >
+                  {relativeDay(day, today)}
+                  <tspan fill="var(--muted)" fontWeight={400}> {Number(day.slice(8, 10))}</tspan>
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Iconos de cielo cada 3 h */}
+          {data.map((d, i) => {
+            if (i % 3 !== 1 || d.weatherCode == null) return null;
+            return (
+              <use
+                key={`i${i}`}
+                href={weatherSpriteHref(d.weatherCode, d.isDay)}
+                x={x(i) - ICON / 2} y={ICON_Y} width={ICON} height={ICON}
+                opacity={nowIdx > i ? 0.45 : 1}
+              >
+                <title>{`${hour(d.time)} · ${weatherCode(d.weatherCode).caLong}`}</title>
+              </use>
+            );
+          })}
+
+          {/* Rejilla y eje de temperatura */}
           {gridTemps.map((t) => (
             <g key={`g${t}`}>
               <line
@@ -136,17 +246,42 @@ export function Meteogram({ hourly, hours = 48, showSpread = true }: Props) {
           <path d={areaPath} fill="url(#tempGradient)" opacity={0.22} />
           <path d={tempPath} fill="none" stroke="var(--ink)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
-          <defs>
-            <linearGradient id="tempGradient" x1="0" y1="0" x2="1" y2="0">
-              {data.map((d, i) => (d.temperature == null ? null : (
-                <stop key={`s${i}`} offset={`${(i / (data.length - 1)) * 100}%`} stopColor={temperatureColor(d.temperature)} />
-              )))}
-            </linearGradient>
-          </defs>
+          {/* Máxima y mínima de cada día, con su cifra. Es el dato que la gente
+              busca en un meteograma y hasta ahora había que estimarlo a ojo
+              contra la rejilla. */}
+          {extremes.map(({ d, i, kind }) => {
+            const y = yTemp(d.temperature);
+            const above = kind === 'max';
+            return (
+              <g key={`e${kind}${i}`}>
+                <circle cx={x(i)} cy={y} r={2.6} fill="var(--ink)" />
+                <text
+                  x={x(i)} y={above ? y - 8 : y + 15} textAnchor="middle"
+                  fontSize={11} fontWeight={600} fill="var(--ink)"
+                  stroke="var(--surface)" strokeWidth={3} paintOrder="stroke"
+                  className="tnum"
+                >{Math.round(d.temperature)}°</text>
+              </g>
+            );
+          })}
 
-          {/* Precipitación: barras desde su propia línea base, con corte en 0.
-              Cero milímetros no dibuja nada — mostrar una barra mínima haría
-              creer que va a llover. */}
+          {/* ── Precipitación ─────────────────────────────────────────────── */}
+          {/* Probabilidad de fondo. Va detrás y translúcida: contesta «¿es
+              probable?» sin competir con «¿cuánto?», que es la barra sólida. */}
+          {data.map((d, i) => {
+            const p = d.precipProbability ?? 0;
+            if (p < 10) return null;
+            const h = (p / 100) * (PRECIP_H - 6);
+            return (
+              <rect
+                key={`pp${i}`}
+                x={x(i) - step / 2} y={PRECIP_BASE - h}
+                width={Math.max(1, step)} height={h}
+                fill={RAIN} opacity={0.14}
+              />
+            );
+          })}
+
           {data.map((d, i) => {
             const mm = d.precipitation ?? 0;
             if (mm < 0.1) return null;
@@ -154,58 +289,129 @@ export function Meteogram({ hourly, hours = 48, showSpread = true }: Props) {
             return (
               <rect
                 key={`p${i}`}
-                x={x(i) - step * 0.35} y={precipBase - h}
+                x={x(i) - step * 0.35} y={PRECIP_BASE - h}
                 width={Math.max(1.5, step * 0.7)} height={h}
-                fill="oklch(52% 0.13 245)" rx={1}
+                fill={RAIN} rx={1}
               >
-                <title>{`${d.time.slice(11, 16)} · ${mm.toFixed(1)} mm${d.precipProbability != null ? ` · ${d.precipProbability} % dels models` : ''}`}</title>
+                <title>
+                  {`${hour(d.time)} · ${num(mm, 1)} mm${d.precipProbability != null ? ` · ${d.precipProbability} % de probabilitat` : ''}`}
+                </title>
               </rect>
             );
           })}
-          <line x1={PAD.left} x2={W - PAD.right} y1={precipBase} y2={precipBase} stroke="var(--line)" strokeWidth={1} />
-          {maxPrecip > 1 && (
-            <text x={W - PAD.right + 6} y={precipBase - PRECIP_H + 14} fontSize={10} fill="var(--muted)" className="tnum">
-              {maxPrecip.toFixed(1)} mm
+          <line x1={PAD.left} x2={W - PAD.right} y1={PRECIP_BASE} y2={PRECIP_BASE} stroke="var(--line)" strokeWidth={1} />
+
+          {/* Techo de la banda de lluvia. Solo si hay lluvia: con la serie a cero,
+              maxPrecip vale 1 por el mínimo del cálculo, y rotular «1,0 mm» en un
+              día seco insinúa una lluvia que ningún modelo ha previsto. */}
+          {anyRain && (
+            <text x={W - PAD.right + 6} y={PRECIP_BASE - PRECIP_H + 12} fontSize={10} fill={RAIN} className="tnum">
+              {num(maxPrecip, 1)} mm
             </text>
           )}
+          <text x={W - PAD.right + 6} y={PRECIP_BASE - 2} fontSize={10} fill="var(--muted)">0</text>
 
-          {/* Viento: una flecha cada 3 h. Más densidad se convierte en ruido. */}
+          {/* ── Viento ────────────────────────────────────────────────────── */}
           {data.map((d, i) => {
-            if (i % 3 !== 0 || d.windDirection == null || d.windSpeed == null) return null;
+            if (i % 3 !== 1 || d.windDirection == null || d.windSpeed == null) return null;
             const kmh = msToKmh(d.windSpeed);
-            const size = 4 + Math.min(4, kmh / 18);
+            const size = 4.5 + Math.min(4, kmh / 18);
             return (
-              <g key={`w${i}`} transform={`translate(${x(i).toFixed(1)},${WIND_Y}) rotate(${d.windDirection})`}>
-                <path
-                  d={`M0,${-size} L${size * 0.6},${size * 0.7} L0,${size * 0.25} L${-size * 0.6},${size * 0.7} Z`}
-                  fill={kmh >= 40 ? 'var(--bad)' : 'var(--ink-2)'}
-                  opacity={kmh < 5 ? 0.3 : 0.85}
-                >
-                  <title>{`${d.time.slice(11, 16)} · ${kmh.toFixed(0)} km/h del ${windCardinal(d.windDirection)}`}</title>
-                </path>
+              <g key={`w${i}`}>
+                <g transform={`translate(${x(i).toFixed(1)},${WIND_Y}) rotate(${d.windDirection})`}>
+                  {/* La flecha apunta hacia donde va el viento, que es la
+                      convención de los mapas de superficie. La dirección
+                      meteorológica es de dónde viene, de ahí el giro. */}
+                  <path
+                    d={`M0,${-size} L${size * 0.6},${size * 0.7} L0,${size * 0.25} L${-size * 0.6},${size * 0.7} Z`}
+                    fill={kmh >= 40 ? 'var(--bad)' : 'var(--ink-2)'}
+                    opacity={kmh < 5 ? 0.3 : 0.85}
+                  >
+                    <title>{`${hour(d.time)} · ${kmh.toFixed(0)} km/h del ${windCardinal(d.windDirection)}`}</title>
+                  </path>
+                </g>
+                {i % 6 === 1 && (
+                  <text
+                    x={x(i)} y={WIND_Y + 20} textAnchor="middle" fontSize={10}
+                    fill={kmh >= 40 ? 'var(--bad)' : 'var(--muted)'} className="tnum"
+                  >{kmh.toFixed(0)}</text>
+                )}
               </g>
             );
           })}
 
-          {dayTicks.map(({ d, i }) => (
-            <g key={`d${i}`}>
-              <line x1={x(i)} x2={x(i)} y1={PAD.top} y2={precipBase} stroke="var(--line)" strokeWidth={1} />
-              <text x={x(i) + 5} y={H - 10} fontSize={11} fill="var(--ink-2)" fontWeight={600}>
-                {new Date(`${d.time}:00`).toLocaleDateString('ca-ES', { weekday: 'short', day: 'numeric' })}
-              </text>
-            </g>
-          ))}
-
+          {/* ── Eje de horas ──────────────────────────────────────────────── */}
           {data.map((d, i) => {
-            if (i % 6 !== 0) return null;
+            if (i % 3 !== 0) return null;
             return (
-              <text key={`h${i}`} x={x(i)} y={H - 26} fontSize={10} fill="var(--muted)" textAnchor="middle" className="tnum">
-                {d.time.slice(11, 16)}
-              </text>
+              <g key={`h${i}`}>
+                <line x1={x(i)} x2={x(i)} y1={PRECIP_BASE} y2={PRECIP_BASE + 4} stroke="var(--line)" strokeWidth={1} />
+                <text
+                  x={x(i)} y={HOUR_Y} fontSize={10} fill="var(--muted)"
+                  textAnchor="middle" className="tnum"
+                >{hour(d.time).slice(0, 2)}</text>
+              </g>
             );
           })}
+          <text x={W - PAD.right + 6} y={HOUR_Y} fontSize={10} fill="var(--muted)">h</text>
+
+          {/* ── Rótulos de banda, dentro del gráfico ──────────────────────── */}
+          <text x={PAD.left - 8} y={TEMP_TOP - 6} textAnchor="end" fontSize={10} fill="var(--muted)">°C</text>
+          <text x={PAD.left - 8} y={PRECIP_BASE - PRECIP_H / 2} textAnchor="end" fontSize={10} fill={RAIN}>
+            mm
+          </text>
+          <text x={PAD.left - 8} y={WIND_Y + 4} textAnchor="end" fontSize={10} fill="var(--muted)">
+            vent
+          </text>
+
+          {/* ── Ahora ─────────────────────────────────────────────────────── */}
+          {nowIdx >= 0 && (
+            <g>
+              <line
+                x1={x(nowIdx)} x2={x(nowIdx)} y1={TEMP_TOP - 10} y2={PRECIP_BASE}
+                stroke="var(--accent)" strokeWidth={1.5}
+              />
+              {/* La etiqueta va pegada a la línea y dentro de la banda de
+                  temperatura, no en el eje: abajo se cruzaba con las horas. */}
+              <text
+                x={x(nowIdx) + 5} y={TEMP_TOP + 2}
+                fontSize={10} fontWeight={600} fill="var(--accent)"
+                stroke="var(--surface)" strokeWidth={3} paintOrder="stroke"
+              >ara</text>
+            </g>
+          )}
         </svg>
       </div>
+
+      {/* Leyenda en HTML, no en el SVG: se ajusta al ancho del móvil sin que
+          haya que escalar el gráfico entero para que quepa el texto. */}
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] leading-tight text-[var(--muted)]">
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-0.5 w-4 rounded" style={{ background: 'var(--ink)' }} />
+          temperatura
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-2.5 w-2 rounded-sm" style={{ background: RAIN }} />
+          pluja en mm
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-2.5 w-2 rounded-sm" style={{ background: RAIN, opacity: 0.2 }} />
+          probabilitat
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden>▲</span> direcció i força del vent
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-2.5 w-3 rounded-sm" style={{ background: 'var(--ink)', opacity: 0.08 }} />
+          nit
+        </li>
+        {showSpread && data.some((d) => d.spread != null) && (
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden className="inline-block h-2.5 w-3 rounded-sm" style={{ background: 'var(--accent)', opacity: 0.2 }} />
+            desacord entre models
+          </li>
+        )}
+      </ul>
 
       {/* Tabla equivalente: accesible con lector de pantalla, extraíble por el
           crawler y consultable por quien quiera el número exacto. */}
@@ -217,19 +423,22 @@ export function Meteogram({ hourly, hours = 48, showSpread = true }: Props) {
           <table className="w-full text-sm tnum border-collapse">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)]">
-                <th className="py-1 pr-4 font-semibold">Hora</th>
-                <th className="py-1 pr-4 font-semibold">Temp.</th>
-                <th className="py-1 pr-4 font-semibold">Precip.</th>
+                <th className="py-1 pr-4 font-semibold">Dia i hora</th>
+                <th className="py-1 pr-4 font-semibold">Cel</th>
+                <th className="py-1 pr-4 font-semibold">Temperatura</th>
+                <th className="py-1 pr-4 font-semibold">Pluja</th>
                 <th className="py-1 pr-4 font-semibold">Vent</th>
               </tr>
             </thead>
             <tbody>
               {data.filter((_, i) => i % 3 === 0).map((d) => (
                 <tr key={d.time} className="border-t border-[var(--line-soft)]">
-                  <td className="py-1 pr-4">{d.time.slice(5, 16).replace('T', ' ')}</td>
-                  <td className="py-1 pr-4">{d.temperature != null ? `${d.temperature.toFixed(1)} °C` : '—'}</td>
-                  <td className="py-1 pr-4">{d.precipitation ? `${d.precipitation.toFixed(1)} mm` : '—'}</td>
-                  <td className="py-1 pr-4">
+                  {/* Antes aquí salía «08-31 00:00», que no es cap format. */}
+                  <td className="py-1 pr-4">{dateTime(d.time)}</td>
+                  <td className="py-1 pr-4 whitespace-nowrap">{weatherCode(d.weatherCode).ca}</td>
+                  <td className="py-1 pr-4">{temp(d.temperature)}</td>
+                  <td className="py-1 pr-4">{d.precipitation ? `${num(d.precipitation, 1)} mm` : '—'}</td>
+                  <td className="py-1 pr-4 whitespace-nowrap">
                     {d.windSpeed != null ? `${msToKmh(d.windSpeed).toFixed(0)} km/h` : '—'}
                     {d.windDirection != null ? ` ${windCardinal(d.windDirection)}` : ''}
                   </td>

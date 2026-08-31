@@ -2,6 +2,7 @@ import { WeatherIcon } from './WeatherIcon';
 import { temperatureColor, temperatureInk, precipitationColor } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
+import { dateLong, dateShort, hour as hourLabel, num, relativeDay } from '@/lib/format';
 import type { HourlyPoint } from '@/lib/weather';
 
 /**
@@ -19,21 +20,13 @@ import type { HourlyPoint } from '@/lib/weather';
 interface Props {
   hourly: HourlyPoint[];
   hours?: number;
+  /** Dia d'avui en hora local, per poder escriure "avui" i "dema". */
+  today?: string;
   /** Abierta de entrada en las páginas donde el detalle es el motivo de la visita. */
   open?: boolean;
 }
 
-function hourLabel(iso: string): string {
-  return iso.slice(11, 16);
-}
-
-function dayLabel(iso: string): string {
-  return new Date(`${iso}:00`).toLocaleDateString('ca-ES', {
-    weekday: 'long', day: 'numeric', month: 'long',
-  });
-}
-
-export function HourlyTable({ hourly, hours = 48, open = false }: Props) {
+export function HourlyTable({ hourly, hours = 48, open = false, today }: Props) {
   const data = hourly.slice(0, hours);
   if (!data.length) return null;
 
@@ -64,15 +57,15 @@ export function HourlyTable({ hourly, hours = 48, open = false }: Props) {
             <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--muted)]">
               <th scope="col" className="sticky left-0 z-10 bg-[var(--surface-2)] px-3 py-2 font-semibold">Hora</th>
               <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Cel</th>
-              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Temp.</th>
-              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Sens.</th>
-              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Precip.</th>
-              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Prob.</th>
-              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Vent</th>
-              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Ratxa</th>
-              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">HR</th>
+              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Temp. <span className="font-normal normal-case">°C</span></th>
+              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Sensació <span className="font-normal normal-case">°C</span></th>
+              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Pluja <span className="font-normal normal-case">mm</span></th>
+              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Prob. <span className="font-normal normal-case">%</span></th>
+              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Vent <span className="font-normal normal-case">km/h</span></th>
+              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Ratxa <span className="font-normal normal-case">km/h</span></th>
+              <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Humitat <span className="font-normal normal-case">%</span></th>
               {hasUv && <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">UV</th>}
-              {hasSnow && <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Neu</th>}
+              {hasSnow && <th scope="col" className="bg-[var(--surface-2)] px-2 py-2 font-semibold">Neu <span className="font-normal normal-case">cm</span></th>}
             </tr>
           </thead>
 
@@ -84,7 +77,9 @@ export function HourlyTable({ hourly, hours = 48, open = false }: Props) {
                   colSpan={hasUv && hasSnow ? 11 : hasUv || hasSnow ? 10 : 9}
                   className="border-y border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-1.5 text-left text-xs font-semibold text-[var(--ink-2)]"
                 >
-                  {dayLabel(hs[0].time)}
+                  {today
+                    ? `${relativeDay(hs[0].time, today)}, ${dateShort(hs[0].time)}`
+                    : dateLong(hs[0].time)}
                 </th>
               </tr>
               {hs.map((h) => {
@@ -119,12 +114,12 @@ export function HourlyTable({ hourly, hours = 48, open = false }: Props) {
                           className="inline-block rounded px-1.5 py-0.5 text-xs font-medium"
                           style={{ background: precipitationColor(h.precipitation), color: 'oklch(20% 0.02 245)' }}
                         >
-                          {h.precipitation.toFixed(1)}
+                          {num(h.precipitation, 1)}
                         </span>
                       ) : <span className="text-[var(--line)]">—</span>}
                     </td>
                     <td className="tnum px-2 py-1.5 text-[var(--ink-2)]">
-                      {h.precipProbability != null && h.precipProbability > 0 ? `${h.precipProbability} %` : '—'}
+                      {h.precipProbability != null && h.precipProbability > 0 ? h.precipProbability : '—'}
                     </td>
                     <td className="tnum px-2 py-1.5 text-[var(--ink-2)]">
                       {h.windSpeed != null ? `${msToKmh(h.windSpeed).toFixed(0)}` : '—'}
@@ -138,7 +133,7 @@ export function HourlyTable({ hourly, hours = 48, open = false }: Props) {
                       ) : '—'}
                     </td>
                     <td className="tnum px-2 py-1.5 text-[var(--muted)]">
-                      {h.humidity != null ? `${h.humidity} %` : '—'}
+                      {h.humidity ?? '—'}
                     </td>
                     {hasUv && (
                       <td className="tnum px-2 py-1.5">
@@ -151,7 +146,7 @@ export function HourlyTable({ hourly, hours = 48, open = false }: Props) {
                     )}
                     {hasSnow && (
                       <td className="tnum px-2 py-1.5 text-[var(--ink-2)]">
-                        {h.snowfall ? `${h.snowfall.toFixed(1)} cm` : <span className="text-[var(--line)]">—</span>}
+                        {h.snowfall ? num(h.snowfall, 1) : <span className="text-[var(--line)]">—</span>}
                       </td>
                     )}
                   </tr>
@@ -162,9 +157,10 @@ export function HourlyTable({ hourly, hours = 48, open = false }: Props) {
         </table>
       </div>
 
-      <p className="border-t border-[var(--line-soft)] px-4 py-2 text-xs text-[var(--muted)]">
-        Vent i ratxa en km/h. La probabilitat és la del model, no el percentatge
-        de models que preveuen pluja.
+      <p className="border-t border-[var(--line-soft)] px-4 py-2 text-xs leading-relaxed text-[var(--muted)]">
+        Les unitats van als encapçalaments. La probabilitat és la que dona el
+        model, no el percentatge de models que preveuen pluja: són dues coses
+        diferents i la primera és millor.
       </p>
     </details>
   );

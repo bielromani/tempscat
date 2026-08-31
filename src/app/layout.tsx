@@ -26,6 +26,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
             <nav className="flex gap-5 text-sm text-[var(--muted)]">
               <Link href="/" className="no-underline hover:text-[var(--ink)]">Comarques</Link>
+              <Link href="/radar" className="no-underline hover:text-[var(--ink)]">Radar</Link>
+              <Link href="/ranquings" className="no-underline hover:text-[var(--ink)]">Rànquings</Link>
               <Link href="/estat" className="no-underline hover:text-[var(--ink)]">Estat de les dades</Link>
             </nav>
           </div>
@@ -45,6 +47,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <p>
               Predicció: <strong className="font-medium text-[var(--ink-2)]">Open-Meteo</strong> (CC-BY 4.0) ·
               models AROME, HARMONIE i ECMWF. Altituds del model digital Copernicus GLO-90.
+            </p>
+            <p>
+              Qualitat de l&apos;aire i pol·len: <strong className="font-medium text-[var(--ink-2)]">CAMS Europa</strong>,
+              del servei Copernicus, via Open-Meteo. Radar de precipitació: <strong className="font-medium text-[var(--ink-2)]">RainViewer</strong>.
             </p>
             <p>
               Límits administratius i topònims: <strong className="font-medium text-[var(--ink-2)]">Institut Cartogràfic i Geològic de Catalunya</strong>.

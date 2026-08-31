@@ -1,3 +1,4 @@
+import { aName, deName } from './format';
 import type { Comarca, Location } from './territory';
 
 /**
@@ -24,7 +25,7 @@ function altitudeSentence(loc: Location, parent: Location | null): string | null
     const deg = Math.abs(d * LAPSE);
     const dir = d > 0 ? 'per sobre' : 'per sota';
     const sense = d > 0 ? 'menys' : 'més';
-    return `${loc.nom} és a ${loc.altitud} m, ${Math.abs(d)} m ${dir} del nucli de ${parent.nom}. `
+    return `${loc.nom} és a ${loc.altitud} m, ${Math.abs(d)} m ${dir} del nucli ${deName(parent.nom)}. `
       + `Aquest desnivell fa que hi soli fer entre ${(deg * 0.8).toFixed(1).replace('.', ',')} i `
       + `${(deg * 1.3).toFixed(1).replace('.', ',')} °C ${sense}, i la diferència s'accentua `
       + `les nits serenes d'hivern.`;
@@ -51,11 +52,11 @@ function stationSentence(loc: Location): string | null {
 
   const dist = distKm.toFixed(1).replace('.', ',');
   if (dAltM != null && Math.abs(dAltM) >= 100) {
-    return `L'observació prové de l'estació automàtica de ${nom}, a ${dist} km i `
+    return `L'observació prové de l'estació automàtica ${deName(nom)}, a ${dist} km i `
       + `${dAltM > 0 ? '' : '−'}${Math.abs(dAltM)} m de desnivell. Com que la diferència d'altitud `
       + `és considerable, la temperatura que es mostra ja ve corregida; no és la lectura crua de l'estació.`;
   }
-  return `L'observació prové de l'estació automàtica de ${nom}, a ${dist} km`
+  return `L'observació prové de l'estació automàtica ${deName(nom)}, a ${dist} km`
     + (dAltM != null && Math.abs(dAltM) >= 25 ? ` i ${dAltM > 0 ? '' : '−'}${Math.abs(dAltM)} m de desnivell` : '')
     + `. És la més representativa d'aquest punt tenint en compte distància i cota.`;
 }
@@ -117,7 +118,7 @@ export function describeMunicipi(
   const parts: string[] = [];
 
   if (loc.altitud != null) {
-    parts.push(`El nucli de ${loc.nom} és a ${loc.altitud} m d'altitud`
+    parts.push(`El nucli ${deName(loc.nom)} és a ${loc.altitud} m d'altitud`
       + (loc.areaKm2 ? `, en un terme municipal de ${loc.areaKm2.toFixed(1).replace('.', ',')} km²` : '')
       + '.');
   }
@@ -146,12 +147,8 @@ export function describeMunicipi(
 
 /** Meta description: bajo 160 caracteres y con el dato que hace clicar. */
 export function metaDescription(loc: Location, comarca: Comarca): string {
-  const bits = [
-    `El temps a ${loc.nom}`,
-    loc.level === 'municipi' ? comarca.nom : `${comarca.nom}`,
-  ];
-  const alt = loc.altitud != null ? `${loc.altitud} m` : null;
-  const base = `${bits.join(', ')}${alt ? ` (${alt})` : ''}: predicció hora a hora, `
+  const alt = loc.altitud != null ? ` (${loc.altitud} m)` : '';
+  const base = `El temps ${aName(loc.nom)}, ${comarca.nom}${alt}: predicció hora a hora, `
     + `7 dies i observació real de l'estació més propera.`;
   return base.length > 158 ? `${base.slice(0, 155)}…` : base;
 }

@@ -5,7 +5,9 @@ import { describeLocation, metaDescription } from '@/lib/describe';
 import {
   breadcrumbs, comarcaOf, entitatsOfMunicipi, locationByPath, locationById,
 } from '@/lib/territory';
-import { astronomyFor, currentFor, forecastFor, historyFor, warningsFor } from '@/lib/weather';
+import { airQualityFor, astronomyFor, currentFor, forecastFor, historyFor, warningsFor } from '@/lib/weather';
+import { comarcaComparison } from '@/lib/comparison';
+import { aName } from '@/lib/format';
 
 /**
  * Página de entidad singular o núcleo. ~3.300 rutas.
@@ -30,7 +32,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const com = comarcaOf(loc);
   const mun = locationById(loc.parentId ?? '');
   return {
-    title: `El temps a ${loc.nom}${mun ? ` (${mun.nom})` : ''} · ${com?.nom ?? 'Catalunya'}`,
+    title: `El temps ${aName(loc.nom)}${mun ? ` (${mun.nom})` : ''} · ${com?.nom ?? 'Catalunya'}`,
     description: com ? metaDescription(loc, com) : undefined,
     alternates: { canonical: loc.path },
   };
@@ -58,6 +60,8 @@ export default async function EntitatPage({ params }: { params: Params }) {
         warnings={warningsFor(loc)}
         astro={astronomyFor(loc)}
         history={historyFor(loc)}
+        air={airQualityFor(loc)}
+        comparison={comarcaComparison(loc)}
         siblings={siblings}
         siblingsLabel={`Altres nuclis de ${municipiLoc?.nom ?? 'el municipi'}`}
         neighbours={[]}

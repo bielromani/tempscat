@@ -4,7 +4,8 @@
 decisiones ya tomadas y —sobre todo— **las trampas que ya nos han costado horas**. Casi todas
 son fallos que no dan error: dan datos plausibles y equivocados.
 
-Última actualización: 31 de agosto de 2026, commit `dfc60e0`.
+Última actualización: 31 de agosto de 2026, después de añadir calidad del aire, radar,
+ránquings y comparativa comarcal.
 
 ---
 
@@ -43,7 +44,8 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 
 **Territorio construido** (`data/build/`, versionado):
 
-- 43 comarcas · 947 municipios · 2.759 entidades singulares · 533 núcleos = **4.293 rutas**
+- 43 comarcas · 947 municipios · 2.759 entidades singulares · 533 núcleos = **4.293 rutas**,
+  más `/radar`, `/ranquings` y `/estat`
 - 6.769 ubicaciones no publican, cada una con su motivo registrado
 - 947 + 43 polígonos, 5.424 relaciones de colindancia real, 3.190 puntos de predicción
 - 245 estaciones XEMA (189 operativas)
@@ -52,10 +54,12 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 
 | Fichero | Qué es | Cadencia |
 |---|---|---|
-| `xema-current.json` | Observación de 187 estaciones | 10 min |
+| `xema-current.json` | Observación de 188 estaciones, con los extremos del día natural | 10 min |
 | `forecast.json` | 3.190 puntos × 19 variables × 168 h · **42 MB** | 12–24 h |
 | `warnings.json` | Avisos CAP de AEMET | 15 min |
 | `xema-history.json` | Récords y normales de 189 estaciones | 24 h |
+| `air-quality.json` | 372 celdas de 0,1° × 18 variables × 72 h | 12 h |
+| `radar.json` + `radar/` | 7 marcos de radar × 4 teselas de 512 px · 200 KB | 10 min |
 | `freshness.json`, `quota.json` | Estado de las fuentes y consumo | — |
 
 **Medido**: 402 páginas prerenderizadas, TTFB 21 ms en caliente, página de municipio de 38 KB
@@ -63,24 +67,40 @@ por la red, **cero JavaScript propio**.
 
 ---
 
+## Ya hecho en esta tanda
+
+- ✅ **Calidad del aire y polen.** `scripts/workers/air-quality.ts` + bloque en cada ficha. AQI
+  europeo con los colores oficiales de la EEA, el contaminante que manda, siete contaminantes,
+  perfil de 24 h, máximo de los próximos tres días y polen por especie con los umbrales de la
+  Red Española de Aerobiología. Cuota aparte: 670 unidades por refresco.
+- ✅ **Radar de precipitación** en `/radar`, **sin una línea de JavaScript**: las teselas y los
+  polígonos del ICGC comparten proyección, así que van en el mismo SVG. El marco se elige por
+  URL (`?t=…`), así que cada instante tiene su enlace compartible.
+- ✅ **Ránquings** en `/ranquings`: extremos de ahora, máximas y mínimas del día natural,
+  amplitud térmica, lluvia y rachas — más una clasificación de municipios corregida por altitud,
+  separada y etiquetada como estimación.
+- ✅ **Comparativa comarcal** en cada ficha: posición ahora y en el mes en curso, con la tira de
+  siete vecinos y los extremos de la comarca.
+- ✅ **Legibilidad.** `src/lib/format.ts` centraliza fechas, horas, números y las contracciones
+  del catalán. Meteograma rehecho: iconos de cielo, marca de «ara», extremos de cada día
+  rotulados, probabilidad de lluvia visible aunque sean 0 mm, unidades en los ejes y leyenda.
+
 ## Lo que falta para cerrar la fase 1
 
 Por orden de valor. Ninguna necesita nada del usuario.
 
-1. **Calidad del aire.** `air-quality-api.open-meteo.com`, verificada y con cuota aparte de la
-   de predicción. PM2.5, PM10, NO₂, O₃, AQI europeo y polen. Worker nuevo + bloque en la página.
-2. **Ránquings diarios.** `/rànquings`: el pueblo más frío, el más cálido, el más lluvioso de
-   hoy. Los datos ya están en `xema-current.json`; es solo página. Muy compartible.
-3. **Comparativa dentro de la comarca** en cada ficha: «el tercer núcleo más frío de la Conca
-   este mes». Los datos están; falta el cálculo y el bloque.
-4. **Ficha de estación** (`/estacions/[codi]`, 245 rutas). `xema-history.json` ya tiene todo:
+1. **Ficha de estación** (`/estacions/[codi]`, 245 rutas). `xema-history.json` ya tiene todo:
    récords, normales, serie de 45 días. Falta rosa de vientos.
-5. **Radar de precipitación.** RainViewer, teselas públicas. Necesita el mapa, así que va con
-   la fase 3 o antes si se quiere.
-6. **Aislar el bloque «ara mateix»** en su propio segmento cacheado. Ahora la página entera se
+2. **Aislar el bloque «ara mateix»** en su propio segmento cacheado. Ahora la página entera se
    revalida cada 30 min por un número que cambia cada hora.
-7. **Partir `forecast.json`.** 42 MB en un solo fichero. Está memorizado por `mtime`, así que
+3. **Partir `forecast.json`.** 42 MB en un solo fichero. Está memorizado por `mtime`, así que
    no se reparsea, pero en Vercel eso son 42 MB en el bundle de funciones. Trocear por comarca.
+4. **Calidad del aire *medida*, no modelada.** La XVPCA publica los detectores automáticos en el
+   portal de datos abiertos (dataset `tasf-thgu`): ~130 estaciones reales frente a un modelo de
+   11 km. Es exactamente el mismo argumento que ya se usa con la XEMA frente a la predicción. El
+   bloque de aire debería enseñar la medida cuando haya una cerca y el modelo cuando no.
+5. **Nowcast del radar.** RainViewer lo publica, el worker ya lo guarda y la página ya lo
+   etiqueta distinto — pero hoy la lista viene vacía porque no llueve. Falta verlo con lluvia.
 
 ---
 
@@ -127,12 +147,51 @@ Esta es la parte que más tiempo ahorra. **Todas son reales, todas costaron enco
 - **El Nomenclàtor es de 2021 y dice 42 comarcas. Son 43** desde el Lluçanès (2023). La comarca
   la manda `wpyq-we8x`.
 
+### RainViewer
+
+- **El tilecache público solo llega al zoom 7.** Del 8 en adelante devuelve un PNG que dice
+  «Zoom Level Not Supported» **con código 200 y tipo `image/png`**. No falla nada: se descarga, se
+  guarda y se pinta. Se detectó porque dos teselas contiguas salían byte a byte idénticas — y
+  porque la web mostraba el cartel en grande. El worker comprueba el tamaño y aborta.
+- Con teselas de **512 px** el zoom 7 da la densidad de píxeles del 8: cuatro teselas cubren
+  Catalunya a unos 460 m/px, por encima de la resolución nativa del radar (~1 km).
+- La paleta del PNG **cambia de tesela a tesela** (son PNG indexados y cuantizados), así que no se
+  puede extraer una escala de intensidad fija del propio fichero. Por eso la página no publica una
+  leyenda numérica en dBZ: sería inventada.
+
+### Calidad del aire
+
+- **Contador aparte del de predicción**, verificado. Es lo que hace viable el bloque sin quitar
+  ningún modelo.
+- **CAMS trabaja a 0,1°**, así que pedir un punto por ubicación paga diez veces por el mismo
+  número interpolado. La unidad es la celda (`src/lib/air-grid.ts`): 372 en vez de 3.190.
+- La clave de celda se construye con `toFixed(1)`: la aritmética de coma flotante devuelve
+  `41.30000000000001` y sin fijar decimales eso son dos celdas distintas para el mismo sitio.
+- **El AQI europeo es el peor de sus subíndices, no una media.** Sin decir cuál manda, el número
+  no sirve para decidir nada: un 62 por ozono en julio no se parece a un 62 por NO₂ en hora punta.
+- **Los umbrales de polen no son los mismos para todas las especies.** 30 granos de gramínea son
+  muchos y 30 de olivo no son casi nada. Una escala única sería un error de bulto.
+
+### Catalán
+
+- **El artículo forma parte del topónimo y se contrae con la preposición.** «de el Prat» y «a el
+  Prat» estuvieron publicados. Se arregla con `deName()` y `aName()` de `src/lib/format.ts`.
+- **Los meses también**: «al llarg de agost» estuvo publicado un rato. `monthOf()`.
+- **`Intl` no da la alternancia `de` / `d'`** de «31 d'agost» y «1 de setembre» con ninguna
+  combinación de opciones. Los nombres de mes van a mano, y es por esto.
+
 ### JavaScript y fechas
 
 - **`toLocaleString('sv-SE')` devuelve `2026-08-31 10:30` con espacio**, y las series de
   Open-Meteo usan `T`. Sin unificarlos, la búsqueda de «la hora actual» no encuentra nada y cae
   al primer elemento — las 00:00, con UV cero y cielo despejado. No da error: da datos
-  plausibles y falsos.
+  plausibles y falsos. Ahora vive en un solo sitio: `localNowHour()` en `src/lib/weather.ts`.
+- **Las horas locales no se pasan por `new Date()` para leerlas.** Las series ya vienen en hora
+  de Madrid; construir un `Date` las reinterpreta en la zona del servidor, que en Vercel es UTC,
+  y las 08:00 se mostrarían como las 06:00. `src/lib/format.ts` trocea la cadena.
+- **`Date.now()` dentro de un componente hace saltar `react-hooks/purity`**, y el lint lo marca
+  como error, no como aviso. La hora del reloj es un dato y se calcula en la capa de datos: de ahí
+  salieron `dayFraction` en `Astronomy` y `ageMin` en `radar()`.
 - **Node 24 ejecuta TypeScript borrando tipos, sin transformarlos.** Nada de propiedades de
   parámetro (`constructor(private x)`), `enum`, `namespace` ni decoradores.
 - **Los imports relativos de `scripts/` necesitan extensión `.ts` explícita**, que el tsconfig
@@ -199,9 +258,14 @@ Workers:
 
 ```bash
 npm run worker:xema       # observación, cada 10 min
+npm run worker:radar      # radar RainViewer, cada 10 min
 npm run worker:warnings   # avisos AEMET, cada 15 min · necesita .env.local
+npm run worker:air        # calidad del aire y polen, cada 12 h
 npm run worker:forecast   # predicción · acepta --tiers=A,B,C y --fill
 npm run worker:history    # récords y normales, una vez al día
+
+npm run workers:frequent  # xema + radar, los de 10 min
+npm run workers:daily     # history + air
 ```
 
 Pruebas:

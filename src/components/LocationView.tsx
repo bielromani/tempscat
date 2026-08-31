@@ -5,10 +5,20 @@ import { WarningBanner } from './WarningBanner';
 import { HourlyTable } from './HourlyTable';
 import { SunMoon } from './SunMoon';
 import { ClimateBlock } from './ClimateBlock';
+import { AirQuality } from './AirQuality';
+import { ComarcaCompare } from './ComarcaCompare';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
-import type { Astronomy, CurrentConditions, LocationForecast, StationHistory, Warning } from '@/lib/weather';
+import {
+  aName, ago, dateTiny, deName, int, num, relativeDayTiny, signed, tempTiny,
+} from '@/lib/format';
+import { localNowHour, localToday } from '@/lib/weather';
+import type {
+  AirQuality as AirQualityData, Astronomy, CurrentConditions, LocationForecast,
+  StationHistory, Warning,
+} from '@/lib/weather';
+import type { ComarcaComparison } from '@/lib/comparison';
 import type { Comarca, Location } from '@/lib/territory';
 
 /**
@@ -37,13 +47,6 @@ function Breadcrumbs({ items }: { items: Array<{ nom: string; path: string }> })
       </ol>
     </nav>
   );
-}
-
-function relativeTime(minutes: number): string {
-  if (minutes < 1) return 'ara mateix';
-  if (minutes < 60) return `fa ${minutes} min`;
-  const h = Math.floor(minutes / 60);
-  return h === 1 ? 'fa 1 hora' : `fa ${h} hores`;
 }
 
 /** Descripción del índice UV con el consejo que le corresponde. */
@@ -89,9 +92,9 @@ function Current({
   if (current.windGust != null && current.windGust > (current.windSpeed ?? 0) * 1.4) {
     rows.push({ k: 'Ratxa', v: `${msToKmh(current.windGust).toFixed(0)} km/h` });
   }
-  if (current.humidity != null) rows.push({ k: 'Humitat', v: `${current.humidity.toFixed(0)} %` });
+  if (current.humidity != null) rows.push({ k: 'Humitat', v: `${Math.round(current.humidity)} %` });
   if (nowHour?.dewPoint != null) rows.push({ k: 'Punt de rosada', v: `${nowHour.dewPoint.toFixed(0)} °C` });
-  if (current.precip24h != null) rows.push({ k: 'Pluja 24 h', v: `${current.precip24h.toFixed(1).replace('.', ',')} mm` });
+  if (current.precip24h != null) rows.push({ k: 'Pluja 24 h', v: `${num(current.precip24h, 1)} mm` });
   if (current.pressure != null) rows.push({ k: 'Pressió', v: `${current.pressure.toFixed(0)} hPa` });
   if (nowHour?.cloudCover != null) rows.push({ k: 'Nuvolositat', v: `${nowHour.cloudCover} %` });
   if (nowHour?.visibility != null && nowHour.visibility < 20000) {
@@ -115,7 +118,7 @@ function Current({
           <div>
             <div className="flex items-baseline gap-2">
               <span className="tnum text-6xl font-semibold tracking-tight sm:text-7xl" style={{ color: ink }}>
-                {t != null ? t.toFixed(1).replace('.', ',') : '—'}
+                {num(t, 1)}
               </span>
               <span className="text-2xl" style={soft}>°C</span>
             </div>
@@ -154,16 +157,19 @@ function Current({
       */}
       <hr className="mt-5 border-0 border-t" style={{ borderColor: ink, opacity: 0.18 }} />
       <p className="mt-3 text-xs leading-relaxed" style={faint}>
-        Dada de l&apos;estació de <strong className="font-medium" style={{ color: ink, opacity: 0.9 }}>{current.station.nom}</strong>,
-        a {current.station.distKm.toFixed(1).replace('.', ',')} km
-        {current.station.dAltM != null && ` i ${current.station.dAltM > 0 ? '+' : '−'}${Math.abs(current.station.dAltM)} m de desnivell`}
-        {' · '}{relativeTime(current.ageMin)}
+        Dada de l&apos;estació{' '}
+        <strong className="font-medium" style={{ color: ink, opacity: 0.9 }}>
+          {deName(current.station.nom)}
+        </strong>,
+        a {num(current.station.distKm, 1)} km
+        {current.station.dAltM != null && ` i ${signed(current.station.dAltM, 0, 'm')} de desnivell`}
+        {' · '}{ago(current.ageMin)}
         {current.provisional && ' · lectura provisional, pendent de validació del Meteocat'}
         {' · '}{current.source}
         {corrected && current.temperature != null && (
           <>
             <br />
-            Temperatura corregida pel desnivell: l&apos;estació marca {current.temperature.toFixed(1).replace('.', ',')} °C
+            Temperatura corregida pel desnivell: l&apos;estació marca {num(current.temperature, 1)} °C
             a {loc.altitud != null && current.station.dAltM != null ? loc.altitud - current.station.dAltM : '?'} m.
           </>
         )}
@@ -172,7 +178,7 @@ function Current({
   );
 }
 
-function DailyStrip({ daily }: { daily: LocationForecast['daily'] }) {
+function DailyStrip({ daily, today }: { daily: LocationForecast['daily']; today: string }) {
   const all = daily.flatMap((d) => [d.tMax, d.tMin]).filter((v): v is number => v != null);
   const lo = Math.min(...all);
   const hi = Math.max(...all);
@@ -181,19 +187,16 @@ function DailyStrip({ daily }: { daily: LocationForecast['daily'] }) {
   return (
     <div className="scroll-x">
       <ol className="flex min-w-max gap-2">
-        {daily.map((d, i) => {
-          const date = new Date(`${d.date}T12:00:00`);
+        {daily.map((d) => {
           const barTop = d.tMax != null ? ((hi - d.tMax) / span) * 100 : 0;
           const barBottom = d.tMin != null ? ((d.tMin - lo) / span) * 100 : 0;
           return (
             <li key={d.date}
               className="w-[110px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] p-2.5 text-center">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-2)]">
-                {i === 0 ? 'Avui' : i === 1 ? 'Demà' : date.toLocaleDateString('ca-ES', { weekday: 'short' })}
+              <p className="text-xs font-semibold capitalize tracking-wide text-[var(--ink-2)]">
+                {relativeDayTiny(d.date, today)}
               </p>
-              <p className="tnum text-[11px] text-[var(--muted)]">
-                {date.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })}
-              </p>
+              <p className="tnum text-[11px] text-[var(--muted)]">{dateTiny(d.date)}</p>
 
               <div className="my-1.5 flex justify-center">
                 <WeatherIcon code={d.weatherCode} size={34} />
@@ -210,15 +213,15 @@ function DailyStrip({ daily }: { daily: LocationForecast['daily'] }) {
                     }} />
                 </div>
                 <div className="text-left">
-                  <p className="tnum text-sm font-semibold text-[var(--ink)]">{d.tMax != null ? `${d.tMax.toFixed(0)}°` : '—'}</p>
-                  <p className="tnum text-sm text-[var(--muted)]">{d.tMin != null ? `${d.tMin.toFixed(0)}°` : '—'}</p>
+                  <p className="tnum text-sm font-semibold text-[var(--ink)]">{tempTiny(d.tMax)}</p>
+                  <p className="tnum text-sm text-[var(--muted)]">{tempTiny(d.tMin)}</p>
                 </div>
               </div>
 
               <div className="mt-1.5 space-y-0.5 text-[11px]">
                 {d.precipitation > 0 || d.precipProbability >= 20 ? (
                   <p className="tnum font-medium" style={{ color: 'oklch(52% 0.13 245)' }}>
-                    {d.precipitation > 0 ? `${d.precipitation.toFixed(1).replace('.', ',')} mm` : ''}
+                    {d.precipitation > 0 ? `${num(d.precipitation, 1)} mm` : ''}
                     {d.precipProbability > 0 && (
                       <span className={d.precipitation > 0 ? 'ml-1 opacity-75' : ''}>{d.precipProbability} %</span>
                     )}
@@ -233,7 +236,7 @@ function DailyStrip({ daily }: { daily: LocationForecast['daily'] }) {
                 )}
                 {d.snowLevel != null && (
                   <p className="tnum font-medium" style={{ color: 'var(--accent)' }}>
-                    cota {d.snowLevel} m
+                    neu a {int(d.snowLevel)} m
                   </p>
                 )}
               </div>
@@ -275,26 +278,27 @@ interface Props {
   neighbours: Array<{ location: Location; distKm: number }>;
   neighboursLabel: string;
   description: string;
+  /** Calidad del aire de la celda de 11 km que contiene el punto. */
+  air: AirQualityData | null;
+  /** Posición dentro de la comarca, ahora y este mes. */
+  comparison: ComarcaComparison | null;
 }
 
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
+  air, comparison,
 }: Props) {
   /*
-   * La hora en curso dentro de la serie, para completar el bloque actual con
-   * las variables que la estación no mide: UV, nubosidad, punto de rocío.
+   * La hora en curso dentro de la serie, para completar el bloque actual con las
+   * variables que la estación no mide: UV, nubosidad, punto de rocío.
    *
-   * El `.replace(' ', 'T')` no es cosmético. `toLocaleString('sv-SE')` devuelve
-   * `2026-08-31 10:30:00` con espacio, y la serie de Open-Meteo usa `T`. Sin
-   * unificarlos la búsqueda no encontraba nunca la hora y el bloque caía
-   * siempre a las 00:00 — que de madrugada tiene UV cero y cielo despejado.
-   * El fallo no daba error: daba datos plausibles y equivocados.
+   * El cálculo de la hora local vive en la capa de datos, no aquí: lo necesitan
+   * ya cuatro sitios y tiene una trampa —el separador de sv-SE es un espacio y
+   * las series usan T— que hay que arreglar en un solo lugar.
    */
-  const nowIso = new Date()
-    .toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
-    .replace(' ', 'T')
-    .slice(0, 13);
+  const nowIso = localNowHour();
+  const today = localToday();
   const nowHour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
 
   return (
@@ -329,25 +333,46 @@ export function LocationView({
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold tracking-tight">Pròximes 48 hores</h2>
             <p className="text-xs text-[var(--muted)]">
-              {forecast.nModels > 1 ? `Consens de ${forecast.nModels} models` : 'Un sol model'}
+              {forecast.nModels > 1
+                ? `Consens de ${forecast.nModels} models de predicció`
+                : 'Un sol model de predicció'}
               {forecast.altitudeCorrectionM != null &&
-                ` · corregit ${forecast.altitudeCorrectionM > 0 ? '+' : '−'}${Math.abs(forecast.altitudeCorrectionM)} m d'altitud`}
+                ` · corregit ${signed(forecast.altitudeCorrectionM, 0, 'm')} d'altitud`}
             </p>
           </div>
-          <Meteogram hourly={forecast.hourly} hours={48} showSpread={forecast.nModels > 1} />
+          <Meteogram hourly={forecast.hourly} hours={48} showSpread={forecast.nModels > 1} nowHour={nowIso} />
         </section>
       )}
 
       {forecast && forecast.daily.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">7 dies</h2>
-          <DailyStrip daily={forecast.daily} />
+          <DailyStrip daily={forecast.daily} today={today} />
         </section>
       )}
 
       {forecast && forecast.hourly.length > 0 && (
         <section className="mt-6">
-          <HourlyTable hourly={forecast.hourly} hours={48} />
+          <HourlyTable hourly={forecast.hourly} hours={48} today={today} />
+        </section>
+      )}
+
+      {air && (
+        <section className="mt-8">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold tracking-tight">Qualitat de l&apos;aire</h2>
+            <p className="text-xs text-[var(--muted)]">Model CAMS · cel·la de {air.cellKm} km</p>
+          </div>
+          <AirQuality air={air} today={today} />
+        </section>
+      )}
+
+      {comparison && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+            Com queda dins de {comparison.comarca.nom}
+          </h2>
+          <ComarcaCompare cmp={comparison} nom={loc.nom} />
         </section>
       )}
 
@@ -360,7 +385,7 @@ export function LocationView({
 
       <section className="mt-8">
         <h2 className="mb-2 text-lg font-semibold tracking-tight">
-          Per què el temps a {loc.nom} és diferent
+          Per què el temps {aName(loc.nom)} és diferent
         </h2>
         <p className="max-w-[65ch] leading-relaxed text-[var(--ink-2)]">{description}</p>
       </section>

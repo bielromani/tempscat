@@ -16,6 +16,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `scripts/` | Pipeline de datos. Node ejecuta el TypeScript directamente, sin build |
 | `scripts/workers/` | Ingesta periódica: observación, predicción, avisos |
 | `src/lib/` | Frontera entre datos y aplicación |
+| `data/cache/radar/` | Teselas de radar ya descargadas. Las sirve una route handler |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/raw/`, `data/cache/` | Descargas y datos vivos. No se versionan |
@@ -38,9 +39,17 @@ Comprueba ambos proyectos con `npm run typecheck`.
 
 ## Código compartido entre scripts y aplicación
 
-`src/lib/variables.ts` lo importan los dos, así que **no puede importar nada**: los scripts lo
-cargan con extensión `.ts` y la aplicación con el alias `@/`. Si necesita dependencias, duplica
-en vez de romper uno de los dos.
+Hay cuatro ficheros que importan los dos lados, así que **ninguno puede importar nada**: los
+scripts los cargan con extensión `.ts` y la aplicación con el alias `@/`. Si alguno necesita
+dependencias, duplica antes que romper uno de los dos.
+
+| Fichero | Qué comparte |
+|---|---|
+| `src/lib/variables.ts` | La tabla Rosetta: códigos XEMA ↔ nombres de Open-Meteo ↔ AEMET |
+| `src/lib/air-variables.ts` | Variables de calidad del aire, bandas del AQI europeo, umbrales de polen |
+| `src/lib/air-grid.ts` | La celda de 0,1° que es la unidad de consulta del aire |
+| `src/lib/mercator.ts` | Proyección de las teselas del radar y de los polígonos que van encima |
+| `src/lib/format.ts` | Fechas, horas, números y contracciones del catalán |
 
 ## Comandos
 
@@ -54,8 +63,12 @@ npm run build
 Workers:
 
 ```bash
-node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/xema-observations.ts
-node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/forecast-refresh.ts --tiers=A,B,C
+npm run worker:xema       # observació, cada 10 min
+npm run worker:radar      # radar RainViewer, cada 10 min
+npm run worker:warnings   # avisos AEMET, cada 15 min · necessita .env.local
+npm run worker:air        # qualitat de l'aire i pol·len, cada 12 h
+npm run worker:forecast   # predicció · accepta --tiers=A,B,C i --fill
+npm run worker:history    # rècords i normals, un cop al dia
 ```
 
 ## Principios que no se negocian
@@ -85,6 +98,14 @@ de 10.000: no cabe ni una vez al día. De ahí la política de modelos por nivel
 
 `QuotaGuard` corta al 95 % y degrada al 80 %. No lo desactives para "hacer una prueba rápida".
 
+**La calidad del aire tiene contador aparte.** `air-quality-api.open-meteo.com` no comparte cuota
+con la de predicción, y por eso el bloque de aire cabe sin quitar ningún modelo. Se contabiliza
+como `open-meteo-air`, nunca junto: mezclarlos da una lectura falsa en las dos direcciones.
+
+Y **no se pide un punto por ubicación**: CAMS trabaja a 0,1° (11 km), así que la unidad de
+consulta es la celda (`src/lib/air-grid.ts`). De 3.190 puntos salen 372 celdas — un décimo de la
+cuota para exactamente la misma información.
+
 ## Rarezas de las fuentes, ya descubiertas a base de golpes
 
 - **Open-Meteo devuelve `nan` sin comillas** cuando un punto cae fuera del dominio de un modelo.
@@ -95,3 +116,13 @@ de 10.000: no cabe ni una vez al día. De ahí la política de modelos por nivel
   fuera de ahora mismo.
 - **El Nomenclàtor es de 2021 y dice 42 comarcas. Son 43** desde que se creó el Lluçanès.
 - **El dataset de centroides `9aju-tpwc` trae dos filas basura** (`999998`, `999999`).
+- **El tilecache público de RainViewer solo llega al zoom 7.** Del 8 en adelante devuelve un PNG
+  que dice «Zoom Level Not Supported» **con código 200 y tipo `image/png`**: se descarga, se
+  guarda y se pinta sin que nada falle. Se detecta porque dos teselas contiguas salen byte a byte
+  idénticas. El worker comprueba el tamaño y aborta.
+- **En catalán el artículo forma parte del topónimo y se contrae.** «de el Prat» y «a el Prat» son
+  faltas visibles; usa `deName()` y `aName()` de `src/lib/format.ts`, nunca concatenes la
+  preposición a mano. Lo mismo con los meses: `monthOf()`, porque es «d'agost» y «de setembre».
+- **`Date.now()` dentro de un componente hace saltar `react-hooks/purity`** y el lint es un error,
+  no un aviso. La hora del reloj es un dato: se calcula en `src/lib/weather.ts` y llega por props.
+  Es lo que hizo aparecer `dayFraction` en `Astronomy` y `ageMin` en `radar()`.

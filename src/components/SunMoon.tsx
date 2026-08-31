@@ -22,16 +22,24 @@ function duration(minutes: number | null): string {
 function SunArc({ astro }: { astro: Astronomy }) {
   if (!astro.sunrise || !astro.sunset) return null;
 
-  const rise = astro.sunrise.getTime();
-  const set = astro.sunset.getTime();
-  const now = Date.now();
-  const t = Math.max(0, Math.min(1, (now - rise) / (set - rise)));
+  /*
+   * La fracción del día ya viene calculada en la capa de datos.
+   *
+   * Antes se leía el reloj aquí con Date.now(), y eso convierte el componente en
+   * impuro: su resultado depende de cuándo se renderiza, no solo de sus props.
+   * En un componente de servidor no se ve el fallo, pero la regla es la misma —
+   * la hora del reloj es un dato, y los datos entran por  astronomyFor.
+   */
+  const t = astro.dayFraction;
+  if (t == null) return null;
 
   const W = 200, H = 62, PAD = 12;
   const x = PAD + t * (W - 2 * PAD);
   // Semicírculo: el sol sube y baja siguiendo el arco.
   const y = H - 8 - Math.sin(t * Math.PI) * (H - 24);
-  const isUp = now >= rise && now <= set;
+  // Estrictamente dentro: a 0 y a 1 el sol está justo en el horizonte y pintarlo
+  // encima de la línea del suelo sugiere una precisión al minuto que no hay.
+  const isUp = t > 0 && t < 1;
 
   const arc = Array.from({ length: 41 }, (_, i) => {
     const k = i / 40;

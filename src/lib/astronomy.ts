@@ -91,7 +91,6 @@ export function sunPosition(date: Date, lat: number, lon: number): SunPosition {
 
 // ── Orto, ocaso y crepúsculos ───────────────────────────────────────────────
 
-const J1970 = 2440588;
 const J2000 = 2451545;
 
 function julianCycle(d: number, lw: number): number {

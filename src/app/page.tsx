@@ -45,6 +45,31 @@ export default function Home() {
         ))}
       </section>
 
+      {/* Las dos páginas transversales, antes del listado: son las que dan una
+          razón para volver, y enterradas al final del pie no las ve nadie. */}
+      <section className="mb-10 grid gap-3 sm:grid-cols-2">
+        <Link
+          href="/radar"
+          className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4 no-underline hover:border-[var(--accent)]"
+        >
+          <p className="font-semibold text-[var(--ink)]">On plou ara mateix</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Radar de precipitació de l&apos;última hora sobre els límits comarcals,
+            amb el que un radar pot i no pot veure.
+          </p>
+        </Link>
+        <Link
+          href="/ranquings"
+          className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4 no-underline hover:border-[var(--accent)]"
+        >
+          <p className="font-semibold text-[var(--ink)]">Els extrems d&apos;avui</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            El poble més fred i el més càlid, les màximes i mínimes del dia i on
+            ha plogut més.
+          </p>
+        </Link>
+      </section>
+
       <h2 className="mb-3 text-lg font-semibold tracking-tight">Comarques</h2>
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {comarques.map((c) => (

@@ -147,6 +147,18 @@ export function WeatherIconSprite() {
   );
 }
 
+/**
+ * Referencia al símbolo del sprite, para colocarlo dentro de otro SVG.
+ *
+ * El meteograma es un solo SVG y necesita los iconos como `<use>` con sus
+ * coordenadas. Anidar `<WeatherIcon>` funcionaría —un `<svg>` dentro de otro es
+ * válido— pero obliga a un `<svg>` por icono con su propio viewBox, y son 16 por
+ * gráfico. Con esto es un elemento por icono.
+ */
+export function weatherSpriteHref(code: number | null | undefined, isDay: boolean): string {
+  return `#${spriteId(weatherCode(code).group, isDay)}`;
+}
+
 interface Props {
   code: number | null | undefined;
   isDay?: boolean;

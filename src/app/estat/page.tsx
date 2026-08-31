@@ -14,6 +14,9 @@ const LABELS: Record<string, string> = {
   'xema-observations': 'Observació XEMA (Meteocat)',
   'forecast-refresh': 'Predicció (Open-Meteo)',
   'aemet-warnings': 'Avisos oficials (AEMET)',
+  'xema-history': 'Rècords i normals (XEMA)',
+  'air-quality': 'Qualitat de l’aire i pol·len (CAMS)',
+  'radar': 'Radar de precipitació (RainViewer)',
 };
 
 function age(minutes: number | null): string {
