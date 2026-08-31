@@ -18,6 +18,7 @@ const LABELS: Record<string, string> = {
   'air-quality': 'Qualitat de l’aire i pol·len (CAMS)',
   'radar': 'Radar de precipitació (RainViewer)',
   'water': 'Embassaments, cabals i sequera (ACA)',
+  'air-stations': 'Qualitat de l’aire mesurada (XVPCA)',
 };
 
 function age(minutes: number | null): string {

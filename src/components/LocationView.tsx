@@ -9,6 +9,7 @@ import { AirQuality } from './AirQuality';
 import { ComarcaCompare } from './ComarcaCompare';
 import { Headline } from './Headline';
 import { WaterBlock } from './WaterBlock';
+import { MeasuredAir } from './MeasuredAir';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
@@ -24,6 +25,7 @@ import type {
 import type { ComarcaComparison } from '@/lib/comparison';
 import type { Narrative } from '@/lib/narrative';
 import type { WaterNearby } from '@/lib/water';
+import type { NearestAirStation } from '@/lib/air-stations';
 import type { Comarca, Location } from '@/lib/territory';
 
 /**
@@ -297,12 +299,14 @@ interface Props {
   narrative: Narrative | null;
   /** Embalse, aforo y estado de sequía cercanos. Null cuando no hay nada que decir. */
   water: WaterNearby | null;
+  /** La estación de la XVPCA más cercana, con su medida de ayer. */
+  airStation: NearestAirStation | null;
 }
 
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
-  air, comparison, narrative, water,
+  air, comparison, narrative, water, airStation,
 }: Props) {
   /*
    * La hora en curso dentro de la serie, para completar el bloque actual con las
@@ -386,13 +390,17 @@ export function LocationView({
         </section>
       )}
 
-      {air && (
+      {(air || airStation) && (
         <section className="mt-8">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold tracking-tight">Qualitat de l&apos;aire</h2>
-            <p className="text-xs text-[var(--muted)]">Model CAMS · cel·la de {air.cellKm} km</p>
+            {air && (
+              <p className="text-xs text-[var(--muted)]">Model CAMS · cel·la de {air.cellKm} km</p>
+            )}
           </div>
-          <AirQuality air={air} today={today} />
+          {air && <AirQuality air={air} today={today} />}
+          {/* La medida real debajo del modelo, y diciendo que es de ayer. */}
+          {airStation && <MeasuredAir station={airStation} />}
         </section>
       )}
 

@@ -35,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/estacions" className="no-underline hover:text-[var(--ink)]">Estacions</Link>
               <Link href="/aigua" className="no-underline hover:text-[var(--ink)]">Aigua</Link>
               <Link href="/neu" className="no-underline hover:text-[var(--ink)]">Neu</Link>
+              <Link href="/aire" className="no-underline hover:text-[var(--ink)]">Aire</Link>
               <Link href="/bolets" className="no-underline hover:text-[var(--ink)]">Bolets</Link>
               <Link href="/dades" className="no-underline hover:text-[var(--ink)]">Dades obertes</Link>
               <Link href="/estat" className="no-underline hover:text-[var(--ink)]">Estat de les dades</Link>
@@ -62,7 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </p>
             <p>
               Qualitat de l&apos;aire i pol·len: <strong className="font-medium text-[var(--ink-2)]">CAMS Europa</strong>,
-              del servei Copernicus, via Open-Meteo. Radar de precipitació: <strong className="font-medium text-[var(--ink-2)]">RainViewer</strong>.
+              del servei Copernicus, via Open-Meteo · mesures de la <strong className="font-medium text-[var(--ink-2)]">XVPCA</strong>. Radar de precipitació: <strong className="font-medium text-[var(--ink-2)]">RainViewer</strong>.
             </p>
             <p>
               Límits administratius i topònims: <strong className="font-medium text-[var(--ink-2)]">Institut Cartogràfic i Geològic de Catalunya</strong>.

@@ -159,7 +159,17 @@ export default async function ComarcaPage({ params }: { params: Params }) {
         })}
       </ul>
 
-      <p className="mt-8 max-w-[70ch] text-xs leading-relaxed text-[var(--muted)]">
+      <p className="mt-6 text-xs text-[var(--muted)]">
+        Avisos {deComarca(c.nom)} com a{' '}
+        <Link href={`/avisos/feed/${c.slug}`} className="text-[var(--ink-2)] no-underline hover:underline">
+          feed
+        </Link>{' '}o com a{' '}
+        <Link href={`/avisos/feed/${c.slug}?format=ics`} className="text-[var(--ink-2)] no-underline hover:underline">
+          calendari
+        </Link>.
+      </p>
+
+      <p className="mt-6 max-w-[70ch] text-xs leading-relaxed text-[var(--muted)]">
         Temperatures de les estacions automàtiques de la XEMA més properes a cada
         municipi, corregides pel desnivell. {conTemp.length} de {municipis.length} municipis
         tenen lectura recent

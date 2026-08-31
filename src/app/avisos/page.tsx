@@ -118,6 +118,42 @@ export default function AvisosPage() {
         </>
       )}
 
+      <section className="mt-10 max-w-[65ch]">
+        <h2 className="mb-2 text-lg font-semibold tracking-tight">Rebre&apos;ls sense entrar</h2>
+        <p className="text-sm leading-relaxed text-[var(--ink-2)]">
+          Els avisos es publiquen també com a <strong className="font-medium text-[var(--ink)]">feed</strong> i
+          com a <strong className="font-medium text-[var(--ink)]">calendari</strong>, de tot Catalunya o
+          d&apos;una comarca. No cal registre ni permís de notificacions, i no
+          guardem res de ningú: és un fitxer que el vostre lector va a buscar.
+        </p>
+        <ul className="mt-3 space-y-1 font-mono text-xs">
+          <li>
+            <Link href="/avisos/feed" className="text-[var(--accent)] no-underline hover:underline">
+              /avisos/feed
+            </Link>{' '}
+            <span className="font-sans text-[var(--muted)]">— Atom, tot Catalunya</span>
+          </li>
+          <li>
+            <Link href="/avisos/feed/bages" className="text-[var(--accent)] no-underline hover:underline">
+              /avisos/feed/{'{comarca}'}
+            </Link>{' '}
+            <span className="font-sans text-[var(--muted)]">— Atom d&apos;una comarca</span>
+          </li>
+          <li>
+            <Link href="/avisos/feed?format=ics" className="text-[var(--accent)] no-underline hover:underline">
+              /avisos/feed?format=ics
+            </Link>{' '}
+            <span className="font-sans text-[var(--muted)]">— calendari subscribible</span>
+          </li>
+        </ul>
+        <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
+          El calendari és el format natural d&apos;un avís: té principi i final, i
+          apareix entre les reunions amb la seva finestra de vigència dibuixada a
+          escala. Els taronges i els vermells hi porten un recordatori dues hores
+          abans; els grocs no, perquè un groc no ha de despertar ningú.
+        </p>
+      </section>
+
       <p className="mt-8 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
         L&apos;assignació d&apos;avisos a comarques la fem per geometria, no per nom
         de zona: els polígons de l&apos;AEMET no segueixen els límits comarcals, i

@@ -174,3 +174,8 @@ cuota para exactamente la misma información.
   628 de 630 municipios están en normalidad. No se muestra nunca sin la fecha del último cambio.
 - **Las coordenadas de la ACA vienen en UTM 31N.** Hay conversor en `scripts/lib/geo.ts`,
   verificado porque cada embalse cae dentro del municipio que lleva en el nombre.
+- **La XVPCA (`tasf-thgu`) no es un dato en vivo: lleva ~20 h de retraso.** Se escribe una vez
+  al dia de madrugada y la fila del dia en curso se queda en la hora 4. Es la medida de *ayer*,
+  y asi se presenta. El CO viene en mg/m3 y el modelo en ug/m3.
+- **Socrata omite los campos nulos.** La ausencia de `h05` no es un cero: es que no esta. Una
+  media diaria calculada solo sobre las horas presentes no es una media diaria.

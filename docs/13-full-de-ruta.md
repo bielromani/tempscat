@@ -123,21 +123,44 @@ Dos detalles de dibujo que cambian la lectura:
 Y la leyenda dice qué **no** contesta: la frecuencia de las brisas suaves. La
 marinada de cada tarde de verano sale poco porque pocas veces es la racha del día.
 
-### 3. Calidad del aire medida — XVPCA
+### 3. Calidad del aire medida — XVPCA · hecho, con el diseno cambiado
 
-Dataset `tasf-thgu`, verificado. Estaciones reales frente a un modelo de 11 km:
-el mismo argumento que ya se usa con la XEMA frente a la predicción. El bloque de
-aire debe enseñar la medida cuando haya una estación cerca y el modelo cuando no,
-diciendo cuál de las dos es.
+`/aire` con las 75 estaciones de la Xarxa de Vigilancia, y un bloque bajo el de
+CAMS en cada ficha con la estacion mas cercana dentro de 20 km.
 
-Dos trampas ya vistas al inspeccionarlo:
+**El diseno previsto no se sostenia y se vio midiendo antes de escribir la
+pagina.** Aqui estaba anotado como «la medida frente al modelo, en vivo». No es
+en vivo:
 
-- El formato es **ancho**: una fila por estación, día y contaminante, con 24
-  columnas `h01`…`h24`. Hay que pivotarlo.
-- **Socrata omite los campos nulos**, así que la ausencia de `h05` no es un cero:
-  es que aún no está. A mediodía la fila del día solo traía hasta `h04`, o sea que
-  el retraso es mucho mayor que el de la XEMA. Hay que medirlo antes de
-  presentarlo como «ara mateix».
+- El dataset `tasf-thgu` se escribe **una vez al dia**, de madrugada. El 31 de
+  agosto la ultima escritura fue a las 06:30 UTC.
+- Y en esa escritura, la fila del dia en curso solo llegaba a la **hora 4**. A las
+  22:39 UTC seguia llegando a la hora 4: **veinte horas de retraso**.
+
+El reparto queda al reves de lo que decia este documento, y la pagina lo dice en
+voz alta:
+
+| | Cubre | Cuando |
+|---|---|---|
+| **CAMS**, modelo | todo el territorio, celda de 11 km | ahora y tres dias |
+| **XVPCA**, medido | solo donde hay aparato, 75 puntos | **ayer** |
+
+Las dos son utiles y no son la misma. Publicar la medida vieja tiene sentido —una
+medida vieja y verdadera vale mas que ninguna— **siempre que se diga que es
+vieja**, que es lo que hace el bloque.
+
+Tres detalles que costarian tiempo a quien lo repita:
+
+- El formato es **ancho**: una fila por estacion, dia y contaminante, con 24
+  columnas `h01`...`h24`. Socrata **omite los nulos**, asi que un hueco no es un
+  cero. La media diaria solo se publica con las 24 horas presentes: con 18 seria
+  una media de tres cuartos de dia llamada «mitjana diaria».
+- **El CO viene en mg/m3** y el modelo lo da en ug/m3. Se convierte en el worker.
+  Dos unidades para la misma magnitud en la misma pagina es como se publica una
+  cifra mil veces menor sin que nada falle.
+- Se publica el **tipo de estacion** —trafico, fondo, industrial— porque cambia lo
+  que mide mas que la distancia. Una de trafico y una de fondo a un kilometro dan
+  NO2 que no se parecen, y las dos estan bien.
 
 ### 4. Mar: temperatura del agua y oleaje
 
@@ -273,18 +296,35 @@ franja visualmente distinta de la oficial. La regla: si un lector no distingue d
 un vistazo quién firma el aviso, el bloque está mal hecho aunque el dato sea
 correcto.
 
-### 10. Alertas geolocalizadas **sin backend**: RSS, Atom e ICS
+### 10. Alertas por feed, sin backend · hecho
 
-Aquí hay un salto de coste que conviene ver antes de dar el paso.
+`/avisos/feed` y `/avisos/feed/{comarca}`, en **Atom** y en **iCalendar**.
 
-- **Un feed RSS/Atom por comarca** con los avisos vigentes: cero infraestructura,
-  funciona en cualquier lector, es enlazable e indexable. Un `route.ts`.
-- **Un ICS por comarca**: los avisos aparecen en el calendario del usuario. Misma
-  historia, cero infraestructura.
-- **Un digest diario** por comarca, también como feed.
+Iban antes que el push por una diferencia de coste enorme: el push necesita
+almacen de suscripciones, claves VAPID, consentimiento, politica de privacidad y
+un proceso que decida a quien le toca cada aviso — es la primera cosa del
+proyecto que de verdad necesita base de datos. Un feed no necesita **nada**: es un
+`route.ts` que serializa lo que ya esta en memoria, funciona en cualquier lector,
+se mete en Telegram o en Slack, y no guarda un solo dato de nadie.
 
-Esto cubre el 80 % de «alertes a la meva comarca» sin tocar la arquitectura. El
-push de verdad está en la fase 4, y con motivo.
+Decisiones que quedan cerradas:
+
+- **Atom y no RSS 2.0.** Atom obliga a fechas ISO y a identificadores estables, y
+  aqui hacen falta: el CAP reemite el mismo episodio, y sin `id` estable cada
+  reemision saldria como aviso nuevo. El `id` lleva el nivel pegado, para que una
+  subida de amarillo a naranja **si** aparezca como entrada nueva — para el lector
+  eso es informacion nueva.
+- **El calendario es el formato natural de un aviso**: tiene principio y final, y
+  aparece entre las reuniones con su ventana dibujada a escala. Ningun lector de
+  RSS ensena eso. Los naranjas y rojos llevan `VALARM` dos horas antes; los
+  amarillos no, porque un amarillo no debe despertar a nadie.
+- El plegado de lineas del ICS cuenta **octetos, no caracteres**, y corta sin
+  partir un caracter. «Acumulacio» ocupa once caracteres y doce bytes: contando
+  caracteres, una linea con acentos se pasa del limite del RFC sin que nada lo
+  note, y un lector estricto rechaza el fichero entero.
+
+Queda el **digest diario** por comarca, que es el mismo mecanismo con otro
+contenido.
 
 ### 11. Deuda técnica que ya duele
 

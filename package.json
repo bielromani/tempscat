@@ -24,14 +24,15 @@
     "workers": "npm run worker:xema && npm run worker:warnings && npm run worker:radar && npm run worker:forecast",
     "worker:warnings": "node --env-file=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/aemet-warnings.ts",
     "worker:history": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/xema-history.ts",
-    "workers:daily": "npm run worker:history && npm run worker:air && npm run worker:water",
+    "workers:daily": "npm run worker:history && npm run worker:air && npm run worker:air-stations && npm run worker:water",
     "test:astronomy": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-astronomy.ts",
     "worker:air": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-quality.ts",
     "worker:radar": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/radar.ts",
     "workers:frequent": "npm run worker:xema && npm run worker:radar",
     "test:narrative": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-narrative.ts",
     "test": "npm run test:catalan && npm run test:astronomy && npm run test:narrative",
-    "worker:water": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/water.ts"
+    "worker:water": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/water.ts",
+    "worker:air-stations": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-stations.ts"
   },
   "dependencies": {
     "next": "16.3.3",
