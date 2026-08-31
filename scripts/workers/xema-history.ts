@@ -63,6 +63,17 @@ const V = {
   gustDir6: '1516',
   gustDir2: '1517',
   et0: '1700',
+  /*
+   * Espesor de nieve, que solo miden 24 estaciones y todas menos dos están en el
+   * Pirineo. Es el dato que convierte «la cota de neu va a 1.800 m», que es una
+   * estimación del modelo, en «i a Bonaigua hi ha 40 cm», que es una medida.
+   *
+   * Se usa el máximo diario (1601) y no la media (1600) porque está más presente
+   * en la serie y porque el espesor de un día es lo que había, no un promedio de
+   * lecturas.
+   */
+  snowDepth: '1601',
+  snowNew: '1602',
 } as const;
 
 export interface DailyRecord {
@@ -77,6 +88,10 @@ export interface DailyRecord {
   gust: number | null;
   pressure: number | null;
   solar: number | null;
+  /** Espesor de nieve, cm. Null cuando la estación no lo mide — que son 165 de 189. */
+  snowDepth: number | null;
+  /** Nieve nueva caída ese día, cm. */
+  snowNew: number | null;
 }
 
 export interface Extreme { value: number; date: string; hour?: string }
@@ -131,6 +146,8 @@ export interface StationHistory {
     precipMaxDay: Extreme | null;
     precipMax1h: Extreme | null;
     gustMax: Extreme | null;
+    /** Espesor de nieve más alto de la serie. Solo en las 24 estaciones que lo miden. */
+    snowMax: Extreme | null;
     since: string | null;
     days: number;
   };
@@ -154,6 +171,15 @@ export interface StationHistory {
   dryStreak: number;
   /** De dónde vienen las rachas. Null si la estación no mide viento. */
   rose: WindRose | null;
+  /**
+   * La última medida de nieve, con su fecha.
+   *
+   * Null cuando la estación **no tiene sensor**, que es el caso de 165 de las
+   * 189. Es la distinción que hay que mantener a toda costa: cero centímetros
+   * medidos y ausencia de sensor no son lo mismo, y confundirlos es el fallo que
+   * ya dio una racha seca de 398 días en el Port de Barcelona.
+   */
+  snow: { depthCm: number; newCm: number | null; day: string } | null;
 }
 
 interface Row { [k: string]: string }
@@ -174,6 +200,7 @@ const RECORD_VARS = [
   V.tMean, V.tMax, V.tMin, V.precip,
   V.gust, V.gust6, V.gust2,
   V.gustDir, V.gustDir6, V.gustDir2,
+  V.snowDepth,
 ];
 
 /**
@@ -205,6 +232,7 @@ async function dailySeries(station: string, fromDay: string): Promise<DailyRecor
       rec = {
         day, tMax: null, tMin: null, tMean: null, tRange: null,
         rhMean: null, precip: null, precipMax1h: null, gust: null, pressure: null, solar: null,
+        snowDepth: null, snowNew: null,
       };
       byDay.set(day, rec);
     }
@@ -220,6 +248,8 @@ async function dailySeries(station: string, fromDay: string): Promise<DailyRecor
       case V.gust: rec.gust = value; break;
       case V.pressure: rec.pressure = r1(value); break;
       case V.solar: rec.solar = value == null ? null : Math.round(value); break;
+      case V.snowDepth: rec.snowDepth = r1(value); break;
+      case V.snowNew: rec.snowNew = r1(value); break;
     }
   }
   return [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
@@ -369,6 +399,97 @@ function roseOf(
   };
 }
 
+/**
+ * Filtro de plausibilidad para el espesor de nieve.
+ *
+ * ## Por qué hace falta uno propio
+ *
+ * El sensor de nieve es un ultrasonido que mide la distancia al suelo, y en
+ * verano se le cuela cualquier cosa: hierba que crece, un objeto, una
+ * recalibración. El dataset daba **12 cm de neu a Das el 28 d'agost**, a 1.100 m,
+ * con la mínima de aquel día en 9,3 °C — y 37 cm de nieve nueva en Mollò el mismo
+ * día. Es imposible.
+ *
+ * Y el portal **no lo detecta**: esas filas vienen marcadas `Representatiu`, que
+ * es su estado de validación bueno. Así que la comprobación tiene que ser
+ * nuestra, y tiene que ser física, no estadística.
+ *
+ * ## La regla
+ *
+ * Una lectura de espesor se acepta si **la mínima del día bajó de 2 °C** o si el
+ * espesor **no ha aumentado** respecto de la última lectura aceptada.
+ *
+ * Los dos casos que la regla tiene que respetar, y respeta:
+ *
+ *  · **Nieve de primavera fundiéndose.** Mínima de 6 °C y el manto pasa de 80 a
+ *    70 cm: no aumenta, se acepta. Un metro de nieve no desaparece porque un día
+ *    haga bueno, y una regla que solo mirase la temperatura la borraría.
+ *  · **Nevada de invierno.** Mínima de −4 °C y de 0 a 40 cm: se acepta aunque sea
+ *    un salto enorme, porque a esa temperatura el salto es lo que pasa.
+ *
+ * Lo que cae es exactamente el caso imposible: el manto que **crece** en un día
+ * que no ha helado ni de lejos.
+ */
+const SNOW_MAX_MIN_TEMP = 2;
+
+function filterSnow(days: DailyRecord[]): { dropped: number } {
+  let lastAccepted: number | null = null;
+  let dropped = 0;
+
+  for (const d of days) {
+    if (d.snowDepth == null) continue;
+
+    const grew = lastAccepted != null && d.snowDepth > lastAccepted;
+    const fromNothing = lastAccepted == null && d.snowDepth > 0;
+    const cold = d.tMin != null && d.tMin <= SNOW_MAX_MIN_TEMP;
+
+    if ((grew || fromNothing) && !cold) {
+      // Se anula, no se pone a cero: no sabemos cuánta nieve había, sabemos que
+      // la cifra no es creíble. Un cero diría que no había, que es otra cosa.
+      d.snowDepth = null;
+      d.snowNew = null;
+      dropped++;
+      continue;
+    }
+    lastAccepted = d.snowDepth;
+  }
+  return { dropped };
+}
+
+/**
+ * La misma regla sobre la serie completa, para que no contamine los récords.
+ *
+ * Sin esto, el récord de Mollò habría quedado en «40 cm el 28 d'agost de 2026»,
+ * que es la lectura falsa, en vez de en el máximo real de su historia.
+ */
+function plausibleSnowExtreme(
+  series: Array<{ day: string; variable: string; value: number; hour?: string }>,
+): Extreme | null {
+  const tMinByDay = new Map<string, number>();
+  for (const r of series) if (r.variable === V.tMin) tMinByDay.set(r.day, r.value);
+
+  const snowDays = series
+    .filter((r) => r.variable === V.snowDepth)
+    .sort((a, b) => a.day.localeCompare(b.day));
+
+  let lastAccepted: number | null = null;
+  let best: Extreme | null = null;
+
+  for (const r of snowDays) {
+    const tMin = tMinByDay.get(r.day) ?? null;
+    const grew = lastAccepted != null && r.value > lastAccepted;
+    const fromNothing = lastAccepted == null && r.value > 0;
+    const cold = tMin != null && tMin <= SNOW_MAX_MIN_TEMP;
+    if ((grew || fromNothing) && !cold) continue;
+
+    lastAccepted = r.value;
+    if (r.value > 0 && (!best || r.value > best.value)) {
+      best = { value: r.value, date: r.day, hour: r.hour };
+    }
+  }
+  return best;
+}
+
 async function main() {
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
@@ -390,15 +511,40 @@ async function main() {
   console.log(`Sèrie diària des de ${from} · dataset ${DAILY}\n`);
 
   let calls = 0;
+  const failed: string[] = [];
+  const suspectSnow: string[] = [];
   const results = await throttledMap(
     targets,
     async (s) => {
-      const [daily, series] = await Promise.all([
-        dailySeries(s.codi, from),
-        fullSeries(s.codi),
-      ]);
+      /*
+       * Una estación que falla no puede tumbar la ejecución entera.
+       *
+       * Sin este try, un `fetch failed` en la primera de 189 abortaba tres
+       * minutos y medio de trabajo y no escribía nada — pasó al añadir la nieve.
+       * El resto del worker ya filtraba nulos, así que esperaba poder recibirlos:
+       * lo único que faltaba era producirlos.
+       *
+       * Y el fichero anterior se conserva porque `writeSnapshot` es atómico, que
+       * es lo que hace que un fallo a media descarga no deje la web sin clima.
+       */
+      let daily: DailyRecord[];
+      let series: Array<{ day: string; variable: string; value: number; hour?: string }>;
+      try {
+        [daily, series] = await Promise.all([
+          dailySeries(s.codi, from),
+          fullSeries(s.codi),
+        ]);
+      } catch (err) {
+        failed.push(s.codi);
+        console.warn(`
+  ${s.codi} ${s.nom}: ${String(err).slice(0, 80)}`);
+        return null;
+      }
       calls += 2;
 
+      const snowDropped = filterSnow(daily).dropped;
+      if (snowDropped) suspectSnow.push(`${s.codi}:${snowDropped}`);
+      const snowMax = plausibleSnowExtreme(series);
       const tMaxAbs = extremeOf(series, V.tMax, 'max');
       const tMinAbs = extremeOf(series, V.tMin, 'min');
       const gustMax = extremeOf(series, V.gust, 'max');
@@ -449,7 +595,7 @@ async function main() {
         station: s.codi,
         daily: daily.slice(-45),
         records: {
-          tMaxAbs, tMinAbs, precipMaxDay, precipMax1h, gustMax,
+          tMaxAbs, tMinAbs, precipMaxDay, precipMax1h, gustMax, snowMax,
           since: firstDay,
           days: days.size,
         },
@@ -465,6 +611,14 @@ async function main() {
         monthAnomaly: monthMean != null && normal != null ? r1(monthMean - normal) : null,
         dryStreak,
         rose: roseOf(series),
+        // El último día **con lectura**, no el último día del calendario: en una
+        // estación de alta montaña la serie tiene huecos, y quedarse con la fecha
+        // de hoy y un valor nulo diría «avui no hi ha neu» cuando lo que pasa es
+        // que hoy no hay dato.
+        snow: (() => {
+          const last = [...daily].reverse().find((d) => d.snowDepth != null);
+          return last ? { depthCm: last.snowDepth!, newCm: last.snowNew, day: last.day } : null;
+        })(),
       };
       return history;
     },
@@ -480,6 +634,15 @@ async function main() {
   quota.spend('socrata', calls);
 
   const fresh = results.filter((r): r is StationHistory => !!r);
+  if (failed.length) {
+    console.warn(`
+avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${failed.join(', ')}`);
+  }
+  if (suspectSnow.length) {
+    console.warn('');
+    console.warn('Lectures de neu descartades per impossibles (mantell que creix sense glaçar):');
+    console.warn(`  ${suspectSnow.join(' · ')}`);
+  }
 
   /*
    * Con `--station=`, el resultado se **fusiona** sobre el snapshot anterior.
@@ -489,13 +652,18 @@ async function main() {
    * páginas hasta la siguiente ejecución completa, sin que nada diera error.
    * Pasó al probar la rosa de los vientos.
    */
+  /*
+   * Las que han fallado conservan su fila anterior en vez de desaparecer. Es la
+   * misma lógica que el modo --station y por la misma razón: un corte de red no
+   * debe borrar el clima de un pueblo.
+   */
   let valid = fresh;
-  if (onlyOne) {
+  if (onlyOne || failed.length) {
     const previous = readSnapshot<StationHistory[]>('xema-history')?.data ?? [];
     const byStation = new Map(previous.map((h) => [h.station, h]));
     for (const h of fresh) byStation.set(h.station, h);
     valid = [...byStation.values()].sort((a, b) => a.station.localeCompare(b.station));
-    console.log(`Mode --station: ${fresh.length} refrescada(es), ${previous.length} conservades`);
+    console.log(`${fresh.length} refrescades · ${valid.length - fresh.length} conservades de l'execució anterior`);
   }
 
   const nom = new Map(stations.map((s) => [s.codi, s.nom]));

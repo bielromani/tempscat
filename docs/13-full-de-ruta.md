@@ -201,29 +201,37 @@ Notas de implementación que ahorran tiempo:
 El caudal en tiempo real queda como base honesta de un aviso propio de riesgo de
 crecida — ver el punto 9.
 
-### 6. Nieve **medida** en el Pirineo · hallazgo nuevo
+### 6. Nieve medida en el Pirineo · ✅ hecho
 
-Encontrado al construir la rosa de los vientos: el dataset diario `7bvh-jvq2`
-tiene **espesor de nieve medido por las estaciones**, y no se estaba usando.
+`/neu`, con las 20 estaciones que llevan sensor de espesor. Hasta ahora la nieve
+del sitio era la **cota** estimada desde la isocero del modelo; esto es un
+espesor medido, con su fecha. Las dos juntas contestan la pregunta real: «la cota
+va a 1.800 m i a Bonaigua hi ha 40 cm».
 
-| Código | Qué es |
-|---|---|
-| `1600` | Espesor medio diario, cm |
-| `1601` | Espesor máximo diario + hora |
-| `1602` | **Nieve nueva acumulada** en el día |
-| `1603` | Espesor mínimo diario + hora |
+La página **funciona también en agosto**, que era el riesgo: cuando no hay nieve,
+cada estación enseña cuándo tuvo la última y cuánta llegó a haber. Bonaigua, 411
+cm el 12 de febrero de 2013.
 
-152.900 registros, o sea que hay serie larga. Cambia la conversación: hasta ahora
-la nieve del sitio era la **cota estimada** a partir de la isocero del modelo, y
-esto es un espesor medido con su fecha. Con las dos se puede decir «la cota va a
-1.800 m i a Certascan hi ha 40 cm», que es lo que se pregunta de verdad.
+#### La trampa: el sensor miente en verano, y el portal no lo detecta
 
-Va aquí y no en la lista de descartes porque son datos que ya se descargan del
-mismo dataset: entra como una variable más, igual que la dirección de la racha.
-Lo que falta es saber cuántas estaciones lo miden — probablemente solo las de alta
-montaña — y no publicar un cero donde en realidad no hay sensor. La trampa es la
-misma que ya nos comió una vez: `?? 0` convirtió la falta de pluviómetro en una
-racha seca de 398 días en el Port de Barcelona.
+El registro daba **12 cm de nieve en Das el 28 de agosto**, a 1.100 m, con la
+mínima de aquel día en 9,3 °C. Y 37 cm de nieve nueva en Mollò el mismo día. El
+sensor es un ultrasonido que mide la distancia al suelo, y en verano se le cuela
+la hierba, un objeto o una recalibración.
+
+Lo grave: esas filas vienen marcadas **`Representatiu`**, que es el estado de
+validación bueno del portal. La comprobación tiene que ser nuestra.
+
+La regla, que es física y no estadística: **un espesor se acepta si la mínima del
+día bajó de 2 °C, o si no ha aumentado respecto de la última lectura aceptada.**
+Respeta los dos casos que importan — nieve de primavera fundiéndose con 6 °C de
+mínima (no aumenta, se acepta) y nevada de invierno de 0 a 40 cm (hace frío, se
+acepta) — y solo tumba el caso imposible: el manto que **crece** un día que no ha
+helado. Se descartaron 22 lecturas en 11 estaciones, y el récord de Mollò pasó de
+«40 cm el 28 d'agost de 2026» a los 35 cm reales de enero de 2020.
+
+El valor descartado se pone a **null, no a cero**: no sabemos cuánta nieve había,
+sabemos que la cifra no es creíble. Un cero diría que no había.
 
 ### 7. Condiciones para actividades
 

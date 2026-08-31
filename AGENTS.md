@@ -162,3 +162,12 @@ cuota para exactamente la misma información.
 - **El dataset diario `7bvh-jvq2` lleva dos días de retraso.** Su última fila el 31 de agosto era
   del 29, así que «ahir» nunca sale de ahí: los extremos de ayer los da el agregado semihorario
   del worker de observación.
+- **El sensor de nieve miente en verano y el portal lo marca como bueno.** Daba 12 cm en Das el
+  28 de agosto con la mínima en 9,3 °C, con el estado `Representatiu`. Hay un filtro físico en
+  `xema-history.ts`: el espesor solo puede crecer un día que haya helado.
+- **La dirección del viento diario también va en tres alturas** (1515/1516/1517, como los códigos
+  semihorarios 30/48/46). Pidiendo solo la de 10 m, 87 de 189 estaciones se quedan sin rosa.
+- **El registro de sequía `i5n8-43cw` anota cambios, no lecturas.** El último es de mayo de 2025 y
+  628 de 630 municipios están en normalidad. No se muestra nunca sin la fecha del último cambio.
+- **Las coordenadas de la ACA vienen en UTM 31N.** Hay conversor en `scripts/lib/geo.ts`,
+  verificado porque cada embalse cae dentro del municipio que lleva en el nombre.

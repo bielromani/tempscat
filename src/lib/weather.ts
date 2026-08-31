@@ -522,6 +522,7 @@ export interface StationHistory {
     day: string; tMax: number | null; tMin: number | null; tMean: number | null;
     tRange: number | null; rhMean: number | null; precip: number | null;
     precipMax1h: number | null; gust: number | null; pressure: number | null; solar: number | null;
+    snowDepth: number | null; snowNew: number | null;
   }>;
   records: {
     tMaxAbs: { value: number; date: string; hour?: string } | null;
@@ -529,6 +530,8 @@ export interface StationHistory {
     precipMaxDay: { value: number; date: string } | null;
     precipMax1h: { value: number; date: string } | null;
     gustMax: { value: number; date: string; hour?: string } | null;
+    /** Espesor de nieve más alto de la serie. Solo en las 24 estaciones que lo miden. */
+    snowMax: { value: number; date: string; hour?: string } | null;
     since: string | null;
     days: number;
   };
@@ -545,12 +548,19 @@ export interface StationHistory {
   dryStreak: number;
   /** De dónde vienen las rachas. Null si la estación no mide viento. */
   rose: WindRose | null;
+  /** Última medida de nieve. Null cuando la estación no tiene sensor. */
+  snow: { depthCm: number; newCm: number | null; day: string } | null;
 }
 
 /** Histórico de la estación de referencia de una ubicación. */
 export function historyFor(loc: Location): StationHistory | null {
   if (!loc.stationRef) return null;
   return historyOfStation(loc.stationRef.codi);
+}
+
+/** Todo el histórico, para las páginas que comparan estaciones entre ellas. */
+export function allHistory(): StationHistory[] {
+  return snapshot<StationHistory[]>('xema-history')?.data ?? [];
 }
 
 /** Histórico por código de estación, para la ficha de la propia estación. */
