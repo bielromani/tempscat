@@ -31,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/" className="no-underline hover:text-[var(--ink)]">Comarques</Link>
               <Link href="/radar" className="no-underline hover:text-[var(--ink)]">Radar</Link>
               <Link href="/ranquings" className="no-underline hover:text-[var(--ink)]">Rànquings</Link>
+              <Link href="/dades" className="no-underline hover:text-[var(--ink)]">Dades obertes</Link>
               <Link href="/estat" className="no-underline hover:text-[var(--ink)]">Estat de les dades</Link>
             </nav>
           </div>
@@ -57,6 +58,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </p>
             <p>
               Límits administratius i topònims: <strong className="font-medium text-[var(--ink-2)]">Institut Cartogràfic i Geològic de Catalunya</strong>.
+            </p>
+            <p>
+              Tot això es pot llegir en JSON i en CSV:{' '}
+              <Link href="/dades" className="text-[var(--ink-2)] no-underline hover:underline">
+                dades obertes
+              </Link>.
             </p>
             <p className="pt-2 text-xs">
               La predicció és orientativa. Per a decisions de seguretat, consulteu

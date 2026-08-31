@@ -48,18 +48,29 @@ después de que exista `/mapa`, la frontera aguanta.
 
 Sin JavaScript, sin base de datos. Todo esto cabe con la arquitectura de hoy.
 
-### 1. Feeds por ubicación · **hazlo antes que el tauler**
+### 1. Feeds por ubicación · ✅ hecho
 
-Un `route.ts` que sirva JSON (y CSV) por ubicación: observación, predicción
-horaria, franjas del día, aire. Cuesta una tarde.
+`/api/lloc/{comarca}/{municipi}[/{nucli}]` en JSON, con `?format=csv` para la
+serie horaria y `?hours=` hasta 168. Más `/api/ranquings`. Documentado para
+personas en `/dades`, que sí va indexada — al contrario que las respuestas del
+feed, que llevan `X-Robots-Tag: noindex` para no alimentar el *index bloat* que
+es el riesgo declarado del proyecto.
 
-Va primero por una razón de orden, no de valor: **es la API que consumirán el
-tauler y los widgets.** Construir el tauler antes significa que el tauler leerá
-directamente los ficheros de `data/cache/`, y el día que se quiera embeber un
-widget en otro sitio habrá que inventar la API otra vez y migrar el tauler.
+Iba primero por una razón de orden, no de valor: **es la API que consumirán el
+tauler y los widgets.** Construir el tauler antes habría significado leer
+directamente los ficheros de `data/cache/`, y el día de embeber un widget en otro
+sitio habría tocado inventar la API otra vez y migrar el tauler.
 
-Efecto lateral que no es menor: un feed público y estable es lo que hace que
-otros enlacen, y eso es fase 2 gratis.
+Lo que lleva y nadie más publica: `temperature_station` junto a `temperature`
+—cruda y corregida por desnivel, para que el consumidor juzgue la corrección—,
+`peak_precipitation` con la intensidad de la hora punta, `spread` entre modelos,
+y el bloque `summary` con las frases en catalán.
+
+Decisiones que quedan cerradas: nombres de campo en **inglés y snake_case** (son
+los slugs canónicos de `variables.ts`, y traducirlos crearía un segundo sistema
+de nombres), `version` en cada respuesta, atribución dentro del propio JSON
+porque la CC-BY la exige, y `Access-Control-Allow-Origin: *` porque el destino
+natural es un widget en el navegador de otra persona.
 
 ### 2. Ficha de estación · 245 rutas nuevas
 
