@@ -7,6 +7,7 @@ import { SunMoon } from './SunMoon';
 import { ClimateBlock } from './ClimateBlock';
 import { AirQuality } from './AirQuality';
 import { ComarcaCompare } from './ComarcaCompare';
+import { Headline } from './Headline';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
@@ -19,6 +20,7 @@ import type {
   StationHistory, Warning,
 } from '@/lib/weather';
 import type { ComarcaComparison } from '@/lib/comparison';
+import type { Narrative } from '@/lib/narrative';
 import type { Comarca, Location } from '@/lib/territory';
 
 /**
@@ -282,12 +284,14 @@ interface Props {
   air: AirQualityData | null;
   /** Posición dentro de la comarca, ahora y este mes. */
   comparison: ComarcaComparison | null;
+  /** El titular en catalán, las franjas del día y las respuestas de decisión. */
+  narrative: Narrative | null;
 }
 
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
-  air, comparison,
+  air, comparison, narrative,
 }: Props) {
   /*
    * La hora en curso dentro de la serie, para completar el bloque actual con las
@@ -328,6 +332,10 @@ export function LocationView({
         </section>
       )}
 
+      {/* La interpretación va inmediatamente después del número grande: el
+          termómetro es el gancho y la frase es la respuesta. */}
+      {narrative && <Headline narrative={narrative} />}
+
       {forecast && forecast.hourly.length > 0 && (
         <section className="mt-8">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
@@ -341,6 +349,14 @@ export function LocationView({
             </p>
           </div>
           <Meteogram hourly={forecast.hourly} hours={48} showSpread={forecast.nModels > 1} nowHour={nowIso} />
+          {/* La franja de desacuerdo del gráfico es correcta y nadie la sabe
+              leer. Lo que hace falta saber es hasta qué día se puede confiar en
+              el número, y eso es una frase, no un área sombreada. */}
+          {narrative?.uncertainty && (
+            <p className="mt-2 max-w-[70ch] text-xs leading-relaxed text-[var(--muted)]">
+              {narrative.uncertainty}
+            </p>
+          )}
         </section>
       )}
 

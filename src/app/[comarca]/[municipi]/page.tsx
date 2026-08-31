@@ -6,9 +6,13 @@ import {
   breadcrumbs, comarcaOf, entitatsOfMunicipi, highPriorityPaths,
   locationByPath, neighboursOf,
 } from '@/lib/territory';
-import { airQualityFor, astronomyFor, currentFor, forecastFor, historyFor, warningsFor } from '@/lib/weather';
+import {
+  airQualityFor, astronomyFor, currentFor, forecastFor, historyFor,
+  localNowHour, localToday, warningsFor,
+} from '@/lib/weather';
 import { comarcaComparison } from '@/lib/comparison';
 import { aName } from '@/lib/format';
+import { narrativeFor } from '@/lib/narrative';
 
 /**
  * Página de municipio. 947 rutas.
@@ -69,19 +73,26 @@ export default async function MunicipiPage({ params }: { params: Params }) {
   // y decirlo en el texto sería afirmar algo falso.
   const adjacent = neighboursOf(loc.id, 'adjacent').slice(0, 8);
 
+  // Se resuelven aquí y se pasan una sola vez: el titular necesita los tres a la
+  // vez, y volver a pedirlos dentro del JSX era pedirlos dos veces.
+  const current = currentFor(loc);
+  const forecast = forecastFor(loc);
+  const history = historyFor(loc);
+
   return (
     <>
       <LocationView
         loc={loc}
         comarca={com}
         breadcrumbs={breadcrumbs(loc)}
-        current={currentFor(loc)}
-        forecast={forecastFor(loc)}
+        current={current}
+        forecast={forecast}
         warnings={warningsFor(loc)}
         astro={astronomyFor(loc)}
-        history={historyFor(loc)}
+        history={history}
         air={airQualityFor(loc)}
         comparison={comarcaComparison(loc)}
+        narrative={narrativeFor(forecast, current, localNowHour(), localToday())}
         siblings={entitats}
         siblingsLabel={`Nuclis i entitats de ${loc.nom}`}
         neighbours={adjacent}

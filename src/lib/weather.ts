@@ -126,6 +126,8 @@ export interface RawObservation {
    * las cinco de la tarde, que es lo que devolvería una ventana móvil.
    */
   today?: { tMax: number | null; tMin: number | null; precip: number | null };
+  /** Lo mismo para el día natural anterior. Ver el worker: el dataset diario llega dos días tarde. */
+  yesterday?: { tMax: number | null; tMin: number | null; precip: number | null };
 }
 
 /**
@@ -159,6 +161,20 @@ export interface CurrentConditions {
   windGust: number | null;
   pressure: number | null;
   precip24h: number | null;
+  /**
+   * Extremos del día natural en curso, ya corregidos por el desnivel.
+   *
+   * No son las últimas 24 h: son desde la medianoche de Madrid. La diferencia se
+   * nota a las nueve de la mañana, cuando una ventana móvil todavía arrastraría
+   * la máxima de ayer por la tarde y diría que hoy ya se han hecho 30 °C.
+   */
+  todayMax: number | null;
+  todayMin: number | null;
+  todayPrecip: number | null;
+  /** Y los de ayer, para poder decir «dos graus més que ahir». */
+  yesterdayMax: number | null;
+  yesterdayMin: number | null;
+  yesterdayPrecip: number | null;
   source: string;
 }
 
@@ -199,8 +215,21 @@ export function currentFor(loc: Location): CurrentConditions | null {
     windGust: obs.values.wind_gust?.value ?? null,
     pressure: obs.values.pressure?.value ?? null,
     precip24h: obs.precip24h ?? null,
+    todayMax: adjust(obs.today?.tMax ?? null, dAlt),
+    todayMin: adjust(obs.today?.tMin ?? null, dAlt),
+    todayPrecip: obs.today?.precip ?? null,
+    yesterdayMax: adjust(obs.yesterday?.tMax ?? null, dAlt),
+    yesterdayMin: adjust(obs.yesterday?.tMin ?? null, dAlt),
+    yesterdayPrecip: obs.yesterday?.precip ?? null,
     source: snap.source,
   };
+}
+
+/** Aplica el gradiente estándar a una temperatura de estación. */
+function adjust(value: number | null, dAltM: number | null): number | null {
+  if (value == null) return null;
+  const v = dAltM != null ? value - dAltM * LAPSE_RATE : value;
+  return Math.round(v * 10) / 10;
 }
 
 // ── Predicción ──────────────────────────────────────────────────────────────

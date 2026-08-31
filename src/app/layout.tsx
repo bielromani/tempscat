@@ -20,11 +20,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ca">
       <body className="min-h-screen flex flex-col">
         <header className="border-b border-[var(--line)] bg-[var(--surface)]">
-          <div className="mx-auto flex max-w-5xl items-baseline gap-6 px-5 py-3">
-            <Link href="/" className="font-semibold tracking-tight no-underline text-[var(--ink)]">
+          <div className="mx-auto flex max-w-5xl items-baseline gap-5 px-5 py-3">
+            <Link href="/" className="shrink-0 font-semibold tracking-tight no-underline text-[var(--ink)] whitespace-nowrap">
               El temps
             </Link>
-            <nav className="flex gap-5 text-sm text-[var(--muted)]">
+            {/* En móvil los cuatro enlaces no caben y se partían en tres líneas
+                cada uno. Se desplazan en horizontal dentro de su caja, que es lo
+                que hace el resto del contenido ancho del sitio. */}
+            <nav className="scroll-x flex gap-5 whitespace-nowrap text-sm text-[var(--muted)]">
               <Link href="/" className="no-underline hover:text-[var(--ink)]">Comarques</Link>
               <Link href="/radar" className="no-underline hover:text-[var(--ink)]">Radar</Link>
               <Link href="/ranquings" className="no-underline hover:text-[var(--ink)]">Rànquings</Link>

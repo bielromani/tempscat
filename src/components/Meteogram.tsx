@@ -371,10 +371,15 @@ export function Meteogram({ hourly, hours = 48, showSpread = true, nowHour = nul
                 x1={x(nowIdx)} x2={x(nowIdx)} y1={TEMP_TOP - 10} y2={PRECIP_BASE}
                 stroke="var(--accent)" strokeWidth={1.5}
               />
-              {/* La etiqueta va pegada a la línea y dentro de la banda de
-                  temperatura, no en el eje: abajo se cruzaba con las horas. */}
+              {/*
+                La etiqueta va en la franja vacía que queda entre la línea base
+                de la lluvia y las flechas de viento.
+                Arriba, dentro de la banda de temperatura, chocaba con la cifra
+                de la máxima justo los días en que la máxima cae a esta hora —
+                que son la mitad de las tardes.
+              */}
               <text
-                x={x(nowIdx) + 5} y={TEMP_TOP + 2}
+                x={x(nowIdx) + 5} y={PRECIP_BASE + 13}
                 fontSize={10} fontWeight={600} fill="var(--accent)"
                 stroke="var(--surface)" strokeWidth={3} paintOrder="stroke"
               >ara</text>

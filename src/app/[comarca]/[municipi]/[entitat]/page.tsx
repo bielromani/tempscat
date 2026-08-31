@@ -5,9 +5,13 @@ import { describeLocation, metaDescription } from '@/lib/describe';
 import {
   breadcrumbs, comarcaOf, entitatsOfMunicipi, locationByPath, locationById,
 } from '@/lib/territory';
-import { airQualityFor, astronomyFor, currentFor, forecastFor, historyFor, warningsFor } from '@/lib/weather';
+import {
+  airQualityFor, astronomyFor, currentFor, forecastFor, historyFor,
+  localNowHour, localToday, warningsFor,
+} from '@/lib/weather';
 import { comarcaComparison } from '@/lib/comparison';
 import { aName } from '@/lib/format';
+import { narrativeFor } from '@/lib/narrative';
 
 /**
  * Página de entidad singular o núcleo. ~3.300 rutas.
@@ -49,19 +53,24 @@ export default async function EntitatPage({ params }: { params: Params }) {
   const municipiLoc = locationByPath(`/${comarca}/${municipi}`) ?? null;
   const siblings = entitatsOfMunicipi(loc.municipiCodi!).filter((s) => s.id !== loc.id);
 
+  const current = currentFor(loc);
+  const forecast = forecastFor(loc);
+  const history = historyFor(loc);
+
   return (
     <>
       <LocationView
         loc={loc}
         comarca={com}
         breadcrumbs={breadcrumbs(loc)}
-        current={currentFor(loc)}
-        forecast={forecastFor(loc)}
+        current={current}
+        forecast={forecast}
         warnings={warningsFor(loc)}
         astro={astronomyFor(loc)}
-        history={historyFor(loc)}
+        history={history}
         air={airQualityFor(loc)}
         comparison={comarcaComparison(loc)}
+        narrative={narrativeFor(forecast, current, localNowHour(), localToday())}
         siblings={siblings}
         siblingsLabel={`Altres nuclis de ${municipiLoc?.nom ?? 'el municipi'}`}
         neighbours={[]}

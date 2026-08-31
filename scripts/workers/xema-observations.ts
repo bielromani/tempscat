@@ -53,6 +53,21 @@ export interface StationObservation {
    * las cinco de la tarde, que es lo que devuelve una ventana móvil.
    */
   today?: { tMax: number | null; tMin: number | null; precip: number | null };
+  /**
+   * Lo mismo para el día natural anterior.
+   *
+   * Sale de aquí y **no** del dataset diario `7bvh-jvq2`, que es el que usa el
+   * worker de histórico: comprobado, ese lleva **dos días de retraso**. El 31 de
+   * agosto su última fila era del 29, así que «ahir» nunca estaba disponible por
+   * esa vía.
+   *
+   * Además, sacando las dos cifras del mismo agregado semihorario y con el mismo
+   * tratamiento, la resta compara lo mismo. Mezclar el diario validado de ayer
+   * con el semihorario provisional de hoy metería la diferencia entre los dos
+   * criterios de agregación dentro de un número que se presenta como «quant més
+   * que ahir».
+   */
+  yesterday?: { tMax: number | null; tMin: number | null; precip: number | null };
 }
 
 /**
@@ -179,43 +194,57 @@ async function main() {
   const midnight = localMidnightUtc();
   console.log(`\nExtrems del dia natural des de ${midnight} UTC (mitjanit de Madrid)`);
 
-  const aggregate = async (variable: string, fn: 'max' | 'min' | 'sum') =>
+  const prevMidnight = new Date(Date.parse(`${midnight}Z`) - 24 * 3600e3).toISOString().slice(0, 19);
+
+  const aggregate = async (variable: string, fn: 'max' | 'min' | 'sum', from: string, to?: string) =>
     fetchJson<Array<{ codi_estacio: string; v: string }>>(
       `https://${HOST}/resource/${DATASET}.json?` + new URLSearchParams({
         $select: `codi_estacio,${fn}(valor_lectura) as v`,
-        $where: `data_lectura > '${midnight}' AND codi_variable='${variable}'`,
+        $where: `data_lectura > '${from}'`
+          + (to ? ` AND data_lectura <= '${to}'` : '')
+          + ` AND codi_variable='${variable}'`,
         $group: 'codi_estacio',
         $limit: '500',
       }),
       { timeoutMs: 60_000 },
     );
 
-  const [dayMax, dayMin, daySum] = await Promise.all([
-    aggregate('40', 'max'),
-    aggregate('42', 'min'),
-    aggregate('35', 'sum'),
+  const [dayMax, dayMin, daySum, prevMax, prevMin, prevSum] = await Promise.all([
+    aggregate('40', 'max', midnight),
+    aggregate('42', 'min', midnight),
+    aggregate('35', 'sum', midnight),
+    aggregate('40', 'max', prevMidnight, midnight),
+    aggregate('42', 'min', prevMidnight, midnight),
+    aggregate('35', 'sum', prevMidnight, midnight),
   ]);
-  quota.spend('socrata', 3);
+  quota.spend('socrata', 6);
 
   for (const obs of byStation.values()) {
     obs.today = { tMax: null, tMin: null, precip: null };
+    obs.yesterday = { tMax: null, tMin: null, precip: null };
   }
   const put = (
     rows: Array<{ codi_estacio: string; v: string }>,
+    day: 'today' | 'yesterday',
     key: 'tMax' | 'tMin' | 'precip',
   ) => {
     for (const r of rows) {
       const obs = byStation.get(r.codi_estacio);
       const v = Number(r.v);
-      if (obs?.today && Number.isFinite(v)) obs.today[key] = Math.round(v * 10) / 10;
+      const target = obs?.[day];
+      if (target && Number.isFinite(v)) target[key] = Math.round(v * 10) / 10;
     }
   };
-  put(dayMax, 'tMax');
-  put(dayMin, 'tMin');
-  put(daySum, 'precip');
+  put(dayMax, 'today', 'tMax');
+  put(dayMin, 'today', 'tMin');
+  put(daySum, 'today', 'precip');
+  put(prevMax, 'yesterday', 'tMax');
+  put(prevMin, 'yesterday', 'tMin');
+  put(prevSum, 'yesterday', 'precip');
 
   const withToday = [...byStation.values()].filter((o) => o.today?.tMax != null).length;
-  console.log(`  estaciones con extremos de hoy: ${withToday}`);
+  const withYesterday = [...byStation.values()].filter((o) => o.yesterday?.tMax != null).length;
+  console.log(`  estaciones con extremos de hoy: ${withToday} · de ayer: ${withYesterday}`);
 
   const now = Date.now();
   let newest: string | null = null;
@@ -260,7 +289,7 @@ async function main() {
     lastDataTs: newest,
     stalenessLimitMin: 120,
     rows: rows.length,
-    apiCalls: 5,
+    apiCalls: 8,
   });
 
   console.log(`\n${quota.report()}`);
