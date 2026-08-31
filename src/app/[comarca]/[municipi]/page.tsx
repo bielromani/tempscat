@@ -6,7 +6,7 @@ import {
   breadcrumbs, comarcaOf, entitatsOfMunicipi, highPriorityPaths,
   locationByPath, neighboursOf,
 } from '@/lib/territory';
-import { currentFor, forecastFor } from '@/lib/weather';
+import { astronomyFor, currentFor, forecastFor, historyFor, warningsFor } from '@/lib/weather';
 
 /**
  * Página de municipio. 947 rutas.
@@ -17,7 +17,19 @@ import { currentFor, forecastFor } from '@/lib/weather';
  * para el usuario ni para el crawler.
  */
 export const dynamicParams = true;
-export const revalidate = 10800;   // 3 h, la cadencia del refresco de predicción
+/*
+ * 30 minutos, no 3 horas.
+ *
+ * La predicción se refresca cada 8-12 h, pero el bloque de condiciones actuales
+ * se genera con la página: con 3 horas de ventana, el índice UV y el estado del
+ * cielo que se muestran podían ser de hace tres horas. La observación de la
+ * XEMA llega con 45-65 min de retraso, así que media hora es la cadencia que le
+ * corresponde.
+ *
+ * Pendiente: aislar ese bloque en su propio segmento cacheado para no
+ * regenerar la página entera por un número que cambia cada hora.
+ */
+export const revalidate = 1800;
 
 type Params = Promise<{ comarca: string; municipi: string }>;
 
@@ -63,6 +75,9 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         breadcrumbs={breadcrumbs(loc)}
         current={currentFor(loc)}
         forecast={forecastFor(loc)}
+        warnings={warningsFor(loc)}
+        astro={astronomyFor(loc)}
+        history={historyFor(loc)}
         siblings={entitats}
         siblingsLabel={`Nuclis i entitats de ${loc.nom}`}
         neighbours={adjacent}

@@ -3,19 +3,21 @@
  *
  * ## La restricción que manda sobre el diseño
  *
- * Open-Meteo no cuenta peticiones HTTP: cuenta **ubicaciones**, ponderadas por
- * variables y días. Su regla es que 10 variables × 7 días × 1 ubicación es una
- * llamada. Con nuestras 8 variables y 7 días, cada punto y modelo cuesta 1.
+ * Open-Meteo no cuenta peticiones HTTP: cuenta **datos**. Su fórmula, tomada de
+ * su propia página de precios, es
  *
- * Eso significa que refrescar los 3.190 puntos del territorio con 5 modelos
- * cuesta 15.950 unidades — **por encima del límite diario de 10.000, en un solo
- * refresco**. El multi-punto abarata conexiones y latencia, no cuota.
+ *     peso = max(1, variables / 10) × max(1, días / 14) × ubicaciones
  *
- * La salida no es bajar la resolución espacial (que es justo lo que nos
- * diferencia), sino repartir los modelos por nivel de indexación: consenso
- * completo donde la gente mira, y un solo modelo bien corregido por altitud en
- * la cola larga. Sigue siendo mejor que cualquier competidor para esos núcleos,
- * porque nadie más los corrige.
+ * fraccional, no por escalones. Y el techo que aprieta no es el diario (10.000)
+ * sino el **mensual (300.000)**, que sale a 9.677/día de media.
+ *
+ * Consecuencias que condicionan todo:
+ *
+ *  · Pedir 19 variables en vez de 10 casi duplica el coste de cada punto. Por
+ *    eso hay dos conjuntos: el rico solo va a los 350 puntos de nivel A.
+ *  · El multi-punto abarata conexiones y latencia, **no cuota**.
+ *  · El orto, el ocaso y la fase lunar no se piden: se calculan en
+ *    `src/lib/astronomy.ts`, exactos y gratis.
  *
  * Salida: data/cache/forecast.json
  */
@@ -23,7 +25,9 @@ import { readFileSync } from 'node:fs';
 import { fetchWithRetry, sleep } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import { DAILY_LIMITS, QuotaGuard, readSnapshot, recordFreshness, writeSnapshot } from '../lib/store.ts';
-import { ALL_VARIABLES, type VariableSlug } from '../../src/lib/variables.ts';
+import {
+  VARIABLES, ESSENTIAL_HOURLY, RICH_HOURLY, callWeight, type VariableSlug,
+} from '../../src/lib/variables.ts';
 
 type Tier = 'A' | 'B' | 'C' | 'D';
 
@@ -32,42 +36,53 @@ interface ForecastPoint {
   nLocations: number; tier: Tier;
 }
 
+interface ModelSpec {
+  model: string;
+  variables: VariableSlug[];
+  /** Cada cuántas horas conviene refrescar esta combinación. */
+  everyHours: number;
+}
+
 /**
- * Modelos por nivel. Todos verificados sobre Catalunya; `icon_d2` está
- * deliberadamente fuera porque su dominio no llega aquí.
+ * Qué se pide para cada nivel.
+ *
+ * `best_match` es la mezcla propia de Open-Meteo: elige el mejor modelo
+ * disponible por horizonte y cubre los 7 días completos. Es el que trae las
+ * variables ricas. AROME y ECMWF se piden aparte, solo con lo esencial, para
+ * que el consenso y la banda de incertidumbre salgan de modelos de verdad.
+ *
+ * AROME solo llega a ~48 h: de ahí en adelante manda `best_match`. Confiarle a
+ * AROME la serie entera dejaba media semana en blanco, y se vio al renderizar,
+ * no en los registros.
  */
-const MODELS_BY_TIER: Record<Tier, string[]> = {
-  // Comarcas y municipios grandes: consenso real. ECMWF es el que cubre el
-  // horizonte completo; AROME y HARMONIE aportan resolución en las primeras 48 h.
-  A: ['meteofrance_arome_france_hd', 'knmi_harmonie_arome_europe', 'ecmwf_ifs025'],
+const PLAN_BY_TIER: Record<Tier, ModelSpec[]> = {
+  A: [
+    { model: 'best_match', variables: RICH_HOURLY, everyHours: 12 },
+    { model: 'meteofrance_arome_france_hd', variables: ESSENTIAL_HOURLY, everyHours: 8 },
+    { model: 'ecmwf_ifs025', variables: ESSENTIAL_HOURLY, everyHours: 8 },
+  ],
 
   /*
-   * Niveles B y C: `best_match`, la mezcla propia de Open-Meteo.
+   * B y C también reciben el conjunto rico, aunque solo una vez al día.
    *
-   * El primer diseño daba AROME-HD al nivel B, por su resolución de 1,5 km. Al
-   * verlo renderizado el fallo era evidente: **AROME solo llega a ~48 h**, así
-   * que del tercer día en adelante las tarjetas salían vacías. Mil setecientos
-   * municipios con media semana en blanco.
+   * El primer reparto les daba el esencial dos veces al día. Al ver una página
+   * de núcleo terminada quedó claro que era el intercambio equivocado: le
+   * faltaban índice UV, punto de rocío, nubosidad y visibilidad —justo lo que
+   * hace rica una ficha— a cambio de refrescar más a menudo una predicción que
+   * apenas cambia en doce horas.
    *
-   * `best_match` cubre los 7 días y, donde hay AROME, ya lo usa para el corto
-   * plazo. No se pierde resolución: se gana horizonte, y por el mismo coste de
-   * una unidad por punto.
+   * Lo que da sensación de "vivo" en la página no es la predicción: es la
+   * observación de la XEMA, que entra cada diez minutos por otra vía.
    */
-  B: ['best_match'],
-  C: ['best_match'],
+  B: [{ model: 'best_match', variables: RICH_HOURLY, everyHours: 24 }],
+  C: [{ model: 'best_match', variables: RICH_HOURLY, everyHours: 24 }],
   D: [],
 };
 
-/** Cada cuántas horas se refresca cada nivel. */
-const REFRESH_HOURS: Record<Tier, number> = { A: 6, B: 12, C: 24, D: 0 };
-
 const BATCH = 200;
 const FORECAST_DAYS = 7;
-/** Espera entre lotes: el límite real que nos frenó fue el de 600/minuto. */
+/** El límite que nos frenó de verdad fue el de 600 llamadas por minuto. */
 const PAUSE_MS = 21_000;
-
-const HOURLY = ALL_VARIABLES.filter((v) => v.openMeteo && v.slug !== 'snow_depth').map((v) => v.openMeteo!);
-const SLUG_BY_OM = new Map(ALL_VARIABLES.filter((v) => v.openMeteo).map((v) => [v.openMeteo!, v.slug]));
 
 interface OpenMeteoResponse {
   latitude: number;
@@ -76,11 +91,6 @@ interface OpenMeteoResponse {
   hourly: Record<string, Array<number | null>> & { time: string[] };
 }
 
-/**
- * Serie de un punto y modelo, en formato columnar: los tiempos van una sola vez
- * y cada variable es un array paralelo. En JSON, repetir las claves por hora
- * multiplicaría el tamaño por seis.
- */
 export interface PointForecast {
   /** Altitud que asume el modelo. La corrección se hace contra esta, no contra la oficial. */
   modelElevation: number;
@@ -88,54 +98,69 @@ export interface PointForecast {
 }
 
 export interface ForecastData {
-  /** Instantes ISO comunes a todas las series. */
   times: string[];
-  /** punto → modelo → serie. */
   points: Record<string, Record<string, PointForecast>>;
   models: string[];
 }
 
-async function fetchBatch(points: ForecastPoint[], model: string): Promise<Map<string, PointForecast & { times: string[] }>> {
+/** Variables que no admiten redondeo a un decimal sin perder sentido. */
+const INTEGER_VARS = new Set<VariableSlug>([
+  'weather_code', 'visibility', 'freezing_level', 'cape', 'cloud_cover',
+  'humidity', 'precipitation_probability', 'uv_index', 'solar_radiation', 'wind_direction',
+]);
+
+async function fetchBatch(
+  points: ForecastPoint[],
+  spec: ModelSpec,
+): Promise<Map<string, PointForecast & { times: string[] }>> {
+  const fields = spec.variables
+    .map((v) => VARIABLES[v].openMeteo)
+    .filter((x): x is string => !!x);
+  const slugByField = new Map(
+    spec.variables
+      .filter((v) => VARIABLES[v].openMeteo)
+      .map((v) => [VARIABLES[v].openMeteo!, v]),
+  );
+
   const params = new URLSearchParams({
     latitude: points.map((p) => p.lat.toFixed(5)).join(','),
     longitude: points.map((p) => p.lon.toFixed(5)).join(','),
-    hourly: HOURLY.join(','),
+    hourly: fields.join(','),
     forecast_days: String(FORECAST_DAYS),
     timezone: 'Europe/Madrid',
-    // Unidades canónicas nuestras: el viento en m/s como la XEMA. Pedirlo aquí
-    // evita conversiones dispersas y, sobre todo, evita compararlo con m/s
-    // creyendo que son km/h.
+    // Viento en m/s, como la XEMA. Pedirlo aquí evita conversiones dispersas y,
+    // sobre todo, evita comparar m/s creyendo que son km/h.
     wind_speed_unit: 'ms',
   });
-  if (model !== 'best_match') params.set('models', model);
+  if (spec.model !== 'best_match') params.set('models', spec.model);
 
   const url = `https://api.open-meteo.com/v1/forecast?${params}`;
 
   // Open-Meteo emite `nan` sin comillas cuando un punto cae fuera del dominio
-  // del modelo, y eso **no es JSON válido**: `JSON.parse` revienta y se pierde
-  // el lote entero, incluidos los puntos que sí tenían datos. Se sanea antes de
-  // parsear. Pasa de verdad: HARMONIE no cubre toda Catalunya.
-  const res0 = await fetchWithRetry(url, { retries: 5, backoffMs: 5_000, timeoutMs: 90_000 });
-  const text = (await res0.text()).replace(/:\s*-?nan\b/gi, ':null');
+  // del modelo, y eso **no es JSON válido**: sin sanear, `JSON.parse` tumba el
+  // lote entero, incluidos los puntos que sí tenían datos.
+  const res = await fetchWithRetry(url, { retries: 5, backoffMs: 5_000, timeoutMs: 90_000 });
+  const text = (await res.text()).replace(/:\s*-?nan\b/gi, ':null');
   const data = JSON.parse(text) as OpenMeteoResponse | OpenMeteoResponse[];
   const list = Array.isArray(data) ? data : [data];
 
   const out = new Map<string, PointForecast & { times: string[] }>();
-  list.forEach((res, i) => {
+  list.forEach((r, i) => {
     const point = points[i];
-    // Fuera del dominio del modelo: sin latitud no hay serie que guardar.
-    if (!point || !res.hourly || res.latitude == null || !Number.isFinite(res.latitude)) return;
+    if (!point || !r.hourly || !Number.isFinite(r.latitude)) return;
+
     const values: PointForecast['values'] = {};
-    for (const [field, series] of Object.entries(res.hourly)) {
+    for (const [field, series] of Object.entries(r.hourly)) {
       if (field === 'time') continue;
       // Con `models=` en la URL, Open-Meteo sufija el nombre del modelo.
-      const base = field.replace(new RegExp(`_${model}$`), '');
-      const slug = SLUG_BY_OM.get(base);
+      const base = field.replace(new RegExp(`_${spec.model}$`), '');
+      const slug = slugByField.get(base);
       if (!slug) continue;
+      const round = INTEGER_VARS.has(slug) ? 1 : 10;
       values[slug] = (series as Array<number | null>).map((v) =>
-        v == null ? null : Math.round(v * 10) / 10);
+        v == null ? null : Math.round(v * round) / round);
     }
-    out.set(point.id, { modelElevation: res.elevation, values, times: res.hourly.time });
+    out.set(point.id, { modelElevation: r.elevation, values, times: r.hourly.time });
   });
   return out;
 }
@@ -145,168 +170,173 @@ async function main() {
   const started = Date.now();
 
   const points: ForecastPoint[] = JSON.parse(readFileSync(build('forecast-points.json'), 'utf8'));
-
-  // Qué toca refrescar. Sin estado previo se refresca todo lo que quepa.
   const onlyTiers = (process.argv.find((a) => a.startsWith('--tiers='))?.split('=')[1] ?? 'A,B,C')
     .split(',') as Tier[];
 
-  const plan: Array<{ tier: Tier; model: string; points: ForecastPoint[] }> = [];
+  const steps: Array<{ tier: Tier; spec: ModelSpec; points: ForecastPoint[] }> = [];
   for (const tier of onlyTiers) {
     const tierPoints = points.filter((p) => p.tier === tier);
     if (!tierPoints.length) continue;
-    for (const model of MODELS_BY_TIER[tier]) {
-      plan.push({ tier, model, points: tierPoints });
-    }
+    for (const spec of PLAN_BY_TIER[tier]) steps.push({ tier, spec, points: tierPoints });
   }
 
-  const cost = plan.reduce((s, p) => s + p.points.length, 0);
-  console.log('Plan de refresco');
-  for (const tier of onlyTiers) {
-    const n = points.filter((p) => p.tier === tier).length;
-    if (!n) continue;
-    console.log(`  ${tier}  ${String(n).padStart(5)} puntos × ${MODELS_BY_TIER[tier].length} modelos = ${String(n * MODELS_BY_TIER[tier].length).padStart(5)} unidades · cada ${REFRESH_HOURS[tier]} h`);
-  }
+  // ── Presupuesto ───────────────────────────────────────────────────────────
+  const cost = steps.reduce(
+    (s, st) => s + callWeight(st.spec.variables.length, FORECAST_DAYS, st.points.length), 0,
+  );
   const daily = onlyTiers.reduce((s, t) => {
     const n = points.filter((p) => p.tier === t).length;
-    return s + n * MODELS_BY_TIER[t].length * (24 / (REFRESH_HOURS[t] || 24));
+    return s + PLAN_BY_TIER[t].reduce(
+      (a, spec) => a + callWeight(spec.variables.length, FORECAST_DAYS, n) * (24 / spec.everyHours), 0,
+    );
   }, 0);
-  console.log(`\nCoste de este refresco: ${cost.toLocaleString('es-ES')} unidades`);
-  console.log(`Proyección diaria con estas cadencias: ${Math.round(daily).toLocaleString('es-ES')} / ${DAILY_LIMITS['open-meteo'].toLocaleString('es-ES')}`);
+
+  console.log('Pla de refresc');
+  for (const st of steps) {
+    const w = callWeight(st.spec.variables.length, FORECAST_DAYS, st.points.length);
+    console.log(
+      `  ${st.tier}  ${st.spec.model.padEnd(28)} ${String(st.points.length).padStart(5)} punts` +
+      ` × ${String(st.spec.variables.length).padStart(2)} vars = ${String(Math.round(w)).padStart(5)} u` +
+      ` · cada ${st.spec.everyHours} h`,
+    );
+  }
+  console.log(`\nCost d'aquest refresc: ${Math.round(cost).toLocaleString('ca-ES')} unitats`);
+  console.log(`Projecció diària: ${Math.round(daily).toLocaleString('ca-ES')} / ${DAILY_LIMITS['open-meteo'].toLocaleString('ca-ES')}`);
+  console.log(`Projecció mensual: ${Math.round(daily * 30).toLocaleString('ca-ES')} / 300.000`);
 
   if (!quota.canSpend('open-meteo', cost)) {
-    console.error(`\nCuota insuficiente: ${quota.used('open-meteo')} ya gastadas hoy. Se aborta antes de que la API nos corte.`);
+    console.error(`\nQuota insuficient: ${quota.used('open-meteo')} ja gastades avui. S'atura abans que ens talli l'API.`);
     process.exit(1);
   }
-  if (quota.isDegraded('open-meteo')) {
-    console.warn('\naviso: por encima del 80 % de la cuota diaria');
-  }
+  if (quota.isDegraded('open-meteo')) console.warn('\navís: per damunt del 80 % de la quota diària');
 
-  /*
-   * Se parte del snapshot anterior, no de cero.
-   *
-   * Cada nivel se refresca con su propia cadencia (A cada 6 h, B cada 12, C cada
-   * 24), así que una ejecución con `--tiers=B` **no puede borrar** lo que trajo
-   * la de A hace dos horas. Empezar con `points: {}` lo hacía, y el resultado
-   * era que media web se quedaba sin predicción tras cada refresco parcial.
-   */
+  // ── Se parte del snapshot anterior ────────────────────────────────────────
+  // Cada nivel tiene su cadencia, así que un refresco de B no puede borrar lo
+  // que trajo el de A hace dos horas.
   const previous = readSnapshot<ForecastData>('forecast');
-  const refreshedTiers = new Set(onlyTiers);
-  const keptPoints: ForecastData['points'] = {};
+  const refreshed = new Set(onlyTiers);
+  const kept: ForecastData['points'] = {};
   if (previous) {
     const tierOf = new Map(points.map((p) => [p.id, p.tier]));
-    for (const [pointId, byModel] of Object.entries(previous.data.points)) {
-      const tier = tierOf.get(pointId);
-      if (tier && !refreshedTiers.has(tier)) keptPoints[pointId] = byModel;
+    for (const [id, byModel] of Object.entries(previous.data.points)) {
+      const t = tierOf.get(id);
+      if (t && !refreshed.has(t)) kept[id] = byModel;
     }
-    const nKept = Object.keys(keptPoints).length;
-    if (nKept) console.log(`Es conserven ${nKept.toLocaleString('ca-ES')} punts de nivells no refrescats\n`);
+    const n = Object.keys(kept).length;
+    if (n) console.log(`\nEs conserven ${n.toLocaleString('ca-ES')} punts de nivells no refrescats`);
   }
 
   const result: ForecastData = {
     times: previous?.data.times ?? [],
-    points: keptPoints,
-    models: [...new Set([...(previous?.data.models ?? []), ...plan.map((p) => p.model)])],
+    points: kept,
+    models: [],
   };
+
+  const retryQueue: Array<{ spec: ModelSpec; points: ForecastPoint[] }> = [];
+  const requested = new Map<string, number>();
+  for (const st of steps) requested.set(st.spec.model, (requested.get(st.spec.model) ?? 0) + st.points.length);
+
+  const totalBatches = steps.reduce((s, st) => s + Math.ceil(st.points.length / BATCH), 0);
+  console.log(`\nLots: ${totalBatches} · ritme ${PAUSE_MS / 1000} s · ~${Math.ceil((totalBatches * PAUSE_MS) / 60_000)} min\n`);
+
   let batches = 0;
   let ok = 0;
   let failed = 0;
-  /** Lotes que se cayeron. Se reintentan al final, cuando el pico haya pasado. */
-  const retryQueue: Array<{ model: string; points: ForecastPoint[] }> = [];
-  /** Cuántos puntos se pidieron de cada modelo, para calcular bien la cobertura. */
-  const requested = new Map<string, number>();
-  for (const step of plan) requested.set(step.model, (requested.get(step.model) ?? 0) + step.points.length);
 
-  const totalBatches = plan.reduce((s, p) => s + Math.ceil(p.points.length / BATCH), 0);
-  console.log(`\nLotes: ${totalBatches} · ritmo ${PAUSE_MS / 1000} s · ~${Math.ceil((totalBatches * PAUSE_MS) / 60_000)} min\n`);
+  const absorb = (pointId: string, model: string, fc: PointForecast & { times: string[] }) => {
+    if (!result.times.length) result.times = fc.times;
+    result.points[pointId] ??= {};
+    // Un mismo punto puede recibir varias peticiones del mismo modelo con
+    // conjuntos distintos de variables: se fusionan en vez de sobrescribirse.
+    const prev = result.points[pointId][model];
+    result.points[pointId][model] = {
+      modelElevation: fc.modelElevation,
+      values: { ...prev?.values, ...fc.values },
+    };
+  };
 
-  for (const step of plan) {
-    for (let i = 0; i < step.points.length; i += BATCH) {
-      const chunk = step.points.slice(i, i + BATCH);
+  for (const st of steps) {
+    for (let i = 0; i < st.points.length; i += BATCH) {
+      const chunk = st.points.slice(i, i + BATCH);
       try {
-        const res = await fetchBatch(chunk, step.model);
-        for (const [pointId, fc] of res) {
-          if (!result.times.length) result.times = fc.times;
-          result.points[pointId] ??= {};
-          result.points[pointId][step.model] = { modelElevation: fc.modelElevation, values: fc.values };
-          ok++;
-        }
-        quota.spend('open-meteo', chunk.length);
+        const res = await fetchBatch(chunk, st.spec);
+        for (const [id, fc] of res) { absorb(id, st.spec.model, fc); ok++; }
+        quota.spend('open-meteo', callWeight(st.spec.variables.length, FORECAST_DAYS, chunk.length));
       } catch (err) {
-        // Un lote caído no debe tumbar el refresco entero: se encola y se sigue.
         failed += chunk.length;
-        retryQueue.push({ model: step.model, points: chunk });
-        console.warn(`\n  lote encolat per reintentar (${step.model}, ${chunk.length} punts): ${String(err).slice(0, 100)}`);
+        retryQueue.push({ spec: st.spec, points: chunk });
+        console.warn(`\n  lot encolat per reintentar (${st.spec.model}, ${chunk.length}): ${String(err).slice(0, 90)}`);
       }
       batches++;
-      process.stdout.write(`\r  ${batches}/${totalBatches} lotes · ${ok.toLocaleString('es-ES')} series${failed ? ` · ${failed} fallidas` : ''}   `);
+      process.stdout.write(`\r  ${batches}/${totalBatches} lots · ${ok.toLocaleString('ca-ES')} sèries${failed ? ` · ${failed} fallides` : ''}   `);
       if (batches < totalBatches) await sleep(PAUSE_MS);
     }
   }
   process.stdout.write('\n');
 
-  // Segunda oportunidad para lo que falló. Los cortes de estas APIs suelen ser
-  // transitorios, y dejar 200 puntos sin predicción durante seis horas por un
-  // timeout no es aceptable cuando recuperarlos cuesta un minuto.
+  // Segunda oportunidad: estos cortes suelen ser transitorios, y dejar 200
+  // puntos sin predicción medio día por un timeout no es aceptable.
   if (retryQueue.length) {
     console.log(`\nReintentant ${retryQueue.length} lots caiguts…`);
     for (const item of retryQueue) {
       await sleep(PAUSE_MS);
       try {
-        const res = await fetchBatch(item.points, item.model);
-        for (const [pointId, fc] of res) {
-          if (!result.times.length) result.times = fc.times;
-          result.points[pointId] ??= {};
-          result.points[pointId][item.model] = { modelElevation: fc.modelElevation, values: fc.values };
-          ok++;
-          failed--;
-        }
-        quota.spend('open-meteo', item.points.length);
-        console.log(`  recuperat: ${item.model} (${res.size} punts)`);
+        const res = await fetchBatch(item.points, item.spec);
+        for (const [id, fc] of res) { absorb(id, item.spec.model, fc); ok++; failed--; }
+        quota.spend('open-meteo', callWeight(item.spec.variables.length, FORECAST_DAYS, item.points.length));
+        console.log(`  recuperat: ${item.spec.model} (${res.size} punts)`);
       } catch (err) {
-        console.warn(`  irrecuperable: ${item.model} — ${String(err).slice(0, 100)}`);
+        console.warn(`  irrecuperable: ${item.spec.model} — ${String(err).slice(0, 90)}`);
       }
     }
   }
 
-  // Cobertura por modelo: HARMONIE no llega a todo el territorio, y eso cambia
-  // cuántos modelos entran en el consenso de cada punto. Hay que saberlo, no
-  // descubrirlo cuando una página muestre menos modelos de los prometidos.
+  result.models = [...new Set(
+    Object.values(result.points).flatMap((byModel) => Object.keys(byModel)),
+  )];
+
+  // ── Informe ───────────────────────────────────────────────────────────────
   const perModel = new Map<string, number>();
   for (const byModel of Object.values(result.points)) {
     for (const m of Object.keys(byModel)) perModel.set(m, (perModel.get(m) ?? 0) + 1);
   }
-  console.log('\n' + 'Cobertura por modelo (sobre los puntos que se le pidieron):');
-  for (const m of result.models) {
+
+  console.log('\nCobertura per model:');
+  for (const m of result.models.sort()) {
     const n = perModel.get(m) ?? 0;
     const asked = requested.get(m) ?? 0;
     if (asked === 0) {
-      // Modelo que viene del snapshot anterior: en esta ejecución no se ha
-      // pedido, así que dividir por lo pedido daría un "/ 0" sin sentido.
       console.log(`  ${m.padEnd(30)} ${String(n).padStart(5)}          (conservat del refresc anterior)`);
       continue;
     }
     const missing = asked - n;
-    console.log(`  ${m.padEnd(30)} ${String(n).padStart(5)} / ${String(asked).padStart(5)}${missing > 0 ? `  (${missing} sense dades: fora de domini o lot perdut)` : ''}`);
+    console.log(`  ${m.padEnd(30)} ${String(n).padStart(5)} / ${String(asked).padStart(5)}${missing > 0 ? `  (${missing} fora de domini o lot perdut)` : ''}`);
   }
-  const nModels = Object.values(result.points).map((b) => Object.keys(b).length);
-  const dist = nModels.reduce((a, n) => { a[n] = (a[n] ?? 0) + 1; return a; }, {} as Record<number, number>);
-  console.log(`  modelos por punto: ${Object.entries(dist).map(([k, v]) => k + ' modelos → ' + v + ' puntos').join(' · ')}`);
 
-  const covered = Object.keys(result.points).length;
-  // El denominador es el territorio entero, no solo lo refrescado ahora: lo que
-  // importa saber es si alguna parte del mapa se ha quedado sin predicción.
-  const refreshedNow = points.filter((p) => onlyTiers.includes(p.tier)).length;
-  console.log(`\nPunts amb predicció: ${covered.toLocaleString('ca-ES')} / ${points.length.toLocaleString('ca-ES')} del territori`);
-  console.log(`  refrescats en aquesta execució: ${refreshedNow.toLocaleString('ca-ES')} (nivells ${onlyTiers.join(', ')})`);
-  console.log(`Horizonte: ${result.times.length} horas (${result.times[0]} → ${result.times[result.times.length - 1]})`);
-  console.log(`Modelos: ${result.models.join(', ')}`);
+  const varCount = new Map<VariableSlug, number>();
+  for (const byModel of Object.values(result.points)) {
+    const seen = new Set<VariableSlug>();
+    for (const pf of Object.values(byModel)) {
+      for (const k of Object.keys(pf.values) as VariableSlug[]) seen.add(k);
+    }
+    for (const k of seen) varCount.set(k, (varCount.get(k) ?? 0) + 1);
+  }
+  const total = Object.keys(result.points).length;
+  console.log('\nCobertura per variable:');
+  for (const [slug, n] of [...varCount].sort((a, b) => b[1] - a[1])) {
+    const bar = '█'.repeat(Math.round((n / total) * 24));
+    console.log(`  ${slug.padEnd(26)} ${String(n).padStart(5)} ${((n / total) * 100).toFixed(0).padStart(3)} % ${bar}`);
+  }
+
+  console.log(`\nPunts amb predicció: ${total.toLocaleString('ca-ES')} / ${points.length.toLocaleString('ca-ES')} del territori`);
+  console.log(`Horitzó: ${result.times.length} hores (${result.times[0]} → ${result.times.at(-1)})`);
 
   writeSnapshot('forecast', 'Open-Meteo · CC-BY 4.0', result, result.times[0] ?? null);
   recordFreshness({
     source: 'forecast-refresh',
     lastSuccessAt: new Date().toISOString(),
     lastDataTs: result.times[0] ?? null,
-    stalenessLimitMin: 60 * 8,
+    stalenessLimitMin: 60 * 14,
     rows: ok,
     apiCalls: batches,
   });
@@ -318,7 +348,7 @@ async function main() {
 main().catch((err) => {
   recordFreshness({
     source: 'forecast-refresh', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 8, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
+    stalenessLimitMin: 60 * 14, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
   });
   console.error(err);
   process.exit(1);

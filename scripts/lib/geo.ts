@@ -49,6 +49,37 @@ export function nearest<T extends { lat: number; lon: number }>(
   return out.slice(0, k);
 }
 
+/**
+ * ¿Cae el punto dentro del anillo? Algoritmo de cruce de rayos.
+ *
+ * Se usa para asignar avisos oficiales a ubicaciones: los polígonos CAP de
+ * AEMET no siguen los límites comarcales, así que emparejar por nombre de zona
+ * daría avisos a municipios que no los tienen. La geometría no se equivoca.
+ */
+export function pointInRing(lon: number, lat: number, ring: Array<[number, number]>): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/** Caja envolvente, para descartar rápido antes del cálculo caro. */
+export function ringBbox(ring: Array<[number, number]>): [number, number, number, number] {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of ring) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  return [minX, minY, maxX, maxY];
+}
+
 /** Centroide simple de una nube de puntos (suficiente para comarcas). */
 export function centroid(points: Array<{ lat: number; lon: number }>): { lat: number; lon: number } {
   const n = points.length;

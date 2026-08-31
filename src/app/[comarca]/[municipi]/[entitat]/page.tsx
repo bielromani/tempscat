@@ -5,7 +5,7 @@ import { describeLocation, metaDescription } from '@/lib/describe';
 import {
   breadcrumbs, comarcaOf, entitatsOfMunicipi, locationByPath, locationById,
 } from '@/lib/territory';
-import { currentFor, forecastFor } from '@/lib/weather';
+import { astronomyFor, currentFor, forecastFor, historyFor, warningsFor } from '@/lib/weather';
 
 /**
  * Página de entidad singular o núcleo. ~3.300 rutas.
@@ -15,7 +15,7 @@ import { currentFor, forecastFor } from '@/lib/weather';
  * la primera vez que alguien —o Googlebot— las pide.
  */
 export const dynamicParams = true;
-export const revalidate = 10800;
+export const revalidate = 1800;
 
 type Params = Promise<{ comarca: string; municipi: string; entitat: string }>;
 
@@ -55,6 +55,9 @@ export default async function EntitatPage({ params }: { params: Params }) {
         breadcrumbs={breadcrumbs(loc)}
         current={currentFor(loc)}
         forecast={forecastFor(loc)}
+        warnings={warningsFor(loc)}
+        astro={astronomyFor(loc)}
+        history={historyFor(loc)}
         siblings={siblings}
         siblingsLabel={`Altres nuclis de ${municipiLoc?.nom ?? 'el municipi'}`}
         neighbours={[]}

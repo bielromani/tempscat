@@ -45,3 +45,6 @@ next-env.d.ts
 
 # Datos vivos: caducan en minutos, se regeneran con los workers
 /data/cache/
+
+# La plantilla sí se versiona; los valores reales no
+!.env.example

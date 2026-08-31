@@ -1,16 +1,23 @@
 import Link from 'next/link';
 import { Meteogram } from './Meteogram';
+import { WeatherIcon, WeatherIconSprite } from './WeatherIcon';
+import { WarningBanner } from './WarningBanner';
+import { HourlyTable } from './HourlyTable';
+import { SunMoon } from './SunMoon';
+import { ClimateBlock } from './ClimateBlock';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
-import type { CurrentConditions, LocationForecast } from '@/lib/weather';
+import { weatherCode } from '@/lib/weather-codes';
+import type { Astronomy, CurrentConditions, LocationForecast, StationHistory, Warning } from '@/lib/weather';
 import type { Comarca, Location } from '@/lib/territory';
 
 /**
  * Página de ubicación: la plantilla que sirve a 4.293 rutas.
  *
- * Orden deliberado — la respuesta arriba, la profundidad debajo. El 90 % del
+ * Orden deliberado — la respuesta primero, la profundidad después. El 90 % del
  * tráfico entra desde Google, mira si lloverá y se va; no debe pagar el coste
- * de lo que no usa. Nada de lo que hay aquí se hidrata en cliente.
+ * de lo que no usa. Todo lo caro va plegado, y nada de esto se hidrata en
+ * cliente: no hay una sola línea de JavaScript en la página.
  */
 
 function Breadcrumbs({ items }: { items: Array<{ nom: string; path: string }> }) {
@@ -39,7 +46,22 @@ function relativeTime(minutes: number): string {
   return h === 1 ? 'fa 1 hora' : `fa ${h} hores`;
 }
 
-function Current({ current, loc }: { current: CurrentConditions; loc: Location }) {
+/** Descripción del índice UV con el consejo que le corresponde. */
+function uvAdvice(uv: number): { label: string; color: string } {
+  if (uv >= 11) return { label: 'extrem', color: 'var(--cap-red)' };
+  if (uv >= 8) return { label: 'molt alt', color: 'var(--cap-red)' };
+  if (uv >= 6) return { label: 'alt', color: 'var(--cap-orange)' };
+  if (uv >= 3) return { label: 'moderat', color: 'var(--cap-yellow)' };
+  return { label: 'baix', color: 'var(--good)' };
+}
+
+function Current({
+  current, loc, nowHour,
+}: {
+  current: CurrentConditions;
+  loc: Location;
+  nowHour: LocationForecast['hourly'][number] | null;
+}) {
   const t = current.temperatureAdjusted;
   const corrected = current.station.dAltM != null && Math.abs(current.station.dAltM) >= 25;
 
@@ -48,13 +70,33 @@ function Current({ current, loc }: { current: CurrentConditions; loc: Location }
    * de dentro deriva su color de esa misma temperatura, no de los tokens del
    * tema. Mezclarlos fue un error real: en modo oscuro los tokens dan gris
    * claro, y sobre un fondo cálido claro las etiquetas desaparecían.
-   *
-   * Con la tinta derivada del dato, el panel es legible a −10 °C y a 40 °C, y
-   * en los dos temas, porque no depende de ninguno.
    */
   const ink = t != null ? temperatureInk(t) : 'var(--ink)';
-  const inkSoft = t != null ? { color: ink, opacity: 0.72 } : { color: 'var(--muted)' };
-  const inkFaint = t != null ? { color: ink, opacity: 0.62 } : { color: 'var(--muted)' };
+  const soft = t != null ? { color: ink, opacity: 0.72 } : { color: 'var(--muted)' };
+  const faint = t != null ? { color: ink, opacity: 0.62 } : { color: 'var(--muted)' };
+
+  const code = nowHour?.weatherCode ?? null;
+  const sky = weatherCode(code);
+
+  const rows: Array<{ k: string; v: string; extra?: string }> = [];
+  if (current.windSpeed != null) {
+    rows.push({
+      k: 'Vent',
+      v: `${msToKmh(current.windSpeed).toFixed(0)} km/h`,
+      extra: current.windDirection != null ? windCardinal(current.windDirection) : undefined,
+    });
+  }
+  if (current.windGust != null && current.windGust > (current.windSpeed ?? 0) * 1.4) {
+    rows.push({ k: 'Ratxa', v: `${msToKmh(current.windGust).toFixed(0)} km/h` });
+  }
+  if (current.humidity != null) rows.push({ k: 'Humitat', v: `${current.humidity.toFixed(0)} %` });
+  if (nowHour?.dewPoint != null) rows.push({ k: 'Punt de rosada', v: `${nowHour.dewPoint.toFixed(0)} °C` });
+  if (current.precip24h != null) rows.push({ k: 'Pluja 24 h', v: `${current.precip24h.toFixed(1).replace('.', ',')} mm` });
+  if (current.pressure != null) rows.push({ k: 'Pressió', v: `${current.pressure.toFixed(0)} hPa` });
+  if (nowHour?.cloudCover != null) rows.push({ k: 'Nuvolositat', v: `${nowHour.cloudCover} %` });
+  if (nowHour?.visibility != null && nowHour.visibility < 20000) {
+    rows.push({ k: 'Visibilitat', v: `${(nowHour.visibility / 1000).toFixed(0)} km` });
+  }
 
   return (
     <section
@@ -67,55 +109,39 @@ function Current({ current, loc }: { current: CurrentConditions; loc: Location }
         color: ink,
       }}
     >
-      <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
-        <div>
-          <div className="flex items-baseline gap-3">
-            <span className="tnum text-6xl font-semibold tracking-tight sm:text-7xl" style={{ color: ink }}>
-              {t != null ? t.toFixed(1).replace('.', ',') : '—'}
-            </span>
-            <span className="text-2xl" style={inkSoft}>°C</span>
+      <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+        <div className="flex items-start gap-3">
+          {code != null && <WeatherIcon code={code} isDay={nowHour?.isDay ?? true} size={54} />}
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="tnum text-6xl font-semibold tracking-tight sm:text-7xl" style={{ color: ink }}>
+                {t != null ? t.toFixed(1).replace('.', ',') : '—'}
+              </span>
+              <span className="text-2xl" style={soft}>°C</span>
+            </div>
+            {code != null && <p className="mt-0.5 text-sm font-medium" style={soft}>{sky.caLong}</p>}
+            {current.apparent != null && Math.abs(current.apparent - (t ?? 0)) >= 1 && (
+              <p className="text-sm" style={soft}>Sensació de {current.apparent.toFixed(0)} °C</p>
+            )}
           </div>
-          {current.apparent != null && Math.abs(current.apparent - (t ?? 0)) >= 1 && (
-            <p className="mt-1 text-sm" style={inkSoft}>
-              Sensació de {current.apparent.toFixed(0)} °C
-            </p>
-          )}
         </div>
 
         <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm sm:grid-cols-3">
-          {current.windSpeed != null && (
-            <div>
-              <dt style={inkFaint}>Vent</dt>
+          {rows.map((r) => (
+            <div key={r.k}>
+              <dt style={faint}>{r.k}</dt>
               <dd className="tnum font-medium" style={{ color: ink }}>
-                {msToKmh(current.windSpeed).toFixed(0)} km/h
-                {current.windDirection != null && ` ${windCardinal(current.windDirection)}`}
+                {r.v}{r.extra && <span className="ml-1 font-normal" style={soft}>{r.extra}</span>}
               </dd>
             </div>
-          )}
-          {current.humidity != null && (
+          ))}
+          {nowHour?.uvIndex != null && nowHour.uvIndex > 0 && (
             <div>
-              <dt style={inkFaint}>Humitat</dt>
-              <dd className="tnum font-medium" style={{ color: ink }}>{current.humidity.toFixed(0)} %</dd>
-            </div>
-          )}
-          {current.precip24h != null && (
-            <div>
-              <dt style={inkFaint}>Pluja 24 h</dt>
+              <dt style={faint}>Índex UV</dt>
               <dd className="tnum font-medium" style={{ color: ink }}>
-                {current.precip24h.toFixed(1).replace('.', ',')} mm
+                {nowHour.uvIndex}
+                <span className="ml-1 font-normal" style={soft}>{uvAdvice(nowHour.uvIndex).label}</span>
               </dd>
-            </div>
-          )}
-          {current.pressure != null && (
-            <div>
-              <dt style={inkFaint}>Pressió</dt>
-              <dd className="tnum font-medium" style={{ color: ink }}>{current.pressure.toFixed(0)} hPa</dd>
-            </div>
-          )}
-          {current.windGust != null && current.windGust > (current.windSpeed ?? 0) * 1.4 && (
-            <div>
-              <dt style={inkFaint}>Ratxa</dt>
-              <dd className="tnum font-medium" style={{ color: ink }}>{msToKmh(current.windGust).toFixed(0)} km/h</dd>
             </div>
           )}
         </dl>
@@ -127,7 +153,7 @@ function Current({ current, loc }: { current: CurrentConditions; loc: Location }
         estación viene el número, a qué distancia y con cuánto desnivel.
       */}
       <hr className="mt-5 border-0 border-t" style={{ borderColor: ink, opacity: 0.18 }} />
-      <p className="mt-3 text-xs leading-relaxed" style={inkFaint}>
+      <p className="mt-3 text-xs leading-relaxed" style={faint}>
         Dada de l&apos;estació de <strong className="font-medium" style={{ color: ink, opacity: 0.9 }}>{current.station.nom}</strong>,
         a {current.station.distKm.toFixed(1).replace('.', ',')} km
         {current.station.dAltM != null && ` i ${current.station.dAltM > 0 ? '+' : '−'}${Math.abs(current.station.dAltM)} m de desnivell`}
@@ -160,10 +186,8 @@ function DailyStrip({ daily }: { daily: LocationForecast['daily'] }) {
           const barTop = d.tMax != null ? ((hi - d.tMax) / span) * 100 : 0;
           const barBottom = d.tMin != null ? ((d.tMin - lo) / span) * 100 : 0;
           return (
-            <li
-              key={d.date}
-              className="w-[92px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] p-2.5 text-center"
-            >
+            <li key={d.date}
+              className="w-[110px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] p-2.5 text-center">
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-2)]">
                 {i === 0 ? 'Avui' : i === 1 ? 'Demà' : date.toLocaleDateString('ca-ES', { weekday: 'short' })}
               </p>
@@ -171,40 +195,69 @@ function DailyStrip({ daily }: { daily: LocationForecast['daily'] }) {
                 {date.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })}
               </p>
 
-              {/* Barra de rango térmico: comunica de un vistazo si el día es
-                  suave o de gran oscilación, que un par de números no dice. */}
-              <div className="relative mx-auto my-2 h-16 w-2 rounded-full bg-[var(--surface-2)]">
-                <div
-                  className="absolute inset-x-0 rounded-full"
-                  style={{
-                    top: `${barTop}%`,
-                    bottom: `${barBottom}%`,
-                    background: d.tMax != null && d.tMin != null
-                      ? `linear-gradient(to bottom, ${temperatureColor(d.tMax)}, ${temperatureColor(d.tMin)})`
-                      : 'var(--line)',
-                  }}
-                />
+              <div className="my-1.5 flex justify-center">
+                <WeatherIcon code={d.weatherCode} size={34} />
               </div>
 
-              <p className="tnum text-sm font-semibold text-[var(--ink)]">
-                {d.tMax != null ? `${d.tMax.toFixed(0)}°` : '—'}
-              </p>
-              <p className="tnum text-sm text-[var(--muted)]">
-                {d.tMin != null ? `${d.tMin.toFixed(0)}°` : '—'}
-              </p>
+              <div className="flex items-stretch justify-center gap-2">
+                <div className="relative my-0.5 w-1.5 rounded-full bg-[var(--surface-2)]" style={{ height: 44 }}>
+                  <div className="absolute inset-x-0 rounded-full"
+                    style={{
+                      top: `${barTop}%`, bottom: `${barBottom}%`,
+                      background: d.tMax != null && d.tMin != null
+                        ? `linear-gradient(to bottom, ${temperatureColor(d.tMax)}, ${temperatureColor(d.tMin)})`
+                        : 'var(--line)',
+                    }} />
+                </div>
+                <div className="text-left">
+                  <p className="tnum text-sm font-semibold text-[var(--ink)]">{d.tMax != null ? `${d.tMax.toFixed(0)}°` : '—'}</p>
+                  <p className="tnum text-sm text-[var(--muted)]">{d.tMin != null ? `${d.tMin.toFixed(0)}°` : '—'}</p>
+                </div>
+              </div>
 
-              {d.precipitation > 0 ? (
-                <p className="tnum mt-1.5 text-[11px] font-medium" style={{ color: 'oklch(52% 0.13 245)' }}>
-                  {d.precipitation.toFixed(1).replace('.', ',')} mm
-                </p>
-              ) : (
-                <p className="mt-1.5 text-[11px] text-[var(--line)]">—</p>
-              )}
+              <div className="mt-1.5 space-y-0.5 text-[11px]">
+                {d.precipitation > 0 || d.precipProbability >= 20 ? (
+                  <p className="tnum font-medium" style={{ color: 'oklch(52% 0.13 245)' }}>
+                    {d.precipitation > 0 ? `${d.precipitation.toFixed(1).replace('.', ',')} mm` : ''}
+                    {d.precipProbability > 0 && (
+                      <span className={d.precipitation > 0 ? 'ml-1 opacity-75' : ''}>{d.precipProbability} %</span>
+                    )}
+                  </p>
+                ) : <p className="text-[var(--line)]">—</p>}
+                {/* Solo si la racha es realmente destacable. A 40 km/h salía en
+                    las siete tarjetas y dejaba de significar nada. */}
+                {d.gustMax != null && msToKmh(d.gustMax) >= 50 && (
+                  <p className="tnum text-[var(--muted)]">
+                    ratxa {msToKmh(d.gustMax).toFixed(0)}
+                  </p>
+                )}
+                {d.snowLevel != null && (
+                  <p className="tnum font-medium" style={{ color: 'var(--accent)' }}>
+                    cota {d.snowLevel} m
+                  </p>
+                )}
+              </div>
             </li>
           );
         })}
       </ol>
     </div>
+  );
+}
+
+function LinkChips({ items }: { items: Array<{ href: string; label: string; note?: string }> }) {
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {items.map((it) => (
+        <li key={it.href}>
+          <Link href={it.href}
+            className="inline-flex items-baseline gap-2 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm no-underline text-[var(--ink)] hover:border-[var(--accent)]">
+            {it.label}
+            {it.note && <span className="tnum text-xs text-[var(--muted)]">{it.note}</span>}
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -214,6 +267,9 @@ interface Props {
   breadcrumbs: Array<{ nom: string; path: string }>;
   current: CurrentConditions | null;
   forecast: LocationForecast | null;
+  warnings: Warning[];
+  astro: Astronomy | null;
+  history: StationHistory | null;
   siblings: Location[];
   siblingsLabel: string;
   neighbours: Array<{ location: Location; distKm: number }>;
@@ -222,11 +278,30 @@ interface Props {
 }
 
 export function LocationView({
-  loc, comarca, breadcrumbs, current, forecast,
+  loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
 }: Props) {
+  /*
+   * La hora en curso dentro de la serie, para completar el bloque actual con
+   * las variables que la estación no mide: UV, nubosidad, punto de rocío.
+   *
+   * El `.replace(' ', 'T')` no es cosmético. `toLocaleString('sv-SE')` devuelve
+   * `2026-08-31 10:30:00` con espacio, y la serie de Open-Meteo usa `T`. Sin
+   * unificarlos la búsqueda no encontraba nunca la hora y el bloque caía
+   * siempre a las 00:00 — que de madrugada tiene UV cero y cielo despejado.
+   * El fallo no daba error: daba datos plausibles y equivocados.
+   */
+  const nowIso = new Date()
+    .toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
+    .replace(' ', 'T')
+    .slice(0, 13);
+  const nowHour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
+
   return (
     <article>
+      {/* El sprite va una sola vez; los 48 iconos de la tabla horaria lo
+          referencian con <use> en vez de repetir el dibujo entero. */}
+      <WeatherIconSprite />
       <Breadcrumbs items={breadcrumbs} />
 
       <header className="mb-5">
@@ -239,22 +314,22 @@ export function LocationView({
         </p>
       </header>
 
-      {current
-        ? <Current current={current} loc={loc} />
-        : (
-          <section className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5 text-sm text-[var(--muted)]">
-            Encara no hi ha observació disponible per a aquest punt.
-          </section>
-        )}
+      <WarningBanner warnings={warnings} />
+
+      {current ? (
+        <Current current={current} loc={loc} nowHour={nowHour} />
+      ) : (
+        <section className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5 text-sm text-[var(--muted)]">
+          Encara no hi ha observació disponible per a aquest punt.
+        </section>
+      )}
 
       {forecast && forecast.hourly.length > 0 && (
         <section className="mt-8">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold tracking-tight">Pròximes 48 hores</h2>
             <p className="text-xs text-[var(--muted)]">
-              {forecast.nModels > 1
-                ? `Consens de ${forecast.nModels} models`
-                : 'Un sol model'}
+              {forecast.nModels > 1 ? `Consens de ${forecast.nModels} models` : 'Un sol model'}
               {forecast.altitudeCorrectionM != null &&
                 ` · corregit ${forecast.altitudeCorrectionM > 0 ? '+' : '−'}${Math.abs(forecast.altitudeCorrectionM)} m d'altitud`}
             </p>
@@ -270,6 +345,19 @@ export function LocationView({
         </section>
       )}
 
+      {forecast && forecast.hourly.length > 0 && (
+        <section className="mt-6">
+          <HourlyTable hourly={forecast.hourly} hours={48} />
+        </section>
+      )}
+
+      {astro && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Sol i lluna</h2>
+          <SunMoon astro={astro} />
+        </section>
+      )}
+
       <section className="mt-8">
         <h2 className="mb-2 text-lg font-semibold tracking-tight">
           Per què el temps a {loc.nom} és diferent
@@ -277,41 +365,28 @@ export function LocationView({
         <p className="max-w-[65ch] leading-relaxed text-[var(--ink-2)]">{description}</p>
       </section>
 
+      {history && current && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Clima i rècords</h2>
+          <ClimateBlock history={history} station={current.station} month={new Date().getMonth() + 1} />
+        </section>
+      )}
+
       {siblings.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">{siblingsLabel}</h2>
-          <ul className="flex flex-wrap gap-2">
-            {siblings.map((s) => (
-              <li key={s.id}>
-                <Link
-                  href={s.path}
-                  className="inline-flex items-baseline gap-2 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm no-underline text-[var(--ink)] hover:border-[var(--accent)]"
-                >
-                  {s.nom}
-                  {s.altitud != null && <span className="tnum text-xs text-[var(--muted)]">{s.altitud} m</span>}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <LinkChips items={siblings.map((s) => ({
+            href: s.path, label: s.nom, note: s.altitud != null ? `${s.altitud} m` : undefined,
+          }))} />
         </section>
       )}
 
       {neighbours.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">{neighboursLabel}</h2>
-          <ul className="flex flex-wrap gap-2">
-            {neighbours.map((n) => (
-              <li key={n.location.id}>
-                <Link
-                  href={n.location.path}
-                  className="inline-flex items-baseline gap-2 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm no-underline text-[var(--ink)] hover:border-[var(--accent)]"
-                >
-                  {n.location.nom}
-                  <span className="tnum text-xs text-[var(--muted)]">{n.distKm.toFixed(0)} km</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <LinkChips items={neighbours.map((n) => ({
+            href: n.location.path, label: n.location.nom, note: `${n.distKm.toFixed(0)} km`,
+          }))} />
         </section>
       )}
 

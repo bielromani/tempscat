@@ -56,9 +56,29 @@ Construir el territorio antes que la web. Sin territorio correcto, todo lo demá
 - [ ] Worker `aemet-warnings` — bloqueado: falta la API key de AEMET
 - [ ] Sitemaps y niveles de indexación → fase 2
 
-**Estado medido:** 402 páginas prerenderizadas en 6,4 s. TTFB 7,7 ms en caliente y 530 ms al
-generar bajo demanda. Predicción para las 4.250 ubicaciones publicadas. Consumo diario
-proyectado de Open-Meteo: 8.719 de 10.000 unidades.
+### Ronda de pulido (fase 1.5)
+
+- [x] **Avisos oficiales de AEMET**, asignados por geometría (punto en polígono), no por nombre
+      de zona. Los verdes no se muestran: verde significa "sin aviso"
+- [x] **Astronomía calculada en local**: orto, ocaso, crepúsculos civiles, mediodía solar,
+      duración del día y su variación diaria, fase lunar y próximas lunas. Cuota cero
+- [x] **Nueve variables más** de predicción para el nivel A: UV, nubosidad, punto de rocío,
+      presión, visibilidad, isocero, nieve, radiación y CAPE
+- [x] **Códigos de tiempo WMO** con descripción en catalán e iconos SVG propios, en sprite
+- [x] **Tabla hora a hora** de 48 h con once columnas, semántica y accesible
+- [x] **Histórico y récords** de las 189 estaciones: máximas y mínimas absolutas con fecha, día
+      más lluvioso, racha más fuerte, y **normales climáticas de la propia estación**
+- [x] **Anomalía del mes en curso** frente a esa normal, no frente a una media regional
+- [x] Contadores del año: días de verano, de calor, noches tropicales, heladas, días de lluvia
+- [x] Gráfico y tabla de los últimos 30 días
+- [x] **Cota de nieve** derivada de la isocero con corrección por fusión
+
+**Estado medido:** 402 páginas prerenderizadas. TTFB de 21 ms en caliente. Página de municipio
+de **38 KB por la red** (gzip), sin una sola línea de JavaScript propio. Predicción para las
+4.250 ubicaciones. Consumo de Open-Meteo: 7.949 de 10.000 diarias y 238.470 de 300.000
+mensuales.
+
+Ver [docs/11 — Qué lleva dentro una página](11-contenido-de-pagina.md).
 
 **Aceptación:** las 947 páginas de municipio se renderizan con datos reales. **LCP < 1,2 s en
 móvil 4G simulado.** Ningún worker supera el 30 % de su cuota.

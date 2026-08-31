@@ -12,9 +12,12 @@
 
 export type VariableSlug =
   | 'temperature' | 'temperature_max' | 'temperature_min'
-  | 'humidity' | 'precipitation' | 'pressure'
+  | 'apparent_temperature' | 'dew_point'
+  | 'humidity' | 'precipitation' | 'precipitation_probability' | 'pressure'
   | 'wind_speed' | 'wind_direction' | 'wind_gust'
-  | 'solar_radiation' | 'snow_depth';
+  | 'solar_radiation' | 'uv_index'
+  | 'cloud_cover' | 'visibility' | 'weather_code'
+  | 'freezing_level' | 'snowfall' | 'snow_depth' | 'cape';
 
 export interface VariableDef {
   slug: VariableSlug;
@@ -124,7 +127,116 @@ export const VARIABLES: Record<VariableSlug, VariableDef> = {
     unit: 'm', displayUnit: 'cm', decimals: 2, accumulated: false,
     nom: { ca: 'Gruix de neu', es: 'Espesor de nieve', en: 'Snow depth' },
   },
+
+  // ── Variables que solo aporta la predicción ───────────────────────────────
+  // La XEMA no las mide (o no por esta vía), pero cambian mucho lo que una
+  // página puede contar: si hay que llevar paraguas, si el cielo estará abierto,
+  // si nevará y a qué cota.
+
+  apparent_temperature: {
+    slug: 'apparent_temperature',
+    xema: [],
+    openMeteo: 'apparent_temperature',
+    unit: '°C', decimals: 1, accumulated: false,
+    nom: { ca: 'Sensació tèrmica', es: 'Sensación térmica', en: 'Feels like' },
+  },
+  dew_point: {
+    slug: 'dew_point',
+    xema: [],
+    openMeteo: 'dew_point_2m',
+    unit: '°C', decimals: 1, accumulated: false,
+    nom: { ca: 'Punt de rosada', es: 'Punto de rocío', en: 'Dew point' },
+  },
+  precipitation_probability: {
+    slug: 'precipitation_probability',
+    xema: [],
+    openMeteo: 'precipitation_probability',
+    unit: '%', decimals: 0, accumulated: false,
+    nom: { ca: 'Probabilitat de precipitació', es: 'Probabilidad de precipitación', en: 'Precipitation probability' },
+  },
+  uv_index: {
+    slug: 'uv_index',
+    xema: [],
+    openMeteo: 'uv_index',
+    unit: '', decimals: 0, accumulated: false,
+    nom: { ca: 'Índex UV', es: 'Índice UV', en: 'UV index' },
+  },
+  cloud_cover: {
+    slug: 'cloud_cover',
+    xema: [],
+    openMeteo: 'cloud_cover',
+    unit: '%', decimals: 0, accumulated: false,
+    nom: { ca: 'Nuvolositat', es: 'Nubosidad', en: 'Cloud cover' },
+  },
+  visibility: {
+    slug: 'visibility',
+    xema: [],
+    openMeteo: 'visibility',
+    unit: 'm', displayUnit: 'km', decimals: 0, accumulated: false,
+    nom: { ca: 'Visibilitat', es: 'Visibilidad', en: 'Visibility' },
+  },
+  weather_code: {
+    slug: 'weather_code',
+    xema: [],
+    openMeteo: 'weather_code',
+    unit: '', decimals: 0, accumulated: false,
+    nom: { ca: 'Estat del cel', es: 'Estado del cielo', en: 'Weather' },
+  },
+  freezing_level: {
+    // La isocero. Con ella y el efecto de refredament per fusió sale la cota de
+    // nieve, que es *la* pregunta del Pirineo en invierno.
+    slug: 'freezing_level',
+    xema: [],
+    openMeteo: 'freezing_level_height',
+    unit: 'm', decimals: 0, accumulated: false,
+    nom: { ca: 'Isozero', es: 'Isocero', en: 'Freezing level' },
+  },
+  snowfall: {
+    slug: 'snowfall',
+    xema: [],
+    openMeteo: 'snowfall',
+    unit: 'cm', decimals: 1, accumulated: true,
+    nom: { ca: 'Neu acumulada', es: 'Nieve acumulada', en: 'Snowfall' },
+  },
+  cape: {
+    // Energía potencial convectiva: anticipa tormentas de tarde en verano,
+    // que es cuando la convección pirenaica sorprende a los excursionistas.
+    slug: 'cape',
+    xema: [],
+    openMeteo: 'cape',
+    unit: 'J/kg', decimals: 0, accumulated: false,
+    nom: { ca: 'Energia convectiva', es: 'Energía convectiva', en: 'CAPE' },
+  },
 };
+
+// ── Conjuntos de variables por nivel ────────────────────────────────────────
+//
+// Open-Meteo cobra por variable: **peso = (variables / 10) × (días / 14)**, con
+// mínimo 1 en cada factor. Pedir 30 variables triplica el coste de cada punto.
+//
+// Por eso hay dos conjuntos. El rico solo va a los puntos de nivel A, que son
+// 350 y sirven a las comarcas y los municipios grandes; el resto recibe el
+// esencial, que ya cubre todo lo que se muestra por encima del pliegue.
+
+/** Lo mínimo para el meteograma, las tarjetas de 7 días y el bloque principal. */
+export const ESSENTIAL_HOURLY: VariableSlug[] = [
+  'temperature', 'apparent_temperature', 'precipitation', 'precipitation_probability',
+  'weather_code', 'cloud_cover', 'humidity', 'wind_speed', 'wind_direction', 'wind_gust',
+];
+
+/** Todo lo anterior más lo que enriquece la ficha de un lugar destacado. */
+export const RICH_HOURLY: VariableSlug[] = [
+  ...ESSENTIAL_HOURLY,
+  'dew_point', 'pressure', 'uv_index', 'visibility', 'freezing_level', 'snowfall',
+  'snow_depth', 'solar_radiation', 'cape',
+];
+
+/** Peso que Open-Meteo cobrará por una petición. */
+export function callWeight(nVariables: number, forecastDays: number, nLocations: number): number {
+  const varFactor = Math.max(1, nVariables / 10);
+  const dayFactor = Math.max(1, forecastDays / 14);
+  return nLocations * varFactor * dayFactor;
+}
 
 export const ALL_VARIABLES = Object.values(VARIABLES);
 

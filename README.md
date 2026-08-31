@@ -21,6 +21,7 @@ validado; la aplicación todavía no tiene páginas. Documentación de diseño e
 | [08 — Roadmap](docs/08-roadmap.md) | Fases, entregables, criterios de aceptación |
 | [09 — Legal y costes](docs/09-legal-y-costes.md) | Licencias, atribución obligatoria, coste mensual real |
 | [10 — Pipeline de datos](docs/10-pipeline-de-datos.md) | Cómo se construye el territorio, paso a paso |
+| [11 — Contenido de página](docs/11-contenido-de-pagina.md) | Qué lleva dentro una ficha de lugar y de dónde sale cada dato |
 
 ## Arranque
 

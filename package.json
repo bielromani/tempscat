@@ -21,7 +21,11 @@
     "data:polygons": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/06-fetch-polygons.ts",
     "worker:xema": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/xema-observations.ts",
     "worker:forecast": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/forecast-refresh.ts",
-    "workers": "npm run worker:xema && npm run worker:forecast"
+    "workers": "npm run worker:xema && npm run worker:warnings && npm run worker:forecast",
+    "worker:warnings": "node --env-file=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/aemet-warnings.ts",
+    "worker:history": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/xema-history.ts",
+    "workers:daily": "npm run worker:history",
+    "test:astronomy": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-astronomy.ts"
   },
   "dependencies": {
     "next": "16.3.3",
