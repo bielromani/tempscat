@@ -22,6 +22,7 @@ validado; la aplicación todavía no tiene páginas. Documentación de diseño e
 | [09 — Legal y costes](docs/09-legal-y-costes.md) | Licencias, atribución obligatoria, coste mensual real |
 | [10 — Pipeline de datos](docs/10-pipeline-de-datos.md) | Cómo se construye el territorio, paso a paso |
 | [11 — Contenido de página](docs/11-contenido-de-pagina.md) | Qué lleva dentro una ficha de lugar y de dónde sale cada dato |
+| **[12 — Estado y continuación](docs/12-estado-y-continuacion.md)** | **Dónde estamos, qué falta y las trampas ya descubiertas. Empieza aquí** |
 
 ## Arranque
 

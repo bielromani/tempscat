@@ -1,7 +1,13 @@
 # Meteo Catalunya — notas para trabajar en este repositorio
 
+> **Si acabas de entrar en el proyecto, lee primero
+> [`docs/12-estado-y-continuacion.md`](docs/12-estado-y-continuacion.md).**
+> Tiene el estado exacto, lo que falta y —lo que más tiempo ahorra— las trampas ya descubiertas
+> de cada fuente. Casi ninguna da error: dan datos plausibles y equivocados.
+
 Plataforma meteorológica de Catalunya con cobertura hasta el núcleo de población.
-Diseño completo en [`docs/`](docs/); empieza por [`docs/00-resumen-ejecutivo.md`](docs/00-resumen-ejecutivo.md).
+Diseño completo en [`docs/`](docs/); la tesis está en
+[`docs/00-resumen-ejecutivo.md`](docs/00-resumen-ejecutivo.md).
 
 ## Estructura
 
