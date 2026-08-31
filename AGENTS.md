@@ -153,3 +153,12 @@ cuota para exactamente la misma información.
 - **`Date.now()` dentro de un componente hace saltar `react-hooks/purity`** y el lint es un error,
   no un aviso. La hora del reloj es un dato: se calcula en `src/lib/weather.ts` y llega por props.
   Es lo que hizo aparecer `dayFraction` en `Astronomy` y `ageMin` en `radar()`.
+- **`?? 0` sobre un dato que puede faltar convierte una laguna en un cero medido.** El contador de
+  días sin lluvia daba 398 en el Port de Barcelona, que no tiene pluviómetro. Un dato ausente
+  corta la cuenta; no la alimenta.
+- **`worker:history --station=XX` fusiona, no sustituye.** Antes sustituía, y una comprobación de
+  una estación dejaba el fichero con una sola: el bloque de clima desaparecía de las 4.293 páginas
+  sin que nada diera error.
+- **El dataset diario `7bvh-jvq2` lleva dos días de retraso.** Su última fila el 31 de agosto era
+  del 29, así que «ahir» nunca sale de ahí: los extremos de ayer los da el agregado semihorario
+  del worker de observación.

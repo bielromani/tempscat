@@ -72,11 +72,40 @@ de nombres), `version` en cada respuesta, atribución dentro del propio JSON
 porque la CC-BY la exige, y `Access-Control-Allow-Origin: *` porque el destino
 natural es un widget en el navegador de otra persona.
 
-### 2. Ficha de estación · 245 rutas nuevas
+### 2. Ficha de estación · ✅ hecho · 190 rutas nuevas
 
-`/estacions/[codi]`. `xema-history.json` ya tiene récords, normales, contadores y
-la serie de 45 días: está todo descargado y sin publicar. Falta la rosa de
-vientos, que es un SVG de servidor más.
+`/estacions` y `/estacions/[codi]`, con las 189 en servicio. Publica lo que ya
+estaba descargado y no se veía: récords absolutos con su fecha, normales mes a
+mes calculadas sobre la propia serie, contadores del año, los últimos 45 días — y
+la rosa de los vientos.
+
+Lo que separa esta página de la de un municipio, dicho arriba y no en una nota al
+pie: **aquí no hay ninguna corrección**. Es la lectura del termómetro en su cota.
+
+El índice dice también lo que suele esconderse: 4.293 lugares publicados con 189
+termómetros, y qué comarca no tiene ninguno — hoy, el Moianès.
+
+#### La rosa de los vientos
+
+Se construye con la **dirección de la racha máxima de cada día** (variable 1515)
+de toda la serie, no con la dirección media diaria (1509). La media vectorial de
+un día entero cancela el ciclo diurno: en el litoral, marinada de tarde y terral
+de madrugada se anulan y la media apunta a un sector donde casi nunca sopla.
+
+Sale gratis en consultas: la dirección entra como una variable más en la consulta
+de serie completa que el worker ya hacía. 102 de las 189 estaciones tienen rosa;
+el resto no mide viento o no llega a tres meses de datos.
+
+Dos detalles de dibujo que cambian la lectura:
+
+- **El radio va con la raíz de la frecuencia.** El área crece con el cuadrado del
+  radio, así que un radio proporcional al dato hace que un sector del 20 % ocupe
+  cuatro veces más superficie que uno del 10 %, no el doble. El ojo compara áreas.
+- **El color codifica la racha media del sector.** Frecuencia y fuerza son dos
+  preguntas distintas y con dos canales caben las dos.
+
+Y la leyenda dice qué **no** contesta: la frecuencia de las brisas suaves. La
+marinada de cada tarde de verano sale poco porque pocas veces es la racha del día.
 
 ### 3. Calidad del aire medida — XVPCA
 
@@ -128,9 +157,33 @@ falta un conversor a WGS84 en `scripts/lib/geo.ts`; son unas cuarenta líneas de
 fórmula estándar y ninguna dependencia.
 
 El caudal en tiempo real es además la base honesta de un aviso propio de riesgo
-de crecida — ver el punto 8.
+de crecida — ver el punto 9.
 
-### 6. Condiciones para actividades
+### 6. Nieve **medida** en el Pirineo · hallazgo nuevo
+
+Encontrado al construir la rosa de los vientos: el dataset diario `7bvh-jvq2`
+tiene **espesor de nieve medido por las estaciones**, y no se estaba usando.
+
+| Código | Qué es |
+|---|---|
+| `1600` | Espesor medio diario, cm |
+| `1601` | Espesor máximo diario + hora |
+| `1602` | **Nieve nueva acumulada** en el día |
+| `1603` | Espesor mínimo diario + hora |
+
+152.900 registros, o sea que hay serie larga. Cambia la conversación: hasta ahora
+la nieve del sitio era la **cota estimada** a partir de la isocero del modelo, y
+esto es un espesor medido con su fecha. Con las dos se puede decir «la cota va a
+1.800 m i a Certascan hi ha 40 cm», que es lo que se pregunta de verdad.
+
+Va aquí y no en la lista de descartes porque son datos que ya se descargan del
+mismo dataset: entra como una variable más, igual que la dirección de la racha.
+Lo que falta es saber cuántas estaciones lo miden — probablemente solo las de alta
+montaña — y no publicar un cero donde en realidad no hay sensor. La trampa es la
+misma que ya nos comió una vez: `?? 0` convirtió la falta de pluviómetro en una
+racha seca de 398 días en el Port de Barcelona.
+
+### 7. Condiciones para actividades
 
 Es la generalización del bloque de preguntas que ya existe. Mismo motor,
 `src/lib/narrative.ts`, y una página por actividad, que además es una entrada de
@@ -148,13 +201,13 @@ buscar bolets» es un número inventado que nadie puede discutir. «Ha plogut 42
 en dotze dies i la mínima no ha baixat de 12 °C» es un dato que el que sabe de
 bolets sabe interpretar mejor que nosotros.
 
-### 7. Resumen de comarca y de Catalunya
+### 8. Resumen de comarca y de Catalunya
 
 El titular de ficha, un nivel arriba: «Avui, mig Ponent per damunt de 35 °C i
 ruixats al Pirineu a la tarda». Es un agregado sobre datos ya en memoria, y es lo
-que se comparte y lo que alimenta el digest del punto 9.
+que se comparte y lo que alimenta el digest del punto 10.
 
-### 8. Avisos: página por comarca, y avisos propios separados
+### 9. Avisos: página por comarca, y avisos propios separados
 
 - **`/avisos`** y `/avisos/[comarca]`: los oficiales ya están en `warnings.json`
   con sus `comarcaCodis`. Es solo página.
@@ -167,7 +220,7 @@ La regla dura: los avisos oficiales no se reescriben ni se recolorean, y los
 propios no pueden parecerse a uno oficial. Si un lector no distingue de un vistazo
 quién firma el aviso, el bloque está mal hecho aunque el dato sea correcto.
 
-### 9. Alertas geolocalizadas **sin backend**: RSS, Atom e ICS
+### 10. Alertas geolocalizadas **sin backend**: RSS, Atom e ICS
 
 Aquí hay un salto de coste que conviene ver antes de dar el paso.
 
@@ -180,7 +233,7 @@ Aquí hay un salto de coste que conviene ver antes de dar el paso.
 Esto cubre el 80 % de «alertes a la meva comarca» sin tocar la arquitectura. El
 push de verdad está en la fase 4, y con motivo.
 
-### 10. Deuda técnica que ya duele
+### 11. Deuda técnica que ya duele
 
 - **Partir `forecast.json`** por comarca. 42 MB en un fichero: memorizado por
   `mtime` no se reparsea, pero en Vercel son 42 MB en el bundle de funciones.
@@ -193,14 +246,30 @@ push de verdad está en la fase 4, y con motivo.
 
 Sin cambios respecto a lo ya escrito. El riesgo real del proyecto no es la falta
 de datos: es el *index bloat* de 4.293 rutas. Los feeds del punto 1 y las páginas
-de los puntos 6, 7 y 8 ayudan, porque dan razones para enlazar que no dependen de
+de los puntos 7, 8 y 9 ayudan, porque dan razones para enlazar que no dependen de
 posicionar cada núcleo por su cuenta.
 
 ---
 
-## Fase 3 — mapas interactivos
+## Fase 3 — mapas
 
-### La decisión: MapLibre GL JS, no Leaflet
+### Antes del mapa interactivo: el mapa que no necesita JavaScript
+
+La página del radar demostró que se puede: las teselas y los polígonos del ICGC
+comparten proyección, así que un solo SVG de servidor lleva las dos cosas y el
+`viewBox` hace de recorte. `src/lib/mercator.ts` ya está escrito y probado.
+
+Con eso, **un mapa de temperaturas por comarca sale sin una línea de script**:
+`data/build/geo/municipis.geojson` ya está construido, la escala de color está en
+`src/lib/scales.ts` y la observación ya está en memoria. Es un `<path>` por
+municipio con su `fill`.
+
+Vale la pena hacerlo **antes** del interactivo, por dos razones: se puede poner en
+la página de comarca —que es territorial y no debe cargar bundle— y sirve de
+prueba de que los datos y la geometría encajan antes de meter 200 KB de MapLibre
+en la ecuación.
+
+### La decisión, para el interactivo: MapLibre GL JS, no Leaflet
 
 **MapLibre GL**, por tres razones concretas y una que no lo es:
 
@@ -258,13 +327,13 @@ El transporte: un binario compacto (768 × 2 `Float32`, unos 6 KB) servido por u
 
 ## Fase 4 — verificación, tauler y push
 
-### 11. Verificación de modelos
+### 12. Verificación de modelos
 
 Ya planeada, y necesita 60 días de histórico acumulado. Es la que permite quitar
 la nota de «els models pesen igual» y empezar a ponderar por acierto. Sigue siendo
 la mejora de calidad más grande que le queda al proyecto.
 
-### 12. Tauler configurable · `/tauler`
+### 13. Tauler configurable · `/tauler`
 
 Widgets que el usuario ordena: temperatura, viento, UV, aire, mar, radar.
 
@@ -276,7 +345,7 @@ funciona el primer día. Consume los feeds del punto 1, no los ficheros de
 Solo cuando alguien pida «lo quiero en el móvil y en el portátil» hace falta una
 cuenta, y entonces ya se sabrá si merece la pena.
 
-### 13. Alertas push · la primera cosa que de verdad necesita la base de datos
+### 14. Alertas push · la primera cosa que de verdad necesita la base de datos
 
 Un aviso empujado al móvil necesita: almacén de suscripciones, claves VAPID,
 consentimiento explícito, política de privacidad, y un proceso que decida a quién
@@ -291,7 +360,7 @@ mínimos, escritos antes de implementar:
 - Un solo push por episodio, no uno por actualización del CAP.
 - Un interruptor de apagado que funcione sin desinstalar nada.
 
-Por eso va al final, y por eso los feeds del punto 9 van antes: cubren la mayor
+Por eso va al final, y por eso los feeds del punto 10 van antes: cubren la mayor
 parte de la necesidad sin ninguno de estos riesgos.
 
 ---

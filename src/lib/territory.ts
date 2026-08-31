@@ -108,6 +108,9 @@ export interface Station {
   comarcaNom?: string;
   operativa: boolean;
   estat?: string;
+  /** Fechas de servicio, tal como las da el catálogo de la XEMA. */
+  dataInici?: string;
+  dataFi?: string;
   nearestLocation: { id: string; nom: string; path: string; distKm: number } | null;
 }
 

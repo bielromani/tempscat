@@ -493,6 +493,27 @@ export function activeWarnings(): Warning[] {
 
 // ── Histórico y clima de la estación de referencia ──────────────────────────
 
+/**
+ * Rosa de los vientos de una estación, 16 sectores.
+ *
+ * La construye el worker de histórico a partir de la dirección de la racha
+ * máxima de cada día de toda la serie. Ver el componente WindRose para qué
+ * contesta y qué no.
+ */
+export interface WindRose {
+  sectors: Array<{
+    deg: number;
+    label: string;
+    days: number;
+    /** Fracción de días, 0–1. */
+    share: number;
+    gustMean: number | null;
+    gustMax: number | null;
+  }>;
+  days: number;
+  prevailing: { label: string; share: number } | null;
+}
+
 export interface StationHistory {
   station: string;
   daily: Array<{
@@ -520,13 +541,26 @@ export interface StationHistory {
   };
   monthAnomaly: number | null;
   dryStreak: number;
+  /** De dónde vienen las rachas. Null si la estación no mide viento. */
+  rose: WindRose | null;
 }
 
 /** Histórico de la estación de referencia de una ubicación. */
 export function historyFor(loc: Location): StationHistory | null {
   if (!loc.stationRef) return null;
+  return historyOfStation(loc.stationRef.codi);
+}
+
+/** Histórico por código de estación, para la ficha de la propia estación. */
+export function historyOfStation(codi: string): StationHistory | null {
   const snap = snapshot<StationHistory[]>('xema-history');
-  return snap?.data.find((h) => h.station === loc.stationRef!.codi) ?? null;
+  return snap?.data.find((h) => h.station === codi) ?? null;
+}
+
+/** Observación actual de una estación concreta, sin corrección de altitud. */
+export function observationOfStation(codi: string): RawObservation | null {
+  const snap = snapshot<RawObservation[]>('xema-current');
+  return snap?.data.find((o) => o.station === codi) ?? null;
 }
 
 // ── Astronomía ──────────────────────────────────────────────────────────────

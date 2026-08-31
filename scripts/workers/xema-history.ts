@@ -27,7 +27,8 @@ import { readFileSync } from 'node:fs';
 import { soql, soqlAll } from '../lib/socrata.ts';
 import { raw } from '../lib/paths.ts';
 import { throttledMap } from '../lib/http.ts';
-import { DAILY_LIMITS, QuotaGuard, recordFreshness, writeSnapshot } from '../lib/store.ts';
+import { DAILY_LIMITS, QuotaGuard, readSnapshot, recordFreshness, writeSnapshot } from '../lib/store.ts';
+import { windCardinal } from '../../src/lib/variables.ts';
 import type { Station } from '../04-fetch-stations.ts';
 
 const DAILY = '7bvh-jvq2';
@@ -65,6 +66,37 @@ export interface DailyRecord {
 
 export interface Extreme { value: number; date: string; hour?: string }
 
+/**
+ * Rosa de los vientos, en 16 sectores.
+ *
+ * Se construye con la **dirección de la racha máxima de cada día** (variable
+ * 1515), no con la dirección media diaria (1509). La razón es que la media
+ * vectorial de un día entero cancela el ciclo diurno: en el litoral, marinada de
+ * tarde y terral de madrugada se anulan y la media apunta a un sector donde casi
+ * nunca sopla. La racha del día, en cambio, es un evento real con una dirección
+ * real.
+ *
+ * Lo que esta rosa contesta es «d'on ve el vent fort aquí», que es la pregunta
+ * que distingue la tramuntana del mestral y la que explica por qué un pueblo
+ * tiene los árboles inclinados. Lo que **no** contesta es la frecuencia de las
+ * brisas suaves: la página lo dice.
+ */
+export interface WindRose {
+  sectors: Array<{
+    /** Centro del sector en grados, 0 = norte. */
+    deg: number;
+    label: string;
+    days: number;
+    /** Fracción de días, 0–1. */
+    share: number;
+    gustMean: number | null;
+    gustMax: number | null;
+  }>;
+  /** Días con dirección y racha en la misma fecha. */
+  days: number;
+  prevailing: { label: string; share: number } | null;
+}
+
 export interface StationHistory {
   station: string;
   /** Últimos 45 días, para la tabla y el gráfico. */
@@ -96,6 +128,8 @@ export interface StationHistory {
   monthAnomaly: number | null;
   /** Días consecutivos sin precipitación apreciable hasta hoy. */
   dryStreak: number;
+  /** De dónde vienen las rachas. Null si la estación no mide viento. */
+  rose: WindRose | null;
 }
 
 interface Row { [k: string]: string }
@@ -105,11 +139,15 @@ const r1 = (v: number | null) => (v == null ? null : Math.round(v * 10) / 10);
 const ALL_VARS = Object.values(V);
 
 /**
- * Variables que se descargan de toda la serie histórica. Solo estas cinco: con
+ * Variables que se descargan de toda la serie histórica. Solo estas seis: con
  * las trece, una estación de 1988 pasa de 40.000 registros a más de 100.000 y
  * la descarga deja de compensar.
+ *
+ * La dirección de la racha (1515) entra porque la rosa de los vientos la
+ * necesita de toda la serie, y añadir una variable a una consulta que ya se hace
+ * cuesta un 20 % más de filas; pedirla aparte costaría otra consulta por estación.
  */
-const RECORD_VARS = [V.tMean, V.tMax, V.tMin, V.precip, V.gust];
+const RECORD_VARS = [V.tMean, V.tMax, V.tMin, V.precip, V.gust, V.gustDir];
 
 /** Serie diaria: una sola consulta trae todas las variables de todos los días. */
 async function dailySeries(station: string, fromDay: string): Promise<DailyRecord[]> {
@@ -216,6 +254,70 @@ function count(daily: DailyRecord[], from: string, pred: (d: DailyRecord) => boo
   return daily.filter((d) => d.day >= from && pred(d)).length;
 }
 
+/**
+ * Rosa de los vientos a partir de la serie completa.
+ *
+ * Empareja por día la dirección de la racha con su velocidad: vienen en filas
+ * distintas del mismo dataset, y sin emparejarlas se puede contar la frecuencia
+ * pero no decir con qué fuerza sopla de cada lado — que es la mitad de la
+ * información.
+ */
+function roseOf(
+  series: Array<{ day: string; variable: string; value: number }>,
+): WindRose | null {
+  const dirByDay = new Map<string, number>();
+  const gustByDay = new Map<string, number>();
+  for (const r of series) {
+    if (r.variable === V.gustDir) dirByDay.set(r.day, r.value);
+    else if (r.variable === V.gust) gustByDay.set(r.day, r.value);
+  }
+  if (dirByDay.size < 90) return null;   // menos de tres meses no es una rosa
+
+  const sectors = Array.from({ length: 16 }, (_, i) => ({
+    deg: i * 22.5,
+    label: windCardinal(i * 22.5),
+    days: 0,
+    share: 0,
+    gustSum: 0,
+    gustN: 0,
+    gustMax: null as number | null,
+  }));
+
+  let total = 0;
+  for (const [day, deg] of dirByDay) {
+    if (!Number.isFinite(deg)) continue;
+    // El sector 0 va de 348,75° a 11,25°, así que el redondeo tiene que dar la
+    // vuelta: sin el módulo, los 355° caen en un sector 16 que no existe.
+    const i = Math.round((((deg % 360) + 360) % 360) / 22.5) % 16;
+    const sec = sectors[i];
+    sec.days++;
+    total++;
+    const gust = gustByDay.get(day);
+    if (gust != null && Number.isFinite(gust)) {
+      sec.gustSum += gust;
+      sec.gustN++;
+      if (sec.gustMax == null || gust > sec.gustMax) sec.gustMax = gust;
+    }
+  }
+  if (!total) return null;
+
+  const out = sectors.map((sec) => ({
+    deg: sec.deg,
+    label: sec.label,
+    days: sec.days,
+    share: Math.round((sec.days / total) * 1000) / 1000,
+    gustMean: sec.gustN ? r1(sec.gustSum / sec.gustN) : null,
+    gustMax: r1(sec.gustMax),
+  }));
+
+  const top = out.reduce((a, b) => (b.share > a.share ? b : a));
+  return {
+    sectors: out,
+    days: total,
+    prevailing: top.share > 0 ? { label: top.label, share: top.share } : null,
+  };
+}
+
 async function main() {
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
@@ -263,9 +365,18 @@ async function main() {
       const days = new Set(series.filter((r) => r.variable === V.tMean).map((r) => r.day));
       const firstDay = [...days].sort()[0] ?? null;
 
+      /*
+       * Días seguidos sin lluvia, contando hacia atrás desde hoy.
+       *
+       * Un dato **ausente corta la cuenta**, no la alimenta. Con `?? 0`, una
+       * estación que no mide precipitación acumulaba una racha seca de 398 días
+       * —el Port de Barcelona, visto en el registro— y eso no es una sequía: es
+       * que allí no hay pluviómetro.
+       */
       let dryStreak = 0;
       for (let i = daily.length - 1; i >= 0; i--) {
-        if ((daily[i].precip ?? 0) >= 0.2) break;
+        const mm = daily[i].precip;
+        if (mm == null || mm >= 0.2) break;
         dryStreak++;
       }
 
@@ -302,6 +413,7 @@ async function main() {
         },
         monthAnomaly: monthMean != null && normal != null ? r1(monthMean - normal) : null,
         dryStreak,
+        rose: roseOf(series),
       };
       return history;
     },
@@ -316,7 +428,25 @@ async function main() {
   process.stdout.write('\n');
   quota.spend('socrata', calls);
 
-  const valid = results.filter((r): r is StationHistory => !!r);
+  const fresh = results.filter((r): r is StationHistory => !!r);
+
+  /*
+   * Con `--station=`, el resultado se **fusiona** sobre el snapshot anterior.
+   *
+   * Antes lo sustituía, y eso convertía una comprobación de una estación en un
+   * fichero con una sola estación: el bloque de clima desaparecía de las 4.293
+   * páginas hasta la siguiente ejecución completa, sin que nada diera error.
+   * Pasó al probar la rosa de los vientos.
+   */
+  let valid = fresh;
+  if (onlyOne) {
+    const previous = readSnapshot<StationHistory[]>('xema-history')?.data ?? [];
+    const byStation = new Map(previous.map((h) => [h.station, h]));
+    for (const h of fresh) byStation.set(h.station, h);
+    valid = [...byStation.values()].sort((a, b) => a.station.localeCompare(b.station));
+    console.log(`Mode --station: ${fresh.length} refrescada(es), ${previous.length} conservades`);
+  }
+
   const nom = new Map(stations.map((s) => [s.codi, s.nom]));
 
   const withRec = valid.filter((v) => v.records.tMaxAbs);

@@ -160,9 +160,15 @@ function Current({
       <hr className="mt-5 border-0 border-t" style={{ borderColor: ink, opacity: 0.18 }} />
       <p className="mt-3 text-xs leading-relaxed" style={faint}>
         Dada de l&apos;estació{' '}
-        <strong className="font-medium" style={{ color: ink, opacity: 0.9 }}>
+        {/* Enlace a la ficha de la estación: es donde están sus récords y su rosa
+            de vientos, y hasta ahora no había forma de llegar. */}
+        <Link
+          href={`/estacions/${current.station.codi}`}
+          className="font-medium underline decoration-1 underline-offset-2"
+          style={{ color: ink, opacity: 0.9 }}
+        >
           {deName(current.station.nom)}
-        </strong>,
+        </Link>,
         a {num(current.station.distKm, 1)} km
         {current.station.dAltM != null && ` i ${signed(current.station.dAltM, 0, 'm')} de desnivell`}
         {' · '}{ago(current.ageMin)}
