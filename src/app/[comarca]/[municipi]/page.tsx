@@ -35,8 +35,11 @@ export const dynamicParams = true;
  * XEMA llega con 45-65 min de retraso, así que media hora es la cadencia que le
  * corresponde.
  *
- * Pendiente: aislar ese bloque en su propio segmento cacheado para no
- * regenerar la página entera por un número que cambia cada hora.
+ * Se estudió aislar ese bloque en su propio segmento cacheado y **se descartó
+ * con el cronómetro delante**: un render completo cuesta 9-14 ms en caliente y
+ * hasta 229 ms en frío, y con ISR nadie espera a esa regeneración. El mecanismo
+ * de Next 16 es `cacheComponents`, que cambia el comportamiento por defecto de
+ * toda la aplicación. Sesenta milisegundos en segundo plano no lo pagan.
  */
 export const revalidate = 1800;
 

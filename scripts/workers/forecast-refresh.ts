@@ -29,15 +29,20 @@
  * 21 segundos salen 65.000 unidades por hora: trece veces el techo. Por eso el
  * ritmo **se deriva del coste** y no es un intervalo fijo.
  *
- * Salida: data/cache/forecast.json
+ * Salida: data/cache/forecast/ — un fichero por comarca y un índice
  */
+import { existsSync, rmSync, statSync } from 'node:fs';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fetchWithRetry, sleep } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import {
-  DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard,
+  CACHE, DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard,
   readSnapshot, recordFreshness, writeSnapshot,
 } from '../lib/store.ts';
+import {
+  FORECAST_INDEX, forecastShard, type ForecastIndex,
+} from '../../src/lib/forecast-shards.ts';
 import {
   VARIABLES, ESSENTIAL_HOURLY, RICH_HOURLY, callWeight, type VariableSlug,
 } from '../../src/lib/variables.ts';
@@ -45,6 +50,8 @@ import {
 type Tier = 'A' | 'B' | 'C' | 'D';
 
 interface ForecastPoint {
+  /** Comarcas que consultan este punto, para saber en qué trozo se guarda. */
+  comarques: string[];
   id: string; lat: number; lon: number; altitud: number | null;
   nLocations: number; tier: Tier;
 }
@@ -114,6 +121,105 @@ export interface ForecastData {
   times: string[];
   points: Record<string, Record<string, PointForecast>>;
   models: string[];
+}
+
+/* ── La predicción, partida por comarca ──────────────────────────────────────
+ *
+ * El worker sigue trabajando con el territorio entero en memoria —tiene que
+ * hacerlo: fusiona lo que trae este refresco con lo que quedó del anterior— y
+ * solo al final lo reparte en 43 ficheros.
+ *
+ * El motivo está escrito en `src/lib/forecast-shards.ts`: un arranque en frío
+ * de la aplicación parseaba 42 MB para responder con un punto de 3.190.
+ */
+
+/**
+ * Reúne los trozos en el objeto único con el que trabaja el worker.
+ *
+ * Los puntos de frontera están en dos ficheros y se sobrescriben con el mismo
+ * contenido, que es exactamente lo que se quiere.
+ */
+function readForecast(): { data: ForecastData } | null {
+  const index = readSnapshot<ForecastIndex>(FORECAST_INDEX);
+  if (!index) return null;
+
+  const points: ForecastData['points'] = {};
+  let missing = 0;
+  for (const c of index.data.comarques) {
+    const shard = readSnapshot<ForecastData>(forecastShard(c.codi));
+    if (!shard) { missing++; continue; }
+    Object.assign(points, shard.data.points);
+  }
+  if (missing) console.warn(`avís: ${missing} trossos de predicció il·legibles; es tornaran a demanar`);
+
+  return { data: { times: index.data.times, points, models: index.data.models } };
+}
+
+/**
+ * Escribe la predicción en un fichero por comarca más un índice.
+ *
+ * El índice va **el último** a propósito: es el que dice qué trozos existen, y
+ * mientras no esté escrito la aplicación sigue leyendo los de la vuelta
+ * anterior en vez de una mezcla de las dos.
+ */
+function writeForecast(
+  result: ForecastData,
+  points: ForecastPoint[],
+  source: string,
+): { shards: number; bytes: number; largest: number } {
+  const comarquesOf = new Map(points.map((p) => [p.id, p.comarques]));
+
+  const byComarca = new Map<string, ForecastData['points']>();
+  for (const [id, byModel] of Object.entries(result.points)) {
+    // Un punto sin comarca es un punto que ya no está en el territorio: la
+    // celda se movió en un rebuild. No se guarda en ninguna parte, que es la
+    // manera de que no se quede ahí para siempre.
+    for (const codi of comarquesOf.get(id) ?? []) {
+      const bucket = byComarca.get(codi) ?? {};
+      bucket[id] = byModel;
+      byComarca.set(codi, bucket);
+    }
+  }
+
+  const entries: ForecastIndex['comarques'] = [];
+  let bytes = 0;
+  for (const [codi, bucket] of [...byComarca].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const name = forecastShard(codi);
+    writeSnapshot(
+      name, source,
+      { times: result.times, points: bucket, models: result.models } satisfies ForecastData,
+      result.times[0] ?? null,
+    );
+    const size = statSync(join(CACHE, `${name}.json`)).size;
+    bytes += size;
+    entries.push({ codi, points: Object.keys(bucket).length, bytes: size });
+  }
+
+  writeSnapshot(
+    FORECAST_INDEX, source,
+    {
+      times: result.times,
+      models: result.models,
+      points: Object.keys(result.points).length,
+      comarques: entries,
+    } satisfies ForecastIndex,
+    result.times[0] ?? null,
+  );
+
+  // El monolito de la versión anterior. Si se queda no rompe nada —ya no lo lee
+  // nadie— y eso es justo el problema: 42 MB de predicción caducada durmiendo
+  // en el disco y viajando en el paquete de despliegue.
+  const legacy = join(CACHE, 'forecast.json');
+  if (existsSync(legacy)) {
+    rmSync(legacy);
+    console.log("S'ha esborrat el forecast.json antic: la predicció ara va per comarques.");
+  }
+
+  return {
+    shards: entries.length,
+    bytes,
+    largest: entries.reduce((m, e) => Math.max(m, e.bytes), 0),
+  };
 }
 
 /** Variables que no admiten redondeo a un decimal sin perder sentido. */
@@ -195,7 +301,7 @@ async function main() {
    */
   const fillOnly = process.argv.includes('--fill');
 
-  const before = readSnapshot<ForecastData>('forecast');
+  const before = readForecast();
 
   const steps: Array<{ tier: Tier; spec: ModelSpec; points: ForecastPoint[] }> = [];
   for (const tier of onlyTiers) {
@@ -401,7 +507,7 @@ async function main() {
   console.log(`\nPunts amb predicció: ${total.toLocaleString('ca-ES')} / ${points.length.toLocaleString('ca-ES')} del territori`);
   console.log(`Horitzó: ${result.times.length} hores (${result.times[0]} → ${result.times.at(-1)})`);
 
-  writeSnapshot('forecast', 'Open-Meteo · CC-BY 4.0', result, result.times[0] ?? null);
+  const written = writeForecast(result, points, 'Open-Meteo · CC-BY 4.0');
   recordFreshness({
     source: 'forecast-refresh',
     lastSuccessAt: new Date().toISOString(),
@@ -412,7 +518,11 @@ async function main() {
   });
 
   console.log(`\n${quota.report()}`);
-  console.log(`→ data/cache/forecast.json (${((Date.now() - started) / 1000 / 60).toFixed(1)} min)`);
+  console.log(
+    `→ data/cache/forecast/ · ${written.shards} trossos · `
+    + `${(written.bytes / 1048576).toFixed(1)} MB en total, el més gran ${(written.largest / 1048576).toFixed(2)} MB `
+    + `(${((Date.now() - started) / 1000 / 60).toFixed(1)} min)`,
+  );
 }
 
 main().catch((err) => {

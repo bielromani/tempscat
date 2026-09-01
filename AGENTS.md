@@ -23,6 +23,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/cache/radar/` | Teselas de radar ya descargadas. Las sirve una route handler |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
+| `data/cache/forecast/` | La predicción, un fichero por comarca. Nunca un monolito: ver `forecast-shards.ts` |
 | `data/raw/`, `data/cache/` | Descargas y datos vivos. No se versionan |
 | `db/migrations/` | Esquema PostgreSQL, sin aplicar todavía |
 
@@ -49,7 +50,7 @@ Comprueba ambos proyectos con `npm run typecheck`.
 
 ## Código compartido entre scripts y aplicación
 
-Hay seis ficheros que importan los dos lados, así que **ninguno puede importar nada**: los
+Hay siete ficheros que importan los dos lados, así que **ninguno puede importar nada**: los
 scripts los cargan con extensión `.ts` y la aplicación con el alias `@/`. Si alguno necesita
 dependencias, duplica antes que romper uno de los dos.
 
@@ -61,6 +62,7 @@ dependencias, duplica antes que romper uno de los dos.
 | `src/lib/mercator.ts` | Proyección de las teselas del radar y de los polígonos que van encima |
 | `src/lib/format.ts` | Fechas, horas, números y contracciones del catalán |
 | `src/lib/forecast-types.ts` | Las formas de la observación y de la predicción, sin `node:fs` detrás |
+| `src/lib/forecast-shards.ts` | Dónde vive cada trozo de la predicción, y por qué está partida |
 
 ## Comandos
 
@@ -112,9 +114,21 @@ páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado.
 `narrative.ts` son deterministas y auditables, y si el dato no está, la frase no se escribe.
 
 **Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
-interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí. La prueba de
-que la frontera aguanta es medible: la página de un municipio sigue por debajo de 40 KB por la
-red y sin hidratación.
+interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí.
+
+La parte que se cumple está medida: **no hay un solo `'use client'` en el proyecto**, así que la
+regla se sostiene al pie de la letra. Lo que hay que dejar de decir es la cifra que la acompañaba.
+Medido con `next start` sobre `/maresme/malgrat-de-mar`:
+
+| | crudo | gzip |
+|---|---|---|
+| HTML de verdad | 192 KB | **21 KB** |
+| Carga RSC incrustada, que lo duplica | 320 KB | 30 KB |
+| Runtime de React y Next, en seis ficheros | — | 137 KB |
+
+O sea: el HTML sí baja de 40 KB, pero **la página no**, y hidratar hidrata. Los 167 KB que
+sobran son el suelo del App Router y no los pone ningún componente nuestro. Decir «sin
+hidratación» era falso y hay que decirlo así hasta que se decida qué hacer.
 
 ## Cuotas: la restricción que manda
 
@@ -183,3 +197,16 @@ cuota para exactamente la misma información.
   longitud.** Al reves de lo que dicen los nombres. Y `estat_data` va en DD/MM/YYYY con una T.
 - **Una bandera de platja caduca.** La ponen los socorristas de servicio; fuera de horario la
   ultima fila se queda ahi. Umbrales en `src/lib/sea.ts`: vigente < 3 h, se ensena < 12 h.
+- **La predicción va partida en 43 ficheros y `forecastFor` necesita `loc.comarcaCodi`.** Sin él
+  no busca en ninguna parte y devuelve `null` sin dar error: la página sale entera pero sin
+  predicción. El punto de un municipio de frontera está duplicado en los dos trozos a propósito.
+- **`data/cache/forecast/index.json` se escribe el último, y el orden importa.** Es el que dice
+  qué trozos existen; mientras no esté, la aplicación lee los de la vuelta anterior en vez de una
+  mezcla de dos refrescos. Si alguna vez se escribe antes, se sirven medias predicciones nuevas
+  con medias viejas y ningún dato parece mal.
+- **React solo rellena un `<title>` si su único hijo es una cadena.** Con tres hijos —una
+  plantilla y dos condicionales— el servidor escribe `<title></title>` vacío y el cliente pone el
+  texto: discrepancia de hidratación, y React vuelve a renderizar el árbol entero en el
+  navegador. No da ningún error visible. Estuvo así en las rosas de los vientos de las 4.293
+  páginas. Compón la cadena antes y pásala de una pieza.
+

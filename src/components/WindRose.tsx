@@ -106,6 +106,25 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
           if (s.share <= 0) return null;
           const radius = Math.sqrt(s.share / maxShare) * R;
           const kmh = s.gustMean != null ? msToKmh(s.gustMean) : null;
+          /*
+           * Una sola cadena, y no tres trozos.
+           *
+           * React trata `<title>` como un elemento especial y **solo lo
+           * rellena si su único hijo es una cadena**. Con tres hijos el
+           * servidor escribía `<title></title>` vacío y el cliente ponía el
+           * texto, así que las 4.293 páginas llegaban con una discrepancia de
+           * hidratación: React tiraba el árbol servido y lo volvía a
+           * renderizar entero en el navegador — justo lo contrario de lo que
+           * persigue este proyecto.
+           *
+           * No daba ningún error visible. Solo el tooltip vacío, que nadie
+           * mira, y el árbol rehecho, que no se ve.
+           */
+          const tip = [
+            `${s.label} · ${(s.share * 100).toFixed(1)} % dels dies`,
+            kmh != null ? `ratxa mitjana ${kmh.toFixed(0)} km/h` : null,
+            s.gustMax != null ? `màxima ${msToKmh(s.gustMax).toFixed(0)} km/h` : null,
+          ].filter(Boolean).join(' · ');
           return (
             <path
               key={s.deg}
@@ -114,11 +133,7 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
               stroke="var(--surface)"
               strokeWidth={1}
             >
-              <title>
-                {`${s.label} · ${(s.share * 100).toFixed(1)} % dels dies`}
-                {kmh != null ? ` · ratxa mitjana ${kmh.toFixed(0)} km/h` : ''}
-                {s.gustMax != null ? ` · màxima ${msToKmh(s.gustMax).toFixed(0)} km/h` : ''}
-              </title>
+              <title>{tip}</title>
             </path>
           );
         })}

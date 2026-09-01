@@ -8,6 +8,7 @@ import {
 import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
 import { consensusCode, dailySummaryCode } from './weather-codes';
 import { airCellKey } from './air-grid';
+import { forecastShard } from './forecast-shards';
 import {
   AIR_VARIABLES, POLLENS, POLLUTANTS, SUB_INDEX_OF, SUB_INDICES,
   pollenLevel, type AirSlug, type PollenLevel,
@@ -34,13 +35,38 @@ interface Snapshot<T> { fetchedAt: string; dataTs: string | null; source: string
 /*
  * Los snapshots se memorizan por proceso y se revalidan por `mtime`.
  *
- * Sin esto, `forecast.json` —22 MB— se leía y parseaba **en cada render de
- * página**. Con 4.293 rutas generándose bajo demanda eso son minutos de CPU
- * tirados y un TTFB imposible de defender. El fichero solo cambia cuando corre
- * un worker, así que comprobar la fecha de modificación basta y cuesta
- * microsegundos.
+ * Sin esto, la predicción se leía y parseaba **en cada render de página**. Con
+ * 4.293 rutas generándose bajo demanda eso son minutos de CPU tirados y un TTFB
+ * imposible de defender. Los ficheros solo cambian cuando corre un worker, así
+ * que comprobar la fecha de modificación basta y cuesta microsegundos.
+ *
+ * Lo otro que hacía falta —que el fichero de predicción dejara de ser uno solo
+ * de 40 MB— está resuelto en `forecast-shards.ts`.
  */
 const memo = new Map<string, { mtimeMs: number; checkedAt: number; snap: Snapshot<unknown> }>();
+
+/**
+ * Cuántos trozos de predicción se guardan parseados a la vez.
+ *
+ * La predicción va partida por comarca (ver `forecast-shards.ts`), así que un
+ * proceso que atendiera a las 43 acabaría con los mismos 132 MB de montículo
+ * que tenía el fichero único — solo que en cómodos plazos. El tope los deja en
+ * unos 12 MB.
+ *
+ * Ocho y no dos porque la generación estática recorre las rutas en orden
+ * alfabético: los municipios de una comarca van seguidos, y el margen sobra
+ * para que ninguna se expulse a media comarca y haya que volver a leerla. Y si
+ * pasara, volver a parsear un trozo cuesta 7 ms, no 275.
+ *
+ * Los demás snapshots —observación, avisos, radar— no se expulsan nunca: son
+ * uno solo cada uno y los necesita cualquier página.
+ */
+const MAX_FORECAST_SHARDS = 8;
+
+function evictShards() {
+  const shards = [...memo.keys()].filter((k) => k.startsWith('forecast/'));
+  for (const k of shards.slice(0, shards.length - MAX_FORECAST_SHARDS)) memo.delete(k);
+}
 
 /**
  * Ventana durante la cual no se vuelve a preguntar al sistema de ficheros.
@@ -73,7 +99,12 @@ function snapshot<T>(name: string): Snapshot<T> | null {
     }
 
     const snap = JSON.parse(readFileSync(p, 'utf8')) as Snapshot<T>;
+    // Se borra y se vuelve a poner para que el orden del Map sea el de último
+    // uso y no el de primera lectura: es lo que hace que expulsar el primero
+    // expulse el más viejo.
+    memo.delete(name);
     memo.set(name, { mtimeMs, checkedAt: Date.now(), snap: snap as Snapshot<unknown> });
+    evictShards();
     return snap;
   } catch {
     return null;
@@ -278,8 +309,11 @@ function snowLevelFrom(hours: HourlyPoint[]): number | null {
 }
 
 export function forecastFor(loc: Location, hours = 168): LocationForecast | null {
-  const snap = snapshot<ForecastData>('forecast');
-  if (!snap || !loc.forecastPointId) return null;
+  if (!loc.forecastPointId || !loc.comarcaCodi) return null;
+  // Solo el trozo de su comarca. El punto de un municipio de frontera está
+  // duplicado en los dos trozos justamente para que aquí no haya que buscarlo.
+  const snap = snapshot<ForecastData>(forecastShard(loc.comarcaCodi));
+  if (!snap) return null;
   const byModel = snap.data.points[loc.forecastPointId];
   if (!byModel) return null;
 

@@ -365,22 +365,122 @@ Decisiones que quedan cerradas:
 Queda el **digest diario** por comarca, que es el mismo mecanismo con otro
 contenido.
 
-### 11. Deuda técnica que ya duele
+### 11. Deuda técnica que ya duele — hecha, salvo una que se ha decidido no hacer
 
-- **Partir `forecast.json`** por comarca. 42 MB en un fichero: memorizado por
-  `mtime` no se reparsea, pero en Vercel son 42 MB en el bundle de funciones.
-- **Aislar el bloque «ara mateix»** en su propio segmento cacheado. Ahora la
-  página entera se revalida cada 30 min por un número que cambia cada hora.
-- **Un aviso de hidratación en desarrollo, sin diagnosticar.** Aparece en páginas
-  que no se han tocado —`/alt-camp`, `/estat`—, así que no lo ha traído nada
-  reciente. La sospecha razonable es el doble render de desarrollo con textos que
-  dependen del reloj: si el minuto cambia entre el HTML y la carga RSC, «fa 49
-  min» y «fa 50 min» no coinciden. Si es eso, en producción no se da, porque las
-  dos salen del mismo render.
+#### `forecast.json` partido por comarca · **hecho**
 
-  Hay que **confirmarlo con `next start`** y no asumirlo, porque si de verdad hay
-  discrepancia el cliente vuelve a renderizar el árbol entero y eso se come la
-  ventaja de no llevar JavaScript, que es media tesis del proyecto.
+Ya no existe el fichero único. La predicción vive en `data/cache/forecast/`, un
+fichero por comarca más un índice, y el porqué está escrito en
+`src/lib/forecast-shards.ts`.
+
+El argumento no era el que estaba apuntado aquí. Lo que se temía era el peso en
+el paquete de despliegue; lo que de verdad se paga es el **arranque en frío**,
+que en producción es el caso normal:
+
+| | antes | ahora |
+|---|---|---|
+| Fichero que hay que abrir | 39,9 MB | 0,87 MB (el mayor, 2,03) |
+| Lectura + parseo | 80 + 195 ms | 2 + 4 ms |
+| Montículo | 132 MB | 2,9 MB |
+
+Doscientos setenta y cinco milisegundos y ciento treinta megas para responder a
+una página que necesitaba **un punto de 3.190**.
+
+Tres decisiones que conviene no volver a discutir:
+
+- **Por comarca y no por punto.** La comparativa comarcal de cada ficha mira a
+  todos sus vecinos, así que la comarca es justo la unidad que una página
+  necesita entera. Un fichero por punto serían 3.190 aperturas.
+- **Los 27 puntos de frontera se duplican.** La celda de 0,02° no sabe de
+  límites administrativos. Duplicarlos cuesta 0,5 MB sobre 40 y ahorra tener que
+  consultar un índice antes de cada lectura.
+- **Un tope de 8 trozos parseados a la vez** en `weather.ts`. Sin él, un proceso
+  que atendiera a las 43 comarcas acabaría con los mismos 132 MB, solo que en
+  cómodos plazos.
+
+La migración de los datos que ya estaban en disco es
+`scripts/migrate-split-forecast.ts`: reordena bytes en vez de gastar miles de
+unidades de cuota volviendo a pedir lo mismo.
+
+#### El aviso de hidratación · **era real en producción, y ya está arreglado**
+
+La hipótesis escrita aquí —el doble render de desarrollo con textos que dependen
+del reloj— **era falsa**, y por poco se da por buena: con `next start`,
+`/alt-camp`, `/estat` y una ficha de municipio dan cero mensajes de consola. Con
+esas tres páginas se habría cerrado el punto.
+
+Aparece en otras. `/llucanes/sobremunt` en producción tira `Minified React error
+#418`, que es exactamente «el HTML del servidor no coincide con el del cliente».
+
+La causa, sacada del diff que enseña el overlay en desarrollo: **`WindRose`
+pasaba tres hijos a un `<title>` de SVG**.
+
+```jsx
+<title>
+  {`${s.label} · ${(s.share * 100).toFixed(1)} % dels dies`}
+  {kmh != null ? ` · ratxa mitjana …` : ''}
+  {s.gustMax != null ? ` · màxima …` : ''}
+</title>
+```
+
+React trata `<title>` como elemento especial y **solo lo rellena si su único hijo
+es una cadena**. Con tres hijos el servidor escribía `<title></title>` vacío —16
+por rosa— y el cliente ponía el texto. Discrepancia en cada página con rosa de
+los vientos, o sea en casi todas.
+
+Lo que costaba: al no cuadrar el árbol, React **descarta el HTML servido y vuelve
+a renderizarlo entero en el navegador**. Es justo el escenario que este punto
+temía, «se come la ventaja de no llevar JavaScript», y llevaba ahí desde que la
+rosa se puso en las 4.293 fichas.
+
+Y no daba ningún error visible: el tooltip salía vacío, que nadie mira, y el
+árbol se rehacía, que no se ve. Se arregla componiendo la cadena antes:
+
+```jsx
+const tip = [...].filter(Boolean).join(' · ');
+<title>{tip}</title>
+```
+
+Comprobado después en producción sobre catorce tipos de página —portada, comarca,
+municipio, entidad, estación, `/mar`, `/aire`, `/aigua`, `/neu`, `/bolets`,
+`/avisos`, `/radar`, `/ranquings`, `/estat`—: **cero mensajes de consola**.
+
+**La lección, que es la que hay que quedarse:** tres páginas no son una
+comprobación. La que fallaba no estaba entre las que la sospecha señalaba.
+
+#### Y de camino, el peso real de una página
+
+Midiendo lo anterior salió esto, que no estaba apuntado en ninguna parte. Con
+`next start` sobre `/maresme/malgrat-de-mar`:
+
+| | crudo | gzip |
+|---|---|---|
+| HTML de verdad | 192 KB | **21 KB** |
+| Carga RSC incrustada, que lo duplica | 320 KB | 30 KB |
+| Runtime de React y Next, en seis ficheros | — | 137 KB |
+
+El HTML sí baja de 40 KB; **la página no**, y hidratar hidrata. Los 167 KB que
+sobran son el suelo del App Router: no los pone ningún componente nuestro —**no
+hay un solo `'use client'` en el proyecto**— y solo se quitan saliendo del
+framework. Queda escrito, no resuelto, y la frase «sin hidratación» ya está
+corregida en `AGENTS.md`.
+
+#### Aislar el bloque «ara mateix» · **medido y descartado, de momento**
+
+La idea era buena y el número la desmonta. Con la predicción ya partida, un
+render completo de una ficha cuesta **entre 73 y 229 ms en frío y 9-14 ms en
+caliente**. Separar el bloque de condiciones actuales en su propio segmento
+ahorraría unos 60 ms de CPU, en segundo plano, una vez cada media hora y solo en
+las páginas que alguien visite — con ISR el usuario recibe la versión anterior al
+instante y no espera nunca a esa regeneración.
+
+El precio, en cambio, no es pequeño: en Next 16 el mecanismo es `cacheComponents`
+con `cacheLife`, y activarlo cambia el comportamiento por defecto de **toda** la
+aplicación, así que habría que auditar las 602 rutas. Sesenta milisegundos de
+trabajo en segundo plano no lo pagan.
+
+Se retoma si alguna vez el render pasa de ~300 ms o si `cacheComponents` deja de
+ser un interruptor global.
 
 ---
 

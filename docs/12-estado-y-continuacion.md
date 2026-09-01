@@ -55,7 +55,7 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 | Fichero | Qué es | Cadencia |
 |---|---|---|
 | `xema-current.json` | Observación de 188 estaciones, con los extremos del día natural | 10 min |
-| `forecast.json` | 3.190 puntos × 19 variables × 168 h · **42 MB** | 12–24 h |
+| `forecast/c**.json` + `index.json` | 3.190 puntos × 19 variables × 168 h, **partido en 43 trozos** de 0,1 a 2 MB | 12–24 h |
 | `warnings.json` | Avisos CAP de AEMET | 15 min |
 | `xema-history.json` | Récords y normales de 189 estaciones | 24 h |
 | `air-quality.json` | 372 celdas de 0,1° × 18 variables × 72 h | 12 h |
@@ -91,10 +91,10 @@ Por orden de valor. Ninguna necesita nada del usuario.
 
 1. **Ficha de estación** (`/estacions/[codi]`, 245 rutas). `xema-history.json` ya tiene todo:
    récords, normales, serie de 45 días. Falta rosa de vientos.
-2. **Aislar el bloque «ara mateix»** en su propio segmento cacheado. Ahora la página entera se
-   revalida cada 30 min por un número que cambia cada hora.
-3. **Partir `forecast.json`.** 42 MB en un solo fichero. Está memorizado por `mtime`, así que
-   no se reparsea, pero en Vercel eso son 42 MB en el bundle de funciones. Trocear por comarca.
+2. ~~**Aislar el bloque «ara mateix»**~~ — medido y descartado: con la predicción ya partida,
+   un render completo cuesta 73–229 ms en frío y 9–14 ms en caliente. Ver `docs/13`, punto 11.
+3. ~~**Partir `forecast.json`**~~ — hecho. Un fichero por comarca en `data/cache/forecast/`.
+   El arranque en frío pasa de 275 ms y 132 MB de montículo a 6 ms y 2,9 MB.
 4. **Calidad del aire *medida*, no modelada.** La XVPCA publica los detectores automáticos en el
    portal de datos abiertos (dataset `tasf-thgu`): ~130 estaciones reales frente a un modelo de
    11 km. Es exactamente el mismo argumento que ya se usa con la XEMA frente a la predicción. El
@@ -307,7 +307,9 @@ npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 
 | Riesgo | Estado |
 |---|---|
-| `forecast.json` de 42 MB en el bundle de Vercel | **Sin resolver.** Trocear por comarca |
+| `forecast.json` de 42 MB en el bundle de Vercel | **Resuelto.** 43 trozos por comarca; el mayor, 2 MB |
+| Discrepancia de hidratación en producción por un `<title>` de SVG con tres hijos | **Resuelto** en `WindRose`. React descartaba el HTML servido y rehacía el árbol en el navegador, sin dar ningún error visible |
+| 167 KB de runtime de React y Next en cada página territorial | **Sin resolver, y probablemente sin arreglo dentro del App Router.** No lo pone ningún componente nuestro: no hay un solo `'use client'`. Medido en `AGENTS.md` |
 | Sin base de datos: todo son ficheros | Deliberado. Migración escrita en `db/migrations/001` |
 | El token de AEMET caduca cada 90 días | Contemplado, sin automatizar |
 | Índice de indexación (fase 2) sin empezar | El riesgo real del proyecto es el *index bloat* |

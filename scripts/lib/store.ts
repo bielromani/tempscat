@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { ROOT } from './paths.ts';
 
 /**
@@ -17,6 +17,17 @@ export const CACHE = join(ROOT, 'data', 'cache');
 
 function ensure() {
   if (!existsSync(CACHE)) mkdirSync(CACHE, { recursive: true });
+}
+
+/**
+ * Un nombre de snapshot puede llevar carpeta: `forecast/c01`.
+ *
+ * La predicción se escribe en 43 trozos, uno por comarca, y no tiene sentido
+ * que cada worker que parta un fichero se invente su propio `mkdir`.
+ */
+function ensureFor(dest: string) {
+  const dir = dirname(dest);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 }
 
 export interface Snapshot<T> {
@@ -38,6 +49,7 @@ export function writeSnapshot<T>(name: string, source: string, data: T, dataTs: 
   ensure();
   const snap: Snapshot<T> = { fetchedAt: new Date().toISOString(), dataTs, source, data };
   const dest = join(CACHE, `${name}.json`);
+  ensureFor(dest);
   const tmp = `${dest}.tmp`;
   writeFileSync(tmp, JSON.stringify(snap), 'utf8');
   renameSync(tmp, dest);

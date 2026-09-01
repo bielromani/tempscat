@@ -425,6 +425,16 @@ async function main() {
   const forecastPoints: Array<{
     id: string; lat: number; lon: number; altitud: number | null;
     nLocations: number; tier: Tier;
+    /**
+     * Comarcas que consultan este punto. Casi siempre una.
+     *
+     * La celda de 0,02° no sabe de fronteras, así que un puñado de puntos caen
+     * a caballo de dos comarcas y los usan las dos. Se anota aquí porque es
+     * aquí donde se sabe: la predicción se guarda partida por comarca, y sin
+     * esta lista el worker tendría que volver a abrir las 11.019 ubicaciones
+     * para averiguar dónde va cada punto.
+     */
+    comarques: string[];
   }> = [];
 
   let pid = 0;
@@ -439,6 +449,7 @@ async function main() {
     forecastPoints.push({
       id, lat: rep.lat!, lon: rep.lon!, altitud: rep.altitud,
       nLocations: group.length, tier,
+      comarques: [...new Set(group.map((l) => l.comarcaCodi))].filter((c): c is string => !!c).sort(),
     });
     for (const loc of group) {
       loc.forecastPointId = id;
