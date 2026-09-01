@@ -17,7 +17,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { fetchJson } from '../lib/http.ts';
-import { raw } from '../lib/paths.ts';
+import { build } from '../lib/paths.ts';
 import {
   DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncQuota, writeSnapshot,
 } from '../lib/store.ts';
@@ -93,7 +93,16 @@ async function main() {
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 
-  const { stations } = JSON.parse(readFileSync(raw('stations.json'), 'utf8')) as { stations: Station[] };
+  /*
+   * De `data/build/`, no de `data/raw/`.
+   *
+   * Las dos tienen las mismas 245 estaciones y los mismos campos —la de
+   * build lleva además `slug` y `nearestLocation`—, pero **`data/raw/` no se
+   * versiona**: son descargas que se regeneran con `npm run data:all`. En
+   * una máquina de integración, que arranca solo con lo que hay en el
+   * repositorio, ese fichero no existe y el worker moría antes de empezar.
+   */
+  const stations = JSON.parse(readFileSync(build('stations.json'), 'utf8')) as Station[];
   const operative = new Set(stations.filter((s) => s.operativa).map((s) => s.codi));
 
   const codes = Object.keys(XEMA_TO_SLUG);

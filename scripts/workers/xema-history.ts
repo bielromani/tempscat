@@ -25,7 +25,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { soql, soqlAll } from '../lib/socrata.ts';
-import { raw } from '../lib/paths.ts';
+import { build } from '../lib/paths.ts';
 import { throttledMap } from '../lib/http.ts';
 import {
   DAILY_LIMITS, QuotaGuard, publish, readSnapshot, recordFreshness, syncQuota, writeSnapshot,
@@ -499,7 +499,16 @@ async function main() {
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 
-  const { stations } = JSON.parse(readFileSync(raw('stations.json'), 'utf8')) as { stations: Station[] };
+  /*
+   * De `data/build/`, no de `data/raw/`.
+   *
+   * Las dos tienen las mismas 245 estaciones y los mismos campos —la de
+   * build lleva además `slug` y `nearestLocation`—, pero **`data/raw/` no se
+   * versiona**: son descargas que se regeneran con `npm run data:all`. En
+   * una máquina de integración, que arranca solo con lo que hay en el
+   * repositorio, ese fichero no existe y el worker moría antes de empezar.
+   */
+  const stations = JSON.parse(readFileSync(build('stations.json'), 'utf8')) as Station[];
   const operative = stations.filter((s) => s.operativa);
   const onlyOne = process.argv.find((a) => a.startsWith('--station='))?.split('=')[1];
   const targets = onlyOne ? operative.filter((s) => s.codi === onlyOne) : operative;
