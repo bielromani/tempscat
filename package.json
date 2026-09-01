@@ -34,7 +34,8 @@
     "worker:water": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/water.ts",
     "worker:air-stations": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-stations.ts",
     "worker:sea": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/sea.ts",
-    "blob:sync": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/blob-sync.ts"
+    "blob:sync": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/blob-sync.ts",
+    "check:lockfile": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-lockfile.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

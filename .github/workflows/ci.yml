@@ -19,6 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      # Primer de tot: que el lockfile serveixi a Linux i no només a Windows.
+      # Si aixo falla, tota la ingesta automatica esta parada.
+      - run: npm run check:lockfile
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
