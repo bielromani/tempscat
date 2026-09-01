@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Meteogram } from './Meteogram';
 import { WeatherIcon, WeatherIconSprite } from './WeatherIcon';
 import { WarningBanner } from './WarningBanner';
+import { NextHours } from '@/components/NextHours';
 import { HourlyTable } from './HourlyTable';
 import { SunMoon } from './SunMoon';
 import { ClimateBlock } from './ClimateBlock';
@@ -356,6 +357,49 @@ export function LocationView({
       {/* La interpretación va inmediatamente después del número grande: el
           termómetro es el gancho y la frase es la respuesta. */}
       {narrative && <Headline narrative={narrative} />}
+      {/*
+        * ── L'ordre d'aquesta pàgina ─────────────────────────────────────────
+        *
+        * Havia crescut per acumulació: cada bloc nou anava a continuació de
+        * l'anterior, i la qualitat de l'aire —que va ser dels primers— havia
+        * quedat entre el termòmetre i la predicció. En una fitxa de nucli això
+        * volia dir una pantalla sencera de contaminants i pol·len abans de
+        * saber si plouria.
+        *
+        * Ara mana la pregunta que porta el lector aquí:
+        *
+        *   1. Quant fa ara            → Current
+        *   2. Què vol dir             → Headline
+        *   3. Què passarà aviat       → NextHours, 7 dies, meteograma, taula
+        *   4. La resta                → aire, mar, aigua, comparativa, clima
+        *
+        * Si algun dia s'hi afegeix un bloc, va al calaix 4 mentre no respongui
+        * una pregunta més urgent que les tres primeres.
+        */}
+
+      {/*
+        * Les pròximes hores, abans que res.
+        *
+        * L'ordre d'aquesta pàgina havia anat creixent per acumulació, i acabava
+        * posant la qualitat de l'aire —sis contaminants, la tira del dia i el
+        * pol·len— entre el termòmetre i la predicció. O sigui: allò que ve a
+        * mirar gairebé tothom quedava sota una pantalla de dades secundàries.
+        *
+        * Aquesta tira respon «què passarà d'aquí a tres hores» d'un cop d'ull.
+        * El meteograma i la taula es queden, més avall: serveixen per veure
+        * relacions i per buscar un valor, que són preguntes diferents.
+        */}
+      {forecast && forecast.hourly.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Les pròximes hores</h2>
+          <NextHours
+            hourly={forecast.hourly}
+            nowHour={nowIso}
+            models={forecast.nModels}
+            id={loc.id}
+          />
+        </section>
+      )}
 
       {forecast && forecast.hourly.length > 0 && (
         <section className="mt-8">
@@ -407,6 +451,7 @@ export function LocationView({
           {airStation && <MeasuredAir station={airStation} />}
         </section>
       )}
+
 
       {sea && (
         <section className="mt-8">

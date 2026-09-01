@@ -505,6 +505,54 @@ ser un interruptor global.
 
 ---
 
+## Pendiente de diseño y de producto
+
+Apuntado tal como salió, para no perderlo. Nada de esto es de datos: es de que
+lo que ya hay se entienda y se use.
+
+### El diseño general
+
+- **El menú principal con scroll horizontal no tiene sentido.** Son doce
+  enlaces en una barra que se desborda. Hay que rehacerlo — y el pie también,
+  que hoy es casi inexistente.
+- **El mapa de comarcas ocupa más de una pantalla de ordenador.** Nació para
+  `/mapa`, donde es el contenido; en una ficha de comarca tiene que ser mucho
+  más pequeño.
+
+### Los textos, escritos para el usuario y no para nosotros
+
+Hay frases que son notas internas disfrazadas de texto público. El ejemplo que
+lo dejó claro, en `/mar`:
+
+> «ensenyar una verda d'abans-d'ahir com si fos d'ara és el pitjor que podria
+> fer aquesta pàgina, perquè algú es fica a l'aigua pel que diu un web»
+
+Eso explica **nuestra decisión de diseño**, no le dice nada al lector. Lo que él
+necesita saber es que la bandera tiene una hora y que fuera de servicio no se
+actualiza. Hay que repasar el sitio entero con ese criterio: el razonamiento va
+en el código, no en la página.
+
+### Un buscador de verdad
+
+No existe ninguno. Hace falta para las 4.293 ubicaciones, y también dentro de
+las páginas temáticas — playas en `/mar`, estaciones en `/senderisme`, comarcas
+en `/bolets`—, que hoy son listas largas sin manera de llegar a lo tuyo.
+
+### Que las temáticas expliquen más y sean más visuales
+
+`/bolets`, `/senderisme` y `/nàutica` son tablas correctas y áridas. En `/mar`,
+en concreto: **una bandera dibujada de su color** en vez de una etiqueta de
+texto, un símbolo para las medusas, y decir **si la especie pica o no** — que es
+lo que quiere saber quien lo mira y hoy tiene que buscarlo fuera.
+
+### Rutas de senderismo
+
+Por explorar: si existe algún conjunto de datos abierto con los GR y PR
+catalanes y con licencia que permita republicarlos. Si lo hay, encaja con el
+mapa que ya está hecho.
+
+---
+
 ## Fase 2 — SEO e indexación
 
 Sin cambios respecto a lo ya escrito. El riesgo real del proyecto no es la falta

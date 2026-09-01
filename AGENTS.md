@@ -266,4 +266,9 @@ cuota para exactamente la misma información.
   del nivel A publicó **350 puntos de 3.190** y dejó sin predicción la mayoría de las 4.293
   páginas, con la ejecución en verde. Usa `pullSnapshot()`, que va al almacén y **lanza** si no
   puede leer.
+- **`nth-of-type` cuenta por etiqueta, no por clase.** Las pestañas de `NextHours` emparejan cada
+  radio con su panel por posición; con los paneles en `div` y la barra de pestañas también en
+  `div`, todos los índices quedaban corridos uno y no se enseñaba ningún panel. Los paneles son
+  `<section>` por eso. Y `.tabs > label` no casaba nunca porque las etiquetas viven dentro del
+  `.tablist`, no colgando de `.tabs`.
 
