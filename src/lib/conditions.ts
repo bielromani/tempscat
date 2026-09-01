@@ -96,15 +96,15 @@ function conditionsOf(history: StationHistory, today: string): RainConditions | 
 }
 
 /** Condiciones acumuladas en la estación de referencia de una ubicación. */
-export function rainConditionsFor(stationCodi: string): RainConditions | null {
-  const h = historyOfStation(stationCodi);
+export async function rainConditionsFor(stationCodi: string): Promise<RainConditions | null> {
+  const h = await historyOfStation(stationCodi);
   return h ? conditionsOf(h, localToday()) : null;
 }
 
 /** Todas las estaciones, para la página de conjunto. */
-export function allRainConditions(): RainConditions[] {
+export async function allRainConditions(): Promise<RainConditions[]> {
   const today = localToday();
-  return allHistory()
+  return (await allHistory())
     .map((h) => conditionsOf(h, today))
     .filter((c): c is RainConditions => c != null);
 }

@@ -30,8 +30,8 @@ function age(minutes: number | null): string {
   return `${Math.floor(h / 24)} dies`;
 }
 
-export default function EstatPage() {
-  const sources = freshness();
+export default async function EstatPage() {
+  const sources = await freshness();
   const summary = buildSummary() as { builtAt: string; indexablePages: number; nomenclatorEdition: string };
 
   return (

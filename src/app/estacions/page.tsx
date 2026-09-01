@@ -32,9 +32,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function EstacionsPage() {
+export default async function EstacionsPage() {
   const stations = operativeStations();
-  const obs = allObservations();
+  const obs = await allObservations();
   const tempOf = new Map(
     (obs?.data ?? []).map((o) => [o.station, o.values.temperature?.value ?? null]),
   );

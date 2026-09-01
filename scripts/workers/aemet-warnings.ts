@@ -21,7 +21,9 @@ import { build } from '../lib/paths.ts';
 import { readTar } from '../lib/tar.ts';
 import { parseCap, type CapAlert, type CapLevel } from '../lib/cap.ts';
 import { pointInRing, ringBbox } from '../lib/geo.ts';
-import { DAILY_LIMITS, QuotaGuard, recordFreshness, writeSnapshot } from '../lib/store.ts';
+import {
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, writeSnapshot,
+} from '../lib/store.ts';
 
 /** Código de área de AEMET Meteoalerta para Catalunya. Verificado. */
 const AREA_CATALUNYA = '69';
@@ -141,6 +143,11 @@ async function main() {
 
   console.log(`\n${quota.report()}`);
   console.log(`→ data/cache/warnings.json (${((Date.now() - started) / 1000).toFixed(1)} s)`);
+
+  const pub = await publish();
+  if (!pub.skipped) {
+    console.log(`Publicat a l'emmagatzematge: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);
+  }
 }
 
 main().catch((err) => {

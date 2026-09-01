@@ -47,7 +47,7 @@ export async function GET(
     return new Response(`No hi ha cap comarca a /${slug}`, { status: 404 });
   }
 
-  const warnings = activeWarnings()
+  const warnings = (await activeWarnings())
     .filter((w) => !c || w.comarcaCodis.includes(c.codi))
     .sort((a, b) => a.onset.localeCompare(b.onset));
 

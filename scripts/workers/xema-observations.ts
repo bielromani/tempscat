@@ -18,7 +18,9 @@
 import { readFileSync } from 'node:fs';
 import { fetchJson } from '../lib/http.ts';
 import { raw } from '../lib/paths.ts';
-import { DAILY_LIMITS, QuotaGuard, recordFreshness, writeSnapshot } from '../lib/store.ts';
+import {
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, writeSnapshot,
+} from '../lib/store.ts';
 import { XEMA_TO_SLUG, type VariableSlug } from '../../src/lib/variables.ts';
 import type { Station } from '../04-fetch-stations.ts';
 
@@ -294,6 +296,11 @@ async function main() {
 
   console.log(`\n${quota.report()}`);
   console.log(`→ data/cache/xema-current.json (${((Date.now() - started) / 1000).toFixed(1)} s)`);
+
+  const pub = await publish();
+  if (!pub.skipped) {
+    console.log(`Publicat a l'emmagatzematge: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);
+  }
 }
 
 main().catch((err) => {

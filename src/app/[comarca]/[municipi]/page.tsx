@@ -81,9 +81,9 @@ export default async function MunicipiPage({ params }: { params: Params }) {
 
   // Se resuelven aquí y se pasan una sola vez: el titular necesita los tres a la
   // vez, y volver a pedirlos dentro del JSX era pedirlos dos veces.
-  const current = currentFor(loc);
-  const forecast = forecastFor(loc);
-  const history = historyFor(loc);
+  const current = await currentFor(loc);
+  const forecast = await forecastFor(loc);
+  const history = await historyFor(loc);
 
   return (
     <>
@@ -93,15 +93,15 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         breadcrumbs={breadcrumbs(loc)}
         current={current}
         forecast={forecast}
-        warnings={warningsFor(loc)}
+        warnings={await warningsFor(loc)}
         astro={astronomyFor(loc)}
         history={history}
-        air={airQualityFor(loc)}
-        comparison={comarcaComparison(loc)}
+        air={await airQualityFor(loc)}
+        comparison={await comarcaComparison(loc)}
         narrative={narrativeFor(forecast, current, localNowHour(), localToday())}
-        water={waterNear(loc)}
-        airStation={nearestAirStation(loc)}
-        sea={seaNear(loc)}
+        water={await waterNear(loc)}
+        airStation={await nearestAirStation(loc)}
+        sea={await seaNear(loc)}
         siblings={entitats}
         siblingsLabel={`Nuclis i entitats de ${loc.nom}`}
         neighbours={adjacent}

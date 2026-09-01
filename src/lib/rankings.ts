@@ -1,7 +1,6 @@
 import 'server-only';
 import {
-  allObservations, currentFor, localToday,
-  type CurrentConditions, type RawObservation,
+  allObservations, currentFor, localToday, type RawObservation,
 } from './weather';
 import { msToKmh } from './variables';
 import {
@@ -99,8 +98,8 @@ function top<T>(items: T[], value: (x: T) => number, dir: 'asc' | 'desc'): T[] {
     .slice(0, TOP);
 }
 
-export function rankings(): Rankings | null {
-  const snap = allObservations();
+export async function rankings(): Promise<Rankings | null> {
+  const snap = await allObservations();
   if (!snap) return null;
 
   const stations = new Map(operativeStations().map((s) => [s.codi, s]));
@@ -160,8 +159,15 @@ export function rankings(): Rankings | null {
   let excluded = 0;
   const comarcaNames = new Map(allComarques().map((c) => [c.codi, c.nom]));
 
-  for (const loc of publishedMunicipis()) {
-    const cur: CurrentConditions | null = currentFor(loc);
+  /*
+   * Los 947 municipios en paralelo. No son 947 lecturas: todos salen de la
+   * misma instantánea de observación, así que la primera la trae y las demás
+   * la encuentran ya en memoria.
+   */
+  const observed = await Promise.all(
+    publishedMunicipis().map(async (loc) => ({ loc, cur: await currentFor(loc) })),
+  );
+  for (const { loc, cur } of observed) {
     if (!cur || cur.temperatureAdjusted == null) continue;
     const dAlt = cur.station.dAltM;
     if (dAlt != null && Math.abs(dAlt) > MAX_CORRECTION_M) { excluded++; continue; }

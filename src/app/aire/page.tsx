@@ -35,8 +35,8 @@ const COLUMNS = [
   { slug: 'so2', label: 'SO₂' },
 ];
 
-export default function AirePage() {
-  const data = airStations();
+export default async function AirePage() {
+  const data = await airStations();
 
   if (!data?.list.length) {
     return (

@@ -53,7 +53,7 @@ export async function GET(
   const hours = Number(url.searchParams.get('hours')) || undefined;
 
   if (url.searchParams.get('format') === 'csv') {
-    return new Response(locationCsv(loc, { hours }), {
+    return new Response(await locationCsv(loc, { hours }), {
       headers: {
         ...HEADERS,
         'Content-Type': 'text/csv; charset=utf-8',
@@ -62,7 +62,7 @@ export async function GET(
     });
   }
 
-  return json(locationFeed(loc, { hours }), 200);
+  return json(await locationFeed(loc, { hours }), 200);
 }
 
 function json(body: unknown, status: number) {

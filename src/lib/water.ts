@@ -1,6 +1,5 @@
 import 'server-only';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { snapshot } from './cache-store';
 import type { Location } from './territory';
 
 /**
@@ -11,8 +10,6 @@ import type { Location } from './territory';
  * no están: un lector de Lleida no verá su embalse, y la página lo dice en vez
  * de dejar el hueco sin explicar.
  */
-
-const CACHE = join(process.cwd(), 'data', 'cache');
 
 export interface Reservoir {
   code: string;
@@ -56,40 +53,17 @@ interface WaterData {
   };
 }
 
-interface Snap { fetchedAt: string; dataTs: string | null; source: string; data: WaterData }
-
-let memo: { mtimeMs: number; checkedAt: number; snap: Snap } | null = null;
-const STAT_TTL_MS = 1_000;
-
-function snapshot(): Snap | null {
-  if (memo && Date.now() - memo.checkedAt < STAT_TTL_MS) return memo.snap;
-  const p = join(CACHE, 'water.json');
-  if (!existsSync(p)) return null;
-  try {
-    const { mtimeMs } = statSync(p);
-    if (memo && memo.mtimeMs === mtimeMs) {
-      memo.checkedAt = Date.now();
-      return memo.snap;
-    }
-    const snap = JSON.parse(readFileSync(p, 'utf8')) as Snap;
-    memo = { mtimeMs, checkedAt: Date.now(), snap };
-    return snap;
-  } catch {
-    return null;
-  }
-}
-
-export function reservoirs(): { list: Reservoir[]; source: string; at: string | null } | null {
-  const snap = snapshot();
+export async function reservoirs(): Promise<{ list: Reservoir[]; source: string; at: string | null } | null> {
+  const snap = await snapshot<WaterData>('water');
   return snap ? { list: snap.data.reservoirs, source: snap.source, at: snap.dataTs } : null;
 }
 
-export function riverGauges(): RiverGauge[] {
-  return snapshot()?.data.rivers ?? [];
+export async function riverGauges(): Promise<RiverGauge[]> {
+  return (await snapshot<WaterData>('water'))?.data.rivers ?? [];
 }
 
-export function droughtSummary(): WaterData['drought'] | null {
-  return snapshot()?.data.drought ?? null;
+export async function droughtSummary(): Promise<WaterData['drought'] | null> {
+  return (await snapshot<WaterData>('water'))?.data.drought ?? null;
 }
 
 /** Distancia en km entre dos puntos. Copia local para no arrastrar el pipeline. */
@@ -128,8 +102,8 @@ export interface WaterNearby {
  * y con el estado de sequía en normalidad, un bloque de agua sería una caja vacía
  * con un título.
  */
-export function waterNear(loc: Location): WaterNearby | null {
-  const snap = snapshot();
+export async function waterNear(loc: Location): Promise<WaterNearby | null> {
+  const snap = await snapshot<WaterData>('water');
   if (!snap || loc.lat == null || loc.lon == null) return null;
 
   const nearest = <T extends { lat: number; lon: number }>(list: T[]) => {

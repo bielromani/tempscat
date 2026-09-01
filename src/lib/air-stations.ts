@@ -1,6 +1,5 @@
 import 'server-only';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { snapshot } from './cache-store';
 import type { Location } from './territory';
 
 /**
@@ -18,8 +17,6 @@ import type { Location } from './territory';
  * Mezclarlas sería lo cómodo y sería falso. Aquí van juntas en la página y
  * separadas en el texto.
  */
-
-const CACHE = join(process.cwd(), 'data', 'cache');
 
 export interface AirMeasurement {
   slug: string;
@@ -45,27 +42,8 @@ export interface AirStation {
 }
 
 interface Data { stations: AirStation[]; day: string | null; lagHours: number | null }
-interface Snap { fetchedAt: string; dataTs: string | null; source: string; data: Data }
-
-let memo: { mtimeMs: number; checkedAt: number; snap: Snap } | null = null;
-
-function snapshot(): Snap | null {
-  if (memo && Date.now() - memo.checkedAt < 1_000) return memo.snap;
-  const p = join(CACHE, 'air-stations.json');
-  if (!existsSync(p)) return null;
-  try {
-    const { mtimeMs } = statSync(p);
-    if (memo && memo.mtimeMs === mtimeMs) { memo.checkedAt = Date.now(); return memo.snap; }
-    const snap = JSON.parse(readFileSync(p, 'utf8')) as Snap;
-    memo = { mtimeMs, checkedAt: Date.now(), snap };
-    return snap;
-  } catch {
-    return null;
-  }
-}
-
-export function airStations(): { list: AirStation[]; day: string | null; source: string } | null {
-  const snap = snapshot();
+export async function airStations(): Promise<{ list: AirStation[]; day: string | null; source: string } | null> {
+  const snap = await snapshot<Data>('air-stations');
   return snap ? { list: snap.data.stations, day: snap.data.day, source: snap.source } : null;
 }
 
@@ -93,8 +71,8 @@ export interface NearestAirStation extends AirStation {
   distKm: number;
 }
 
-export function nearestAirStation(loc: Location): NearestAirStation | null {
-  const snap = snapshot();
+export async function nearestAirStation(loc: Location): Promise<NearestAirStation | null> {
+  const snap = await snapshot<Data>('air-stations');
   if (!snap || loc.lat == null || loc.lon == null) return null;
 
   let best: NearestAirStation | null = null;

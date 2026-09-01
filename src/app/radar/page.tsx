@@ -116,7 +116,7 @@ function comarcaPaths(grid: TileGrid): string[] {
 }
 
 export default async function RadarPage({ searchParams }: { searchParams: Params }) {
-  const data = radar();
+  const data = await radar();
   const { t } = await searchParams;
 
   if (!data) {

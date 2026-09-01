@@ -1,6 +1,7 @@
 import 'server-only';
 import { currentFor, historyFor, localToday } from './weather';
 import { comarcaOf, municipisOfComarca, type Comarca, type Location } from './territory';
+import type { CurrentConditions } from './forecast-types';
 
 /**
  * Comparativa de una ubicación dentro de su comarca.
@@ -105,8 +106,8 @@ function rank(items: Candidate[], selfId: string): Ranking | null {
  * días, y ponerla al lado de otra calculada sobre veinte es comparar cosas
  * distintas con la misma etiqueta.
  */
-function monthMean(loc: Location, today: string): number | null {
-  const hist = historyFor(loc);
+async function monthMean(loc: Location, today: string): Promise<number | null> {
+  const hist = await historyFor(loc);
   if (!hist) return null;
   const month = today.slice(0, 7);
   const days = hist.daily.filter((d) => d.day.startsWith(month) && d.tMean != null);
@@ -126,7 +127,7 @@ function monthMean(loc: Location, today: string): number | null {
  * tercer més fred de la comarca» en «el 87è», que no dice nada. La ubicación de
  * la ficha entra en el conjunto aunque sea un núcleo, que es de lo que se trata.
  */
-export function comarcaComparison(loc: Location): ComarcaComparison | null {
+export async function comarcaComparison(loc: Location): Promise<ComarcaComparison | null> {
   const comarca = comarcaOf(loc);
   if (!comarca) return null;
 
@@ -136,13 +137,21 @@ export function comarcaComparison(loc: Location): ComarcaComparison | null {
 
   const nowItems: Candidate[] = [];
   const monthItems: Candidate[] = [];
-  for (const p of pool) {
-    const cur = currentFor(p);
+  /*
+   * En paralelo, y no cuesta lo que parece: los 68 municipios de l'Alt Empordà
+   * leen **la misma instantánea**, así que la primera llamada la trae y las
+   * otras 67 la encuentran ya en memoria.
+   */
+  const resolved = await Promise.all(pool.map(async (p) => ({
+    p,
+    cur: await currentFor(p),
+    month: await monthMean(p, today),
+  })));
+  for (const { p, cur, month } of resolved) {
     if (cur?.temperatureAdjusted != null) {
       nowItems.push({ loc: p, value: cur.temperatureAdjusted, station: cur.station.codi });
     }
-    const m = monthMean(p, today);
-    if (m != null) monthItems.push({ loc: p, value: m, station: p.stationRef?.codi ?? null });
+    if (month != null) monthItems.push({ loc: p, value: month, station: p.stationRef?.codi ?? null });
   }
 
   const withAlt = pool.filter((p) => p.altitud != null);
@@ -189,18 +198,17 @@ export interface ComarcaSummary {
  * Con la observación basta para lo que la frase tiene que decir: dónde hace más
  * frío y más calor **ahora**, cuánto se ha llegado a hacer hoy y si ha llovido.
  */
-export function comarcaSummary(comarcaCodi: string): ComarcaSummary | null {
+export async function comarcaSummary(comarcaCodi: string): Promise<ComarcaSummary | null> {
   const municipis = municipisOfComarca(comarcaCodi);
   if (!municipis.length) return null;
 
-  const rows = municipis
-    .map((m) => ({ m, cur: currentFor(m) }))
-    .filter((r): r is { m: Location; cur: NonNullable<ReturnType<typeof currentFor>> } => r.cur != null);
+  const rows = (await Promise.all(municipis.map(async (m) => ({ m, cur: await currentFor(m) }))))
+    .filter((r): r is { m: Location; cur: CurrentConditions } => r.cur != null);
 
   const place = (m: Location, value: number) => ({ nom: m.nom, path: m.path, value });
 
   const best = (
-    get: (c: NonNullable<ReturnType<typeof currentFor>>) => number | null,
+    get: (c: CurrentConditions) => number | null,
     dir: 'max' | 'min',
   ) => {
     let out: { nom: string; path: string; value: number } | null = null;

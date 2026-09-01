@@ -34,7 +34,9 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fetchWithRetry, throttledMap } from '../lib/http.ts';
-import { CACHE, DAILY_LIMITS, QuotaGuard, recordFreshness, writeSnapshot } from '../lib/store.ts';
+import {
+  CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, recordFreshness, writeSnapshot,
+} from '../lib/store.ts';
 import { CATALUNYA_BBOX, tileGrid, type TileGrid } from '../../src/lib/mercator.ts';
 
 const API = 'https://api.rainviewer.com/public/weather-maps.json';
@@ -140,9 +142,18 @@ async function main() {
 
     await throttledMap(tiles, async (t) => {
       const dest = join(dir, `${Z}_${t.x}_${t.y}.png`);
-      // Los marcos pasados no cambian nunca: una vez bajado, el fichero es
-      // definitivo. Sin esta comprobación, cada ejecución rebajaría las siete
-      // horas de historia entera cada diez minutos.
+      const rel = `radar/${frame.time}/${Z}_${t.x}_${t.y}.png`;
+      /*
+       * Los marcos pasados no cambian nunca: una vez bajado, el fichero es
+       * definitivo. Sin esta comprobación, cada ejecución rebajaría las siete
+       * horas de historia entera cada diez minutos.
+       *
+       * Pero «ya está en disco» no es «ya está publicada». Se marca igualmente
+       * para subir: si no, la primera vez que se enciende el almacén las
+       * teselas que ya estaban aquí no llegarían nunca, y el radar saldría
+       * vacío en producción sin que nada diera error. Son 4 KB cada una.
+       */
+      markForPublish(rel);
       if (existsSync(dest)) { skipped++; return; }
 
       const url = `${maps.host}${frame.path}/${TILE}/${Z}/${t.x}/${t.y}/${COLOR}/${OPTIONS}.png`;
@@ -202,6 +213,11 @@ async function main() {
   console.log(`\nÚltima imatge del radar: ${last?.local ?? '—'} (hora local)`);
   if (nowcast.length) console.log(`Nowcast fins a ${data.frames.at(-1)?.local}`);
   console.log(`→ data/cache/radar.json + ${selected.length} marcs (${((Date.now() - started) / 1000).toFixed(1)} s)`);
+
+  const pub = await publish();
+  if (!pub.skipped) {
+    console.log(`Publicat a l'emmagatzematge: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);
+  }
 }
 
 main().catch((err) => {

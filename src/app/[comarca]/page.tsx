@@ -36,13 +36,15 @@ export default async function ComarcaPage({ params }: { params: Params }) {
   if (!c) notFound();
 
   const municipis = municipisOfComarca(c.codi);
-  const summary = comarcaSummary(c.codi);
-  const warnings = activeWarnings().filter((w) => w.comarcaCodis.includes(c.codi));
+  const summary = await comarcaSummary(c.codi);
+  const warnings = (await activeWarnings()).filter((w) => w.comarcaCodis.includes(c.codi));
   const today = localToday();
 
-  // Observación actual de cada municipio. Sale del snapshot ya en memoria, así
-  // que no cuesta nada aunque sean 68 municipios.
-  const rows = municipis.map((m) => ({ m, current: currentFor(m) }));
+  // Observación actual de cada municipio. Sale de la misma instantánea, así que
+  // la primera lectura la trae y las otras 67 la encuentran ya en memoria.
+  const rows = await Promise.all(
+    municipis.map(async (m) => ({ m, current: await currentFor(m) })),
+  );
   const conTemp = rows.filter((r) => r.current?.temperatureAdjusted != null);
   const sorted = [...conTemp].sort(
     (a, b) => (a.current!.temperatureAdjusted!) - (b.current!.temperatureAdjusted!),

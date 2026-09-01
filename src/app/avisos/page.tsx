@@ -30,8 +30,8 @@ export const metadata: Metadata = {
   alternates: { canonical: '/avisos' },
 };
 
-export default function AvisosPage() {
-  const warnings = activeWarnings();
+export default async function AvisosPage() {
+  const warnings = await activeWarnings();
   const comarques = allComarques();
 
   // Una comarca puede tener varios avisos y un aviso puede cubrir varias

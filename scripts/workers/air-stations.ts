@@ -30,7 +30,9 @@
  * Salida: data/cache/air-stations.json
  */
 import { soql } from '../lib/socrata.ts';
-import { DAILY_LIMITS, QuotaGuard, recordFreshness, writeSnapshot } from '../lib/store.ts';
+import {
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, writeSnapshot,
+} from '../lib/store.ts';
 
 const DATASET = 'tasf-thgu';
 
@@ -253,6 +255,11 @@ async function main() {
   });
 
   console.log(`\n→ data/cache/air-stations.json (${((Date.now() - started) / 1000).toFixed(1)} s)`);
+
+  const pub = await publish();
+  if (!pub.skipped) {
+    console.log(`Publicat a l'emmagatzematge: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);
+  }
 }
 
 main().catch((err) => {

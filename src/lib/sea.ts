@@ -1,6 +1,5 @@
 import 'server-only';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { snapshot } from './cache-store';
 import { localNowHour } from './weather';
 import type { Location } from './territory';
 
@@ -25,8 +24,6 @@ import type { Location } from './territory';
  * y hasta 12 h se enseña como «l'últim parte» con su hora bien visible. Más allá
  * no se presenta como bandera de nada.
  */
-
-const CACHE = join(process.cwd(), 'data', 'cache');
 
 export interface Beach {
   code: string;
@@ -62,24 +59,6 @@ export interface SeaPoint {
 }
 
 interface Data { beaches: Beach[]; points: SeaPoint[]; fresh: number }
-interface Snap { fetchedAt: string; dataTs: string | null; source: string; data: Data }
-
-let memo: { mtimeMs: number; checkedAt: number; snap: Snap } | null = null;
-
-function snapshot(): Snap | null {
-  if (memo && Date.now() - memo.checkedAt < 1_000) return memo.snap;
-  const p = join(CACHE, 'sea.json');
-  if (!existsSync(p)) return null;
-  try {
-    const { mtimeMs } = statSync(p);
-    if (memo && memo.mtimeMs === mtimeMs) { memo.checkedAt = Date.now(); return memo.snap; }
-    const snap = JSON.parse(readFileSync(p, 'utf8')) as Snap;
-    memo = { mtimeMs, checkedAt: Date.now(), snap };
-    return snap;
-  } catch {
-    return null;
-  }
-}
 
 /** En vigor: el socorrista la ha puesto hace poco y sigue de servicio. */
 export const FLAG_CURRENT_HOURS = 3;
@@ -145,8 +124,8 @@ export interface BeachesView {
   recent: number;
 }
 
-export function allBeaches(): BeachesView | null {
-  const snap = snapshot();
+export async function allBeaches(): Promise<BeachesView | null> {
+  const snap = await snapshot<Data>('sea');
   if (!snap) return null;
   return {
     list: snap.data.beaches,
@@ -193,8 +172,8 @@ export interface SeaNearby {
  * es exacto donde una regla de kilómetros se equivocaría — hay municipios a tres
  * kilómetros del mar sin un metro de costa.
  */
-export function seaNear(loc: Location): SeaNearby | null {
-  const snap = snapshot();
+export async function seaNear(loc: Location): Promise<SeaNearby | null> {
+  const snap = await snapshot<Data>('sea');
   if (!snap) return null;
 
   const ine5 = loc.municipiIne5 ?? '';
@@ -263,8 +242,8 @@ export function douglas(heightM: number): string {
 }
 
 /** Puntos de mar, para la página de conjunto. */
-export function seaPoints(): { points: SeaPoint[]; index: number } | null {
-  const snap = snapshot();
+export async function seaPoints(): Promise<{ points: SeaPoint[]; index: number } | null> {
+  const snap = await snapshot<Data>('sea');
   if (!snap?.data.points.length) return null;
   const nowHour = localNowHour();
   const index = Math.max(0, snap.data.points[0].times.findIndex((t) => t.slice(0, 13) === nowHour));

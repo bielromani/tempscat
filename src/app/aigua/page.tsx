@@ -29,10 +29,10 @@ export const metadata: Metadata = {
   alternates: { canonical: '/aigua' },
 };
 
-export default function AiguaPage() {
-  const res = reservoirs();
-  const rivers = riverGauges().filter((r) => r.flow != null);
-  const drought = droughtSummary();
+export default async function AiguaPage() {
+  const res = await reservoirs();
+  const rivers = (await riverGauges()).filter((r) => r.flow != null);
+  const drought = await droughtSummary();
 
   if (!res?.list.length) {
     return (

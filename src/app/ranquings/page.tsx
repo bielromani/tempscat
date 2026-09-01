@@ -113,8 +113,8 @@ function Block({ title, hint, children }: { title: string; hint?: string; childr
   );
 }
 
-export default function RanquingsPage() {
-  const r = rankings();
+export default async function RanquingsPage() {
+  const r = await rankings();
 
   if (!r) {
     return (

@@ -23,7 +23,7 @@ import { rankings, type PlaceRow, type StationRow } from '@/lib/rankings';
 export const revalidate = 600;
 
 export async function GET() {
-  const r = rankings();
+  const r = await rankings();
 
   if (!r) {
     return new Response(JSON.stringify({ error: 'Encara no hi ha observació carregada.' }), {

@@ -33,8 +33,7 @@ import { readFileSync } from 'node:fs';
 import { fetchWithRetry, sleep } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import {
-  DAILY_LIMITS, MONTHLY_LIMITS, QuotaGuard,
-  recordFreshness, writeSnapshot,
+  DAILY_LIMITS, MONTHLY_LIMITS, QuotaGuard, publish, recordFreshness, writeSnapshot,
 } from '../lib/store.ts';
 import { airCell } from '../../src/lib/air-grid.ts';
 import {
@@ -235,6 +234,11 @@ async function main() {
 
   console.log(`\n${quota.report()}`);
   console.log(`→ data/cache/air-quality.json (${((Date.now() - started) / 1000).toFixed(1)} s)`);
+
+  const pub = await publish();
+  if (!pub.skipped) {
+    console.log(`Publicat a l'emmagatzematge: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);
+  }
 }
 
 main().catch((err) => {

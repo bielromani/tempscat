@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { ROOT } from './paths.ts';
 
 /**
@@ -44,6 +44,10 @@ export interface Snapshot<T> {
  * Escritura atómica: primero a un temporal y luego `rename`. Si el proceso
  * muere a media escritura, el fichero anterior sigue intacto — un JSON truncado
  * rompería la web entera hasta la siguiente ejecución.
+ *
+ * **Escribe siempre en disco**, aunque haya almacén remoto. El fichero local es
+ * lo que hace que desarrollar siga siendo instantáneo y sin red, y es la copia
+ * que queda si la subida falla.
  */
 export function writeSnapshot<T>(name: string, source: string, data: T, dataTs: string | null): Snapshot<T> {
   ensure();
@@ -53,7 +57,88 @@ export function writeSnapshot<T>(name: string, source: string, data: T, dataTs: 
   const tmp = `${dest}.tmp`;
   writeFileSync(tmp, JSON.stringify(snap), 'utf8');
   renameSync(tmp, dest);
+  pending.add(`${name}.json`);
   return snap;
+}
+
+// ── Publicación al almacén de objetos ───────────────────────────────────────
+//
+// En producción no hay disco: la aplicación lee de un almacén de objetos, y
+// esta es la otra mitad de esa frontera. La primera está en
+// `src/lib/cache-store.ts`, y allí está escrito el porqué.
+//
+// La subida **no se hace fichero a fichero según se escriben**, sino al final,
+// de una vez. Dos razones: un worker que muere a media ejecución no deja el
+// almacén con la mitad de las comarcas actualizadas y la mitad no, y así la
+// escritura en disco —que es lo que sostiene el desarrollo local— no depende de
+// que haya red.
+
+/** Ficheros escritos en esta ejecución, a la espera de publicarse. */
+const pending = new Set<string>();
+
+/** Marca un fichero suelto (una tesela de radar) para que se suba también. */
+export function markForPublish(relativePath: string): void {
+  pending.add(relativePath.split(sep).join('/'));
+}
+
+/**
+ * Sube al almacén todo lo escrito en esta ejecución.
+ *
+ * Sin `BLOB_READ_WRITE_TOKEN` no hace nada y lo dice: es el caso normal cuando
+ * se trabaja en local, y no debe parecer un error.
+ */
+export async function publish(): Promise<{ uploaded: number; bytes: number; skipped: boolean }> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    pending.clear();
+    return { uploaded: 0, bytes: 0, skipped: true };
+  }
+
+  const { put } = await import('@vercel/blob');
+  const files = [...pending];
+  pending.clear();
+
+  let uploaded = 0;
+  let bytes = 0;
+  const failed: string[] = [];
+
+  // De ocho en ocho. Subir 44 trozos de predicción en serie tarda una eternidad
+  // y hacerlo todos a la vez satura la conexión y empieza a dar tiempos de
+  // espera justo en los ficheros más grandes.
+  const BATCH = 8;
+  for (let i = 0; i < files.length; i += BATCH) {
+    await Promise.all(files.slice(i, i + BATCH).map(async (rel) => {
+      const local = join(CACHE, rel);
+      if (!existsSync(local)) return;
+      const body = readFileSync(local);
+      try {
+        await put(rel, body, {
+          access: 'public',
+          // Sin sufijo aleatorio y sobrescribiendo: la aplicación pide una URL
+          // fija y espera encontrar ahí la última versión. Un sufijo aleatorio
+          // convertiría cada refresco en un fichero nuevo e inalcanzable.
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: rel.endsWith('.png') ? 'image/png' : 'application/json',
+          // La aplicación ya memoriza por su cuenta y con su propio plazo. Que
+          // el CDN cachee más que eso solo añade un sitio donde el dato se
+          // queda viejo sin que nadie lo sepa.
+          cacheControlMaxAge: 60,
+        });
+        uploaded++;
+        bytes += body.byteLength;
+      } catch (err) {
+        failed.push(`${rel}: ${String(err).slice(0, 80)}`);
+      }
+    }));
+  }
+
+  if (failed.length) {
+    console.warn(`
+avís: ${failed.length} fitxers no s'han pogut publicar:`);
+    for (const f of failed.slice(0, 5)) console.warn(`  ${f}`);
+  }
+
+  return { uploaded, bytes, skipped: false };
 }
 
 export function readSnapshot<T>(name: string): Snapshot<T> | null {
@@ -95,6 +180,8 @@ export function recordFreshness(entry: FreshnessEntry): void {
     : {};
   all[entry.source] = entry;
   writeFileSync(p, JSON.stringify(all, null, 1), 'utf8');
+  // El panel de estado lee este fichero, así que también tiene que viajar.
+  pending.add('freshness.json');
 }
 
 export function readFreshness(): Record<string, FreshnessEntry> {

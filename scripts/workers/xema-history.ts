@@ -27,7 +27,9 @@ import { readFileSync } from 'node:fs';
 import { soql, soqlAll } from '../lib/socrata.ts';
 import { raw } from '../lib/paths.ts';
 import { throttledMap } from '../lib/http.ts';
-import { DAILY_LIMITS, QuotaGuard, readSnapshot, recordFreshness, writeSnapshot } from '../lib/store.ts';
+import {
+  DAILY_LIMITS, QuotaGuard, publish, readSnapshot, recordFreshness, writeSnapshot,
+} from '../lib/store.ts';
 import { windCardinal } from '../../src/lib/variables.ts';
 import type { Station } from '../04-fetch-stations.ts';
 
@@ -710,6 +712,11 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
   });
 
   console.log(`\n→ data/cache/xema-history.json (${((Date.now() - started) / 1000 / 60).toFixed(1)} min, ${calls} consultes)`);
+
+  const pub = await publish();
+  if (!pub.skipped) {
+    console.log(`Publicat a l'emmagatzematge: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);
+  }
 }
 
 main().catch((err) => {

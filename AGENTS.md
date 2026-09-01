@@ -23,6 +23,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/cache/radar/` | Teselas de radar ya descargadas. Las sirve una route handler |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
+| `src/lib/cache-store.ts` | **La frontera de lectura.** Disco en local, almacén de objetos en producción |
 | `data/cache/forecast/` | La predicción, un fichero por comarca. Nunca un monolito: ver `forecast-shards.ts` |
 | `data/raw/`, `data/cache/` | Descargas y datos vivos. No se versionan |
 | `db/migrations/` | Esquema PostgreSQL, sin aplicar todavía |
@@ -63,6 +64,30 @@ dependencias, duplica antes que romper uno de los dos.
 | `src/lib/format.ts` | Fechas, horas, números y contracciones del catalán |
 | `src/lib/forecast-types.ts` | Las formas de la observación y de la predicción, sin `node:fs` detrás |
 | `src/lib/forecast-shards.ts` | Dónde vive cada trozo de la predicción, y por qué está partida |
+
+## Dónde viven los datos vivos
+
+En local, en `data/cache/`, y no hay más que decir. En producción **no hay
+disco**: una función de Vercel arranca con el código del despliegue y nada más.
+
+Así que hay dos mitades y conviene no confundirlas:
+
+| | Quién | Variable |
+|---|---|---|
+| **Escribir** | los workers, con `publish()` al final | `BLOB_READ_WRITE_TOKEN` |
+| **Leer** | la aplicación, en `cache-store.ts` | `BLOB_BASE_URL` |
+
+Sin esas variables todo funciona contra el disco, que es lo que pasa mientras
+desarrollas. Tres cosas que no son evidentes:
+
+- **Leer es asíncrono.** `currentFor`, `forecastFor`, `seaNear`… todos devuelven
+  promesas. Si añades un lector nuevo, que salga de `cache-store.ts`.
+- **No se usa la caché de `fetch` de Next.** Su límite por entrada son 2 MB y el
+  trozo de predicción más grande ocupa 2,03: la entrada no se guardaría, se
+  volvería a pedir en cada petición y nadie vería un error.
+- **Si el almacén falla se sirve la copia anterior.** Un corte de red no puede
+  dejar la web en blanco; un dato de hace veinte minutos con su hora bien puesta
+  sigue siendo un dato.
 
 ## Comandos
 

@@ -1,6 +1,5 @@
 import 'server-only';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { plainJson, snapshot } from './cache-store';
 import {
   ALL_VARIABLES, VARIABLES, apparentTemperature, meanDirection,
   type VariableSlug,
@@ -28,88 +27,17 @@ import type { Location } from './territory';
  * control y la latencia predecible.
  */
 
-const CACHE = join(process.cwd(), 'data', 'cache');
-
-interface Snapshot<T> { fetchedAt: string; dataTs: string | null; source: string; data: T }
-
 /*
- * Los snapshots se memorizan por proceso y se revalidan por `mtime`.
+ * De dónde salen los datos: `cache-store.ts`.
  *
- * Sin esto, la predicción se leía y parseaba **en cada render de página**. Con
- * 4.293 rutas generándose bajo demanda eso son minutos de CPU tirados y un TTFB
- * imposible de defender. Los ficheros solo cambian cuando corre un worker, así
- * que comprobar la fecha de modificación basta y cuesta microsegundos.
+ * Antes esto era un `readFileSync` con memorización por `mtime`. Sigue
+ * siéndolo cuando se trabaja en local — la capa de abajo lo resuelve— pero en
+ * producción no hay disco, así que **leer pasó a ser asíncrono** y con él todos
+ * los lectores de este fichero.
  *
- * Lo otro que hacía falta —que el fichero de predicción dejara de ser uno solo
- * de 40 MB— está resuelto en `forecast-shards.ts`.
+ * El plazo de cada fuente, el tope de trozos de predicción en memoria y qué
+ * hacer si el almacén falla están allí, no aquí.
  */
-const memo = new Map<string, { mtimeMs: number; checkedAt: number; snap: Snapshot<unknown> }>();
-
-/**
- * Cuántos trozos de predicción se guardan parseados a la vez.
- *
- * La predicción va partida por comarca (ver `forecast-shards.ts`), así que un
- * proceso que atendiera a las 43 acabaría con los mismos 132 MB de montículo
- * que tenía el fichero único — solo que en cómodos plazos. El tope los deja en
- * unos 12 MB.
- *
- * Ocho y no dos porque la generación estática recorre las rutas en orden
- * alfabético: los municipios de una comarca van seguidos, y el margen sobra
- * para que ninguna se expulse a media comarca y haya que volver a leerla. Y si
- * pasara, volver a parsear un trozo cuesta 7 ms, no 275.
- *
- * Los demás snapshots —observación, avisos, radar— no se expulsan nunca: son
- * uno solo cada uno y los necesita cualquier página.
- */
-const MAX_FORECAST_SHARDS = 8;
-
-function evictShards() {
-  const shards = [...memo.keys()].filter((k) => k.startsWith('forecast/'));
-  for (const k of shards.slice(0, shards.length - MAX_FORECAST_SHARDS)) memo.delete(k);
-}
-
-/**
- * Ventana durante la cual no se vuelve a preguntar al sistema de ficheros.
- *
- * `statSync` parece gratis y no lo es: es una llamada al sistema, y en Windows
- * ronda los 0,3 ms. Con la comparativa comarcal cada página pregunta por la
- * observación y por el histórico de **todos** los municipios de su comarca —
- * hasta 68 en l'Alt Empordà, o 136 llamadas por página. El build subió de 31 a
- * 56 segundos por eso.
- *
- * Un segundo es una eternidad al lado de las cadencias reales: los workers
- * escriben cada diez minutos y las páginas se revalidan cada media hora. Nadie
- * ve un dato más viejo por esto, y el mtime sigue mandando en cuanto pasa.
- */
-const STAT_TTL_MS = 1_000;
-
-function snapshot<T>(name: string): Snapshot<T> | null {
-  const cached = memo.get(name);
-  if (cached && Date.now() - cached.checkedAt < STAT_TTL_MS) {
-    return cached.snap as Snapshot<T>;
-  }
-
-  const p = join(CACHE, `${name}.json`);
-  if (!existsSync(p)) return null;
-  try {
-    const { mtimeMs } = statSync(p);
-    if (cached && cached.mtimeMs === mtimeMs) {
-      cached.checkedAt = Date.now();
-      return cached.snap as Snapshot<T>;
-    }
-
-    const snap = JSON.parse(readFileSync(p, 'utf8')) as Snapshot<T>;
-    // Se borra y se vuelve a poner para que el orden del Map sea el de último
-    // uso y no el de primera lectura: es lo que hace que expulsar el primero
-    // expulse el más viejo.
-    memo.delete(name);
-    memo.set(name, { mtimeMs, checkedAt: Date.now(), snap: snap as Snapshot<unknown> });
-    evictShards();
-    return snap;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * La hora en curso, en hora local de Madrid y con el formato de las series
@@ -172,8 +100,8 @@ export interface RawObservation {
  * segundo del  statSync  y la memorización por  mtime  valen igual aquí, y tener
  * dos copias de esa lógica es tener una que se queda sin arreglar.
  */
-export function allObservations(): { data: RawObservation[]; source: string } | null {
-  const snap = snapshot<RawObservation[]>('xema-current');
+export async function allObservations(): Promise<{ data: RawObservation[]; source: string } | null> {
+  const snap = await snapshot<RawObservation[]>('xema-current');
   return snap ? { data: snap.data, source: snap.source } : null;
 }
 
@@ -188,8 +116,8 @@ export type { CurrentConditions, DailyPoint, HourlyPoint, LocationForecast };
 /** Gradiente térmico estándar en atmósfera bien mezclada, °C por metro. */
 const LAPSE_RATE = 0.0065;
 
-export function currentFor(loc: Location): CurrentConditions | null {
-  const snap = snapshot<RawObservation[]>('xema-current');
+export async function currentFor(loc: Location): Promise<CurrentConditions | null> {
+  const snap = await snapshot<RawObservation[]>('xema-current');
   if (!snap || !loc.stationRef) return null;
   const obs = snap.data.find((o) => o.station === loc.stationRef!.codi);
   if (!obs) return null;
@@ -308,11 +236,11 @@ function snowLevelFrom(hours: HourlyPoint[]): number | null {
   return Math.round((mean - 250) / 50) * 50;
 }
 
-export function forecastFor(loc: Location, hours = 168): LocationForecast | null {
+export async function forecastFor(loc: Location, hours = 168): Promise<LocationForecast | null> {
   if (!loc.forecastPointId || !loc.comarcaCodi) return null;
   // Solo el trozo de su comarca. El punto de un municipio de frontera está
   // duplicado en los dos trozos justamente para que aquí no haya que buscarlo.
-  const snap = snapshot<ForecastData>(forecastShard(loc.comarcaCodi));
+  const snap = await snapshot<ForecastData>(forecastShard(loc.comarcaCodi));
   if (!snap) return null;
   const byModel = snap.data.points[loc.forecastPointId];
   if (!byModel) return null;
@@ -506,8 +434,8 @@ export interface Warning {
  * daría avisos a municipios que no los tienen — y en un aviso de seguridad, un
  * falso positivo cuesta tanto como un falso negativo.
  */
-export function warningsFor(loc: Location): Warning[] {
-  const snap = snapshot<Warning[]>('warnings');
+export async function warningsFor(loc: Location): Promise<Warning[]> {
+  const snap = await snapshot<Warning[]>('warnings');
   if (!snap) return [];
   const now = Date.now();
   return snap.data
@@ -518,8 +446,8 @@ export function warningsFor(loc: Location): Warning[] {
 const LEVEL_RANK: Record<WarningLevel, number> = { verd: 0, groc: 1, taronja: 2, vermell: 3 };
 
 /** Todos los avisos vigentes, para la portada y la página de comarca. */
-export function activeWarnings(): Warning[] {
-  const snap = snapshot<Warning[]>('warnings');
+export async function activeWarnings(): Promise<Warning[]> {
+  const snap = await snapshot<Warning[]>('warnings');
   if (!snap) return [];
   const now = Date.now();
   return snap.data.filter((w) => Date.parse(w.expires) > now);
@@ -587,25 +515,25 @@ export interface StationHistory {
 }
 
 /** Histórico de la estación de referencia de una ubicación. */
-export function historyFor(loc: Location): StationHistory | null {
+export async function historyFor(loc: Location): Promise<StationHistory | null> {
   if (!loc.stationRef) return null;
   return historyOfStation(loc.stationRef.codi);
 }
 
 /** Todo el histórico, para las páginas que comparan estaciones entre ellas. */
-export function allHistory(): StationHistory[] {
-  return snapshot<StationHistory[]>('xema-history')?.data ?? [];
+export async function allHistory(): Promise<StationHistory[]> {
+  return (await snapshot<StationHistory[]>('xema-history'))?.data ?? [];
 }
 
 /** Histórico por código de estación, para la ficha de la propia estación. */
-export function historyOfStation(codi: string): StationHistory | null {
-  const snap = snapshot<StationHistory[]>('xema-history');
+export async function historyOfStation(codi: string): Promise<StationHistory | null> {
+  const snap = await snapshot<StationHistory[]>('xema-history');
   return snap?.data.find((h) => h.station === codi) ?? null;
 }
 
 /** Observación actual de una estación concreta, sin corrección de altitud. */
-export function observationOfStation(codi: string): RawObservation | null {
-  const snap = snapshot<RawObservation[]>('xema-current');
+export async function observationOfStation(codi: string): Promise<RawObservation | null> {
+  const snap = await snapshot<RawObservation[]>('xema-current');
   return snap?.data.find((o) => o.station === codi) ?? null;
 }
 
@@ -698,9 +626,9 @@ export interface AirQuality {
  * fingir una precisión de barrio que el modelo no tiene, y aquí eso se dice en
  * la propia página en vez de esconderse.
  */
-export function airQualityFor(loc: Location): AirQuality | null {
+export async function airQualityFor(loc: Location): Promise<AirQuality | null> {
   if (loc.lat == null || loc.lon == null) return null;
-  const snap = snapshot<AirQualityRaw>('air-quality');
+  const snap = await snapshot<AirQualityRaw>('air-quality');
   if (!snap) return null;
 
   const cell = snap.data.cells[airCellKey(loc.lat, loc.lon)];
@@ -807,14 +735,14 @@ export interface RadarData {
  * La antigüedad de la última imagen observada se calcula aquí y no en la página:
  * la hora del reloj es un dato, y los datos entran por esta capa.
  */
-export function radar(): (RadarData & {
+export async function radar(): Promise<(RadarData & {
   fetchedAt: string;
   source: string;
   /** Minutos desde la última imagen **observada**, no desde el nowcast. */
   ageMin: number | null;
   lastObserved: RadarFrame | null;
-}) | null {
-  const snap = snapshot<RadarData>('radar');
+}) | null> {
+  const snap = await snapshot<RadarData>('radar');
   if (!snap || !snap.data.frames?.length) return null;
 
   const lastObserved = snap.data.frames.filter((f) => f.kind === 'past').at(-1) ?? null;
@@ -840,10 +768,9 @@ export interface FreshnessEntry {
 }
 
 /** Estado de cada fuente, para el panel público. */
-export function freshness(): Array<FreshnessEntry & { stale: boolean; ageMin: number | null }> {
-  const p = join(CACHE, 'freshness.json');
-  if (!existsSync(p)) return [];
-  const all: Record<string, FreshnessEntry> = JSON.parse(readFileSync(p, 'utf8'));
+export async function freshness(): Promise<Array<FreshnessEntry & { stale: boolean; ageMin: number | null }>> {
+  const all = await plainJson<Record<string, FreshnessEntry>>('freshness');
+  if (!all) return [];
   return Object.values(all).map((e) => {
     const ageMin = e.lastDataTs ? Math.round((Date.now() - Date.parse(e.lastDataTs)) / 60_000) : null;
     return { ...e, ageMin, stale: ageMin != null && ageMin > e.stalenessLimitMin };

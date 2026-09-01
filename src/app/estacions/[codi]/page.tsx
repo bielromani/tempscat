@@ -62,8 +62,8 @@ export default async function EstacioPage({ params }: { params: Params }) {
   const station = stationByCodi(codi);
   if (!station || !station.operativa) notFound();
 
-  const history = historyOfStation(station.codi);
-  const obs = observationOfStation(station.codi);
+  const history = await historyOfStation(station.codi);
+  const obs = await observationOfStation(station.codi);
   const today = localToday();
   const month = Number(today.slice(5, 7));
 

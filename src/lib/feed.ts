@@ -45,7 +45,7 @@ const r1 = (v: number | null | undefined) =>
 const r0 = (v: number | null | undefined) =>
   v == null || !Number.isFinite(v) ? null : Math.round(v);
 
-export function locationFeed(loc: Location, opts: FeedOptions = {}) {
+export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
   const hours = Math.max(1, Math.min(168, opts.hours ?? 48));
 
   const comarca = comarcaOf(loc);
@@ -53,10 +53,10 @@ export function locationFeed(loc: Location, opts: FeedOptions = {}) {
     ? null
     : locationById(loc.parentId ?? '') ?? null;
 
-  const current = currentFor(loc);
-  const forecast = forecastFor(loc);
-  const air = airQualityFor(loc);
-  const warnings = warningsFor(loc);
+  // Las cuatro a la vez: son lecturas independientes de instantáneas distintas.
+  const [current, forecast, air, warnings] = await Promise.all([
+    currentFor(loc), forecastFor(loc), airQualityFor(loc), warningsFor(loc),
+  ]);
   const nowHour = localNowHour();
   const today = localToday();
   const narrative = narrativeFor(forecast, current, nowHour, today);
@@ -266,9 +266,9 @@ const CSV_COLUMNS = [
  * km/h y no en m/s porque quien abre un CSV en Excel no va a convertir nada — el
  * nombre de la columna lo dice para que no haya duda.
  */
-export function locationCsv(loc: Location, opts: FeedOptions = {}): string {
+export async function locationCsv(loc: Location, opts: FeedOptions = {}): Promise<string> {
   const hours = Math.max(1, Math.min(168, opts.hours ?? 48));
-  const forecast = forecastFor(loc);
+  const forecast = await forecastFor(loc);
   if (!forecast) return `# Sense predicció per a ${loc.nom}\n`;
 
   const rows = forecast.hourly.slice(0, hours).map((h) => [

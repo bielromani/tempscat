@@ -28,9 +28,9 @@ export const metadata: Metadata = {
   alternates: { canonical: '/mar' },
 };
 
-export default function MarPage() {
-  const data = allBeaches();
-  const sea = seaPoints();
+export default async function MarPage() {
+  const data = await allBeaches();
+  const sea = await seaPoints();
 
   if (!data?.list.length) {
     return (

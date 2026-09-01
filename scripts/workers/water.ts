@@ -34,7 +34,9 @@
  */
 import { soql } from '../lib/socrata.ts';
 import { utm31ToLatLon } from '../lib/geo.ts';
-import { DAILY_LIMITS, QuotaGuard, recordFreshness, writeSnapshot } from '../lib/store.ts';
+import {
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, writeSnapshot,
+} from '../lib/store.ts';
 
 const RESERVOIRS = 'vjx7-6kcp';
 const RIVERS = '3yr3-vq6y';
@@ -300,6 +302,11 @@ async function main() {
   });
 
   console.log(`\n→ data/cache/water.json (${((Date.now() - started) / 1000).toFixed(1)} s, ${calls} consultes)`);
+
+  const pub = await publish();
+  if (!pub.skipped) {
+    console.log(`Publicat a l'emmagatzematge: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);
+  }
 }
 
 main().catch((err) => {

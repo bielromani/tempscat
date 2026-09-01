@@ -32,10 +32,10 @@ export const metadata: Metadata = {
   alternates: { canonical: '/neu' },
 };
 
-export default function NeuPage() {
+export default async function NeuPage() {
   const today = localToday();
 
-  const rows = allHistory()
+  const rows = (await allHistory())
     .map((h) => {
       const station = stationByCodi(h.station);
       if (!station?.operativa || !h.snow) return null;

@@ -31,8 +31,8 @@ export const metadata: Metadata = {
   alternates: { canonical: '/bolets' },
 };
 
-export default function BoletsPage() {
-  const conditions = allRainConditions();
+export default async function BoletsPage() {
+  const conditions = await allRainConditions();
   const comarcaName = new Map(allComarques().map((c) => [c.codi, c.nom]));
 
   const rows = conditions

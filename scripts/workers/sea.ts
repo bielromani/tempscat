@@ -37,7 +37,9 @@
  */
 import { fetchWithRetry } from '../lib/http.ts';
 import { soql } from '../lib/socrata.ts';
-import { DAILY_LIMITS, QuotaGuard, recordFreshness, writeSnapshot } from '../lib/store.ts';
+import {
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, writeSnapshot,
+} from '../lib/store.ts';
 
 const BEACHES = '4baz-cjv2';
 const MARINE = 'https://marine-api.open-meteo.com/v1/marine';
@@ -321,6 +323,11 @@ async function main() {
 
   console.log(`\n${quota.report()}`);
   console.log(`→ data/cache/sea.json (${((Date.now() - started) / 1000).toFixed(1)} s)`);
+
+  const pub = await publish();
+  if (!pub.skipped) {
+    console.log(`Publicat a l'emmagatzematge: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);
+  }
 }
 
 main().catch((err) => {

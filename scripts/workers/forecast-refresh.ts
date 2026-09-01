@@ -37,8 +37,7 @@ import { join } from 'node:path';
 import { fetchWithRetry, sleep } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import {
-  CACHE, DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard,
-  readSnapshot, recordFreshness, writeSnapshot,
+  CACHE, DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard, publish, readSnapshot, recordFreshness, writeSnapshot,
 } from '../lib/store.ts';
 import {
   FORECAST_INDEX, forecastShard, type ForecastIndex,
@@ -523,6 +522,11 @@ async function main() {
     + `${(written.bytes / 1048576).toFixed(1)} MB en total, el més gran ${(written.largest / 1048576).toFixed(2)} MB `
     + `(${((Date.now() - started) / 1000 / 60).toFixed(1)} min)`,
   );
+
+  const pub = await publish();
+  if (!pub.skipped) {
+    console.log(`Publicat a l'emmagatzematge: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);
+  }
 }
 
 main().catch((err) => {
