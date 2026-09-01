@@ -12,7 +12,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CACHE, publish, writeSnapshot } from './lib/store.ts';
-import { airShard, historyShard } from '../src/lib/shards.ts';
+import {
+  FORECAST_STORED_HOURS, airShard, historyShard, FORECAST_INDEX, forecastShard,
+} from '../src/lib/shards.ts';
+import {
+  aggregateDaily, mergeHourly, toStored, type PointForecast, type StoredDaily,
+} from '../src/lib/forecast-merge.ts';
+import { build } from './lib/paths.ts';
 
 interface Snap<T> { fetchedAt: string; dataTs: string | null; source: string; data: T }
 
@@ -47,6 +53,65 @@ if (!air) {
     written++;
   }
   console.log(`aire: ${Object.keys(air.data.cells).length} cel·les -> data/cache/air/`);
+}
+
+// -- Prediccio: resumen diario calculado y detalle horario recortado -------
+interface ForecastData {
+  times: string[];
+  points: Record<string, Record<string, PointForecast>>;
+  daily?: Record<string, StoredDaily>;
+  models: string[];
+}
+interface Index { times: string[]; comarques: Array<{ codi: string }> }
+
+const idx = read<Index>(FORECAST_INDEX);
+if (!idx) {
+  console.warn('forecast/index.json no hi es; no es retalla res');
+} else {
+  const pts = JSON.parse(readFileSync(build('forecast-points.json'), 'utf8')) as Array<{ id: string; lat: number; lon: number }>;
+  const coord = new Map(pts.map((p) => [p.id, p]));
+  let before = 0;
+  let after = 0;
+
+  for (const c of idx.data.comarques) {
+    const name = forecastShard(c.codi);
+    const shard = read<ForecastData>(name);
+    if (!shard) continue;
+    before += Buffer.byteLength(JSON.stringify(shard));
+
+    const times = shard.data.times;
+    const daily: Record<string, StoredDaily> = {};
+    for (const [id, byModel] of Object.entries(shard.data.points)) {
+      const p = coord.get(id);
+      const hourly = mergeHourly(byModel, times, {
+        tempCorrection: 0, lat: p?.lat ?? null, lon: p?.lon ?? null, tempDecimals: 3,
+      });
+      daily[id] = toStored(aggregateDaily(hourly, { lat: null, lon: null }));
+      for (const pf of Object.values(byModel)) {
+        for (const slug of Object.keys(pf.values)) {
+          const arr = (pf.values as Record<string, Array<number | null> | undefined>)[slug];
+          if (arr && arr.length > FORECAST_STORED_HOURS) {
+            (pf.values as Record<string, Array<number | null>>)[slug] = arr.slice(0, FORECAST_STORED_HOURS);
+          }
+        }
+      }
+    }
+
+    const out: ForecastData = {
+      times: times.slice(0, FORECAST_STORED_HOURS),
+      points: shard.data.points,
+      daily,
+      models: shard.data.models,
+    };
+    writeSnapshot(name, shard.source, out, shard.dataTs);
+    after += Buffer.byteLength(JSON.stringify(out));
+    written++;
+  }
+
+  const first = read<Index>(FORECAST_INDEX)!;
+  writeSnapshot(FORECAST_INDEX, first.source, { ...first.data, times: idx.data.times.slice(0, FORECAST_STORED_HOURS) }, first.dataTs);
+  written++;
+  console.log(`prediccio: ${(before / 1e6).toFixed(1)} MB -> ${(after / 1e6).toFixed(1)} MB`);
 }
 
 console.log(`

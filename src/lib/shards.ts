@@ -55,6 +55,22 @@
 // de fronteras— se escriben en las dos: sale más barato que un índice que
 // hubiera que leer antes de cada consulta.
 
+/**
+ * Cuántas horas de detalle horario se guardan por punto.
+ *
+ * El modelo da 336 —catorce días— y la página pinta 48. Guardar las 336 eran
+ * las tres cuartas partes de los 50 MB de la predicción, y viajaban enteras a
+ * cada ficha. El resumen de los catorce días se calcula una vez en el worker y
+ * viaja ya hecho.
+ *
+ * 120 y no 96 por el peor caso, que no es el normal: el nivel C se refresca una
+ * vez al día, así que una ficha puede leer un fichero de hace 24 h, y si una
+ * ejecución falla, de hace 48. Con 120 quedan 72 horas de futuro en el caso
+ * malo y 44 en el peor — todavía cubre las 48 que enseña el meteograma. Con
+ * 96 una sola ejecución perdida dejaba el meteograma medio vacío.
+ */
+export const FORECAST_STORED_HOURS = 120;
+
 /** Subcarpeta de `data/cache/` donde viven los trozos. */
 export const FORECAST_DIR = 'forecast';
 

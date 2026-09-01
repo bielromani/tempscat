@@ -119,7 +119,7 @@ for (const cas of CASOS) {
         date: DAY, tMax: 17, tMin: 9, weatherCode: 61,
         precipitation: w.reduce((s, x) => s + x.mm, 0), precipProbability: 90, precipHours: w.length,
         snowfall: 0, windMax: 4, gustMax: 9, windDirection: 200, uvMax: 2,
-        snowLevel: null, sunrise: null, sunset: null,
+        snowLevel: null, sunrise: null, sunset: null, spread: null,
       }],
       models: ['best_match'], nModels: 1, altitudeCorrectionM: null,
       issuedAt: '', source: 'test', skillWeighted: false,

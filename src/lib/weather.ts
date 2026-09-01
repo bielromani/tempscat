@@ -1,12 +1,14 @@
 import 'server-only';
 import { plainJson, snapshot } from './cache-store';
 import {
-  ALL_VARIABLES, VARIABLES, apparentTemperature, meanDirection,
+  ALL_VARIABLES, VARIABLES, apparentTemperature,
   type VariableSlug,
 } from './variables';
 import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
-import { consensusCode, dailySummaryCode } from './weather-codes';
 import { airCellKey } from './air-grid';
+import {
+  aggregateDaily, mergeHourly, type PointForecast, type StoredDaily,
+} from './forecast-merge';
 import { airShard, forecastShard, historyShard } from './shards';
 import {
   AIR_VARIABLES, POLLENS, POLLUTANTS, SUB_INDEX_OF, SUB_INDICES,
@@ -169,72 +171,79 @@ function adjust(value: number | null, dAltM: number | null): number | null {
 
 // ── Predicción ──────────────────────────────────────────────────────────────
 
-interface PointForecast {
-  modelElevation: number;
-  values: Partial<Record<VariableSlug, Array<number | null>>>;
-}
 interface ForecastData {
   times: string[];
   points: Record<string, Record<string, PointForecast>>;
+  /**
+   * El resumen por días, ya fusionado entre modelos y sin orto ni ocaso.
+   *
+   * Opcional porque un fichero escrito antes de que existiera no lo trae, y
+   * entonces se calcula al vuelo. Ver `src/lib/shards.ts`.
+   */
+  daily?: Record<string, StoredDaily>;
   models: string[];
 }
 
-
-/** Mediana, que en precipitación es lo correcto: la media inventa valores que ningún modelo predice. */
-function median(xs: number[]): number | null {
-  if (!xs.length) return null;
-  const s = xs.slice().sort((a, b) => a - b);
-  const m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-}
-
-function stdev(xs: number[]): number | null {
-  if (xs.length < 2) return null;
-  const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
-  return Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / (xs.length - 1));
-}
-
 /**
- * ¿Es de día en esa ubicación a esa hora local?
+ * De las columnas guardadas a los días que espera la página.
  *
- * El orto y el ocaso se memorizan por día y ubicación: sin caché se recalculan
- * 168 veces por página para los siete mismos días.
+ * Dos cosas se ponen aquí y no en el worker, porque dependen del pueblo y no
+ * del punto de rejilla: la corrección de altitud sobre las temperaturas, y el
+ * orto y el ocaso.
  */
-const sunCache = new Map<string, ReturnType<typeof sunTimes>>();
+function fromStored(
+  d: StoredDaily, tempCorrection: number, loc: Location, hourly: HourlyPoint[],
+): DailyPoint[] {
+  const corr = (v: number | null) => (v == null ? null : Math.round((v + tempCorrection) * 10) / 10);
 
-function isDaytime(loc: Location, isoLocal: string): boolean {
-  if (loc.lat == null || loc.lon == null) return true;
-  const hour = Number(isoLocal.slice(11, 13));
-  const day = isoLocal.slice(0, 10);
-  const key = `${loc.id}:${day}`;
-  let t = sunCache.get(key);
-  if (!t) {
-    t = sunTimes(new Date(`${day}T12:00:00Z`), loc.lat, loc.lon);
-    sunCache.set(key, t);
+  /*
+   * Los días que la página tiene hora a hora, sacan su máxima de esas horas.
+   *
+   * No es purismo. La máxima guardada viene sin corregir por la altitud y se
+   * corrige aquí; la de la tabla horaria viene corregida hora a hora. Son dos
+   * redondeos distintos y en el 0,22 % de los casos daban un décimo de
+   * diferencia —la tarjeta del día diciendo 20,2 y la tabla de debajo, 20,1—.
+   * Un décimo no importa; que la ficha se contradiga a sí misma, sí.
+   *
+   * Solo para los días completos: el último de la ventana horaria está cortado
+   * y su máxima sería la de media tarde, no la del día.
+   */
+  const byDay = new Map<string, HourlyPoint[]>();
+  for (const h of hourly) {
+    const day = h.time.slice(0, 10);
+    const arr = byDay.get(day) ?? [];
+    arr.push(h);
+    byDay.set(day, arr);
   }
-  if (!t.sunrise || !t.sunset) return hour >= 8 && hour < 20;
-  // Las horas de la serie vienen en hora local de Madrid, así que se comparan
-  // con el orto y el ocaso expresados en la misma zona.
-  const local = (d: Date) => Number(
-    d.toLocaleString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false }).slice(0, 2),
-  );
-  return hour >= local(t.sunrise) && hour < local(t.sunset);
+  const lastLoaded = [...byDay.keys()].at(-1);
+
+  return d.date.map((date, i) => {
+    const hs = date === lastLoaded ? undefined : byDay.get(date);
+    const temps = hs?.map((h) => h.temperature).filter((v): v is number => v != null);
+    const sun = loc.lat != null && loc.lon != null
+      ? sunTimes(new Date(`${date}T12:00:00Z`), loc.lat, loc.lon)
+      : null;
+    return {
+      date,
+      tMax: temps?.length ? Math.max(...temps) : corr(d.tMax[i]),
+      tMin: temps?.length ? Math.min(...temps) : corr(d.tMin[i]),
+      weatherCode: d.weatherCode[i],
+      precipitation: d.precipitation[i],
+      precipProbability: d.precipProbability[i],
+      precipHours: d.precipHours[i],
+      snowfall: d.snowfall[i],
+      windMax: d.windMax[i],
+      gustMax: d.gustMax[i],
+      windDirection: d.windDirection[i],
+      uvMax: d.uvMax[i],
+      snowLevel: d.snowLevel[i],
+      sunrise: sun?.sunrise?.toISOString() ?? null,
+      sunset: sun?.sunset?.toISOString() ?? null,
+      spread: d.spread?.[i] ?? null,
+    };
+  });
 }
 
-/**
- * Cota de nieve estimada a partir de la isocero.
- *
- * No coinciden: con precipitación, la fusión de los copos enfría la capa de
- * aire que atraviesan y la nieve cuaja **entre 200 y 300 m por debajo** del
- * nivel de congelación teórico. Dar la isocero como cota de nieve es el error
- * clásico, y hace que la gente suba a buscar nieve donde no la hay.
- */
-function snowLevelFrom(hours: HourlyPoint[]): number | null {
-  const levels = hours.map((h) => h.freezingLevel).filter((v): v is number => v != null);
-  if (!levels.length) return null;
-  const mean = levels.reduce((a, b) => a + b, 0) / levels.length;
-  return Math.round((mean - 250) / 50) * 50;
-}
 
 export async function forecastFor(loc: Location, hours = 336): Promise<LocationForecast | null> {
   if (!loc.forecastPointId || !loc.comarcaCodi) return null;
@@ -257,139 +266,24 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
 
   const times = snap.data.times.slice(0, hours);
 
-  const hourly: HourlyPoint[] = times.map((time, i) => {
-    /** Valores de todos los modelos que tienen esta variable a esta hora. */
-    const pick = (slug: VariableSlug): number[] =>
-      models.map((m) => byModel[m].values[slug]?.[i]).filter((v): v is number => v != null);
-
-    /** Media entre modelos; para variables que solo tiene uno, ese valor. */
-    const mean = (slug: VariableSlug, decimals = 1): number | null => {
-      const xs = pick(slug);
-      if (!xs.length) return null;
-      const f = 10 ** decimals;
-      return Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * f) / f;
-    };
-
-    const temps = pick('temperature');
-    const precs = pick('precipitation');
-    const wet = precs.filter((p) => p >= 0.1);
-
-    // La probabilidad la da Open-Meteo. Si no viene (modelos que no la
-    // publican), se cae al recuento de modelos que dan lluvia, que es un
-    // sustituto pobre pero honesto — y se prefiere la primera cuando existe.
-    const ownProb = pick('precipitation_probability');
-    const probability = ownProb.length
-      ? Math.round(ownProb.reduce((a, b) => a + b, 0) / ownProb.length)
-      : precs.length ? Math.round((wet.length / precs.length) * 100) : null;
-
-    const codes = pick('weather_code');
-
-    return {
-      time,
-      temperature: temps.length
-        ? Math.round((temps.reduce((a, b) => a + b, 0) / temps.length + tempCorrection) * 10) / 10
-        : null,
-      apparent: (() => {
-        const a = mean('apparent_temperature');
-        return a != null ? Math.round((a + tempCorrection) * 10) / 10 : null;
-      })(),
-      // Cantidad: mediana de los modelos que sí dan lluvia. Promediar 20 mm y
-      // 0 mm da 10 mm, un valor que ningún modelo considera probable.
-      precipitation: wet.length ? median(wet) : 0,
-      precipProbability: probability,
-      // Consenso entre modelos, no el peor de ellos.
-      //
-      // Dos errores encadenados aquí. El primero: quedarse con el máximo
-      // numérico, que en la tabla WMO pone la boira (45) por encima del cel
-      // cobert (3) y pintaba niebla en días de 32 °C. El segundo, más sutil:
-      // corregirlo cogiendo el más severo hacía la predicción sistemáticamente
-      // más sombría que cualquiera de los modelos por separado — si uno de tres
-      // ve niebla, la página veía niebla.
-      //
-      // Lo correcto es lo que dice la mayoría, con la severidad solo como
-      // desempate.
-      weatherCode: consensusCode(codes),
-      cloudCover: mean('cloud_cover', 0),
-      humidity: mean('humidity', 0),
-      dewPoint: (() => {
-        const d = mean('dew_point');
-        return d != null ? Math.round((d + tempCorrection) * 10) / 10 : null;
-      })(),
-      pressure: mean('pressure'),
-      windSpeed: mean('wind_speed'),
-      windDirection: (() => {
-        const dirs = pick('wind_direction');
-        return dirs.length ? Math.round(meanDirection(dirs) ?? 0) : null;
-      })(),
-      windGust: (() => { const g = pick('wind_gust'); return g.length ? Math.max(...g) : null; })(),
-      uvIndex: mean('uv_index', 0),
-      visibility: mean('visibility', 0),
-      freezingLevel: mean('freezing_level', 0),
-      snowfall: mean('snowfall'),
-      cape: mean('cape', 0),
-      isDay: isDaytime(loc, time),
-      spread: temps.length > 1 ? Math.round((stdev(temps) ?? 0) * 10) / 10 : null,
-    };
+  const hourly = mergeHourly(byModel, times, {
+    tempCorrection, lat: loc.lat ?? null, lon: loc.lon ?? null,
   });
 
-  // Agregado diario en hora local, no UTC: "la máxima de mañana" es la del día
-  // natural de quien lo lee.
-  const byDay = new Map<string, HourlyPoint[]>();
-  for (const h of hourly) {
-    const day = h.time.slice(0, 10);
-    const arr = byDay.get(day) ?? [];
-    arr.push(h);
-    byDay.set(day, arr);
-  }
-
-  const daily: DailyPoint[] = [...byDay]
-    // Un día sin ninguna hora con temperatura no es un día "sin datos" que haya
-    // que dibujar en gris: es un día que el modelo no alcanza. Mostrarlo vacío
-    // parece un error del sitio, no un límite del horizonte de predicción.
-    .filter(([, hs]) => hs.some((h) => h.temperature != null))
-    .map(([date, hs]) => {
-      const nums = (get: (h: HourlyPoint) => number | null): number[] =>
-        hs.map(get).filter((v): v is number => v != null);
-
-      const temps = nums((h) => h.temperature);
-      const winds = nums((h) => h.windSpeed);
-      const gusts = nums((h) => h.windGust);
-      const probs = nums((h) => h.precipProbability);
-      const uvs = nums((h) => h.uvIndex);
-      const dirs = nums((h) => h.windDirection);
-
-      const snowHours = hs.filter((h) => (h.snowfall ?? 0) > 0);
-      // Solo orto y ocaso. Llamar aquí a  calculaba además las
-      // próximas fases lunares —una búsqueda de casi mil iteraciones— siete
-      // veces por página. El build pasó de 7 s a 42 s por eso.
-      const sun = loc.lat != null && loc.lon != null
-        ? sunTimes(new Date(`${date}T12:00:00Z`), loc.lat, loc.lon)
-        : null;
-
-      return {
-        date,
-        tMax: temps.length ? Math.max(...temps) : null,
-        tMin: temps.length ? Math.min(...temps) : null,
-        // Resumen de día, no de hora: ver dailySummaryCode.
-        weatherCode: (() => {
-          const c = dailySummaryCode(hs.map((h) => ({ code: h.weatherCode, isDay: h.isDay }))).code;
-          // El código desconocido es -1, que es truthy: sin esta comprobación
-          // llegaba a la tarjeta y pintaba "Sense dades" en días con datos.
-          return c >= 0 ? c : null;
-        })(),
-        precipitation: Math.round(hs.reduce((s2, h) => s2 + (h.precipitation ?? 0), 0) * 10) / 10,
-        precipProbability: probs.length ? Math.max(...probs) : 0,
-        precipHours: hs.filter((h) => (h.precipitation ?? 0) >= 0.1).length,
-        snowfall: Math.round(hs.reduce((s2, h) => s2 + (h.snowfall ?? 0), 0) * 10) / 10,
-        windMax: winds.length ? Math.max(...winds) : null,
-        gustMax: gusts.length ? Math.max(...gusts) : null,
-        windDirection: dirs.length ? Math.round(meanDirection(dirs) ?? 0) : null,
-        uvMax: uvs.length ? Math.max(...uvs) : null,
-        snowLevel: snowHours.length ? snowLevelFrom(snowHours) : null,
-        sunrise: sun?.sunrise?.toISOString() ?? null,
-        sunset: sun?.sunset?.toISOString() ?? null,
-      };
-    });
+  /*
+   * El resumen por días ya viene hecho del worker cuando el fichero lo trae.
+   *
+   * Sacarlo aquí obligaba a que el fichero cargara las 336 horas de cada punto
+   * —la página enseña 48— y esas horas de más eran la mayor parte de los
+   * 50 MB de la predicción. Ver `src/lib/shards.ts`.
+   *
+   * Se calcula igualmente si no viene: es lo que pasa con un fichero escrito
+   * antes de este cambio, y con el disco local mientras no se refresca.
+   */
+  const stored = snap.data.daily?.[loc.forecastPointId];
+  const daily: DailyPoint[] = stored
+    ? fromStored(stored, tempCorrection, loc, hourly)
+    : aggregateDaily(hourly, { lat: loc.lat ?? null, lon: loc.lon ?? null });
 
   return {
     hourly,

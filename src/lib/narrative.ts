@@ -523,20 +523,18 @@ function uncertaintyPhrase(
 ): string | null {
   if (forecast.nModels < 2) return null;
 
-  const byDay = new Map<string, number[]>();
-  for (const h of forecast.hourly) {
-    if (h.spread == null) continue;
-    const day = h.time.slice(0, 10);
-    const arr = byDay.get(day) ?? [];
-    arr.push(h.spread);
-    byDay.set(day, arr);
-  }
-  if (byDay.size < 2) return null;
-
-  const days = [...byDay].map(([day, xs]) => ({
-    day,
-    mean: xs.reduce((a, b) => a + b, 0) / xs.length,
-  }));
+  /*
+   * Se mira el resumen diario y no el detalle horario.
+   *
+   * El detalle horario solo llega a cinco días —ver `src/lib/shards.ts`— y
+   * esta frase habla de los catorce. Mientras se sacaba de las horas, la
+   * página afirmaba «els models coincideixen en tot l'horitzó» habiendo
+   * mirado un tercio del horizonte, que es justo lo que no se puede decir.
+   */
+  const days = forecast.daily
+    .filter((d): d is typeof d & { spread: number } => d.spread != null)
+    .map((d) => ({ day: d.date, mean: d.spread }));
+  if (days.length < 2) return null;
 
   const firstNoisy = days.find((d) => d.mean >= 2);
   if (!firstNoisy) {

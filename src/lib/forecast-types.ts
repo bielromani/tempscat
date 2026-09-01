@@ -97,6 +97,15 @@ export interface DailyPoint {
   snowLevel: number | null;
   sunrise: string | null;
   sunset: string | null;
+  /**
+   * Desacuerdo medio entre modelos ese día, °C. Null cuando solo hay uno.
+   *
+   * Está en el resumen diario y no solo por hora porque la frase que lo usa
+   * habla de los catorce días, y el detalle horario solo llega a cinco: sin
+   * esto, la página decía «els models coincideixen en tot l'horitzó» habiendo
+   * mirado un tercio del horizonte.
+   */
+  spread: number | null;
 }
 
 export interface LocationForecast {

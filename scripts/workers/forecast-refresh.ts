@@ -41,8 +41,12 @@ import {
 } from '../lib/store.ts';
 import {
   FORECAST_INDEX, forecastShard, type ForecastIndex,
+  FORECAST_STORED_HOURS,
 } from '../../src/lib/shards.ts';
 import { alignAll } from '../lib/forecast-align.ts';
+import {
+  aggregateDaily, mergeHourly, toStored, type StoredDaily,
+} from '../../src/lib/forecast-merge.ts';
 import {
   VARIABLES, ESSENTIAL_HOURLY, RICH_HOURLY, callWeight, type VariableSlug,
 } from '../../src/lib/variables.ts';
@@ -137,6 +141,8 @@ export interface PointForecast {
 export interface ForecastData {
   times: string[];
   points: Record<string, Record<string, PointForecast>>;
+  /** El resumen de los catorce días, ya fusionado entre modelos. */
+  daily?: Record<string, StoredDaily>;
   models: string[];
 }
 
@@ -173,6 +179,88 @@ async function readForecast(): Promise<{ data: ForecastData } | null> {
 }
 
 /**
+ * Deja escrito el resumen de los catorce días y recorta el detalle horario.
+ *
+ * ## Por qué lo calcula el worker
+ *
+ * Sacar la máxima de cada día exige tener las 336 horas delante. Mientras eso
+ * lo hacía la página, el fichero tenía que llevar las 336 horas de cada punto
+ * —y la página enseña 48—: eran tres cuartas partes de los 50 MB de la
+ * predicción, viajando enteras a cada una de las 4.293 fichas.
+ *
+ * Se calcula aquí una vez, y el detalle horario se recorta a
+ * `FORECAST_STORED_HOURS`. El cálculo es el mismo que hacía la página, porque
+ * es literalmente la misma función: `src/lib/forecast-merge.ts`.
+ *
+ * ## Los puntos que no se han refrescado
+ *
+ * Traen su resumen del refresco anterior y no hay que rehacerlo —ni se
+ * podría: su detalle horario ya viene recortado—. Lo único que hace falta es
+ * tirar los días que ya han pasado, porque la hora cero de ahora es posterior
+ * a la suya.
+ */
+function summariseAndTrim(
+  result: ForecastData,
+  previous: { data: ForecastData } | null,
+  points: ForecastPoint[],
+  fetched: Set<string>,
+): void {
+  const coord = new Map(points.map((p) => [p.id, { lat: p.lat, lon: p.lon }]));
+  const today = result.times[0]?.slice(0, 10) ?? '';
+  const daily: Record<string, StoredDaily> = {};
+
+  let computed = 0;
+  let inherited = 0;
+  for (const [id, byModel] of Object.entries(result.points)) {
+    if (fetched.has(id)) {
+      const c = coord.get(id);
+      // Sin corrección de altitud: depende del pueblo, no del punto de
+      // rejilla, y la pone la aplicación. Las coordenadas sí hacen falta,
+      // para saber a qué hora es de día y poder resumir el fenómeno del día.
+      const hourly = mergeHourly(byModel, result.times, {
+        tempCorrection: 0, lat: c?.lat ?? null, lon: c?.lon ?? null, tempDecimals: 3,
+      });
+      daily[id] = toStored(aggregateDaily(hourly, { lat: null, lon: null }));
+      computed++;
+      continue;
+    }
+    const before = previous?.data.daily?.[id];
+    if (!before) continue;
+    const keep = before.date.findIndex((d) => d >= today);
+    if (keep < 0) continue;
+    daily[id] = keep === 0 ? before : sliceStored(before, keep);
+    inherited++;
+  }
+  result.daily = daily;
+
+  const hours = FORECAST_STORED_HOURS;
+  result.times = result.times.slice(0, hours);
+  for (const byModel of Object.values(result.points)) {
+    for (const pf of Object.values(byModel)) {
+      for (const slug of Object.keys(pf.values) as VariableSlug[]) {
+        const arr = pf.values[slug];
+        if (arr && arr.length > hours) pf.values[slug] = arr.slice(0, hours);
+      }
+    }
+  }
+
+  console.log(
+    `Resum diari: ${computed.toLocaleString('ca-ES')} calculats ara`
+    + `${inherited ? `, ${inherited.toLocaleString('ca-ES')} heretats del refresc anterior` : ''}`
+    + ` · detall horari retallat a ${hours} h`,
+  );
+}
+
+/** Talla els primers `n` dies d'un resum, que ja són passat. */
+function sliceStored(d: StoredDaily, n: number): StoredDaily {
+  const out = {} as StoredDaily;
+  for (const [k, v] of Object.entries(d)) {
+    (out as unknown as Record<string, unknown[]>)[k] = (v as unknown[]).slice(n);
+  }
+  return out;
+}
+
+/**
  * Escribe la predicción en un fichero por comarca más un índice.
  *
  * El índice va **el último** a propósito: es el que dice qué trozos existen, y
@@ -187,6 +275,7 @@ function writeForecast(
   const comarquesOf = new Map(points.map((p) => [p.id, p.comarques]));
 
   const byComarca = new Map<string, ForecastData['points']>();
+  const dailyByComarca = new Map<string, Record<string, StoredDaily>>();
   for (const [id, byModel] of Object.entries(result.points)) {
     // Un punto sin comarca es un punto que ya no está en el territorio: la
     // celda se movió en un rebuild. No se guarda en ninguna parte, que es la
@@ -195,6 +284,13 @@ function writeForecast(
       const bucket = byComarca.get(codi) ?? {};
       bucket[id] = byModel;
       byComarca.set(codi, bucket);
+
+      const summary = result.daily?.[id];
+      if (summary) {
+        const dBucket = dailyByComarca.get(codi) ?? {};
+        dBucket[id] = summary;
+        dailyByComarca.set(codi, dBucket);
+      }
     }
   }
 
@@ -204,7 +300,12 @@ function writeForecast(
     const name = forecastShard(codi);
     writeSnapshot(
       name, source,
-      { times: result.times, points: bucket, models: result.models } satisfies ForecastData,
+      {
+        times: result.times,
+        points: bucket,
+        daily: dailyByComarca.get(codi) ?? {},
+        models: result.models,
+      } satisfies ForecastData,
       result.times[0] ?? null,
     );
     const size = statSync(join(CACHE, `${name}.json`)).size;
@@ -408,6 +509,8 @@ async function main() {
    * la comparteixen tots els punts d'un mateix lot: no ocupa res.
    */
   const timesOf = new Map<string, string[]>();
+  /** Punts demanats en aquesta execució: són els únics que porten les 336 hores. */
+  const fetched = new Set<string>();
   if (previous) {
     for (const id of Object.keys(kept)) timesOf.set(id, previous.data.times);
   }
@@ -438,6 +541,7 @@ async function main() {
      * sèrie perquè després es puguin quadrar totes.
      */
     timesOf.set(pointId, fc.times);
+    fetched.add(pointId);
     result.points[pointId] ??= {};
     // Un mismo punto puede recibir varias peticiones del mismo modelo con
     // conjuntos distintos de variables: se fusionan en vez de sobrescribirse.
@@ -512,6 +616,7 @@ async function main() {
   }
 
   alignAll(result, timesOf);
+  summariseAndTrim(result, previous, points, fetched);
 
   result.models = [...new Set(
     Object.values(result.points).flatMap((byModel) => Object.keys(byModel)),

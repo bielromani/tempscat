@@ -90,7 +90,12 @@ function ttlFor(name: string): number {
   return 60 * 60_000;
 }
 
-interface Entry { at: number; snap: Snapshot<unknown> | null }
+interface Entry {
+  at: number;
+  snap: Snapshot<unknown> | null;
+  /** La marca que dio el almacén, para poder preguntar si ha cambiado. */
+  etag?: string;
+}
 
 const memo = new Map<string, Entry>();
 /** Peticiones en vuelo, para que diez renders simultáneos no pidan diez veces. */
@@ -111,9 +116,9 @@ function evictShards() {
   for (const k of shards.slice(0, shards.length - MAX_FORECAST_SHARDS)) memo.delete(k);
 }
 
-function remember(name: string, snap: Snapshot<unknown> | null) {
+function remember(name: string, snap: Snapshot<unknown> | null, etag?: string) {
   memo.delete(name);
-  memo.set(name, { at: Date.now(), snap });
+  memo.set(name, { at: Date.now(), snap, etag });
   evictShards();
 }
 
@@ -147,19 +152,40 @@ function fromDisk<T>(name: string): Snapshot<T> | null {
  * estado normal— y lanza en cualquier otro caso, para que la política de
  * «sirve la copia vieja» de arriba pueda decidir.
  */
-function download(url: string): Promise<Uint8Array | null> {
+interface Download {
+  /** `null` cuando la fuente no existe (404) o no ha cambiado (304). */
+  bytes: Uint8Array | null;
+  /** `true` si el almacén dice que lo que tenemos sigue siendo válido. */
+  unchanged: boolean;
+  etag?: string;
+}
+
+function download(url: string, etag?: string): Promise<Download | null> {
   return new Promise((resolve, reject) => {
-    const req = httpsGet(url, (res) => {
+    /*
+     * Si sabemos con qué marca nos vino, se pregunta en vez de pedir.
+     *
+     * Casi nada de lo que hay ahí cambia al ritmo al que caduca aquí: la
+     * predicción se refresca una o dos veces al día y el histórico una. Sin
+     * esto, cada vez que caduca el plazo se vuelve a bajar el fichero entero
+     * para descubrir que es el mismo. Con esto, un `304` sin cuerpo.
+     */
+    const headers = etag ? { 'if-none-match': etag } : undefined;
+    const req = httpsGet(url, { headers }, (res) => {
       const status = res.statusCode ?? 0;
       if (status === 404) { res.resume(); resolve(null); return; }
+      if (status === 304) { res.resume(); resolve({ bytes: null, unchanged: true, etag }); return; }
       if (status < 200 || status >= 300) {
         res.resume();
         reject(new Error(`HTTP ${status}`));
         return;
       }
+      const fresh = res.headers.etag;
       const chunks: Buffer[] = [];
       res.on('data', (c: Buffer) => chunks.push(c));
-      res.on('end', () => resolve(new Uint8Array(Buffer.concat(chunks))));
+      res.on('end', () => resolve({
+        bytes: new Uint8Array(Buffer.concat(chunks)), unchanged: false, etag: fresh,
+      }));
       res.on('error', reject);
     });
     req.on('error', reject);
@@ -177,13 +203,17 @@ function download(url: string): Promise<Uint8Array | null> {
  * tirando de ficheros de un mega a la vez— y **las páginas de esa comarca
  * salieron sin predicción**. El build acabó diciendo que todo estaba bien.
  */
-async function fromRemote<T>(name: string): Promise<Snapshot<T> | null> {
+async function fromRemote<T>(
+  name: string, etag?: string,
+): Promise<{ snap: Snapshot<T> | null; unchanged: boolean; etag?: string } | null> {
   let last: unknown;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const bytes = await download(`${REMOTE}/${name}.json`);
-      if (!bytes) return null;   // 404: esa fuente aún no existe
-      return JSON.parse(new TextDecoder().decode(bytes)) as Snapshot<T>;
+      const res = await download(`${REMOTE}/${name}.json`, etag);
+      if (!res) return null;   // 404: esa fuente aún no existe
+      if (res.unchanged) return { snap: null, unchanged: true, etag };
+      const snap = JSON.parse(new TextDecoder().decode(res.bytes!)) as Snapshot<T>;
+      return { snap, unchanged: false, etag: res.etag };
     } catch (err) {
       last = err;
       if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 500));
@@ -212,8 +242,16 @@ export async function snapshot<T>(name: string): Promise<Snapshot<T> | null> {
   const running = inflight.get(name);
   if (running) return await running as Snapshot<T> | null;
 
-  const task = fromRemote<T>(name)
-    .then((snap) => { remember(name, snap); return snap; })
+  const task = fromRemote<T>(name, cached?.etag)
+    .then((res) => {
+      // 304: sigue siendo el mismo fichero. Se renueva el plazo, no el dato.
+      if (res?.unchanged) {
+        remember(name, cached!.snap, cached!.etag);
+        return cached!.snap as Snapshot<T> | null;
+      }
+      remember(name, res?.snap ?? null, res?.etag);
+      return res?.snap ?? null;
+    })
     .catch((err) => {
       // Se sirve lo viejo antes que un hueco. Un dato de hace veinte minutos,
       // con su hora bien puesta, sigue siendo un dato.
@@ -262,7 +300,7 @@ export async function blob(path: string): Promise<Uint8Array | null> {
     return existsSync(p) ? new Uint8Array(readFileSync(p)) : null;
   }
   try {
-    return await download(`${REMOTE}/${path}`);
+    return (await download(`${REMOTE}/${path}`))?.bytes ?? null;
   } catch {
     return null;
   }
