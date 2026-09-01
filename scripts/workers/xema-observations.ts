@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { fetchJson } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncQuota, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { XEMA_TO_SLUG, type VariableSlug } from '../../src/lib/variables.ts';
 import type { Station } from '../04-fetch-stations.ts';
@@ -87,9 +87,10 @@ function localMidnightUtc(): string {
 }
 
 async function main() {
-  // El comptador viu al magatzem: sense això, cada execució automàtica
-  // començaria el dia de zero. Ha d'anar abans de construir el guardià.
-  await syncQuota();
+  // El comptador de quota i el registre de frescor viuen al magatzem:
+  // sense això, cada execució automàtica començaria de zero i en
+  // publicaria un amb una sola entrada. Abans de construir el guardià.
+  await syncState();
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 

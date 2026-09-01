@@ -28,7 +28,7 @@ import { soql, soqlAll } from '../lib/socrata.ts';
 import { build } from '../lib/paths.ts';
 import { throttledMap } from '../lib/http.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, readSnapshot, recordFreshness, syncQuota, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, readSnapshot, recordFreshness, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { windCardinal } from '../../src/lib/variables.ts';
 import type { Station } from '../04-fetch-stations.ts';
@@ -493,9 +493,10 @@ function plausibleSnowExtreme(
 }
 
 async function main() {
-  // El comptador viu al magatzem: sense això, cada execució automàtica
-  // començaria el dia de zero. Ha d'anar abans de construir el guardià.
-  await syncQuota();
+  // El comptador de quota i el registre de frescor viuen al magatzem:
+  // sense això, cada execució automàtica començaria de zero i en
+  // publicaria un amb una sola entrada. Abans de construir el guardià.
+  await syncState();
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 

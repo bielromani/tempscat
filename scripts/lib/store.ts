@@ -235,19 +235,42 @@ export async function publishQuota(): Promise<void> {
 }
 
 /**
- * Se trae el contador de cuota del almacén antes de empezar.
+ * Se trae del almacén el estado que **tiene que sobrevivir entre ejecuciones**.
  *
- * ## Por qué esto no es opcional
+ * Son dos ficheros y los dos tienen el mismo problema: `data/cache/` es un
+ * disco, y en un servidor de integración cada ejecución arranca con un
+ * contenedor limpio. Lo que se escribe fusionando con lo que ya había, sin
+ * traerse antes lo que había, no fusiona nada: sustituye.
  *
- * `QuotaGuard` lleva la cuenta en `data/cache/quota.json`. En una máquina que
- * es siempre la misma, eso basta. **En un servidor de integración cada
- * ejecución arranca con un contenedor limpio**, así que el fichero no existe y
- * el guardián cree que no se ha gastado nada en todo el día.
+ * ## El contador de cuota
  *
- * O sea: justo donde el control importa —ejecuciones automáticas, sin nadie
- * mirando— era decorativo. Y el síntoma no habría sido un error, sino un
- * `429 Hourly API request limit exceeded` a media tarde y media Catalunya sin
- * predicción hasta el día siguiente.
+ * `QuotaGuard` lleva la cuenta en `quota.json`. Sin traerlo, el guardián cree
+ * que no se ha gastado nada en todo el día — decorativo justo donde importa. El
+ * síntoma no sería un error, sino un `429 Hourly API request limit exceeded` a
+ * media tarde y media Catalunya sin predicción hasta el día siguiente.
+ *
+ * **Si no se puede leer, no se sigue.** Empezar con el contador a cero es la
+ * manera de gastar la cuota de un mes en una tarde.
+ *
+ * ## El registro de frescura
+ *
+ * `freshness.json` guarda una entrada por fuente y lo alimenta la página
+ * `/estat`. Se descubrió en producción: con los nueve workers ya corriendo
+ * solos, `/estat` enseñaba **una sola fuente** — la del último que hubiera
+ * pasado— porque cada uno publicaba un registro con su entrada y nada más.
+ *
+ * Que fallara justo esa página es lo peor que podía pasar: es la que existe
+ * para decir la verdad sobre los datos.
+ *
+ * Aquí un fallo de lectura **no** detiene la ingesta: es un registro para
+ * enseñar, no para decidir. Se avisa y se sigue.
+ *
+ * ## Sobre carreras
+ *
+ * Dos workers a la vez leen el mismo registro, cada uno añade su entrada y
+ * publica. El último gana, y lo que se pierde es *la actualización* del otro,
+ * no su entrada: la base ya las traía todas. Como mucho, una fuente se queda
+ * una vuelta desactualizada en `/estat`, y se arregla sola.
  *
  * Hay que llamarlo **antes** de construir el guardián, porque su constructor
  * lee el fichero una sola vez.
@@ -255,32 +278,35 @@ export async function publishQuota(): Promise<void> {
  * ## El contador puede llegar con un minuto de retraso, y da igual
  *
  * El almacén va detrás de un CDN que cachea un minuto largo — medido: hasta
- * unos tres, con `X-Vercel-Cache: HIT` y sirviendo la copia anterior. Un
- * parámetro anticaché en la URL **no lo esquiva**.
- *
- * No importa por cómo están repartidas las horas: las vueltas de predicción,
- * que son las únicas que gastan de verdad, van a hora y media unas de otras.
- * Si algún día se juntaran más, esto dejaría de ser un detalle y habría que
- * sacar el contador del almacén.
+ * unos tres, con `X-Vercel-Cache: HIT`. Un parámetro anticaché en la URL **no
+ * lo esquiva**. No importa por cómo están repartidas las horas: las vueltas de
+ * predicción, que son las únicas que gastan de verdad, van a hora y media unas
+ * de otras.
  */
-export async function syncQuota(): Promise<void> {
+export async function syncState(): Promise<void> {
   const base = process.env.BLOB_BASE_URL?.replace(/[/]$/, '');
-  if (!base) return;   // en local el fichero ya está donde toca
+  if (!base) return;   // en local los ficheros ya están donde toca
 
   ensure();
-  try {
-    const res = await fetch(`${base}/quota.json`);
-    if (res.status === 404) return;   // primer día: aún no hay contador
+
+  const bring = async (name: string) => {
+    const res = await fetch(`${base}/${name}`);
+    if (res.status === 404) return;   // primer día: aún no existe
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    writeFileSync(join(CACHE, 'quota.json'), await res.text(), 'utf8');
+    writeFileSync(join(CACHE, name), await res.text(), 'utf8');
+  };
+
+  try {
+    await bring('quota.json');
   } catch (err) {
-    /*
-     * Si no se puede leer, **no se sigue como si nada**.
-     *
-     * Arrancar con el contador a cero es la manera de gastar la cuota de un mes
-     * en una tarde. Vale más que el worker no corra esta vuelta.
-     */
     throw new Error(`No s'ha pogut llegir el comptador de quota: ${err}`);
+  }
+
+  try {
+    await bring('freshness.json');
+  } catch (err) {
+    console.warn(`avís: no s'ha pogut llegir el registre de frescor (${err}); `
+      + 'aquesta volta el deixarà incomplet i la següent el refarà');
   }
 }
 
