@@ -22,9 +22,22 @@ import 'server-only';
  * cuarenta copias indexadas. La salida es la de abajo: **el preview lleva su
  * propia URL y va marcado `noindex`**.
  *
+ * ## Sin `NEXT_PUBLIC_`, y no es un detalle
+ *
+ * La primera versión la llamó `NEXT_PUBLIC_SITE_URL` por costumbre, y Vercel
+ * avisa con razón: ese prefijo hace que Next **incruste el valor en el paquete
+ * del navegador**, y una variable incrustada no se puede marcar como secreta.
+ *
+ * Aquí no hace ninguna falta. Este fichero es `server-only`, no hay un solo
+ * componente de cliente en el proyecto, y todo lo que sale de aquí —canónicas,
+ * robots, sitemaps, los identificadores de los feeds— se resuelve en el
+ * servidor. El prefijo solo servía para enviar al navegador una cadena que no
+ * va a leer nadie y para que la interfaz de Vercel te haga una pregunta
+ * incómoda con una respuesta equivocada a cada lado.
+ *
  * El orden de preferencia:
  *
- *  1. `NEXT_PUBLIC_SITE_URL` — el dominio de verdad. Es el que manda.
+ *  1. `SITE_URL` — el dominio de verdad. Es el que manda.
  *  2. `VERCEL_PROJECT_PRODUCTION_URL` — la URL estable de producción de Vercel,
  *     por si el dominio propio aún no está conectado.
  *  3. `VERCEL_URL` — la del despliegue concreto. Solo previews.
@@ -32,7 +45,7 @@ import 'server-only';
  */
 
 function pick(): { url: string; production: boolean } {
-  const own = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const own = process.env.SITE_URL?.trim();
   if (own) return { url: own.replace(/\/$/, ''), production: true };
 
   const prod = process.env.VERCEL_PROJECT_PRODUCTION_URL;
