@@ -20,3 +20,18 @@ runs:
     # hi ha ningú per adonar-se que ha entrat una versió nova d'alguna cosa.
     - run: npm ci
       shell: bash
+
+    # Diu en una línia què s'ha instal·lat de debò.
+    #
+    # La primera execució va morir amb `Cannot find package '@vercel/blob'`
+    # després que `npm ci` digués que tot havia anat bé, i des de fora no hi
+    # havia manera de saber si el paquet hi era o no. Ara consta al registre i
+    # el pas falla aquí mateix, abans de gastar quota o baixar res.
+    - name: Comprovar que les dependències hi són
+      shell: bash
+      run: |
+        node --input-type=module -e "
+          import { put } from '@vercel/blob';
+          if (typeof put !== 'function') throw new Error('@vercel/blob carregat pero sense put()');
+          console.log('@vercel/blob: instal·lat i utilitzable');
+        "

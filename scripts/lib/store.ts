@@ -1,5 +1,15 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
+/*
+ * Import estàtic i no dinàmic, i el motiu és el moment en què peta.
+ *
+ * Estava com a `await import('@vercel/blob')` dins de `publish()`, que és
+ * l'últim que fa un worker. Amb el paquet absent, el radar es baixava les 28
+ * tessel·les, escrivia el JSON, i **només llavors** moria: tota la feina feta i
+ * res publicat. Aquí dalt, si no hi és, el worker no arrenca i es veu de
+ * seguida.
+ */
+import { put } from '@vercel/blob';
 import { ROOT } from './paths.ts';
 
 /**
@@ -93,7 +103,6 @@ export async function publish(): Promise<{ uploaded: number; bytes: number; skip
     return { uploaded: 0, bytes: 0, skipped: true, origin: null };
   }
 
-  const { put } = await import('@vercel/blob');
   const files = [...pending];
   pending.clear();
 
@@ -214,7 +223,6 @@ export async function publishQuota(): Promise<void> {
   const p = join(CACHE, 'quota.json');
   if (!existsSync(p)) return;
   try {
-    const { put } = await import('@vercel/blob');
     await put('quota.json', readFileSync(p), {
       access: 'public', addRandomSuffix: false, allowOverwrite: true,
       contentType: 'application/json', cacheControlMaxAge: 0,
