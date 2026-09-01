@@ -392,7 +392,7 @@ contenido.
 
 Ya no existe el fichero único. La predicción vive en `data/cache/forecast/`, un
 fichero por comarca más un índice, y el porqué está escrito en
-`src/lib/forecast-shards.ts`.
+`src/lib/shards.ts`.
 
 El argumento no era el que estaba apuntado aquí. Lo que se temía era el peso en
 el paquete de despliegue; lo que de verdad se paga es el **arranque en frío**,
@@ -529,27 +529,67 @@ día siete un modelo determinista tiene poca habilidad, y publicar «19 °C el
 jueves que viene» sería precisión no demostrada. Sin horas, sin decimales, y
 diciendo que es tendencia.
 
-**Lo que sí ha costado es sitio.** Al pasar de 168 a 336 horas por punto, el
-conjunto de la predicción va camino de **unos 80 MB por vuelta**, y a cuatro
-refrescos diarios son ~322 MB/día subidos al almacén. Medido, no estimado.
+**Lo que sí ha costado es sitio, y no por donde se esperaba.** Al pasar de 168
+a 336 horas por punto, la predicción iba camino de unos 80 MB por vuelta. Se
+anotó aquí como deuda a pagar «antes de que el almacén empiece a doler», y
+dolió — pero por **las lecturas**, no por las escrituras.
 
-Y es casi todo desperdicio: **solo se enseñan 48 horas de detalle horario**. El
-resto de la serie existe únicamente para que `forecastFor` calcule los máximos y
-mínimos diarios. La solución limpia es que **el worker calcule los agregados
-diarios y guarde solo las 48 horas de detalle**, que además quita ese cálculo de
-cada render. La corrección por altitud no lo impide: es un desplazamiento
-constante que se puede aplicar después sobre el máximo y el mínimo.
+### El 1 de septiembre de 2026 el almacén se bloqueó · **resuelto**
 
-Queda pendiente y conviene hacerlo antes de que el almacén empiece a doler.
+Una ficha de municipio pedía **4.965 kB** en cada arranque en frío: el
+histórico de las 189 estaciones para usar una, las 372 celdas de aire para usar
+una, y la predicción de la comarca entera para usar un punto de sesenta y
+cinco. Con 4.293 fichas, **un rastreo completo del sitemap son 22,8 GB**, y el
+plan gratuito trae 10 GB al mes.
 
-### Un fallo que solo aparece al cambiar el horizonte
+Google encontró el sitemap y se acabó la cuota. Las páginas ya generadas se
+sirvieron congeladas —ISR conserva la anterior cuando la lectura falla, que es
+lo que evitó servir 4.293 fichas en blanco— y los 3.283 núcleos que se generan
+a demanda empezaron a dar 500. Los despliegues tampoco podían completarse: el
+prerenderizado lee del almacén.
 
-El array de horas es **común a todos los puntos de un trozo**, y los puntos que
-se conservan de un refresco anterior pueden traer un horizonte más corto. Con
-`if (!result.times.length) result.times = fc.times` el fichero se quedaba con
-las 168 horas viejas mientras los puntos nuevos traían 336: la segunda semana
-estaba escrita en el disco y **no la veía nadie**. Ahora manda la serie más
-larga.
+Lo hecho:
+
+| | antes | ahora |
+|---|---|---|
+| `xema-history` | 1.959 kB | **10 kB** — un trozo por estación |
+| `air-quality` | 1.410 kB | **5 kB** — un trozo por celda |
+| `forecast/cNN` | 1.174 kB | **739 kB** — 120 h de detalle y el resumen diario ya hecho |
+| **una página** | **4.965 kB** | **1.178 kB** |
+| **un rastreo** | **22,8 GB** | **5,4 GB** |
+
+La regla que faltaba está escrita en `src/lib/shards.ts`: *una página descarga
+bytes en proporción a lo que enseña*. El monolito se sigue escribiendo, porque
+`/neu`, `/bolets`, `/senderisme` y `/nautica` comparan estaciones entre ellas y
+lo quieren entero — pero esas son cuatro URL, no cuatro mil.
+
+Y `cache-store` pregunta ahora con `If-None-Match`: casi nada de lo que hay en
+el almacén cambia al ritmo al que caduca aquí, y un `304` no gasta transferencia.
+
+**Lo que queda de esos 1.178 kB** es predicción (739), observación en vivo
+(153), mar (142) y agua (79). El mar se baja también en los pueblos de interior,
+que son nueve de cada diez; partirlo por municipio costero es el siguiente
+recorte fácil.
+
+### Dos fallos que solo aparecían con el tiempo
+
+**La segunda semana escrita y no vista.** El array de horas es común a todos los
+puntos de un trozo, y los puntos que se conservan de un refresco anterior pueden
+traer un horizonte más corto. Con `if (!result.times.length)` el fichero se
+quedaba con las 168 horas viejas mientras los puntos nuevos traían 336.
+
+**Y la predicción corrida un día.** Arreglar lo anterior con «manda la serie más
+larga» resolvía estrenar horizonte y nada más: Open-Meteo devuelve siempre desde
+las cero horas **del día en que se pide**, así que con dos series de 336 horas
+`336 > 336` es falso y el array se quedaba congelado en el día 1 mientras los
+puntos refrescados traían valores del día 2. Al día siguiente, dos. Sin error y
+sin hueco: los números son plausibles, solo son de otro día.
+
+Ahora manda la hora cero más reciente y, con la misma hora cero, la serie más
+larga —las dos reglas, porque cada una tapa un agujero distinto—. Está en
+`scripts/lib/forecast-align.ts` con `npm run test:align` delante, y el
+desplazamiento se busca con `indexOf` y no restándole fechas: el domingo del
+cambio horario tiene 23 o 25 horas.
 
 ### A un mes vista · **existe, pero no como número diario**
 

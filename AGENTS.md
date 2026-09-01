@@ -25,7 +25,8 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
 | `src/lib/cache-store.ts` | **La frontera de lectura.** Disco en local, almacén de objetos en producción |
-| `data/cache/forecast/` | La predicción, un fichero por comarca. Nunca un monolito: ver `forecast-shards.ts` |
+| `data/cache/forecast/` | La predicción, un fichero por comarca. Nunca un monolito: ver `shards.ts` |
+| `data/cache/history/`, `data/cache/air/` | Lo mismo, por estación y por celda. Una ficha no se baja el país |
 | `data/raw/`, `data/cache/` | Descargas y datos vivos. No se versionan |
 | `db/migrations/` | Esquema PostgreSQL, sin aplicar todavía |
 
@@ -43,18 +44,23 @@ Los imports relativos **necesitan la extensión `.ts` explícita**. Por eso `scr
 propio `tsconfig.json` y la raíz lo excluye.
 
 La raíz ahora lleva `allowImportingTsExtensions`, así que un fichero de `src/lib/` **puede** usar
-la extensión y quedar ejecutable por Node. Lo hace solo `narrative.ts`, para que
-`scripts/test-narrative.ts` lo pueda cargar; el resto de la aplicación sigue con el alias `@/` y
-sin extensión. Si añades otro, la condición es la misma: que toda su cadena de imports acabe en
-ficheros que no importan nada.
+la extensión y quedar ejecutable por Node. Lo hacen dos: `narrative.ts`, para que
+`scripts/test-narrative.ts` lo pueda cargar, y `forecast-merge.ts`, porque el worker necesita el
+mismo cálculo que la página. El resto de la aplicación sigue con el alias `@/` y sin extensión.
+Si añades otro, la condición es la misma: que toda su cadena de imports acabe en ficheros que no
+importan nada.
 
 Comprueba ambos proyectos con `npm run typecheck`.
 
 ## Código compartido entre scripts y aplicación
 
-Hay siete ficheros que importan los dos lados, así que **ninguno puede importar nada**: los
-scripts los cargan con extensión `.ts` y la aplicación con el alias `@/`. Si alguno necesita
-dependencias, duplica antes que romper uno de los dos.
+Hay ocho ficheros que importan los dos lados: los scripts los cargan con extensión `.ts` y la
+aplicación con el alias `@/`. Siete **no importan nada**, y la condición para añadir uno es esa.
+
+El octavo, `forecast-merge.ts`, sí importa —y es la excepción que ya describe la sección de
+arriba: importa con extensión `.ts` y **toda su cadena acaba en ficheros que no importan nada**.
+Está así porque duplicarlo sería tener dos predicciones distintas para el mismo sitio según
+quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los dos lados.
 
 | Fichero | Qué comparte |
 |---|---|
@@ -64,7 +70,8 @@ dependencias, duplica antes que romper uno de los dos.
 | `src/lib/mercator.ts` | Proyección de las teselas del radar y de los polígonos que van encima |
 | `src/lib/format.ts` | Fechas, horas, números y contracciones del catalán |
 | `src/lib/forecast-types.ts` | Las formas de la observación y de la predicción, sin `node:fs` detrás |
-| `src/lib/forecast-shards.ts` | Dónde vive cada trozo de la predicción, y por qué está partida |
+| `src/lib/shards.ts` | Dónde vive cada trozo de cada dato, y por qué está partido |
+| `src/lib/forecast-merge.ts` | De los modelos a una serie, y de la serie al resumen por días |
 
 ## Dónde viven los datos vivos
 
@@ -81,6 +88,13 @@ Así que hay dos mitades y conviene no confundirlas:
 Sin esas variables todo funciona contra el disco, que es lo que pasa mientras
 desarrollas. Tres cosas que no son evidentes:
 
+- **Una página descarga bytes en proporción a lo que enseña.** No a lo que
+  existe. Es la regla que faltó al principio y salió cara: una ficha de
+  municipio pedía 4.965 kB —el histórico de las 189 estaciones para usar una,
+  las 372 celdas de aire para usar una— y el primer rastreo del sitemap se
+  comió los 10 GB mensuales del almacén. El cómo y el porqué de cada partición
+  están en `src/lib/shards.ts`; si añades una fuente, esa es la pregunta que
+  hay que hacerse antes de escribirla.
 - **Leer es asíncrono.** `currentFor`, `forecastFor`, `seaNear`… todos devuelven
   promesas. Si añades un lector nuevo, que salga de `cache-store.ts`.
 - **No se usa la caché de `fetch` de Next.** Su límite por entrada son 2 MB y el
@@ -130,7 +144,7 @@ npm run worker:history    # rècords i normals, un cop al dia
 Pruebas:
 
 ```bash
-npm run test              # topónimos, astronomía y frases
+npm run test              # topónimos, astronomía, hora cero de la predicción y frases
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
@@ -291,6 +305,16 @@ cuota para exactamente la misma información.
   `div`, todos los índices quedaban corridos uno y no se enseñaba ningún panel. Los paneles son
   `<section>` por eso. Y `.tabs > label` no casaba nunca porque las etiquetas viven dentro del
   `.tablist`, no colgando de `.tabs`.
+- **Open-Meteo devuelve siempre desde las cero horas del día en que se pide**, y el fichero de
+  predicción guarda un solo array de horas para todos los puntos. Un nivel que se refresca hoy y
+  otro que se conserva de ayer arrancan en días distintos: sin cuadrarlos, la predicción se
+  sirve **corrida un día**, y al siguiente dos. No da ningún error —los números son plausibles,
+  solo son de otro día—. Lo cuadra `scripts/lib/forecast-align.ts`, y el desplazamiento se busca
+  con `indexOf` y no restándole fechas, porque el domingo del cambio horario tiene 23 o 25 horas.
+- **La ventana horaria de la predicción son 120 horas, pero el horizonte son 14 días.** El resumen
+  diario lo calcula el worker. Cualquier frase que hable del horizonte tiene que salir de
+  `forecast.daily`: sacándola de `forecast.hourly` se afirma sobre catorce días habiendo mirado
+  cinco. Pasó con la frase del desacuerdo entre modelos.
 - **El camp de meduses porta diverses espècies separades per `;`.** Cada una és
   `espècie,abundància,talla`. Llegint només fins a la primera coma, a Castell-Platja d'Aro
   —que en reporta tres— sortia la inofensiva i **quedava amagada la que pica**. `parseJellyfish()`
