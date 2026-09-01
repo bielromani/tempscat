@@ -140,9 +140,9 @@ Un tast, perquè es vegi de quina mena són:
 
 ## Llicència
 
-**El codi encara no en té**, i mentre no n'hi hagi cap el que val per defecte és
-«tots els drets reservats»: ningú el pot reutilitzar legalment. Està pendent de
-decidir.
+El codi, [MIT](LICENSE).
 
-Les dades no són nostres. Són de les fonts citades a dalt i mantenen cadascuna
-la seva llicència: si en reutilitzes cap, l'atribució és d'elles.
+**Les dades no.** Són de les fonts citades a dalt i mantenen cadascuna la seva
+llicència: si en reutilitzes cap, l'atribució és d'elles i no d'aquest
+repositori. És el mateix que fan les pàgines, que diuen a cada bloc d'on surt
+el número.
