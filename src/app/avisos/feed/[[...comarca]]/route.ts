@@ -2,6 +2,7 @@ import { atomFeed, icsFeed } from '@/lib/syndication';
 import { activeWarnings } from '@/lib/weather';
 import { comarcaBySlug } from '@/lib/territory';
 import { comarcaName } from '@/lib/format';
+import { SITE_URL } from '@/lib/site';
 
 /**
  * Los avisos como feed, de toda Catalunya o de una comarca.
@@ -19,7 +20,16 @@ import { comarcaName } from '@/lib/format';
  */
 export const revalidate = 300;
 
-const SITE = 'https://meteo.example';
+/*
+ * El dominio de verdad, no uno escrito a mano.
+ *
+ * Aquí importa más que en una página. Un `<id>` de Atom es la identidad
+ * permanente de la entrada: el lector de feeds la usa para saber si un aviso ya
+ * lo ha enseñado, y en un ICS es el `UID` que decide si el calendario actualiza
+ * la cita o crea una segunda. Con un dominio inventado, los identificadores de
+ * todos los avisos publicados hasta hoy apuntaban a un sitio que no existe.
+ */
+const SITE = SITE_URL;
 
 export async function GET(
   req: Request,
