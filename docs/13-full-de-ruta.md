@@ -296,7 +296,7 @@ helado. Se descartaron 22 lecturas en 11 estaciones, y el récord de Mollò pas�
 El valor descartado se pone a **null, no a cero**: no sabemos cuánta nieve había,
 sabemos que la cifra no es creíble. Un cero diría que no había.
 
-### 7. Condiciones para actividades · 🟡 bolets hecho
+### 7. Condiciones para actividades · ✅ hecho
 
 `/bolets`, con la lluvia acumulada de quince y treinta días en cada estación,
 cuándo fue el último aguacero de más de 5 mm y con qué temperaturas.
@@ -311,7 +311,27 @@ La página **funciona todo el año** porque en realidad es una página de lluvia
 acumulada con el título por el que la gente la busca. En mayo sirve igual para
 saber si el campo está seco.
 
-Falta **senderisme** (todo calculado ya) y **nàutica**, que necesita el punto 4.
+**`/senderisme`** y **`/nautica`**, las dos sobre observación y no sobre predicción:
+la racha que ha hecho hace media hora en la Tosa es un hecho, la de mañana es otra
+conversación y ya tiene su página.
+
+De senderisme salió algo que no estaba planeado y que es lo mejor de la página: **la
+isoterma de cero grados, medida**. Una regresión de la temperatura contra la altitud
+sobre las 183 estaciones que dan las dos cosas — hoy da un gradiente de −5,4 °C por
+cada 1.000 m, contra el −6,5 teórico de manual, con un ajuste de 0,69.
+
+Y **no se publica la cifra cuando habría que extrapolar**. Un día de agosto la recta
+cruza el cero hacia los 5.500 m, que es tres kilómetros por encima de la estación más
+alta: escribirlo sería precisión inventada. Se dice «per damunt de qualsevol cim» y ya.
+Tampoco se le llama cota de nieve, que es el error clásico: la nieve se funde mientras
+baja y llega blanca dos o tres centenares de metros más abajo.
+
+De nàutica, lo que la distingue de `/mar`: **el viento**, que es lo que decide si se
+sale, medido en la estación costera más próxima —19 de los 20 tramos tienen una a menos
+de 13 km— y con su nombre y su distancia delante, porque un anemómetro tierra adentro no
+mide el viento que hay en el agua. Más el **período de la ola**, que es el número que la
+gente se salta y el que más dice: la misma altura con seis segundos o con nueve son dos
+mares distintos.
 
 ### 8. Resumen de comarca · ✅ hecho
 

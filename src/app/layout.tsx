@@ -47,6 +47,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/neu" className="no-underline hover:text-[var(--ink)]">Neu</Link>
               <Link href="/aire" className="no-underline hover:text-[var(--ink)]">Aire</Link>
               <Link href="/bolets" className="no-underline hover:text-[var(--ink)]">Bolets</Link>
+              <Link href="/senderisme" className="no-underline hover:text-[var(--ink)]">Senderisme</Link>
+              <Link href="/nautica" className="no-underline hover:text-[var(--ink)]">Nàutica</Link>
               <Link href="/dades" className="no-underline hover:text-[var(--ink)]">Dades obertes</Link>
               <Link href="/estat" className="no-underline hover:text-[var(--ink)]">Estat de les dades</Link>
             </nav>

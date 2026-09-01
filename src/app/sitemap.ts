@@ -54,6 +54,8 @@ function thematic(lastModified: Date): MetadataRoute.Sitemap {
     ['/neu', 0.7],
     ['/aire', 0.7],
     ['/bolets', 0.7],
+    ['/senderisme', 0.7],
+    ['/nautica', 0.7],
     ['/estacions', 0.6],
     ['/dades', 0.5],
     ['/estat', 0.4],
