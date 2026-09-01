@@ -104,17 +104,101 @@ export function flagStyle(flag: string) {
 }
 
 /**
- * Las medusas vienen en un solo campo: `especie,abundancia,talla`.
+ * QuÃ¨ Ã©s cada medusa i quÃ¨ fa si la toques.
  *
- * Se separa para poder enseñarlo legible, pero **no se traduce el nombre
- * científico ni se sustituye por uno común**: «Pelagia noctiluca» es el que
- * permite buscar si pica, y los nombres populares cambian de una cala a otra.
+ * El registre les anota amb el nom cientÃ­fic i prou. Â«Cotylorhiza tuberculataÂ»
+ * no diu res a ningÃº, i Â«Physalia physalisÂ» âque Ã©s la que de debÃ² importaâ
+ * tampoc.
+ *
+ * ## Com estÃ  escrita aquesta taula
+ *
+ * En to conservador i sense entrar en tractaments. Una espÃ¨cie que no hi
+ * consti es tracta **com si piquÃ©s**, no com si fos inofensiva: val mÃ©s
+ * quedar-se curt que tranquilÂ·litzar sobre una cosa que no coneixem.
+ *
+ * La `Physalia` no Ã©s una medusa sinÃ³ un sifonÃ²for. AquÃ­ importaria poc si no
+ * fos perquÃ¨ la seva picada Ã©s d'una altra categoria i els tentacles piquen
+ * igual a la sorra i hores desprÃ©s.
  */
-export function parseJellyfish(raw: string | null): { species: string; amount: string; size: string } | null {
-  if (!raw) return null;
-  const [species, amount, size] = raw.split(',').map((x) => x.trim());
-  if (!species) return null;
-  return { species, amount: amount ?? '', size: size ?? '' };
+export type StingLevel = 'inofensiva' | 'lleu' | 'dolorosa' | 'perillosa' | 'desconeguda';
+
+interface Species { common: string; sting: StingLevel; note?: string }
+
+const JELLYFISH: Record<string, Species> = {
+  'pelagia noctiluca': {
+    common: 'medusa clavell', sting: 'dolorosa',
+    note: 'La mÃ©s freqÃ¼ent a la costa catalana.',
+  },
+  'rhizostoma pulmo': { common: 'bot blau', sting: 'lleu' },
+  'cotylorhiza tuberculata': { common: 'ou ferrat', sting: 'inofensiva' },
+  'aurelia aurita': { common: 'medusa vera', sting: 'lleu' },
+  'velella velella': { common: 'barqueta de Sant Pere', sting: 'inofensiva' },
+  'chrysaora hysoscella': { common: 'medusa de compÃ s', sting: 'dolorosa' },
+  'carybdea marsupialis': { common: 'medusa cub', sting: 'dolorosa' },
+  'physalia physalis': {
+    common: 'vaixell portuguÃ¨s', sting: 'perillosa',
+    note: 'No Ã©s una medusa. Els tentacles piquen tambÃ© fora de lâaigua i hores desprÃ©s.',
+  },
+};
+
+export const STING_STYLE: Record<StingLevel, { label: string; color: string }> = {
+  inofensiva: { label: 'no pica', color: 'var(--cap-green)' },
+  lleu: { label: 'picada lleu', color: 'var(--cap-yellow)' },
+  dolorosa: { label: 'pica, i fa mal', color: 'var(--warn)' },
+  perillosa: { label: 'perillosa', color: 'var(--cap-red)' },
+  desconeguda: { label: 'tracteu-la com si piquÃ©s', color: 'var(--muted)' },
+};
+
+/** QuÃ¨ se sap d'una espÃ¨cie. Mai diu Â«inofensivaÂ» d'una que no consti. */
+export function speciesInfo(scientific: string): Species {
+  return JELLYFISH[scientific.trim().toLowerCase()]
+    ?? { common: '', sting: 'desconeguda' };
+}
+
+/**
+ * Les meduses d'una platja.
+ *
+ * El camp porta **una o més espècies separades per `;`**, i cadascuna amb
+ * `espècie,abundància,talla`:
+ *
+ *     Rhizostoma pulmo,poques,5-10;Pelagia noctiluca,poques,0-5
+ *
+ * La primera versió només llegia fins a la primera coma i es quedava amb una
+ * espècie. A Castell-Platja d'Aro es reporten tres alhora i la pàgina
+ * n'ensenyava una: la inofensiva. La que pica —la *Pelagia noctiluca*— quedava
+ * amagada darrere del punt i coma.
+ *
+ * **No es tradueix el nom científic**: és el que permet consultar l'espècie, i
+ * els noms populars canvien d'una cala a l'altra. El nom corrent i la picada
+ * els posa `speciesInfo()`.
+ */
+export interface Jellyfish { species: string; amount: string; size: string }
+
+export function parseJellyfish(raw: string | null): Jellyfish[] {
+  if (!raw) return [];
+  return raw
+    .split(';')
+    .map((chunk) => {
+      const [species, amount, size] = chunk.split(',').map((x) => x.trim());
+      return { species: species ?? '', amount: amount ?? '', size: size ?? '' };
+    })
+    .filter((j) => j.species.length > 0);
+}
+
+/**
+ * L'espècie més perillosa de les reportades.
+ *
+ * Perquè quan n'hi ha tres, la que decideix si t'hi fiques és la pitjor, no la
+ * primera que va escriure el socorrista.
+ */
+export function worstJellyfish(list: Jellyfish[]): Jellyfish | null {
+  const rank: Record<StingLevel, number> = {
+    inofensiva: 0, lleu: 1, desconeguda: 2, dolorosa: 3, perillosa: 4,
+  };
+  return list.reduce<Jellyfish | null>(
+    (worst, j) => (!worst || rank[speciesInfo(j.species).sting] > rank[speciesInfo(worst.species).sting] ? j : worst),
+    null,
+  );
 }
 
 export interface BeachesView {

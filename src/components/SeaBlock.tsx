@@ -5,6 +5,7 @@ import {
   douglas, flagStyle, parseJellyfish, FLAG_CURRENT_HOURS, FLAG_SHOW_HOURS,
   type SeaNearby,
 } from '@/lib/sea';
+import { FlagMark, JellyfishMark } from '@/components/SeaMarks';
 
 /**
  * El mar de un pueblo con playa.
@@ -30,24 +31,21 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
           {shown.map((b) => {
             const style = flagStyle(b.flag);
             const current = b.ageHours <= FLAG_CURRENT_HOURS;
-            const jelly = parseJellyfish(b.jellyfish);
+            const jellies = parseJellyfish(b.jellyfish);
             return (
               <li
                 key={b.code}
                 className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4"
               >
-                <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                   <span className="font-medium text-[var(--ink)]">{b.name}</span>
+                  {/* Una bandera vella s'ensenya apagada: el color a tota
+                      intensitat diu «ara mateix» i no ho és. */}
                   <span
-                    className="shrink-0 rounded px-2 py-0.5 text-xs font-semibold"
-                    style={{
-                      background: style.color,
-                      color: style.ink,
-                      // Una bandera vieja se enseña apagada: el color a toda
-                      // intensidad dice «ara mateix» y no lo es.
-                      opacity: current ? 1 : 0.55,
-                    }}
+                    className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[var(--ink-2)]"
+                    style={{ opacity: current ? 1 : 0.55 }}
                   >
+                    <FlagMark flag={b.flag} size={20} />
                     {style.label}
                   </span>
                 </div>
@@ -65,12 +63,12 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
                   ].filter(Boolean).join(' · ')}
                 </p>
 
-                {jelly && (
-                  <p className="mt-1.5 text-xs" style={{ color: 'var(--warn)' }}>
-                    Meduses: <span className="italic">{jelly.species}</span>
-                    {jelly.amount && `, ${jelly.amount}`}
-                    {jelly.size && `, de ${jelly.size} cm`}
-                  </p>
+                {jellies.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {jellies.map((j) => (
+                      <JellyfishMark key={j.species} species={j.species} amount={j.amount} size={j.size} />
+                    ))}
+                  </div>
                 )}
 
                 <p className="mt-2 text-[11px] text-[var(--muted)]">

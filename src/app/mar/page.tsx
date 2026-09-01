@@ -6,6 +6,7 @@ import {
   allBeaches, douglas, flagStyle, parseJellyfish, seaPoints,
   FLAG_SHOW_HOURS,
 } from '@/lib/sea';
+import { FlagLegend, FlagMark, JellyfishMark } from '@/components/SeaMarks';
 
 /**
  * El mar: banderas de playa y estado del agua.
@@ -126,6 +127,12 @@ export default async function MarPage() {
         </p>
       </header>
 
+      {recent.length > 0 && (
+        <section className="mb-6 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] px-4 py-3">
+          <FlagLegend flags={recent.map((b) => b.flag)} />
+        </section>
+      )}
+
       {/* ── Banderas ── */}
       {[...byCoast].map(([coast, list]) => (
         <section key={coast} className="mb-6">
@@ -135,13 +142,13 @@ export default async function MarPage() {
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {list.map((b) => {
               const style = flagStyle(b.flag);
-              const j = parseJellyfish(b.jellyfish);
+              const jellies = parseJellyfish(b.jellyfish);
               return (
                 <li
                   key={b.code}
                   className="rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2.5"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="min-w-0">
                       <span className="block truncate text-sm text-[var(--ink)]">{b.name}</span>
                       <span className="block truncate text-xs text-[var(--muted)]">
@@ -149,9 +156,10 @@ export default async function MarPage() {
                       </span>
                     </span>
                     <span
-                      className="shrink-0 rounded px-2 py-0.5 text-xs font-semibold"
-                      style={{ background: style.color, color: style.ink, opacity: b.ageHours <= 3 ? 1 : 0.55 }}
+                      className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[var(--ink-2)]"
+                      style={{ opacity: b.ageHours <= 3 ? 1 : 0.55 }}
                     >
+                      <FlagMark flag={b.flag} size={20} />
                       {style.label}
                     </span>
                   </div>
@@ -160,11 +168,12 @@ export default async function MarPage() {
                       .filter(Boolean).join(' · ')}
                     {' · '}{ago(b.ageHours * 60)}
                   </p>
-                  {j && (
-                    <p className="mt-0.5 text-[11px]" style={{ color: 'var(--warn)' }}>
-                      <span className="italic">{j.species}</span>
-                      {j.amount && `, ${j.amount}`}
-                    </p>
+                  {jellies.length > 0 && (
+                    <div className="mt-1.5 space-y-1">
+                      {jellies.map((j) => (
+                        <JellyfishMark key={j.species} species={j.species} amount={j.amount} />
+                      ))}
+                    </div>
                   )}
                 </li>
               );
@@ -237,9 +246,10 @@ export default async function MarPage() {
           tranquil·la o una on no s&apos;hi ha d&apos;entrar, segons el fons.
         </p>
         <p>
-          Les <strong className="font-medium text-[var(--ink)]">meduses</strong> surten amb el nom
-          científic, com les reporten els socorristes. És el nom que permet
-          consultar si l&apos;espècie pica; els populars canvien d&apos;una cala a l&apos;altra.
+          Les <strong className="font-medium text-[var(--ink)]">meduses</strong> les reporten els
+          socorristes amb el nom científic. Al costat hi va el nom corrent i què
+          se&apos;n sap de la picada; una espècie que no tinguem fitxada surt com a
+          desconeguda i s&apos;ha de tractar com si piqués.
         </p>
         <p className="text-[var(--muted)]">
           {data.source}. En total hi ha {data.list.length} platges al registre; les

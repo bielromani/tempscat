@@ -690,7 +690,7 @@ municipios manda la población.
 Queda pendiente el filtro **dentro** de las páginas temáticas, que es otra cosa:
 ahí no se busca, se acota una lista larga.
 
-### Que las temáticas expliquen más y sean más visuales
+### Que las temáticas expliquen más y sean más visuales · 🟡 `/mar` hecho
 
 `/bolets`, `/senderisme` y `/nàutica` son tablas correctas y áridas. En `/mar`,
 en concreto: **una bandera dibujada de su color** en vez de una etiqueta de

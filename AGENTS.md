@@ -291,4 +291,8 @@ cuota para exactamente la misma información.
   `div`, todos los índices quedaban corridos uno y no se enseñaba ningún panel. Los paneles son
   `<section>` por eso. Y `.tabs > label` no casaba nunca porque las etiquetas viven dentro del
   `.tablist`, no colgando de `.tabs`.
+- **El camp de meduses porta diverses espècies separades per `;`.** Cada una és
+  `espècie,abundància,talla`. Llegint només fins a la primera coma, a Castell-Platja d'Aro
+  —que en reporta tres— sortia la inofensiva i **quedava amagada la que pica**. `parseJellyfish()`
+  retorna la llista sencera, i una espècie que no consti a la taula es tracta com si piqués.
 
