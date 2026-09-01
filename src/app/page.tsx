@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SECTIONS } from '@/lib/nav';
 import { allComarques, buildSummary } from '@/lib/territory';
 
 export const revalidate = 3600;
@@ -45,30 +46,35 @@ export default function Home() {
         ))}
       </section>
 
-      {/* Las dos páginas transversales, antes del listado: son las que dan una
-          razón para volver, y enterradas al final del pie no las ve nadie. */}
-      <section className="mb-10 grid gap-3 sm:grid-cols-2">
-        <Link
-          href="/radar"
-          className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4 no-underline hover:border-[var(--accent)]"
-        >
-          <p className="font-semibold text-[var(--ink)]">On plou ara mateix</p>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Radar de precipitació de l&apos;última hora sobre els límits comarcals,
-            amb el que un radar pot i no pot veure.
-          </p>
-        </Link>
-        <Link
-          href="/ranquings"
-          className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4 no-underline hover:border-[var(--accent)]"
-        >
-          <p className="font-semibold text-[var(--ink)]">Els extrems d&apos;avui</p>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            El poble més fred i el més càlid, les màximes i mínimes del dia i on
-            ha plogut més.
-          </p>
-        </Link>
-      </section>
+      {/*
+        * Totes les seccions, explicades.
+        *
+        * Abans n'hi havia dues aquí i quinze amagades a la barra de dalt.
+        * Havent tret la barra, la portada és qui ha d'ensenyar què hi ha —i
+        * ensenyar-ho amb una frase de què hi trobaràs, no amb una paraula
+        * solta, que és el que fa que ningú entri a «Bolets» sense saber què
+        * és.
+        *
+        * La llista surt de `src/lib/nav.ts`, la mateixa que fa servir el peu.
+        */}
+      {SECTIONS.map((g) => (
+        <section key={g.title} className="mb-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">{g.title}</h2>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {g.links.map((l) => (
+              <li key={l.href}>
+                <Link
+                  href={l.href}
+                  className="block h-full rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4 no-underline hover:border-[var(--accent)]"
+                >
+                  <p className="font-semibold text-[var(--ink)]">{l.label}</p>
+                  {l.blurb && <p className="mt-1 text-sm text-[var(--muted)]">{l.blurb}</p>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
 
       <h2 className="mb-3 text-lg font-semibold tracking-tight">Comarques</h2>
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

@@ -636,9 +636,22 @@ nombre —al menos en las que quepa— o resolverlo de otra manera.
 
 ### El diseño general
 
-- **El menú principal con scroll horizontal no tiene sentido.** Son doce
-  enlaces en una barra que se desborda. Hay que rehacerlo — y el pie también,
-  que hoy es casi inexistente.
+- ~~**El menú principal con scroll horizontal**~~ · ✅ hecho. Eran **quince**
+  enlaces en una barra que se desbordaba, y una barra que se arrastra no es
+  navegación: es un cajón donde las cosas desaparecen — a partir del quinto
+  nadie las encuentra, y en el móvil ni se sospecha que están.
+
+  Ahora la cabecera lleva **cuatro**, los que se consultan a diario, y si la
+  ventana es estrecha la fila se parte en dos líneas en vez de desplazarse.
+  Medido en un móvil de 375 px: los cinco enlaces caben en una sola línea y no
+  hay desbordamiento horizontal en ninguna parte.
+
+  El resto vive en el **pie**, agrupado en cuatro columnas, y en la **portada**,
+  explicado con una frase cada uno — que es lo que hace que alguien entre en
+  «Bolets» sabiendo qué va a encontrar.
+
+  Y las tres listas salen ahora de un solo sitio, `src/lib/nav.ts`: antes cada
+  una iba a mano y añadir una página significaba acordarse de tres ficheros.
 - **El mapa de comarcas ocupa más de una pantalla de ordenador.** Nació para
   `/mapa`, donde es el contenido; en una ficha de comarca tiene que ser mucho
   más pequeño.
