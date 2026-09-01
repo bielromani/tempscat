@@ -1,6 +1,7 @@
 import 'server-only';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { get as httpsGet } from 'node:https';
 
 /**
  * De dónde lee la aplicación los datos vivos.
@@ -26,12 +27,24 @@ import { join } from 'node:path';
  *
  * Con `BLOB_BASE_URL` se lee por HTTP del almacén. Es lo que pasa en Vercel.
  *
- * ## Por qué no se usa la caché de `fetch` de Next
+ * ## Por qué no se usa `fetch`, ni siquiera para pedirlo
  *
- * Sería lo natural, pero **su límite por entrada son 2 MB y el trozo de
- * predicción más grande ocupa 2,03**. Justo por encima, y de los que fallan sin
- * avisar: la entrada no se guarda, se vuelve a pedir en cada petición y nadie
- * ve un error. Se memoriza aquí, en el proceso, con un plazo por fuente.
+ * La primera versión usaba `fetch(..., { cache: 'no-store' })`, y el resultado
+ * fue **cero páginas estáticas**. Next instrumenta `globalThis.fetch`, y un
+ * `no-store` durante la generación significa «esto no se puede prerenderizar»:
+ * las 607 rutas pasaron a servirse en cada petición. El build no falló. Tardó
+ * trece segundos, dijo que todo bien, y no dejó ni un solo HTML.
+ *
+ * Las alternativas dentro de `fetch` tampoco valen. `force-cache` congela el
+ * dato para siempre, y `next: { revalidate }` arrastra el plazo de la página al
+ * del fichero — un `revalidate` de cinco minutos en la observación convertiría
+ * las 4.293 fichas en páginas que se rehacen cada cinco minutos. Y encima el
+ * límite de la caché de datos son 2 MB por entrada, y el trozo de predicción
+ * más grande ocupa 2,03: justo por encima, y de los que fallan callando.
+ *
+ * Así que se pide con `node:https` directamente. Next no ve la petición, no
+ * decide nada por nosotros, y la única caché es la de aquí abajo — que es la
+ * que queremos, con un plazo por fuente y una política de fallo escrita.
  *
  * ## Y si el almacén falla, se sirve lo viejo
  *
@@ -127,14 +140,56 @@ function fromDisk<T>(name: string): Snapshot<T> | null {
 
 // ── Modo almacén ────────────────────────────────────────────────────────────
 
+/**
+ * Una descarga, sin pasar por `fetch`.
+ *
+ * Devuelve `null` en un 404 —esa fuente aún no se ha ingerido nunca, que es un
+ * estado normal— y lanza en cualquier otro caso, para que la política de
+ * «sirve la copia vieja» de arriba pueda decidir.
+ */
+function download(url: string): Promise<Uint8Array | null> {
+  return new Promise((resolve, reject) => {
+    const req = httpsGet(url, (res) => {
+      const status = res.statusCode ?? 0;
+      if (status === 404) { res.resume(); resolve(null); return; }
+      if (status < 200 || status >= 300) {
+        res.resume();
+        reject(new Error(`HTTP ${status}`));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => resolve(new Uint8Array(Buffer.concat(chunks))));
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    // Sin esto, un almacén que acepta la conexión y luego se queda callado
+    // deja la generación de la página colgada para siempre.
+    req.setTimeout(30_000, () => req.destroy(new Error('temps espera esgotat')));
+  });
+}
+
+/**
+ * Con reintentos, y esto no es prudencia genérica.
+ *
+ * Sin ellos, la primera generación completa contra el almacén perdió un trozo
+ * de predicción por un tiempo de espera agotado —siete procesos de build
+ * tirando de ficheros de un mega a la vez— y **las páginas de esa comarca
+ * salieron sin predicción**. El build acabó diciendo que todo estaba bien.
+ */
 async function fromRemote<T>(name: string): Promise<Snapshot<T> | null> {
-  const res = await fetch(`${REMOTE}/${name}.json`, { cache: 'no-store' });
-  if (!res.ok) {
-    // 404 es una respuesta legítima: esa fuente aún no se ha ingerido nunca.
-    if (res.status === 404) return null;
-    throw new Error(`${res.status} en ${name}`);
+  let last: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const bytes = await download(`${REMOTE}/${name}.json`);
+      if (!bytes) return null;   // 404: esa fuente aún no existe
+      return JSON.parse(new TextDecoder().decode(bytes)) as Snapshot<T>;
+    } catch (err) {
+      last = err;
+      if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 500));
+    }
   }
-  return await res.json() as Snapshot<T>;
+  throw last;
 }
 
 // ── La única puerta ─────────────────────────────────────────────────────────
@@ -166,8 +221,20 @@ export async function snapshot<T>(name: string): Promise<Snapshot<T> | null> {
         console.warn(`cache-store: ${name} no s'ha pogut refrescar (${err}); se serveix la còpia anterior`);
         return cached.snap;
       }
-      console.error(`cache-store: ${name} il·legible i sense còpia — ${err}`);
-      return null;
+      /*
+       * Y si no hay copia, **se rompe**.
+       *
+       * Devolver null aquí era lo cómodo y estaba mal: una página se
+       * renderizaba entera, sin predicción y sin decirlo, y quedaba guardada
+       * así. Hay que distinguir dos cosas que no se parecen en nada:
+       *
+       *  · Un 404 —esa fuente no se ha ingerido nunca— sí devuelve null, y la
+       *    página lo dice: «encara no hi ha observació disponible».
+       *  · No poder llegar al almacén es una avería. Al generar, revienta el
+       *    build, que es lo que queremos; en producción, ISR sigue sirviendo la
+       *    versión anterior de la página en vez de sustituirla por una vacía.
+       */
+      throw new Error(`cache-store: ${name} no s'ha pogut llegir de l'emmagatzematge — ${err}`);
     })
     .finally(() => { inflight.delete(name); });
 
@@ -194,7 +261,9 @@ export async function blob(path: string): Promise<Uint8Array | null> {
     const p = join(LOCAL, path);
     return existsSync(p) ? new Uint8Array(readFileSync(p)) : null;
   }
-  const res = await fetch(`${REMOTE}/${path}`, { cache: 'no-store' });
-  if (!res.ok) return null;
-  return new Uint8Array(await res.arrayBuffer());
+  try {
+    return await download(`${REMOTE}/${path}`);
+  } catch {
+    return null;
+  }
 }
