@@ -1,0 +1,22 @@
+name: Preparar l'entorn
+description: Node i dependències. El codi ja hi ha de ser.
+
+# El `checkout` NO pot anar aquí. Una acció local es carrega des del disc del
+# servidor, així que el repositori ha d'estar-hi abans de poder-la usar: posar
+# el checkout dins seu és demanar-li que es trobi a si mateixa. Cada workflow fa
+# el checkout primer i després crida això.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        # La mateixa versió que en local. Node executa el TypeScript directament,
+        # sense pas de compilació, i això depèn de la versió.
+        node-version: '24'
+        cache: npm
+
+    # `npm ci` i no `npm install`: instal·la exactament el que diu el
+    # package-lock.json i falla si no hi encaixa. En una execució automàtica no
+    # hi ha ningú per adonar-se que ha entrat una versió nova d'alguna cosa.
+    - run: npm ci
+      shell: bash

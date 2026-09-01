@@ -35,7 +35,7 @@
 import { soql } from '../lib/socrata.ts';
 import { utm31ToLatLon } from '../lib/geo.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncQuota, writeSnapshot,
 } from '../lib/store.ts';
 
 const RESERVOIRS = 'vjx7-6kcp';
@@ -126,6 +126,9 @@ function stamp(r: Row | undefined): string {
 }
 
 async function main() {
+  // El comptador viu al magatzem: sense això, cada execució automàtica
+  // començaria el dia de zero. Ha d'anar abans de construir el guardià.
+  await syncQuota();
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
   let calls = 0;

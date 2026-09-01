@@ -1,0 +1,43 @@
+name: Rècords, aire i aigua
+
+# Un cop al dia, de matinada, i cada font per la seva raó:
+#
+#  · **Rècords i normals** (XEMA). El dataset diari porta dos dies de retard,
+#    així que demanar-lo més sovint no avança res.
+#  · **Qualitat de l'aire i pol·len** (CAMS). Té comptador propi a Open-Meteo,
+#    i es demana per cel·la de 0,1° — 372 en comptes de 3.190 punts.
+#  · **Aire mesurat** (XVPCA). Es publica un cop al dia de matinada i porta ~20 h
+#    de retard: és la mesura d'*ahir*, i així es presenta.
+#  · **Embassaments i cabals** (ACA). Fresc del dia, cap a les 04:30.
+#
+# Va després de la predicció del nivell C perquè cap d'aquestes toca el
+# comptador de predicció, però sí que competeixen pel temps del servidor.
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 08:00 d'aquí a l'estiu
+  workflow_dispatch:
+
+concurrency:
+  group: diari
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      BLOB_BASE_URL: ${{ vars.BLOB_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      # Cadascuna amb `always()`: són quatre fonts independents i que una
+      # caigui no és motiu per deixar el web sense les altres tres.
+      - run: npm run worker:history
+      - run: npm run worker:air
+        if: always()
+      - run: npm run worker:air-stations
+        if: always()
+      - run: npm run worker:water
+        if: always()

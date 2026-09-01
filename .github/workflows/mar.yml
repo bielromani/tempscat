@@ -1,0 +1,28 @@
+name: Mar i platges
+
+# Cada mitja hora, i no cada deu minuts com l'observació.
+#
+# Les banderes les posen persones quan canvia alguna cosa, i el model marí és
+# horari: demanar-ho més sovint no porta cap dada nova. A més consumeix el
+# comptador marí d'Open-Meteo —20 unitats per volta—, i cada mitja hora són
+# 960 al dia, prop del 10 % del sostre.
+on:
+  schedule:
+    - cron: '0,30 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: mar
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      BLOB_BASE_URL: ${{ vars.BLOB_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: npm run worker:sea

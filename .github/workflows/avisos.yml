@@ -1,0 +1,29 @@
+name: Avisos oficials
+
+# Cada 15 minuts, i és la cadència que més es nota.
+#
+# La pàgina d'avisos es revalida cada cinc minuts perquè, en un episodi, un
+# quart d'hora de retard en la pàgina que es consulta *perquè* hi ha un avís
+# són quinze minuts de més. No té sentit revalidar tan sovint si la ingesta va
+# molt més lenta.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: avisos
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      BLOB_BASE_URL: ${{ vars.BLOB_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: npm run worker:warnings

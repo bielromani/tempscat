@@ -38,7 +38,7 @@
 import { fetchWithRetry } from '../lib/http.ts';
 import { soql } from '../lib/socrata.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncQuota, writeSnapshot,
 } from '../lib/store.ts';
 
 const BEACHES = '4baz-cjv2';
@@ -167,6 +167,9 @@ function seaPointsFrom(beaches: Beach[]): Array<{ id: string; lat: number; lon: 
 }
 
 async function main() {
+  // El comptador viu al magatzem: sense això, cada execució automàtica
+  // començaria el dia de zero. Ha d'anar abans de construir el guardià.
+  await syncQuota();
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 

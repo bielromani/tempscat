@@ -1,0 +1,28 @@
+name: Comprovacions
+
+# Els dos projectes de TypeScript, el lint i les proves. En cada canvi.
+#
+# Importa més del que sembla en aquest repositori: `scripts/` i `src/` es
+# comproven per separat perquè Node executa el TypeScript dels scripts esborrant
+# els tipus, sense transformar-los, i això prohibeix construccions que la
+# configuració de l'aplicació sí que accepta.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  comprovar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      # Que compili sense dades és una comprovació de veritat: en un desplegament
+      # nou el magatzem pot ser buit, i el lloc ha de sortir igualment amb el
+      # territori sencer i cada buit dit en veu alta.
+      - run: npm run build

@@ -1,0 +1,39 @@
+name: Observació i radar
+
+# Cada 10 minuts.
+#
+# Les estacions de la XEMA prenen lectura cada mitja hora i el portal les
+# publica amb 45-65 minuts de retard. Demanar-ho cada deu minuts sobremostreja
+# a propòsit: el retard és variable, i el que es guanya és que la dada aparegui
+# al web tan aviat com existeixi, no fins a mitja hora després.
+#
+# GitHub avisa que les tasques programades es poden endarrerir en hores de
+# càrrega. Aquí no importa: la dada ja arriba amb tres quarts d'hora de retard i
+# cada pàgina diu l'hora exacta de la lectura.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+# Si una volta encara corre, la següent espera. Dues execucions alhora no
+# trencarien res —escriuen els mateixos fitxers— però gastarien el doble per
+# publicar dues vegades la mateixa dada.
+concurrency:
+  group: observacio
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      BLOB_BASE_URL: ${{ vars.BLOB_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: npm run worker:xema
+      - run: npm run worker:radar
+        # El radar no ha de tombar l'observació: són dues fonts independents i
+        # la del Meteocat és la que sosté les 4.293 fitxes.
+        if: always()

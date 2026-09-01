@@ -37,7 +37,7 @@ import { join } from 'node:path';
 import { fetchWithRetry, sleep } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import {
-  CACHE, DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard, publish, readSnapshot, recordFreshness, writeSnapshot,
+  CACHE, DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard, publish, publishQuota, readSnapshot, recordFreshness, syncQuota, writeSnapshot,
 } from '../lib/store.ts';
 import {
   FORECAST_INDEX, forecastShard, type ForecastIndex,
@@ -284,6 +284,9 @@ async function fetchBatch(
 }
 
 async function main() {
+  // El comptador viu al magatzem: sense això, cada execució automàtica
+  // començaria el dia de zero. Ha d'anar abans de construir el guardià.
+  await syncQuota();
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 
@@ -426,6 +429,9 @@ async function main() {
         const res = await fetchBatch(chunk, st.spec);
         for (const [id, fc] of res) { absorb(id, st.spec.model, fc); ok++; }
         quota.spend('open-meteo', chunkCost);
+        // Després de cada lot, no només al final: si aquesta execució mor ara
+        // mateix, el que s'ha gastat ja consta.
+        await publishQuota();
       } catch (err) {
         failed += chunk.length;
         retryQueue.push({ spec: st.spec, points: chunk });
@@ -459,6 +465,7 @@ async function main() {
         const res = await fetchBatch(item.points, item.spec);
         for (const [id, fc] of res) { absorb(id, item.spec.model, fc); ok++; failed--; }
         quota.spend('open-meteo', callWeight(item.spec.variables.length, FORECAST_DAYS, item.points.length));
+        await publishQuota();
         console.log(`  recuperat: ${item.spec.model} (${res.size} punts)`);
       } catch (err) {
         console.warn(`  irrecuperable: ${item.spec.model} — ${String(err).slice(0, 90)}`);

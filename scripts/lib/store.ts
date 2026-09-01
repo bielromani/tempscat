@@ -194,6 +194,88 @@ export function readFreshness(): Record<string, FreshnessEntry> {
   return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : {};
 }
 
+/**
+ * Publica **solo** el contador, ahora mismo.
+ *
+ * `publish()` sube todo al final, y para casi todos los workers eso basta. Para
+ * el de predicción no: dura cuarenta minutos y gasta miles de unidades, así que
+ * si lo matan a media ejecución —un tiempo de espera del servidor de
+ * integración, una cancelación— el gasto queda hecho en Open-Meteo y **sin
+ * registrar en ninguna parte**.
+ *
+ * Comprobado en real: dos ejecuciones interrumpidas gastaron 760 unidades que
+ * el almacén no llegó a saber nunca. La siguiente vuelta habría creído tener
+ * más presupuesto del que tenía.
+ *
+ * Se llama después de cada lote. Es un PUT de 300 bytes.
+ */
+export async function publishQuota(): Promise<void> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+  const p = join(CACHE, 'quota.json');
+  if (!existsSync(p)) return;
+  try {
+    const { put } = await import('@vercel/blob');
+    await put('quota.json', readFileSync(p), {
+      access: 'public', addRandomSuffix: false, allowOverwrite: true,
+      contentType: 'application/json', cacheControlMaxAge: 0,
+    });
+    pending.delete('quota.json');
+  } catch {
+    // Que no puje el comptador no ha d'aturar la ingesta: al final de tot
+    // `publish()` ho torna a intentar.
+  }
+}
+
+/**
+ * Se trae el contador de cuota del almacén antes de empezar.
+ *
+ * ## Por qué esto no es opcional
+ *
+ * `QuotaGuard` lleva la cuenta en `data/cache/quota.json`. En una máquina que
+ * es siempre la misma, eso basta. **En un servidor de integración cada
+ * ejecución arranca con un contenedor limpio**, así que el fichero no existe y
+ * el guardián cree que no se ha gastado nada en todo el día.
+ *
+ * O sea: justo donde el control importa —ejecuciones automáticas, sin nadie
+ * mirando— era decorativo. Y el síntoma no habría sido un error, sino un
+ * `429 Hourly API request limit exceeded` a media tarde y media Catalunya sin
+ * predicción hasta el día siguiente.
+ *
+ * Hay que llamarlo **antes** de construir el guardián, porque su constructor
+ * lee el fichero una sola vez.
+ *
+ * ## El contador puede llegar con un minuto de retraso, y da igual
+ *
+ * El almacén va detrás de un CDN que cachea un minuto largo — medido: hasta
+ * unos tres, con `X-Vercel-Cache: HIT` y sirviendo la copia anterior. Un
+ * parámetro anticaché en la URL **no lo esquiva**.
+ *
+ * No importa por cómo están repartidas las horas: las vueltas de predicción,
+ * que son las únicas que gastan de verdad, van a hora y media unas de otras.
+ * Si algún día se juntaran más, esto dejaría de ser un detalle y habría que
+ * sacar el contador del almacén.
+ */
+export async function syncQuota(): Promise<void> {
+  const base = process.env.BLOB_BASE_URL?.replace(/[/]$/, '');
+  if (!base) return;   // en local el fichero ya está donde toca
+
+  ensure();
+  try {
+    const res = await fetch(`${base}/quota.json`);
+    if (res.status === 404) return;   // primer día: aún no hay contador
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    writeFileSync(join(CACHE, 'quota.json'), await res.text(), 'utf8');
+  } catch (err) {
+    /*
+     * Si no se puede leer, **no se sigue como si nada**.
+     *
+     * Arrancar con el contador a cero es la manera de gastar la cuota de un mes
+     * en una tarde. Vale más que el worker no corra esta vuelta.
+     */
+    throw new Error(`No s'ha pogut llegir el comptador de quota: ${err}`);
+  }
+}
+
 // ── Control de cuota ────────────────────────────────────────────────────────
 
 interface Spend { at: number; units: number }
@@ -251,6 +333,9 @@ export class QuotaGuard {
     list.push({ at: Date.now(), units });
     this.state.recent[source] = this.prune(list);
     writeFileSync(this.path, JSON.stringify(this.state), 'utf8');
+    // El contador viaja con el resto. Ver `syncQuota()`: sin esto, cada
+    // ejecución en un servidor de integración empezaría el día de cero.
+    pending.add('quota.json');
   }
 
   // ── Límite por hora ───────────────────────────────────────────────────────

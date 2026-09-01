@@ -89,6 +89,23 @@ desarrollas. Tres cosas que no son evidentes:
   dejar la web en blanco; un dato de hace veinte minutos con su hora bien puesta
   sigue siendo un dato.
 
+## La ingesta automática
+
+Los workers corren en GitHub Actions, en `.github/workflows/`. El reparto y el
+porqué de cada hora están en `prediccio.yml`, que es el único que gasta cuota de
+verdad: **A dos veces al día, B y C una** — 8.126 unidades diarias, el 81 % del
+techo mensual.
+
+Dos cosas que no son evidentes y que cuestan caro descubrir:
+
+- **El contador de cuota vive en el almacén, no en el disco.** Cada ejecución
+  arranca con un contenedor limpio, así que sin `syncQuota()` el guardián creería
+  cada vez que no se ha gastado nada. El síntoma no sería un error: sería un
+  `429` a media tarde y media Catalunya sin predicción hasta el día siguiente.
+- **El worker de predicción publica el contador después de cada lote**, no solo
+  al final. Dura cuarenta minutos; si lo matan a la mitad, el gasto ya está hecho
+  en Open-Meteo y sin `publishQuota()` no constaría en ninguna parte.
+
 ## Comandos
 
 ```bash

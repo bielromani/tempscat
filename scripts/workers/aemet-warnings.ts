@@ -22,7 +22,7 @@ import { readTar } from '../lib/tar.ts';
 import { parseCap, type CapAlert, type CapLevel } from '../lib/cap.ts';
 import { pointInRing, ringBbox } from '../lib/geo.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncQuota, writeSnapshot,
 } from '../lib/store.ts';
 
 /** Código de área de AEMET Meteoalerta para Catalunya. Verificado. */
@@ -53,6 +53,9 @@ async function main() {
     process.exit(1);
   }
 
+  // El comptador viu al magatzem: sense això, cada execució automàtica
+  // començaria el dia de zero. Ha d'anar abans de construir el guardià.
+  await syncQuota();
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 

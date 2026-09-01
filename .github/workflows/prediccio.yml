@@ -1,0 +1,89 @@
+name: Predicció
+
+# ── El pressupost, que és qui decideix aquest fitxer ────────────────────────
+#
+# Open-Meteo factura **ubicacions**, no peticions, i el sostre que apreta no és
+# el diari (10.000) sinó el **mensual: 300.000**, que surt a 10.000/dia de
+# mitjana. Amb els punts d'avui i el repartiment de models per nivell:
+#
+#     A  350 punts × 3 models  = 1.365 unitats per volta
+#     B  1.679 punts × 1 model = 3.190 unitats per volta
+#     C  1.161 punts × 1 model = 2.206 unitats per volta
+#
+# D'aquí surten les quatre hores de sota: **A dues vegades al dia, B i C una**.
+#
+#     2 × 1.365 + 3.190 + 2.206 = 8.126/dia = 244.000/mes = 81 % del sostre
+#
+# El 19 % que queda no és marge de sobres: és el que permet un `--fill` després
+# d'un tall de xarxa sense passar-se de la ratlla.
+#
+# **Per què A i no B o C més sovint.** Els 350 punts del nivell A cobreixen les
+# ubicacions més consultades, i són els únics que reben tres models —el consens
+# entre ells és el que fa que la predicció valgui alguna cosa. Refrescar 1.679
+# punts de nivell B dues vegades al dia costaria el doble i canviaria molt poc:
+# una predicció a set dies no es mou gaire en dotze hores.
+#
+# ── Per què no van totes de matinada ────────────────────────────────────────
+#
+# Hi ha un límit **per hora** de 5.000 unitats, i B (3.190) més C (2.206) en
+# sumen 5.396. Junts en la mateixa hora, el worker es quedaria esperant que
+# caduqui la finestra. Per això B i C van amb hora i mitja de separació.
+#
+# Les hores són UTC: a l'estiu, dues més aquí.
+on:
+  schedule:
+    - cron: '0 2 * * *'     # nivell B · 04:00 d'aquí a l'estiu
+    - cron: '30 3 * * *'    # nivell C · 05:30
+    - cron: '0 5 * * *'     # nivell A · 07:00, per al matí
+    - cron: '0 17 * * *'    # nivell A · 19:00, per a l'endemà
+  workflow_dispatch:
+    inputs:
+      tiers:
+        description: 'Nivells a refrescar'
+        default: 'A'
+        type: choice
+        options: ['A', 'B', 'C', 'A,B,C']
+      fill:
+        description: 'Només els punts que falten (barat)'
+        type: boolean
+        default: false
+
+# Aquí sí que importa de debò: dues execucions alhora es gastarien la quota
+# dues vegades per demanar exactament el mateix.
+concurrency:
+  group: prediccio
+  cancel-in-progress: false
+
+jobs:
+  refresc:
+    runs-on: ubuntu-latest
+    # El nivell B són nou lots amb pauses derivades del cost. Amb marge.
+    timeout-minutes: 90
+    env:
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      BLOB_BASE_URL: ${{ vars.BLOB_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Quins nivells toquen
+        id: pla
+        run: |
+          case "${{ github.event.schedule }}" in
+            '0 2 * * *')  tiers=B ;;
+            '30 3 * * *') tiers=C ;;
+            *)            tiers=A ;;
+          esac
+          # En execució manual mana el que s'hagi triat.
+          if [ -n "${{ inputs.tiers }}" ]; then tiers="${{ inputs.tiers }}"; fi
+          echo "tiers=$tiers" >> "$GITHUB_OUTPUT"
+          echo "Refrescant el nivell $tiers"
+
+      - run: npm run worker:forecast -- --tiers=${{ steps.pla.outputs.tiers }} ${{ inputs.fill && '--fill' || '' }}
+
+      # Si algun lot s'ha perdut per la xarxa, això recupera **només** els punts
+      # que falten. Rellançar el nivell sencer costaria milers d'unitats per
+      # recuperar-ne dos-cents.
+      - name: Recuperar el que hagi caigut
+        if: success()
+        run: npm run worker:forecast -- --tiers=${{ steps.pla.outputs.tiers }} --fill
