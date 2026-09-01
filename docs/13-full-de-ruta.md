@@ -38,9 +38,10 @@ propias rutas (`/mapa`, `/tauler`), cargan su JavaScript solo ahí, y no aparece
 en ningún sitemap de contenido territorial. El principio no se relaja: se le pone
 frontera.
 
-La prueba de que la frontera está bien puesta es medible: si la página de
-Montblanc sigue pesando 38 KB por la red y sigue sirviéndose sin hidratación
-después de que exista `/mapa`, la frontera aguanta.
+La prueba de que la frontera está bien puesta es medible, y la medida es la del
+punto 11: **21 KB de HTML y ni un `'use client'`**. Si después de que exista
+`/mapa` la página de Montblanc sigue igual, la frontera aguanta. (Lo que decía
+esta línea antes —38 KB y sin hidratación— era falso en las dos mitades.)
 
 ---
 
