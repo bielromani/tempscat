@@ -162,22 +162,61 @@ Tres detalles que costarian tiempo a quien lo repita:
   que mide mas que la distancia. Una de trafico y una de fondo a un kilometro dan
   NO2 que no se parecen, y las dos estan bien.
 
-### 4. Mar: temperatura del agua y oleaje
+### 4. El mar · hecho, y con una fuente que no estaba en el plan
 
-`marine-api.open-meteo.com`, verificado. Devuelve `sea_surface_temperature`,
-`wave_height`, `wave_period`, `wave_direction` y `swell_wave_height`.
+`/mar` y un bloque en cada municipio con playa. Dos fuentes, y la segunda es el
+hallazgo:
 
-580 km de costa y «quina temperatura té l'aigua» es *la* búsqueda de verano. Solo
-se pide en los puntos costeros, no en los 3.190.
+**Las banderas de playa se publican, y en vivo.** Dataset `4baz-cjv2`: 325
+playas con bandera, motivo, estado del mar, transparencia del agua, temperatura
+y **medusas con especie y abundancia**. Al inspeccionarlo, la última fila tenia
+un minuto. Las ponen los socorristas — no es un modelo, es una persona mirando el
+agua — y contesta «puc banyar-me» mucho mejor que ninguna predicción.
 
-**Antes de activarlo hay que confirmar si tiene contador propio.** La de calidad
-del aire lo tiene y es lo que la hizo viable; si la marina comparte contador con
-la de predicción —que es la que va justa—, hay que presupuestarla como un modelo
-más y decidir qué se quita. La única forma de confirmarlo es medir: lanzar un
-refresco pequeño y vigilar el 429.
+**El modelo marino** de Open-Meteo da temperatura del agua, altura, período y
+dirección de ola en toda la costa, también de noche y también en enero.
 
-Con esto entra gratis el bloque de **condiciones náuticas**: oleaje, período y
-viento son las tres cifras que decide un surfista o un patrón.
+#### La cuestión de la cuota, resuelta con números
+
+Aquí estaba escrito que había que decidir si compartía contador con la
+predicción. **No hacía falta ninguna decisión**: no se piden los 3.190 puntos.
+Los puntos de mar se derivan de las propias playas —325 coordenadas reales
+ordenadas de norte a sur, una cada quince kilómetros, empujada cinco kilómetros
+mar adentro por la perpendicular al tramo— y salen **20 puntos**. Con 5 variables
+y 3 días los dos factores de la fórmula valen 1, así que el coste es 20 unidades
+por refresco. Aunque compartiera contador, es el 0,2 % del techo diario.
+
+De las dos perpendiculares se toma la que apunta al **este**, porque en Catalunya
+el mar siempre está a levante. Es una regla que no vale en cualquier costa y aquí
+es exacta. Los puntos que caen en tierra devuelven la serie a null y se descartan
+solos: los 20 dieron mar.
+
+#### Lo que hay que vigilar: una bandera caduca
+
+Es el riesgo más serio de todo el sitio. Fuera del horario de servicio nadie
+actualiza nada y la última fila se queda ahí indefinidamente. **Publicar una verde
+de anteayer como si fuera de ahora es el peor fallo posible**, porque alguien se
+mete al agua por lo que dice una web.
+
+Dos umbrales, no uno: por debajo de **3 h** la bandera se presenta vigente, hasta
+**12 h** se enseña apagada y con la hora del parte delante, y más allá no se
+enseña. La página lo explica en vez de esconderlo.
+
+#### Rarezas del dataset de playas
+
+- **`coordenada_x` es la latitud y `coordenada_y` la longitud.** Al revés de lo
+  que dicen los nombres: sin darse cuenta, todas las playas caen en Somalia.
+- **`estat_data` va en DD/MM/YYYY con una T pegada**: `01/09/2026T08:04:01.000Z`.
+  No es ISO y `Date.parse` lo lee mal.
+- Es un histórico de 231.530 filas; el estado actual es la última fila de cada
+  playa, y hay que pedirlo por `:updated_at` porque `estat_data` es texto.
+- Las medusas van con el nombre científico y **no se traduce**: «Pelagia
+  noctiluca» es lo que permite buscar si pica, y los nombres populares cambian de
+  una cala a otra.
+- El modelo habla con **las mismas palabras que los socorristas** —plana,
+  arrissada, marejol, maror—, que son las de la escala Douglas en catalán. La
+  primera versión decía «marejolada», que no existe, y ponía los dos bloques a
+  hablar idiomas distintos.
 
 ### 5. Agua: embalses, aforos y sequía · ✅ hecho
 

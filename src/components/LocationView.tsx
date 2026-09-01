@@ -10,6 +10,7 @@ import { ComarcaCompare } from './ComarcaCompare';
 import { Headline } from './Headline';
 import { WaterBlock } from './WaterBlock';
 import { MeasuredAir } from './MeasuredAir';
+import { SeaBlock } from './SeaBlock';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
@@ -26,6 +27,7 @@ import type { ComarcaComparison } from '@/lib/comparison';
 import type { Narrative } from '@/lib/narrative';
 import type { WaterNearby } from '@/lib/water';
 import type { NearestAirStation } from '@/lib/air-stations';
+import type { SeaNearby } from '@/lib/sea';
 import type { Comarca, Location } from '@/lib/territory';
 
 /**
@@ -301,12 +303,14 @@ interface Props {
   water: WaterNearby | null;
   /** La estación de la XVPCA más cercana, con su medida de ayer. */
   airStation: NearestAirStation | null;
+  /** Playas del municipio y estado del mar. Null si no tiene costa. */
+  sea: SeaNearby | null;
 }
 
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
-  air, comparison, narrative, water, airStation,
+  air, comparison, narrative, water, airStation, sea,
 }: Props) {
   /*
    * La hora en curso dentro de la serie, para completar el bloque actual con las
@@ -401,6 +405,13 @@ export function LocationView({
           {air && <AirQuality air={air} today={today} />}
           {/* La medida real debajo del modelo, y diciendo que es de ayer. */}
           {airStation && <MeasuredAir station={airStation} />}
+        </section>
+      )}
+
+      {sea && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">El mar</h2>
+          <SeaBlock sea={sea} nom={loc.nom} />
         </section>
       )}
 

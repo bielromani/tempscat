@@ -33,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/avisos" className="no-underline hover:text-[var(--ink)]">Avisos</Link>
               <Link href="/ranquings" className="no-underline hover:text-[var(--ink)]">Rànquings</Link>
               <Link href="/estacions" className="no-underline hover:text-[var(--ink)]">Estacions</Link>
+              <Link href="/mar" className="no-underline hover:text-[var(--ink)]">Mar</Link>
               <Link href="/aigua" className="no-underline hover:text-[var(--ink)]">Aigua</Link>
               <Link href="/neu" className="no-underline hover:text-[var(--ink)]">Neu</Link>
               <Link href="/aire" className="no-underline hover:text-[var(--ink)]">Aire</Link>
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </p>
             <p>
               Embassaments, cabals i sequera: <strong className="font-medium text-[var(--ink-2)]">Agència Catalana de l&apos;Aigua</strong>.
+              Banderes de platja: socorristes i ajuntaments, via el portal de dades obertes.
             </p>
             <p>
               Qualitat de l&apos;aire i pol·len: <strong className="font-medium text-[var(--ink-2)]">CAMS Europa</strong>,

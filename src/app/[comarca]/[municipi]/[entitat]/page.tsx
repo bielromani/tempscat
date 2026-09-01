@@ -12,6 +12,7 @@ import {
 import { comarcaComparison } from '@/lib/comparison';
 import { waterNear } from '@/lib/water';
 import { nearestAirStation } from '@/lib/air-stations';
+import { seaNear } from '@/lib/sea';
 import { aName } from '@/lib/format';
 import { narrativeFor } from '@/lib/narrative';
 
@@ -75,6 +76,7 @@ export default async function EntitatPage({ params }: { params: Params }) {
         narrative={narrativeFor(forecast, current, localNowHour(), localToday())}
         water={waterNear(loc)}
         airStation={nearestAirStation(loc)}
+        sea={seaNear(loc)}
         siblings={siblings}
         siblingsLabel={`Altres nuclis de ${municipiLoc?.nom ?? 'el municipi'}`}
         neighbours={[]}

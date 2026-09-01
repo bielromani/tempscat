@@ -220,6 +220,8 @@ export const DAILY_LIMITS: Record<string, number> = {
    * donde no la hay tampoco.
    */
   'open-meteo-air': 10_000,
+  /* El model marí, com el de l'aire, té el seu propi comptador. */
+  'open-meteo-marine': 10_000,
   'aemet': 5_000,
   'socrata': 100_000,   // sin límite duro documentado; se vigila igual
   /*
@@ -240,10 +242,12 @@ export const DAILY_LIMITS: Record<string, number> = {
 export const HOURLY_LIMITS: Record<string, number> = {
   'open-meteo': 5_000,
   'open-meteo-air': 5_000,
+  'open-meteo-marine': 5_000,
 };
 
 /** Tope mensual, el que de verdad limita el diseño a largo plazo. */
 export const MONTHLY_LIMITS: Record<string, number> = {
   'open-meteo': 300_000,
   'open-meteo-air': 300_000,
+  'open-meteo-marine': 300_000,
 };

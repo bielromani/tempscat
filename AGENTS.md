@@ -179,3 +179,7 @@ cuota para exactamente la misma información.
   y asi se presenta. El CO viene en mg/m3 y el modelo en ug/m3.
 - **Socrata omite los campos nulos.** La ausencia de `h05` no es un cero: es que no esta. Una
   media diaria calculada solo sobre las horas presentes no es una media diaria.
+- **En el registro de platges (`4baz-cjv2`), `coordenada_x` es la latitud y `coordenada_y` la
+  longitud.** Al reves de lo que dicen los nombres. Y `estat_data` va en DD/MM/YYYY con una T.
+- **Una bandera de platja caduca.** La ponen los socorristas de servicio; fuera de horario la
+  ultima fila se queda ahi. Umbrales en `src/lib/sea.ts`: vigente < 3 h, se ensena < 12 h.

@@ -28,11 +28,12 @@
     "test:astronomy": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-astronomy.ts",
     "worker:air": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-quality.ts",
     "worker:radar": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/radar.ts",
-    "workers:frequent": "npm run worker:xema && npm run worker:radar",
+    "workers:frequent": "npm run worker:xema && npm run worker:radar && npm run worker:sea",
     "test:narrative": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-narrative.ts",
     "test": "npm run test:catalan && npm run test:astronomy && npm run test:narrative",
     "worker:water": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/water.ts",
-    "worker:air-stations": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-stations.ts"
+    "worker:air-stations": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-stations.ts",
+    "worker:sea": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/sea.ts"
   },
   "dependencies": {
     "next": "16.3.3",
