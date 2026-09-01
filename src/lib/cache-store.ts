@@ -125,9 +125,32 @@ function remember(name: string, snap: Snapshot<unknown> | null, etag?: string) {
 
 // ── Modo disco ──────────────────────────────────────────────────────────────
 
+/**
+ * Ni almacén ni disco es una avería, no un sitio sin datos todavía.
+ *
+ * En el despliegue solo viaja `data/build/`, nunca `data/cache/`. Así que si
+ * falta `DATA_BASE_URL` en producción, esto se cae al modo disco y encuentra un
+ * directorio que no existe — y sin esta comprobación el resultado no sería un
+ * error, sino **4.293 fichas diciendo «encara no hi ha dades»**, generadas y
+ * guardadas así. Un fallo de configuración que se parece a un estado normal es
+ * la peor clase de fallo, y este proyecto ya ha pagado esa lección varias veces.
+ */
+let checked = false;
+function assertReadable() {
+  if (checked) return;
+  if (!existsSync(LOCAL)) {
+    throw new Error(
+      "cache-store: no hi ha ni DATA_BASE_URL ni data/cache/. Sense cap de les "
+      + "dues no hi ha dades vives: posa DATA_BASE_URL a l'entorn.",
+    );
+  }
+  checked = true;
+}
+
 const mtimes = new Map<string, number>();
 
 function fromDisk<T>(name: string): Snapshot<T> | null {
+  assertReadable();
   const p = join(LOCAL, `${name}.json`);
   if (!existsSync(p)) return null;
   try {
@@ -297,6 +320,7 @@ export async function plainJson<T>(name: string): Promise<T | null> {
 /** Bytes crudos, para las teselas del radar, que son PNG y no JSON. */
 export async function blob(path: string): Promise<Uint8Array | null> {
   if (!IS_REMOTE) {
+    assertReadable();
     const p = join(LOCAL, path);
     return existsSync(p) ? new Uint8Array(readFileSync(p)) : null;
   }
