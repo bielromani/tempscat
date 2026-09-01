@@ -505,6 +505,84 @@ ser un interruptor global.
 
 ---
 
+## Tres cosas investigadas, con la respuesta ya medida
+
+Pedidas contra las APIs reales el 1 de septiembre de 2026, no supuestas.
+
+### Previsión a más días · **sí, y hasta 14 sale gratis**
+
+La fórmula de Open-Meteo es `max(1, vars/10) × max(1, días/14) × ubicaciones`, y
+ese segundo factor **tiene suelo en 1**. O sea que pedir 14 días cuesta
+exactamente lo mismo que pedir 7:
+
+| Horizonte | Coste diario | Al mes | Del techo |
+|---|---|---|---|
+| 7 días (hoy) | 8.126 | 243.780 | 81 % |
+| **14 días** | **8.126** | **243.780** | **81 %** |
+| 16 días | 9.287 | 278.606 | 93 % |
+
+Los 16 días también funcionan —comprobado, devuelve los 16 con valor— pero nos
+dejan al 93 % del techo mensual, sin margen para un `--fill` tras un corte.
+
+**Así que 14 días, y la segunda semana presentada como lo que es.** Más allá del
+día siete un modelo determinista tiene poca habilidad, y publicar «19 °C el
+jueves que viene» sería precisión no demostrada. Sin horas, sin decimales, y
+diciendo que es tendencia.
+
+### A un mes vista · **existe, pero no como número diario**
+
+`seasonal-api.open-meteo.com` responde: **45 días y 51 miembros de ensemble**,
+del 1 de septiembre al 15 de octubre. Los datos están.
+
+Lo que no está es la habilidad. Un modelo estacional no acierta el día 15 de
+octubre y publicarlo como si lo hiciera rompería el principio del sitio. Lo
+honesto y lo que de verdad se puede decir es **la anomalía contra las normales
+climáticas que ya tenemos en `xema-history`**, con el acuerdo entre miembros
+como medida de confianza: «38 de 51 miembros apuntan a más cálido de lo normal
+para la época». Eso es un pronóstico probabilístico bien presentado; una
+temperatura para el 15 de octubre no lo es.
+
+### Cámaras · **sí, 30 y con licencia**
+
+`FGC - Webcams dels equipaments turístics` en el portal es solo un enlace, pero
+lleva al portal propio de Ferrocarrils, que sí tiene API:
+
+    https://dadesobertes.fgc.cat/api/explore/v2.1/catalog/datasets/webcams-actives-tim/records
+
+**30 cámaras** en Boí Taüll, Espot, La Molina, Port Ainé, Vall de Núria, Vallter
+y el Parc Astronòmic, con coordenadas, nombre —que lleva la altitud dentro— y la
+URL del fotograma. Licencia **CC-BY 4.0**.
+
+Y son vivas de verdad: la imagen directa traía `Last-Modified` de hacía un
+minuto. Ojo, que la del propio portal es una copia más vieja y distinta.
+
+**Hay que descargarlas nosotros, como las teselas del radar.** Las URL apuntan a
+un tercero (`app.projecte4estacions.com`); enlazarlas desde nuestras páginas
+mandaría la IP de cada visitante allí, que es justo lo que el radar evita. El
+coste a vigilar es la transferencia: 30 imágenes de ~250 KB son 7,5 MB por
+vuelta. Cada hora y solo un subconjunto sale a unos 40 MB al día.
+
+### Mapa con relieve · **viable, pero hace falta pedir la altimetría**
+
+No la tenemos: `data/raw/elevation.json` son las cotas de nuestros 5.127 puntos,
+no una malla. Para un sombreado de relieve hace falta un modelo de elevación.
+
+La API de elevación de Open-Meteo da **100 puntos por petición**, y la altitud no
+cambia nunca, así que es un trabajo de una sola vez:
+
+| Resolución | Puntos | Peticiones |
+|---|---|---|
+| 0,05° (~6 km) | 3.072 | 31 |
+| 0,02° (~2 km) | 19.200 | 192 |
+| 0,01° (~1 km) | 76.800 | 768 |
+
+A 1 km se ven los Pirineos y las serralades con detalle de sobra, y son 768
+peticiones **una vez en la vida**, no cada día. El resultado se guarda en
+`data/build/` y el sombreado se calcula en el build, igual que la geometría de
+las comarcas.
+
+---
+
 ## Pendiente de diseño y de producto
 
 Apuntado tal como salió, para no perderlo. Nada de esto es de datos: es de que
