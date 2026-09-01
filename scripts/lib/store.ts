@@ -165,6 +165,40 @@ export function readSnapshot<T>(name: string): Snapshot<T> | null {
   }
 }
 
+/**
+ * Lee un snapshot **de donde de verdad esté**: del almacén si lo hay, y si no
+ * del disco.
+ *
+ * ## El día que esto faltó
+ *
+ * Un worker que fusiona con su estado anterior —la predicción, que conserva los
+ * niveles que no toca; el histórico, que conserva las estaciones que fallaron—
+ * usaba `readSnapshot()`, que lee **el disco local**. En una máquina que es
+ * siempre la misma eso funciona. En un servidor de integración el disco arranca
+ * vacío.
+ *
+ * Y entonces «no hay nada anterior» y «no lo he sabido encontrar» se convierten
+ * en lo mismo, con el peor resultado posible: el worker de predicción refrescó
+ * el nivel A, no encontró nada que conservar, y **publicó un almacén con 350
+ * puntos de los 3.190**. Los niveles B y C desaparecieron de producción, y con
+ * ellos la predicción de la mayoría de las 4.293 páginas. Ni un error: una
+ * ejecución en verde.
+ *
+ * Por eso esta función **lanza** cuando no puede leer, en vez de devolver
+ * `null`. Un 404 sí es `null` —esa fuente no existe todavía, que es un estado
+ * legítimo el primer día— pero un fallo de red no puede parecerse a un almacén
+ * vacío.
+ */
+export async function pullSnapshot<T>(name: string): Promise<Snapshot<T> | null> {
+  const base = process.env.BLOB_BASE_URL?.replace(/[/]$/, '');
+  if (!base) return readSnapshot<T>(name);
+
+  const res = await fetch(`${base}/${name}.json`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`no s'ha pogut llegir ${name} de l'emmagatzematge: HTTP ${res.status}`);
+  return await res.json() as Snapshot<T>;
+}
+
 // ── Registro de frescura ────────────────────────────────────────────────────
 
 export interface FreshnessEntry {

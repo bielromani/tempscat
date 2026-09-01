@@ -260,3 +260,10 @@ cuota para exactamente la misma información.
   El umbral estaba puesto a ojo —«a partir de 30 °C, texto claro»— y a 30 °C el fondo tiene un
   72 % de luminosidad: el mapa salía con los treintaytantos en blanco sobre naranja claro. En
   esta escala el extremo cálido nunca se oscurece lo bastante para pedir texto claro.
+- **Un worker que fusiona con su estado anterior tiene que leerlo del almacén, no del disco.**
+  `readSnapshot()` lee `data/cache/`, y en GitHub Actions ese directorio arranca vacío: «no hay
+  nada anterior» y «no lo he sabido leer» acaban siendo lo mismo. Pasó de verdad — un refresco
+  del nivel A publicó **350 puntos de 3.190** y dejó sin predicción la mayoría de las 4.293
+  páginas, con la ejecución en verde. Usa `pullSnapshot()`, que va al almacén y **lanza** si no
+  puede leer.
+

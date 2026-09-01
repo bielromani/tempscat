@@ -37,7 +37,7 @@ import { join } from 'node:path';
 import { fetchWithRetry, sleep } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import {
-  CACHE, DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard, publish, publishQuota, readSnapshot, recordFreshness, syncState, writeSnapshot,
+  CACHE, DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard, publish, publishQuota, pullSnapshot, recordFreshness, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import {
   FORECAST_INDEX, forecastShard, type ForecastIndex,
@@ -138,18 +138,18 @@ export interface ForecastData {
  * Los puntos de frontera están en dos ficheros y se sobrescriben con el mismo
  * contenido, que es exactamente lo que se quiere.
  */
-function readForecast(): { data: ForecastData } | null {
-  const index = readSnapshot<ForecastIndex>(FORECAST_INDEX);
+async function readForecast(): Promise<{ data: ForecastData } | null> {
+  const index = await pullSnapshot<ForecastIndex>(FORECAST_INDEX);
   if (!index) return null;
 
   const points: ForecastData['points'] = {};
-  let missing = 0;
   for (const c of index.data.comarques) {
-    const shard = readSnapshot<ForecastData>(forecastShard(c.codi));
-    if (!shard) { missing++; continue; }
-    Object.assign(points, shard.data.points);
+    // Sense captura: si un tros no es pot llegir, **s'atura**. Seguir voldria
+    // dir tornar a publicar sense aquells punts, i això és el que va deixar
+    // producció amb 350 punts de 3.190.
+    const shard = await pullSnapshot<ForecastData>(forecastShard(c.codi));
+    if (shard) Object.assign(points, shard.data.points);
   }
-  if (missing) console.warn(`avís: ${missing} trossos de predicció il·legibles; es tornaran a demanar`);
 
   return { data: { times: index.data.times, points, models: index.data.models } };
 }
@@ -304,7 +304,7 @@ async function main() {
    */
   const fillOnly = process.argv.includes('--fill');
 
-  const before = readForecast();
+  const before = await readForecast();
 
   const steps: Array<{ tier: Tier; spec: ModelSpec; points: ForecastPoint[] }> = [];
   for (const tier of onlyTiers) {

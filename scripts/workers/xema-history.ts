@@ -28,7 +28,7 @@ import { soql, soqlAll } from '../lib/socrata.ts';
 import { build } from '../lib/paths.ts';
 import { throttledMap } from '../lib/http.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, readSnapshot, recordFreshness, syncState, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, pullSnapshot, recordFreshness, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { windCardinal } from '../../src/lib/variables.ts';
 import type { Station } from '../04-fetch-stations.ts';
@@ -674,7 +674,7 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
    */
   let valid = fresh;
   if (onlyOne || failed.length) {
-    const previous = readSnapshot<StationHistory[]>('xema-history')?.data ?? [];
+    const previous = (await pullSnapshot<StationHistory[]>('xema-history'))?.data ?? [];
     const byStation = new Map(previous.map((h) => [h.station, h]));
     for (const h of fresh) byStation.set(h.station, h);
     valid = [...byStation.values()].sort((a, b) => a.station.localeCompare(b.station));
