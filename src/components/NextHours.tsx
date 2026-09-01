@@ -97,9 +97,8 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
         </ol>
         {models > 1 && hours.some((h) => (h.spread ?? 0) >= SPREAD_C) && (
           <p className="mt-2 max-w-[62ch] text-xs leading-relaxed text-[var(--muted)]">
-            Les hores amb dues xifres a sota són aquelles en què els{' '}
-            {models} models no coincideixen: aquell és el marge entre el més fred
-            i el més càlid.
+            Les hores amb dues xifres a sota són aquelles en què els {models} models
+            de predicció no coincideixen. El marge va del més fred al més càlid.
           </p>
         )}
       </section>
@@ -136,8 +135,10 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
         </ol>
         <p className="mt-2 max-w-[62ch] text-xs leading-relaxed text-[var(--muted)]">
           {anyRain
-            ? `A dalt, la probabilitat; a baix, els mil·límetres. Les dues coses no diuen el mateix: un 80 % amb 0,2 mm són quatre gotes segures, i un 30 % amb 8 mm és un xàfec poc probable però de veritat.`
-            : 'Cap hora amb pluja prevista. A dalt hi ha la probabilitat igualment, perquè un 20 % no és un zero.'}
+            ? 'A dalt, la probabilitat que plogui; a baix, quanta aigua. Són dues coses '
+              + 'diferents: un 80 % amb 0,2 mm és plugim gairebé segur, i un 30 % amb 8 mm '
+              + 'és un ruixat poc probable però important si arriba.'
+            : 'Cap hora amb pluja prevista. La probabilitat surt igualment: un 20 % no és zero.'}
         </p>
       </section>
 
@@ -183,9 +184,10 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
           })}
         </ol>
         <p className="mt-2 max-w-[62ch] text-xs leading-relaxed text-[var(--muted)]">
-          En km/h. La fletxa assenyala cap on bufa; la lletra de sota diu d&apos;on
-          ve, que és com se&apos;n parla. La ratxa és el cop més fort de l&apos;hora, i
-          és la que tomba una para-sol o un ciclista.
+          En km/h. La fletxa assenyala cap on bufa el vent; la lletra de sota diu
+          d&apos;on ve, que és la convenció meteorològica. La ratxa és el cop més
+          fort de l&apos;hora, i sol ser el que decideix si una activitat a
+          l&apos;exterior és practicable.
         </p>
       </section>
     </div>

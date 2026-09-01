@@ -134,6 +134,26 @@ npm run test              # topónimos, astronomía y frases
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
+## Cómo se escribe lo que lee el usuario
+
+El razonamiento va en el código; en la página va lo que el lector necesita saber.
+Son dos textos distintos y confundirlos se nota. Tres reglas, salidas de una
+revisión de las 360 frases largas que el sitio renderiza:
+
+- **La página no habla de sí misma.** «Ensenyar una verda d'abans-d'ahir com si
+  fos d'ara és el pitjor que podria fer aquesta pàgina» explica *nuestra*
+  decisión. Al lector le sirve: «la posa un socorrista quan és de servei, i fora
+  d'horari no s'actualitza». Misma honestidad, sin la justificación.
+- **Registro neutro.** Nada de «quatre gotes», «de debò» ni «tomba una para-sol».
+  Se dice qué pasa —plugim, no arriba a mullar el terra— que además es
+  comprobable.
+- **Sin pullas a la competencia.** «Les estacions que hi ha de veritat» o «la
+  pregunta que la gent fa de veritat» marcan que nosotros sí y otros no. Eso no
+  es información.
+
+El tratamiento es **de vós** en todo el sitio (`consulteu`, `podeu`, `vostre`).
+No hay ni un «tu», y conviene que siga así.
+
 ## Principios que no se negocian
 
 **La ingesta está desacoplada del renderizado.** Ninguna petición de un usuario dispara jamás

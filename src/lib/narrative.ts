@@ -338,11 +338,15 @@ function rainSentence(windows: RainWindow[], today: string): string | null {
      * lo que pasa. Si ninguna hora del tramo llega a medio milímetro, la lluvia
      * no pasa de plugim por mucho que dure — y da igual que sean tres horas o
      * nueve.
+     *
+     * La frase decía «quatre gotes», que es de conversación y no de un servicio
+     * meteorológico. Ahora dice qué pasa —plugim, y no llega a mojar el suelo—,
+     * que es lo mismo y además es comprobable.
      */
     if (w.peak.mm < 0.5) {
-      return `Ruixats possibles ${rangePhrase(w.from, w.to, today)}, amb un ${w.prob} % de `
-        + `probabilitat, però amb prou feines ${num(w.mm, 1)} mm en tot el tram: `
-        + `quatre gotes${storm(w)}.`;
+      return `Plugim ${rangePhrase(w.from, w.to, today)}, amb un ${w.prob} % de `
+        + `probabilitat i ${num(w.mm, 1)} mm en tot el tram: no arriba a mullar `
+        + `el terra${storm(w)}.`;
     }
 
     if (w.concentrated) {

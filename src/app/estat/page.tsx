@@ -38,10 +38,9 @@ export default async function EstatPage() {
     <article className="max-w-[68ch]">
       <h1 className="text-3xl font-semibold tracking-tight">Estat de les dades</h1>
       <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
-        Aquesta pàgina diu quan es va actualitzar cada font per última vegada,
-        encara que la resposta sigui incòmoda. Amagar que una dada porta hores
-        aturada no la fa més fresca: només fa que l&apos;usuari ho descobreixi
-        pel seu compte i deixi de fiar-se de tota la resta.
+        Quan es va actualitzar cada font per última vegada, i quina antiguitat
+        té la dada més recent que en tenim. Serveix per saber, abans de fiar-se
+        d&apos;una xifra del lloc, si la font que hi ha al darrere està al dia.
       </p>
 
       {sources.length === 0 ? (
@@ -95,10 +94,10 @@ export default async function EstatPage() {
 
       <h2 className="mt-8 text-lg font-semibold tracking-tight">Validació</h2>
       <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
-        El Meteocat valida les lectures <em>a posteriori</em>. Les dades recents
-        arriben sense marca de validació, i les etiquetem com a provisionals.
-        Filtrar-les deixaria el web sense cap dada actual; presentar-les com a
-        definitives seria fals.
+        El Meteocat valida les lectures <em>a posteriori</em>, així que les dades
+        recents arriben sense marca de validació i surten etiquetades com a
+        provisionals. Un valor provisional pot canviar quan el Meteocat el
+        revisi.
       </p>
 
       <h2 className="mt-8 text-lg font-semibold tracking-tight">Territori</h2>

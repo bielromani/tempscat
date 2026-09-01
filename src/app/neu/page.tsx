@@ -63,7 +63,7 @@ export default async function NeuPage() {
 
       <header className="mb-6 max-w-[64ch]">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Quanta neu hi ha, de veritat
+          Quanta neu hi ha al Pirineu
         </h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
           {withSnow.length > 0 ? (

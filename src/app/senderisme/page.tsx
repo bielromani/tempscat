@@ -119,9 +119,9 @@ export default async function SenderismePage() {
           </p>
           {fz.metres == null && fz.beyond === 'amunt' && (
             <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-[var(--muted)]">
-              No es posa xifra a propòsit. La recta creua el zero molt per damunt
-              de l&apos;estació més alta, i escriure aquell número seria extrapolar
-              quilòmetres per sobre d&apos;on hi ha termòmetres.
+              No se&apos;n dona la xifra: la recta creua el zero molt per damunt de
+              l&apos;estació més alta, i el valor seria una extrapolació de
+              quilòmetres per sobre de l&apos;últim termòmetre.
             </p>
           )}
         </section>
@@ -212,25 +212,24 @@ export default async function SenderismePage() {
           caminar de cara al vent deixa de ser còmode.{' '}
           <strong className="font-medium text-[var(--ink)]">Força 8 (62 km/h)</strong> és on costa
           mantenir-se dret — a la carena, amb un pendent al costat, ja no és qüestió
-          de comoditat. Els talls són els de l&apos;escala de Beaufort, que és de 1805 i
-          no se l&apos;ha inventat ningú aquí.
+          de comoditat. Els llindars són els de l&apos;escala de Beaufort, en ús des de 1805.
         </p>
         <p>
           <strong className="font-medium text-[var(--ink)]">La sensació pel vent</strong> es
-          calcula amb la fórmula nord-americana i canadenca, i només quan té sentit:
-          per damunt de 10 °C o amb menys de 5 km/h la fórmula deixa de descriure
-          res i la casella surt buida en comptes d&apos;un número que sembla bo.
+          calcula amb la fórmula de l&apos;índex nord-americà i canadenc, que només és
+          vàlida per sota de 10 °C i amb més de 5 km/h. Fora d&apos;aquest rang la
+          casella queda buida.
         </p>
         <p>
           <strong className="font-medium text-[var(--ink)]">La isoterma no és la cota de
-          neu.</strong> És l&apos;error clàssic. La neu es fon mentre baixa, així que
-          arriba blanca dos-cents o tres-cents metres per sota d&apos;on la
-          temperatura creua el zero.
+          neu.</strong> La neu es fon mentre baixa, així que arriba blanca uns
+          dos-cents o tres-cents metres per sota d&apos;on la temperatura creua el
+          zero.
         </p>
         <p className="text-[var(--muted)]">
-          Tot mesurat per les estacions automàtiques del Meteocat, no previst. La
-          ratxa que ha fet fa mitja hora és un fet; la que farà demà és una altra
-          conversa i la té cada poble a la seva pàgina.
+          Totes les dades són mesurades per les estacions automàtiques del Meteocat,
+          no previstes. La predicció per als pròxims dies és a la pàgina de cada
+          població.
         </p>
       </section>
     </article>

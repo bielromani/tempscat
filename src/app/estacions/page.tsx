@@ -63,7 +63,7 @@ export default async function EstacionsPage() {
 
       <header className="mb-6 max-w-[64ch]">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Les estacions que hi ha de veritat
+          Les estacions de la XEMA
         </h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
           {stations.length} estacions automàtiques en servei, entre{' '}
@@ -72,10 +72,9 @@ export default async function EstacionsPage() {
           pròpia sèrie, i d&apos;on li ve el vent.
         </p>
         <p className="mt-2 leading-relaxed text-[var(--muted)]">
-          Publiquem 4.293 llocs amb {stations.length} termòmetres, i aquesta pàgina
-          existeix per dir-ho clar: entre l&apos;estació i el poble hi ha una
-          correcció per desnivell, i com més lluny i més desnivell, menys es pot
-          demanar a aquesta correcció.{' '}
+          El lloc cobreix 4.293 poblacions amb {stations.length} termòmetres: entre
+          l&apos;estació i el poble hi ha sempre una correcció per desnivell, i com
+          més distància i més desnivell, menys fiable és.{' '}
           {without.length > 0 && (
             <>
               {without.length === 1 ? 'Hi ha una comarca' : `Hi ha ${without.length} comarques`}{' '}

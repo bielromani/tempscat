@@ -192,9 +192,9 @@ export default async function NauticaPage() {
             </Link>
           </p>
           <p className="mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
-            Les banderes són per al bany i les posa un socorrista mirant l&apos;aigua
-            des de la sorra. No diuen res de com està el mar a una milla de la
-            costa, que és el que mira aquesta pàgina.
+            Les banderes són per al bany i es refereixen a la vora. No descriuen
+            l&apos;estat del mar a una milla de la costa, que és el que recull la
+            taula de dalt.
           </p>
         </section>
       )}
@@ -211,11 +211,10 @@ export default async function NauticaPage() {
           regular: la que busca qui fa surf i la que menys molesta a qui navega.
         </p>
         <p>
-          <strong className="font-medium text-[var(--ink)]">El vent d&apos;aquesta taula és
-          mesurat, i a terra.</strong> Es diu de quina estació surt i a quina
-          distància perquè importa: un anemòmetre a vuit quilòmetres terra endins
-          no mesura el vent que hi ha a l&apos;aigua. Sol quedar-se curt, i amb vent de
-          terra pot quedar-se molt curt.
+          <strong className="font-medium text-[var(--ink)]">El vent és mesurat, i a terra.</strong>{' '}
+          Cada tram indica de quina estació surt i a quina distància és. Un
+          anemòmetre situat terra endins mesura menys vent del que hi ha a
+          l&apos;aigua, i amb vent de terra la diferència pot ser gran.
         </p>
         <p>
           <strong className="font-medium text-[var(--ink)]">L&apos;onatge és d&apos;un model i és de
@@ -223,9 +222,9 @@ export default async function NauticaPage() {
           corrents, ni del que fa la mar contra un espigó.
         </p>
         <p className="text-[var(--muted)]">
-          Res d&apos;això és un butlletí oficial de navegació. Abans de sortir, la
-          predicció marítima de l&apos;AEMET i el port. Aquí hi ha les dades, no un
-          permís.
+          Aquestes dades no substitueixen un butlletí oficial de navegació. Abans
+          de sortir, consulteu la predicció marítima de l&apos;AEMET i l&apos;autoritat
+          portuària.
         </p>
       </section>
     </article>

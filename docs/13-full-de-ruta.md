@@ -656,7 +656,7 @@ nombre —al menos en las que quepa— o resolverlo de otra manera.
   `/mapa`, donde es el contenido; en una ficha de comarca tiene que ser mucho
   más pequeño.
 
-### Los textos, escritos para el usuario y no para nosotros
+### Los textos, escritos para el usuario y no para nosotros · ✅ hecho
 
 Hay frases que son notas internas disfrazadas de texto público. El ejemplo que
 lo dejó claro, en `/mar`:

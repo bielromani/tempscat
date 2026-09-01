@@ -76,10 +76,9 @@ export default async function BoletsPage() {
           )}
         </p>
         <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-          Aquí no hi ha cap índex ni cap nota del zero al deu. Hi ha la pluja que
-          ha caigut, quan va caure i amb quines temperatures — que és el que mira
-          qui hi entén. Un número compost amagaria què el mou i ningú el podria
-          discutir.
+          No hi ha cap índex ni cap nota del zero al deu: hi ha la pluja que ha
+          caigut, quan va caure i amb quines temperatures. Són les tres dades
+          que fa servir qui hi entén, i cadascuna es pot comprovar per separat.
         </p>
       </header>
 

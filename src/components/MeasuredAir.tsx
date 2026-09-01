@@ -24,7 +24,7 @@ export function MeasuredAir({ station }: { station: NearestAirStation }) {
     <div className="mt-3 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-          Mesurat de veritat, el {dateShort(station.day)}
+          Mesurat en estació, el {dateShort(station.day)}
         </p>
         <p className="text-xs text-[var(--muted)]">
           {station.name} · a <span className="tnum">{num(station.distKm, 0)} km</span>

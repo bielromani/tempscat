@@ -118,11 +118,11 @@ export default async function MarPage() {
           )}
         </p>
         <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-          <strong className="font-medium text-[var(--ink-2)]">La bandera la posa una persona
-          que està mirant l&apos;aigua.</strong> És el que val, i només existeix on hi
-          ha socorrista i mentre és de servei. L&apos;onatge i la temperatura de sota
-          surten d&apos;un model: hi són sempre i a tota la costa, però no saben res
-          de les corrents de ressaca.
+          <strong className="font-medium text-[var(--ink-2)]">La bandera la posa un socorrista
+          mirant l&apos;aigua</strong>, i només n&apos;hi ha on hi ha servei de
+          salvament. L&apos;onatge i la temperatura de sota surten d&apos;un model: cobreixen
+          tota la costa i totes les hores, però no recullen les corrents de
+          ressaca.
         </p>
       </header>
 
@@ -224,23 +224,22 @@ export default async function MarPage() {
           Què vol dir i què no
         </h2>
         <p>
-          <strong className="font-medium text-[var(--ink)]">Una bandera caduca.</strong> Aquí surt
-          sempre amb l&apos;hora del parte, i les de més de {FLAG_SHOW_HOURS} hores no
-          surten: ensenyar una verda d&apos;abans-d&apos;ahir com si fos d&apos;ara és el
-          pitjor que podria fer aquesta pàgina, perquè algú es fica a l&apos;aigua pel
-          que diu un web.
+          <strong className="font-medium text-[var(--ink)]">Una bandera caduca.</strong> La posa un
+          socorrista quan és de servei, i fora d&apos;horari no s&apos;actualitza: la
+          que consta pot ser de fa hores. Per això cada una porta l&apos;hora del
+          seu parte, i les de més de {FLAG_SHOW_HOURS} hores no surten.
         </p>
         <p>
           <strong className="font-medium text-[var(--ink)]">L&apos;onatge del model és de mar
-          obert.</strong> A cinc quilòmetres de la costa i sense saber res del que
-          passa dins d&apos;una cala ni de les corrents de ressaca, que és el que de
-          debò s&apos;emporta la gent. Mig metre d&apos;onada pot ser una platja tranquil·la
-          o una on no s&apos;hi ha d&apos;entrar, segons el fons.
+          obert</strong>, calculat a uns cinc quilòmetres de la costa. No recull el
+          que passa dins d&apos;una cala ni les corrents de ressaca, que són la causa
+          principal dels ofegaments. Mig metre d&apos;onada pot ser una platja
+          tranquil·la o una on no s&apos;hi ha d&apos;entrar, segons el fons.
         </p>
         <p>
-          Les <strong className="font-medium text-[var(--ink)]">meduses</strong> es reporten amb el
-          nom científic, i no el traduïm: «Pelagia noctiluca» és el que permet
-          buscar si pica, i els noms populars canvien d&apos;una cala a l&apos;altra.
+          Les <strong className="font-medium text-[var(--ink)]">meduses</strong> surten amb el nom
+          científic, com les reporten els socorristes. És el nom que permet
+          consultar si l&apos;espècie pica; els populars canvien d&apos;una cala a l&apos;altra.
         </p>
         <p className="text-[var(--muted)]">
           {data.source}. En total hi ha {data.list.length} platges al registre; les

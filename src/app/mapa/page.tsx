@@ -97,20 +97,20 @@ export default async function MapaPage() {
         </h2>
         <p>
           <strong className="font-medium text-[var(--ink)]">La mediana dels municipis de la
-          comarca</strong>, no la mitjana de les seves estacions. Al Ripollès n&apos;hi ha a
-          1.900 metres i a 700, i la seva mitjana no descriu cap lloc on visqui
-          ningú. Cada municipi porta l&apos;observació de la seva estació corregida
-          pel desnivell que hi ha entremig, i la mediana d&apos;aquestes sí que
-          respon a «quina temperatura fa a la comarca».
+          comarca</strong>, no la mitjana de les seves estacions. Al Ripollès hi ha
+          estacions a 1.900 metres i a 700, i la mitjana entre elles no
+          correspon a cap lloc habitat. Cada municipi porta l&apos;observació de la
+          seva estació corregida pel desnivell, i la mediana d&apos;aquests valors sí
+          que descriu la comarca.
         </p>
         <p>
           Mediana i no mitjana perquè <strong className="font-medium text-[var(--ink)]">un sol
-          poble de muntanya no ha de tenyir de blau una comarca sencera</strong>.
+          poble de muntanya no desplaci el valor de tota la comarca</strong>.
         </p>
         <p>
           Les comarques ratllades no tenen prou municipis amb observació ara
-          mateix. No es pinten de gris a propòsit: un gris pla es llegeix com
-          «aquí fa fred», i el que passa és que no ho sabem.
+          mateix. La trama les distingeix d&apos;un color de l&apos;escala, que es
+          llegiria com una temperatura.
         </p>
         <p className="text-[var(--muted)]">
           Observació del Meteocat (XEMA), dades obertes. Límits administratius de

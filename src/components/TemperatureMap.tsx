@@ -98,8 +98,8 @@ export function TemperatureMap({ data, highlight }: { data: MapData; highlight?:
       <figcaption className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
         Cada comarca porta la <strong className="font-medium text-[var(--ink-2)]">mediana
         dels seus municipis</strong>, amb l&apos;observació de cadascun corregida pel
-        desnivell fins a la seva estació. Les ratllades no tenen prou municipis
-        observats ara mateix: {data.withData} de {comarques.length} en tenen.
+        desnivell fins a la seva estació. {data.withData} de {comarques.length} en
+        tenen prou; les ratllades, no.
       </figcaption>
     </figure>
   );

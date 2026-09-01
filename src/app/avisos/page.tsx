@@ -123,8 +123,9 @@ export default async function AvisosPage() {
         <p className="text-sm leading-relaxed text-[var(--ink-2)]">
           Els avisos es publiquen també com a <strong className="font-medium text-[var(--ink)]">feed</strong> i
           com a <strong className="font-medium text-[var(--ink)]">calendari</strong>, de tot Catalunya o
-          d&apos;una comarca. No cal registre ni permís de notificacions, i no
-          guardem res de ningú: és un fitxer que el vostre lector va a buscar.
+          d&apos;una comarca. No cal registre ni permís de notificacions, i no es
+          desa cap dada de qui s&apos;hi subscriu: el fitxer el va a buscar el
+          vostre lector.
         </p>
         <ul className="mt-3 space-y-1 font-mono text-xs">
           <li>
@@ -147,10 +148,9 @@ export default async function AvisosPage() {
           </li>
         </ul>
         <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-          El calendari és el format natural d&apos;un avís: té principi i final, i
-          apareix entre les reunions amb la seva finestra de vigència dibuixada a
-          escala. Els taronges i els vermells hi porten un recordatori dues hores
-          abans; els grocs no, perquè un groc no ha de despertar ningú.
+          Un avís té principi i final, així que al calendari apareix entre la
+          resta de cites amb la seva finestra de vigència a escala. Els taronges
+          i els vermells porten un recordatori dues hores abans; els grocs, no.
         </p>
       </section>
 

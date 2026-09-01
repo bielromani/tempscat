@@ -219,11 +219,11 @@ export default async function RanquingsPage() {
 
       <h2 className="mb-1 mt-10 text-lg font-semibold tracking-tight">Als pobles</h2>
       <p className="mb-3 max-w-[62ch] text-sm text-[var(--muted)]">
-        La llista de dalt són termòmetres. Aquesta és la resposta a la pregunta
-        que la gent fa de veritat —quin poble és el més fred— i s&apos;obté
-        corregint la lectura de l&apos;estació de referència pel desnivell de cada
-        municipi. És una <strong className="font-medium text-[var(--ink-2)]">estimació</strong>,
-        no una mesura, i per això va a part.
+        La llista de dalt són termòmetres; aquesta són poblacions. El valor
+        s&apos;obté corregint la lectura de l&apos;estació de referència pel desnivell
+        de cada municipi, així que és una{' '}
+        <strong className="font-medium text-[var(--ink-2)]">estimació</strong> i no una
+        mesura. Per això va en una llista a part.
       </p>
       <div className="grid gap-3 lg:grid-cols-2">
         <Block title="Els municipis més frescos ara">

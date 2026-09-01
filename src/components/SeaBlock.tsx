@@ -85,9 +85,8 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
       ) : (
         <p className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4 text-sm text-[var(--ink-2)]">
           Cap platja {nom.startsWith('l\'') ? 'd\'' : 'de '}{nom} té parte de les últimes
-          dotze hores. Les banderes les posen els socorristes quan són de servei:
-          fora d&apos;horari i fora de temporada no se&apos;n publica cap de nova, i
-          ensenyar l&apos;última seria dir que és d&apos;ara.
+          dotze hores. Les posen els socorristes quan són de servei, i fora
+          d&apos;horari o de temporada no se&apos;n publica cap de nova.
         </p>
       )}
 
@@ -128,17 +127,16 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
             )}
           </dl>
           <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">
-            Punt de mar davant {now.near}, a {num(now.distKm, 0)} km. És un model:
-            dona l&apos;onatge en mar obert i no sap res de les corrents de ressaca ni
-            del que passa dins d&apos;una cala.
+            Punt de mar davant {now.near}, a {num(now.distKm, 0)} km. És un model
+            d&apos;onatge en mar obert: no recull les corrents de ressaca ni el que
+            passa dins d&apos;una cala.
           </p>
         </div>
       )}
 
       <p className="mt-3 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
-        {sea.source}. La bandera la posa una persona que està mirant l&apos;aigua i
-        és el que val; l&apos;onatge del model serveix per fer-se una idea quan no
-        n&apos;hi ha.{' '}
+        {sea.source}. La bandera la posa un socorrista mirant l&apos;aigua; l&apos;onatge
+        del model cobreix les hores i els trams on no n&apos;hi ha.{' '}
         <Link href="/mar" className="text-[var(--ink-2)] no-underline hover:underline">
           Totes les platges ›
         </Link>

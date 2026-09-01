@@ -235,9 +235,8 @@ export default async function AiguaPage() {
       <p className="mt-8 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
         {res.source}. Els cabals són lectures de registre, sense validar, i els
         aforaments es veuen afectats per les preses de riu amunt: un cabal baix no
-        vol dir sempre que plogui poc. Les coordenades venen en UTM 31N i les
-        convertim nosaltres — cada embassament cau dins del municipi que porta al
-        nom, que és la comprovació que fem servir per saber que la conversió és bona.
+        vol dir sempre que plogui poc. Les coordenades originals són en UTM 31N i
+        aquí surten convertides a graus.
       </p>
     </article>
   );

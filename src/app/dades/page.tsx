@@ -134,8 +134,9 @@ export default function DadesPage() {
         <p>
           <strong className="font-medium text-[var(--ink)]">La intensitat de la pluja, no només l&apos;acumulat.</strong>{' '}
           Cada finestra de pluja porta la seva hora punta i quants mil·límetres
-          cauen en aquella hora, amb l&apos;escala de l&apos;AEMET. «Plou de 4 a 7»
-          no distingeix quatre gotes d&apos;una tempesta; <code className="font-mono text-sm">peak_precipitation</code> sí.
+          cauen en aquella hora, amb l&apos;escala de l&apos;AEMET. «Plou de 4 a 7» no
+          distingeix el plugim d&apos;una tempesta;{' '}
+          <code className="font-mono text-sm">peak_precipitation</code> sí.
         </p>
         <p>
           <strong className="font-medium text-[var(--ink)]">El desacord entre models.</strong>{' '}
