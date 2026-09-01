@@ -114,6 +114,47 @@ function depth(pt: Pt, ring: Pt[]): number {
 }
 
 /**
+ * Amplada lliure dins del polígon a l'alçada d'un punt.
+ *
+ * És la llargada del tram horitzontal que cau dins de la comarca passant pel
+ * punt de l'etiqueta. Serveix per decidir si el nom hi cap: al Barcelonès no
+ * hi cabria ni escrit petit, i al Segrià hi cap de sobres.
+ *
+ * **Es mesura en una franja, no en una línia.** La primera versió mirava només
+ * l'alçada del punt, i el nom es dibuixa una mica més avall, on la comarca pot
+ * ser més estreta: el «Vallès Oriental» acabava escrit dins del Maresme. Es
+ * pren la mesura més justa de tota la franja que ocuparà el text.
+ *
+ * Es calcula aquí perquè és geometria i no canvia mai. A la pàgina només cal
+ * comparar-la amb el que ocuparia el text.
+ */
+function chordAt(ring: Pt[], x: number, y: number): number {
+  const xs: number[] = [];
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if ((yi > y) !== (yj > y)) xs.push(xi + ((xj - xi) * (y - yi)) / (yj - yi));
+  }
+  xs.sort((a, b) => a - b);
+  // El tram que conté el punt: entre creuaments consecutius, de dos en dos.
+  for (let k = 0; k + 1 < xs.length; k += 2) {
+    if (x >= xs[k] && x <= xs[k + 1]) return xs[k + 1] - xs[k];
+  }
+  return 0;
+}
+
+/** La franja que ocupen les dues línies d'etiqueta, en unitats del viewBox. */
+const LABEL_BAND = 22;
+
+function widthAt(ring: Pt[], pt: Pt): number {
+  let min = Infinity;
+  for (let dy = -LABEL_BAND; dy <= LABEL_BAND; dy += 4) {
+    min = Math.min(min, chordAt(ring, pt[0], pt[1] + dy));
+  }
+  return Math.round(Math.max(0, min));
+}
+
+/**
  * Un punt ben endins del polígon.
  *
  * Primer el centroide, que val per a la majoria. Si cau fora —passa amb
@@ -222,13 +263,64 @@ const features = projected.map((f) => {
     }
   }
 
+  const outer = biggest.length >= 3 ? biggest : rings[0];
+  const label = labelPoint(outer);
+
   return {
     code: f.code,
     name: f.name,
     d: toPath(rings),
-    label: labelPoint(biggest.length >= 3 ? biggest : rings[0]),
+    label,
+    // Quant text hi cap al costat de la xifra, en unitats del viewBox.
+    room: widthAt(outer, label),
+    // El decideix la passada de col·locació de més avall.
+    showName: false,
   };
 });
+
+/*
+ * ── Quins noms es dibuixen ──────────────────────────────────────────────────
+ *
+ * El criteri no és «que càpiga dins de la comarca». Als atles els rètols
+ * sobresurten contínuament i ningú s'hi fixa; el que no es perdona és que **dos
+ * rètols es trepitgin**. Amb la regla de cabre-hi dins només en sortien 15 de
+ * 43, i un mapa amb quinze noms i vint-i-vuit sense sembla que hi hagi un error.
+ *
+ * Així que es col·loquen per ordre de comarca gran a petita —les grosses tenen
+ * més dret al seu nom— i es descarta qualsevol que xoqui amb un de ja posat o
+ * que se surti massa del seu propi polígon.
+ */
+const NAME_SIZE = 15;
+const CHAR = NAME_SIZE * 0.55;
+/** Fins on es tolera que el nom sobresurti de la comarca, en tant per u. */
+const OVERHANG = 0.55;
+
+interface Box { x0: number; y0: number; x1: number; y1: number }
+const overlaps = (a: Box, b: Box) =>
+  a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
+const placed: Box[] = [];
+// Les xifres sempre es dibuixen: reserven el seu lloc abans que cap nom.
+for (const f of features) {
+  placed.push({
+    x0: f.label[0] - 26, x1: f.label[0] + 26,
+    y0: f.label[1] - 22, y1: f.label[1] + 4,
+  });
+}
+
+let named = 0;
+for (const f of [...features].sort((a, b) => b.room - a.room)) {
+  const w = f.name.length * CHAR;
+  if (w > f.room * (1 + OVERHANG)) continue;   // sobresortiria massa
+  const box: Box = {
+    x0: f.label[0] - w / 2 - 3, x1: f.label[0] + w / 2 + 3,
+    y0: f.label[1] + 5, y1: f.label[1] + 21,
+  };
+  if (placed.some((b) => overlaps(box, b))) continue;
+  placed.push(box);
+  f.showName = true;
+  named++;
+}
 
 const out = { width: WIDTH, height: HEIGHT, features };
 writeFileSync(build('geo', 'comarques-map.json'), JSON.stringify(out), 'utf8');
@@ -237,6 +329,7 @@ console.log(`Mapa de comarques: ${features.length} comarques`);
 console.log(`  punts: ${before.toLocaleString('ca-ES')} → ${after.toLocaleString('ca-ES')}`
   + ` (${(100 - (after / before) * 100).toFixed(0)} % menys)`);
 if (dropped) console.log(`  ${dropped} illots massa petits per dibuixar-los a aquesta escala`);
+console.log(`  noms dibuixats: ${named} de ${features.length}`);
 console.log(`  viewBox: ${WIDTH} × ${HEIGHT}`);
 console.log(`  → data/build/geo/comarques-map.json`
   + ` · ${(JSON.stringify(out).length / 1024).toFixed(0)} KB`);

@@ -36,6 +36,10 @@ export interface MapFeature {
   d: string;
   /** Punt interior on va l'etiqueta. */
   label: [number, number];
+  /** Amplada lliure dins de la comarca en aquell punt, en unitats del viewBox. */
+  room: number;
+  /** Si el nom hi cap sense trepitjar cap altre rètol. Ho decideix el build. */
+  showName: boolean;
 }
 
 interface MapGeometry {

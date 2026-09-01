@@ -114,8 +114,16 @@ export default async function ComarcaPage({ params }: { params: Params }) {
         *
         * És el mateix SVG de `/mapa` i no porta cap script.
         */}
-      <section className="mb-8">
-        <TemperatureMap data={map} highlight={c.codi} />
+      {/*
+        * Un pam, no una pantalla.
+        *
+        * El mapa va néixer per a `/mapa`, on és el contingut i ocupa l'ample.
+        * Aquí serveix per situar la comarca dins del país, i a mida completa
+        * empenyia tota la informació de la pàgina per sota de la primera
+        * pantalla d'un ordinador.
+        */}
+      <section className="mb-8 max-w-[340px]">
+        <TemperatureMap data={map} highlight={c.codi} variant="compact" />
       </section>
 
       {sorted.length >= 3 && (

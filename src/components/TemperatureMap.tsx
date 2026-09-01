@@ -32,8 +32,28 @@ import type { TemperatureMap as MapData } from '@/lib/map';
  * Es queden amb la trama de ratlles del `<defs>`. Un gris pla es llegiria com
  * «fa fred aquí», i el que passa és que no ho sabem.
  */
-export function TemperatureMap({ data, highlight }: { data: MapData; highlight?: string }) {
+/**
+ * Dues mides, perquè no és el mateix el mapa que la miniatura.
+ *
+ * A `/mapa` el dibuix és el contingut i ocupa l'ample: hi caben les xifres i,
+ * on hi ha lloc, el nom de la comarca. A la fitxa d'una comarca el mapa serveix
+ * per situar-se i ocupa un pam: allà només hi surt la xifra de la comarca
+ * marcada, perquè el nom a aquella mida no es llegiria.
+ */
+export function TemperatureMap({
+  data, highlight, variant = 'full',
+}: { data: MapData; highlight?: string; variant?: 'full' | 'compact' }) {
   const { width, height, comarques } = data;
+  const compact = variant === 'compact';
+
+  /*
+   * Quins noms es dibuixen ho decideix el build, no aquesta pàgina.
+   *
+   * És un problema de col·locació —que dos rètols no es trepitgin— i es resol
+   * un cop a `scripts/10-map-geometry.ts` amb la geometria a la mà, no a cada
+   * renderitzat amb una regla aproximada.
+   */
+  const NAME_SIZE = 15;
 
   return (
     <figure className="m-0">
@@ -77,30 +97,60 @@ export function TemperatureMap({ data, highlight }: { data: MapData; highlight?:
           );
         })}
 
-        {/* Les xifres van al final: han de quedar per damunt de tots els traços. */}
-        {comarques.map((c) => (c.temperature == null ? null : (
-          <text
-            key={`t${c.code}`}
-            x={c.label[0]}
-            y={c.label[1]}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={highlight === c.code ? 30 : 26}
-            fontWeight={highlight === c.code ? 700 : 500}
-            fill={temperatureInk(c.temperature)}
-            style={{ pointerEvents: 'none' }}
-          >
-            {num(c.temperature, 0)}
-          </text>
-        )))}
+        {/* Les etiquetes van al final: han de quedar per damunt de tots els traços. */}
+        {comarques.map((c) => {
+          if (c.temperature == null) return null;
+          const on = highlight === c.code;
+          // A la miniatura, només la comarca marcada porta etiqueta.
+          if (compact && !on) return null;
+          /*
+           * A la miniatura no hi va cap nom. A 340 px d'ample, el cos 15 del
+           * viewBox surt a cinc píxels: no es llegeix i només embruta. Qui és
+           * la comarca marcada ho diu el títol de la pàgina.
+           */
+          const named = !compact && c.showName;
+          const ink = temperatureInk(c.temperature);
+
+          return (
+            <g key={`t${c.code}`} style={{ pointerEvents: 'none' }}>
+              <text
+                x={c.label[0]}
+                y={c.label[1] - (named ? 9 : 0)}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={on ? 30 : 26}
+                fontWeight={on ? 700 : 500}
+                fill={ink}
+              >
+                {num(c.temperature, 0)}°
+              </text>
+              {named && (
+                <text
+                  x={c.label[0]}
+                  y={c.label[1] + 13}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={NAME_SIZE}
+                  fontWeight={on ? 600 : 400}
+                  fill={ink}
+                  opacity={0.82}
+                >
+                  {c.name}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
 
+      {!compact && (
       <figcaption className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
         Cada comarca porta la <strong className="font-medium text-[var(--ink-2)]">mediana
         dels seus municipis</strong>, amb l&apos;observació de cadascun corregida pel
         desnivell fins a la seva estació. {data.withData} de {comarques.length} en
         tenen prou; les ratllades, no.
       </figcaption>
+      )}
     </figure>
   );
 }
