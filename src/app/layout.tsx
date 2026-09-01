@@ -56,6 +56,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               ))}
             </nav>
+
+            {/*
+              * El cercador va a la capçalera i és un formulari, no un component.
+              * Sense JavaScript no hi ha suggeriments mentre s'escriu, però hi ha
+              * el que importa: es pot arribar a qualsevol dels 4.293 llocs des de
+              * qualsevol pàgina, amb el teclat i sense carregar res.
+              */}
+            <form
+              action="/cerca"
+              method="get"
+              role="search"
+              className="ms-auto flex min-w-0 items-center"
+            >
+              <label htmlFor="site-q" className="sr-only">Cercar un lloc</label>
+              <input
+                id="site-q"
+                name="q"
+                type="search"
+                placeholder="Cercar un poble…"
+                className="w-36 min-w-0 rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-1 text-sm text-[var(--ink)] outline-none placeholder:text-[var(--muted)] focus:w-52 focus:border-[var(--accent)] sm:w-44"
+              />
+            </form>
           </div>
         </header>
 

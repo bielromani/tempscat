@@ -45,6 +45,7 @@ export async function generateSitemaps() {
 function thematic(lastModified: Date): MetadataRoute.Sitemap {
   const fixed: Array<[string, number]> = [
     ['/', 1],
+    ['/cerca', 0.6],
     ['/mapa', 0.9],
     ['/radar', 0.9],
     ['/avisos', 0.9],

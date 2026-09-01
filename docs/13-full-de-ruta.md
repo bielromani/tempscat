@@ -669,11 +669,26 @@ necesita saber es que la bandera tiene una hora y que fuera de servicio no se
 actualiza. Hay que repasar el sitio entero con ese criterio: el razonamiento va
 en el código, no en la página.
 
-### Un buscador de verdad
+### Un buscador de verdad · ✅ hecho
 
-No existe ninguno. Hace falta para las 4.293 ubicaciones, y también dentro de
-las páginas temáticas — playas en `/mar`, estaciones en `/senderisme`, comarcas
-en `/bolets`—, que hoy son listas largas sin manera de llegar a lo tuyo.
+`/cerca`, y un formulario en la cabecera que llega desde cualquier página.
+Busca a la vez en las 4.293 poblaciones, las 43 comarcas, las 189 estaciones,
+las playas y las propias páginas del sitio — porque quien escribe «Cadaqués» no
+sabe ni le importa si eso es un municipio, una playa o una estación.
+
+**Es del servidor, no del navegador.** Un índice descargado y filtrado mientras
+se escribe habrían sido las primeras líneas de JavaScript propio y unos 200 KB
+para algo que un `<form method="get">` resuelve. El precio es tener que pulsar
+Enter; a cambio funciona sin JavaScript y con el teclado, cada búsqueda tiene su
+URL y el resultado es indexable.
+
+Ni los acentos ni los artículos hacen falta: «mollo» encuentra Molló y «ametlla»
+las cuatro l'Ametlla. Y el orden no es alfabético — «sant» devuelve 490
+resultados con Santa Coloma, Sant Cugat y Sant Boi delante, porque entre
+municipios manda la población.
+
+Queda pendiente el filtro **dentro** de las páginas temáticas, que es otra cosa:
+ahí no se busca, se acota una lista larga.
 
 ### Que las temáticas expliquen más y sean más visuales
 
