@@ -23,6 +23,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/cache/radar/` | Teselas de radar ya descargadas. Las sirve una route handler |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
+| `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
 | `src/lib/cache-store.ts` | **La frontera de lectura.** Disco en local, almacén de objetos en producción |
 | `data/cache/forecast/` | La predicción, un fichero por comarca. Nunca un monolito: ver `forecast-shards.ts` |
 | `data/raw/`, `data/cache/` | Descargas y datos vivos. No se versionan |
@@ -251,4 +252,11 @@ cuota para exactamente la misma información.
   texto: discrepancia de hidratación, y React vuelve a renderizar el árbol entero en el
   navegador. No da ningún error visible. Estuvo así en las rosas de los vientos de las 4.293
   páginas. Compón la cadena antes y pásala de una pieza.
-
+- **La geometría del mapa no se simplifica en cada render.** Las 43 comarcas del ICGC son 14.347
+  puntos, unos 154 KB de `path`. `scripts/10-map-geometry.ts` las proyecta, las simplifica con
+  Douglas-Peucker a un píxel y las deja en enteros con órdenes relativas: 23 KB, y la aplicación
+  solo pone el color. Si tocas la geometría, `npm run data:map`.
+- **La tinta de la escala de temperatura sale de la luminosidad del color, no de los grados.**
+  El umbral estaba puesto a ojo —«a partir de 30 °C, texto claro»— y a 30 °C el fondo tiene un
+  72 % de luminosidad: el mapa salía con los treintaytantos en blanco sobre naranja claro. En
+  esta escala el extremo cálido nunca se oscurece lo bastante para pedir texto claro.

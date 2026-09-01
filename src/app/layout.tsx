@@ -37,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 que hace el resto del contenido ancho del sitio. */}
             <nav className="scroll-x flex gap-5 whitespace-nowrap text-sm text-[var(--muted)]">
               <Link href="/" className="no-underline hover:text-[var(--ink)]">Comarques</Link>
+              <Link href="/mapa" className="no-underline hover:text-[var(--ink)]">Mapa</Link>
               <Link href="/radar" className="no-underline hover:text-[var(--ink)]">Radar</Link>
               <Link href="/avisos" className="no-underline hover:text-[var(--ink)]">Avisos</Link>
               <Link href="/ranquings" className="no-underline hover:text-[var(--ink)]">Rànquings</Link>

@@ -496,7 +496,27 @@ posicionar cada núcleo por su cuenta.
 
 ## Fase 3 — mapas
 
-### Antes del mapa interactivo: el mapa que no necesita JavaScript
+### Antes del mapa interactivo: el mapa que no necesita JavaScript · ✅ hecho
+
+`/mapa`, y también en cada una de las 43 fichas de comarca con la suya resaltada — que es
+donde deja de ser decoración: saber que hace 26 °C no dice gran cosa; ver que el resto del
+país está a 31 sí.
+
+**Cada comarca lleva la mediana de sus municipios**, no la media de sus estaciones. En el
+Ripollès hay estaciones a 1.900 m y a 700, y su media no describe ningún sitio donde viva
+nadie; los municipios ya llevan la corrección de altitud hecha. Mediana y no media porque un
+solo pueblo de montaña no debe teñir de azul una comarca entera. Las que no llegan a dos
+municipios observados salen rayadas y no grises: un gris plano se lee como «aquí hace frío».
+
+**La escala es absoluta y no se ajusta al día.** Estirar los colores hasta los extremos de hoy
+daría un mapa mucho más vistoso y sería una trampa: una comarca saldría roja con 31 grados por
+la mañana y azul con 33 por la tarde. El precio es que un día de agosto el mapa se ve casi de
+un solo color, y eso no es un defecto del mapa: la leyenda marca el tramo del día y así la
+planura pasa a ser la información — hoy Catalunya entera cabe en 5,6 grados.
+
+Coste medido: 10 KB comprimidos de SVG, más otros 10 de la carga RSC que lo duplica. Una ficha
+de comarca pasa de 7 a 29 KB, todavía por debajo del listón de 40.
+
 
 La página del radar demostró que se puede: las teselas y los polígonos del ICGC
 comparten proyección, así que un solo SVG de servidor lleva las dos cosas y el

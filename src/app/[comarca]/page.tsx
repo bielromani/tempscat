@@ -5,6 +5,8 @@ import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { allComarques, comarcaBySlug, municipisOfComarca } from '@/lib/territory';
 import { activeWarnings, currentFor } from '@/lib/weather';
 import { comarcaSummary } from '@/lib/comparison';
+import { temperatureMap } from '@/lib/map';
+import { TemperatureMap } from '@/components/TemperatureMap';
 import { aName, comarcaName, dateLong, deComarca, num, temp } from '@/lib/format';
 import { localToday } from '@/lib/weather';
 
@@ -37,6 +39,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
 
   const municipis = municipisOfComarca(c.codi);
   const summary = await comarcaSummary(c.codi);
+  const map = await temperatureMap();
   const warnings = (await activeWarnings()).filter((w) => w.comarcaCodis.includes(c.codi));
   const today = localToday();
 
@@ -101,6 +104,19 @@ export default async function ComarcaPage({ params }: { params: Params }) {
           </Link>
         </p>
       )}
+
+      {/*
+        * El mapa de tot Catalunya amb aquesta comarca marcada.
+        *
+        * No és decoració: situa la comarca i, sobretot, ensenya **com queda
+        * respecte de la resta** ara mateix. Saber que fa 18 graus no diu gaire;
+        * veure que la resta del país en té 25 sí.
+        *
+        * És el mateix SVG de `/mapa` i no porta cap script.
+        */}
+      <section className="mb-8">
+        <TemperatureMap data={map} highlight={c.codi} />
+      </section>
 
       {sorted.length >= 3 && (
         <section className="mb-8 grid gap-3 sm:grid-cols-2">
