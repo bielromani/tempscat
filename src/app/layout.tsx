@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { IS_PRODUCTION, SITE_URL } from '@/lib/site';
 import './globals.css';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://meteo.example'),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'El temps a Catalunya, poble a poble',
     template: '%s',
@@ -11,8 +12,15 @@ export const metadata: Metadata = {
   description:
     'Predicció i observació real per a totes les comarques, municipis i nuclis de població de Catalunya, amb dades del Meteocat i consens multimodel.',
   alternates: { canonical: '/' },
-  openGraph: { locale: 'ca_ES', type: 'website' },
-  robots: { index: true, follow: true },
+  openGraph: { locale: 'ca_ES', type: 'website', siteName: 'El temps a Catalunya' },
+  /*
+   * Un preview no se indexa. Vercel da una URL nueva a cada despliegue de
+   * prueba, y sin esto acabarías con cuarenta copias del sitio compitiendo
+   * entre ellas y con la de verdad.
+   */
+  robots: IS_PRODUCTION
+    ? { index: true, follow: true }
+    : { index: false, follow: false, nocache: true },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
