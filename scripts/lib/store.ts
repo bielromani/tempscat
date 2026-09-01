@@ -87,10 +87,10 @@ export function markForPublish(relativePath: string): void {
  * Sin `BLOB_READ_WRITE_TOKEN` no hace nada y lo dice: es el caso normal cuando
  * se trabaja en local, y no debe parecer un error.
  */
-export async function publish(): Promise<{ uploaded: number; bytes: number; skipped: boolean }> {
+export async function publish(): Promise<{ uploaded: number; bytes: number; skipped: boolean; origin: string | null }> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     pending.clear();
-    return { uploaded: 0, bytes: 0, skipped: true };
+    return { uploaded: 0, bytes: 0, skipped: true, origin: null };
   }
 
   const { put } = await import('@vercel/blob');
@@ -99,6 +99,7 @@ export async function publish(): Promise<{ uploaded: number; bytes: number; skip
 
   let uploaded = 0;
   let bytes = 0;
+  let origin: string | null = null;
   const failed: string[] = [];
 
   // De ocho en ocho. Subir 44 trozos de predicción en serie tarda una eternidad
@@ -111,7 +112,7 @@ export async function publish(): Promise<{ uploaded: number; bytes: number; skip
       if (!existsSync(local)) return;
       const body = readFileSync(local);
       try {
-        await put(rel, body, {
+        const res = await put(rel, body, {
           access: 'public',
           // Sin sufijo aleatorio y sobrescribiendo: la aplicación pide una URL
           // fija y espera encontrar ahí la última versión. Un sufijo aleatorio
@@ -124,6 +125,10 @@ export async function publish(): Promise<{ uploaded: number; bytes: number; skip
           // queda viejo sin que nadie lo sepa.
           cacheControlMaxAge: 60,
         });
+        // El origen sale de la respuesta y no de adivinarlo a partir del
+        // identificador del almacén. Es el valor exacto que hay que poner en
+        // `BLOB_BASE_URL`, y así no hay que ir a buscarlo al panel.
+        origin ??= new URL(res.url).origin;
         uploaded++;
         bytes += body.byteLength;
       } catch (err) {
@@ -138,7 +143,7 @@ avís: ${failed.length} fitxers no s'han pogut publicar:`);
     for (const f of failed.slice(0, 5)) console.warn(`  ${f}`);
   }
 
-  return { uploaded, bytes, skipped: false };
+  return { uploaded, bytes, skipped: false, origin };
 }
 
 export function readSnapshot<T>(name: string): Snapshot<T> | null {

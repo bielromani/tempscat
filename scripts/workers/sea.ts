@@ -327,6 +327,9 @@ async function main() {
   const pub = await publish();
   if (!pub.skipped) {
     console.log(`Publicat a l'emmagatzematge: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);
+    if (pub.origin && process.env.BLOB_BASE_URL !== pub.origin) {
+      console.log(`   BLOB_BASE_URL = ${pub.origin}`);
+    }
   }
 }
 
