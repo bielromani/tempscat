@@ -48,17 +48,14 @@ const started = Date.now();
 const pub = await publish();
 
 if (pub.skipped) {
-  console.log('Sense BLOB_READ_WRITE_TOKEN: no s\'ha pujat res.');
-  console.log('Posa\'l a .env.local i torna-ho a provar.');
+  console.log("Sense les variables de R2: no s'ha pujat res.");
+  console.log('Calen R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID i R2_SECRET_ACCESS_KEY');
+  console.log('a .env.local. Torna-ho a provar quan hi siguin.');
   process.exit(1);
 }
 
 const min = (Date.now() - started) / 60000;
 console.log(`\nPujats ${pub.uploaded}/${files.length} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB · ${min.toFixed(1)} min`);
-if (pub.origin) {
-  console.log(`\nPosa aquesta variable a l'aplicació:`);
-  console.log(`  BLOB_BASE_URL = ${pub.origin}`);
-}
 if (pub.uploaded < files.length) {
   console.log(`\navís: ${files.length - pub.uploaded} fitxers no han pujat. Torna a executar-ho: només costa temps.`);
   process.exit(1);

@@ -35,12 +35,12 @@
     "worker:water": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/water.ts",
     "worker:air-stations": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-stations.ts",
     "worker:sea": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/sea.ts",
-    "blob:sync": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/blob-sync.ts",
+    "store:sync": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/store-sync.ts",
+    "store:split": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/migrate-split-cache.ts",
     "check:lockfile": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-lockfile.ts",
     "data:map": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/10-map-geometry.ts"
   },
   "dependencies": {
-    "@vercel/blob": "^2.8.0",
     "next": "16.3.3",
     "pg": "^8.23.0",
     "react": "19.2.8",

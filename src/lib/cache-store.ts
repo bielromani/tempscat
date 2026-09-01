@@ -22,10 +22,11 @@ import { get as httpsGet } from 'node:https';
  *
  * ## Dos modos, y el local no cambia
  *
- * Sin `BLOB_BASE_URL` se lee del disco igual que siempre, con la misma
+ * Sin `DATA_BASE_URL` se lee del disco igual que siempre, con la misma
  * memorización por `mtime`. Desarrollar sigue siendo instantáneo y sin red.
  *
- * Con `BLOB_BASE_URL` se lee por HTTP del almacén. Es lo que pasa en Vercel.
+ * Con `DATA_BASE_URL` se lee por HTTP del almacén, que es un cubo de Cloudflare
+ * R2 servido por un dominio propio. Es lo que pasa en producción.
  *
  * ## Por qué no se usa `fetch`, ni siquiera para pedirlo
  *
@@ -56,7 +57,7 @@ import { get as httpsGet } from 'node:https';
 const LOCAL = join(process.cwd(), 'data', 'cache');
 
 /** Base pública del almacén, sin barra final. Vacío = modo disco. */
-const REMOTE = process.env.BLOB_BASE_URL?.replace(/\/$/, '') ?? '';
+const REMOTE = process.env.DATA_BASE_URL?.replace(/\/$/, '') ?? '';
 
 export const IS_REMOTE = REMOTE !== '';
 

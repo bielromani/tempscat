@@ -1,15 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
-/*
- * Import estàtic i no dinàmic, i el motiu és el moment en què peta.
- *
- * Estava com a `await import('@vercel/blob')` dins de `publish()`, que és
- * l'últim que fa un worker. Amb el paquet absent, el radar es baixava les 28
- * tessel·les, escrivia el JSON, i **només llavors** moria: tota la feina feta i
- * res publicat. Aquí dalt, si no hi és, el worker no arrenca i es veu de
- * seguida.
- */
-import { put } from '@vercel/blob';
+import { putObject, s3Config } from './s3.ts';
 import { ROOT } from './paths.ts';
 
 /**
@@ -94,13 +85,16 @@ export function markForPublish(relativePath: string): void {
 /**
  * Sube al almacén todo lo escrito en esta ejecución.
  *
- * Sin `BLOB_READ_WRITE_TOKEN` no hace nada y lo dice: es el caso normal cuando
- * se trabaja en local, y no debe parecer un error.
+ * Sin las variables de R2 no hace nada y lo dice: es el caso normal cuando se
+ * trabaja en local, y no debe parecer un error. Con la configuración a medias
+ * sí lanza —ver `s3Config()`—, porque eso no es «no publicar», es «creer que
+ * publicas».
  */
-export async function publish(): Promise<{ uploaded: number; bytes: number; skipped: boolean; origin: string | null }> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+export async function publish(): Promise<{ uploaded: number; bytes: number; skipped: boolean }> {
+  const cfg = s3Config();
+  if (!cfg) {
     pending.clear();
-    return { uploaded: 0, bytes: 0, skipped: true, origin: null };
+    return { uploaded: 0, bytes: 0, skipped: true };
   }
 
   const files = [...pending];
@@ -108,7 +102,6 @@ export async function publish(): Promise<{ uploaded: number; bytes: number; skip
 
   let uploaded = 0;
   let bytes = 0;
-  let origin: string | null = null;
   const failed: string[] = [];
 
   // De ocho en ocho. Subir 44 trozos de predicción en serie tarda una eternidad
@@ -121,38 +114,47 @@ export async function publish(): Promise<{ uploaded: number; bytes: number; skip
       if (!existsSync(local)) return;
       const body = readFileSync(local);
       try {
-        const res = await put(rel, body, {
-          access: 'public',
-          // Sin sufijo aleatorio y sobrescribiendo: la aplicación pide una URL
-          // fija y espera encontrar ahí la última versión. Un sufijo aleatorio
-          // convertiría cada refresco en un fichero nuevo e inalcanzable.
-          addRandomSuffix: false,
-          allowOverwrite: true,
+        await withRetry(() => putObject(cfg, rel, body, {
           contentType: rel.endsWith('.png') ? 'image/png' : 'application/json',
           // La aplicación ya memoriza por su cuenta y con su propio plazo. Que
-          // el CDN cachee más que eso solo añade un sitio donde el dato se
-          // queda viejo sin que nadie lo sepa.
-          cacheControlMaxAge: 60,
-        });
-        // El origen sale de la respuesta y no de adivinarlo a partir del
-        // identificador del almacén. Es el valor exacto que hay que poner en
-        // `BLOB_BASE_URL`, y así no hay que ir a buscarlo al panel.
-        origin ??= new URL(res.url).origin;
+          // el CDN se quede la copia más que eso solo añade un sitio donde el
+          // dato envejece sin que nadie lo sepa.
+          cacheSeconds: 60,
+        }));
         uploaded++;
         bytes += body.byteLength;
       } catch (err) {
-        failed.push(`${rel}: ${String(err).slice(0, 80)}`);
+        failed.push(`${rel}: ${String(err).slice(0, 120)}`);
       }
     }));
   }
 
   if (failed.length) {
-    console.warn(`
-avís: ${failed.length} fitxers no s'han pogut publicar:`);
+    console.warn(`\navís: ${failed.length} fitxers no s'han pogut publicar:`);
     for (const f of failed.slice(0, 5)) console.warn(`  ${f}`);
   }
 
-  return { uploaded, bytes, skipped: false, origin };
+  return { uploaded, bytes, skipped: false };
+}
+
+/**
+ * Tres intentos, con una espera que crece.
+ *
+ * No es prudencia genérica: una vuelta de predicción sube 44 ficheros de hasta
+ * un mega y basta con que uno se pierda para que una comarca entera se quede
+ * con la predicción de la vuelta anterior — sin que nada dé error.
+ */
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let last: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      last = err;
+      if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 750));
+    }
+  }
+  throw last;
 }
 
 export function readSnapshot<T>(name: string): Snapshot<T> | null {
@@ -190,7 +192,7 @@ export function readSnapshot<T>(name: string): Snapshot<T> | null {
  * vacío.
  */
 export async function pullSnapshot<T>(name: string): Promise<Snapshot<T> | null> {
-  const base = process.env.BLOB_BASE_URL?.replace(/[/]$/, '');
+  const base = process.env.DATA_BASE_URL?.replace(/[/]$/, '');
   if (!base) return readSnapshot<T>(name);
 
   const res = await fetch(`${base}/${name}.json`);
@@ -253,13 +255,13 @@ export function readFreshness(): Record<string, FreshnessEntry> {
  * Se llama después de cada lote. Es un PUT de 300 bytes.
  */
 export async function publishQuota(): Promise<void> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+  const cfg = s3Config();
+  if (!cfg) return;
   const p = join(CACHE, 'quota.json');
   if (!existsSync(p)) return;
   try {
-    await put('quota.json', readFileSync(p), {
-      access: 'public', addRandomSuffix: false, allowOverwrite: true,
-      contentType: 'application/json', cacheControlMaxAge: 0,
+    await putObject(cfg, 'quota.json', readFileSync(p), {
+      contentType: 'application/json', cacheSeconds: 0,
     });
     pending.delete('quota.json');
   } catch {
@@ -318,7 +320,7 @@ export async function publishQuota(): Promise<void> {
  * de otras.
  */
 export async function syncState(): Promise<void> {
-  const base = process.env.BLOB_BASE_URL?.replace(/[/]$/, '');
+  const base = process.env.DATA_BASE_URL?.replace(/[/]$/, '');
   if (!base) return;   // en local los ficheros ya están donde toca
 
   ensure();

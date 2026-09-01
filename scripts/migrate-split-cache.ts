@@ -118,5 +118,5 @@ console.log(`
 ${written} fitxers escrits.`);
 
 const pub = await publish();
-if (pub.skipped) console.log("Sense BLOB_READ_WRITE_TOKEN: nomes s'ha escrit a disc.");
+if (pub.skipped) console.log("Sense les variables de R2: nomes s'ha escrit a disc.");
 else console.log(`Publicat: ${pub.uploaded} fitxers · ${(pub.bytes / 1048576).toFixed(1)} MB`);

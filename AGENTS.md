@@ -78,15 +78,28 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 En local, en `data/cache/`, y no hay más que decir. En producción **no hay
 disco**: una función de Vercel arranca con el código del despliegue y nada más.
 
+El almacén es **Cloudflare R2**, y la razón es una sola: **no factura la salida
+de datos**. Este sitio existe para servir datos públicos —su trabajo es
+justamente la salida— y con el almacén de Vercel un solo rastreo del sitemap
+consumía más de un mes de cuota. Lo consumió, el 1 de septiembre de 2026, y
+dejó el sitio a medias durante horas.
+
 Así que hay dos mitades y conviene no confundirlas:
 
-| | Quién | Variable |
+| | Quién | Variables |
 |---|---|---|
-| **Escribir** | los workers, con `publish()` al final | `BLOB_READ_WRITE_TOKEN` |
-| **Leer** | la aplicación, en `cache-store.ts` | `BLOB_BASE_URL` |
+| **Escribir** | los workers, con `publish()` al final | `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` |
+| **Leer** | la aplicación, en `cache-store.ts` | `DATA_BASE_URL` |
 
 Sin esas variables todo funciona contra el disco, que es lo que pasa mientras
-desarrollas. Tres cosas que no son evidentes:
+desarrollas. Con la mitad de escritura **a medias**, en cambio, se lanza: no
+publicar es un estado normal, creer que publicas no lo es.
+
+No hay SDK. La firma v4 son cuarenta líneas de `node:crypto` en
+`scripts/lib/s3.ts`, y ahí está escrito por qué no vale la pena traerse veinte
+megas de dependencia para construir una cabecera.
+
+Cuatro cosas más que no son evidentes:
 
 - **Una página descarga bytes en proporción a lo que enseña.** No a lo que
   existe. Es la regla que faltó al principio y salió cara: una ficha de
