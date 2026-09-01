@@ -30,6 +30,7 @@ import { throttledMap } from '../lib/http.ts';
 import {
   DAILY_LIMITS, QuotaGuard, publish, pullSnapshot, recordFreshness, syncState, writeSnapshot,
 } from '../lib/store.ts';
+import { historyShard } from '../../src/lib/shards.ts';
 import { windCardinal } from '../../src/lib/variables.ts';
 import type { Station } from '../04-fetch-stations.ts';
 
@@ -714,7 +715,21 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
   if (dry) console.log(`\nRatxa seca més llarga ara: ${dry.dryStreak} dies a ${nom.get(dry.station)}`);
 
   const newest = valid.flatMap((v) => v.daily.map((d) => d.day)).sort().at(-1) ?? null;
-  writeSnapshot('xema-history', 'Meteocat XEMA · dades obertes', valid, newest ? `${newest}T00:00:00Z` : null);
+  const source = 'Meteocat XEMA · dades obertes';
+  const dataTs = newest ? `${newest}T00:00:00Z` : null;
+
+  /*
+   * El monolito y, ademas, un trozo por estacion.
+   *
+   * El monolito lo piden cuatro paginas de pais que comparan estaciones entre
+   * ellas. Las 4.293 fichas de lugar solo quieren la suya, y bajarse dos megas
+   * para leer diez kilobytes es lo que agoto el almacen el 1 de septiembre de
+   * 2026. El porque esta en `src/lib/shards.ts`.
+   */
+  writeSnapshot('xema-history', source, valid, dataTs);
+  for (const h of valid) writeSnapshot(historyShard(h.station), source, h, dataTs);
+  console.log(`
+→ ${valid.length} trossos a data/cache/history/`);
   recordFreshness({
     source: 'xema-history',
     lastSuccessAt: new Date().toISOString(),

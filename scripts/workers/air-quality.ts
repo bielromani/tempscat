@@ -36,6 +36,7 @@ import {
   DAILY_LIMITS, MONTHLY_LIMITS, QuotaGuard, publish, recordFreshness, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { airCell } from '../../src/lib/air-grid.ts';
+import { airShard } from '../../src/lib/shards.ts';
 import {
   AIR_FIELD_TO_SLUG, AIR_HOURLY_FIELDS, AIR_VARIABLES, POLLENS, POLLUTANTS,
   aqiBand, type AirSlug,
@@ -224,7 +225,21 @@ async function main() {
   console.log(`\nHoritzó: ${result.times.length} h (${result.times[0]} → ${result.times.at(-1)})`);
   if (failed) console.warn(`Cel·les sense dada: ${failed}`);
 
-  writeSnapshot('air-quality', 'CAMS Europa via Open-Meteo · CC-BY 4.0', result, result.times[0] ?? null);
+  const source = 'CAMS Europa via Open-Meteo · CC-BY 4.0';
+  const dataTs = result.times[0] ?? null;
+
+  /*
+   * Igual que el historico: el monolito, y ademas un trozo por celda.
+   *
+   * Una ficha de pueblo cae en una celda y en ninguna mas, asi que no tiene
+   * por que bajarse las 372. Ver `src/lib/shards.ts`.
+   */
+  writeSnapshot('air-quality', source, result, dataTs);
+  for (const [key, cell] of Object.entries(result.cells)) {
+    writeSnapshot(airShard(key), source, { times: result.times, cell, cellDeg: result.cellDeg }, dataTs);
+  }
+  console.log(`
+→ ${Object.keys(result.cells).length} trossos a data/cache/air/`);
   recordFreshness({
     source: 'air-quality',
     lastSuccessAt: new Date().toISOString(),

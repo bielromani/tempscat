@@ -41,7 +41,8 @@ import {
 } from '../lib/store.ts';
 import {
   FORECAST_INDEX, forecastShard, type ForecastIndex,
-} from '../../src/lib/forecast-shards.ts';
+} from '../../src/lib/shards.ts';
+import { alignAll } from '../lib/forecast-align.ts';
 import {
   VARIABLES, ESSENTIAL_HOURLY, RICH_HOURLY, callWeight, type VariableSlug,
 } from '../../src/lib/variables.ts';
@@ -145,7 +146,7 @@ export interface ForecastData {
  * hacerlo: fusiona lo que trae este refresco con lo que quedó del anterior— y
  * solo al final lo reparte en 43 ficheros.
  *
- * El motivo está escrito en `src/lib/forecast-shards.ts`: un arranque en frío
+ * El motivo está escrito en `src/lib/shards.ts`: un arranque en frío
  * de la aplicación parseaba 42 MB para responder con un punto de 3.190.
  */
 
@@ -399,6 +400,18 @@ async function main() {
     models: [],
   };
 
+  /**
+   * De quin instant arrenca la sèrie de cada punt.
+   *
+   * Els conservats surten del refresc anterior, i els que es demanin ara
+   * s'aniran apuntant a `absorb()`. Es guarda la referència a l'array, que
+   * la comparteixen tots els punts d'un mateix lot: no ocupa res.
+   */
+  const timesOf = new Map<string, string[]>();
+  if (previous) {
+    for (const id of Object.keys(kept)) timesOf.set(id, previous.data.times);
+  }
+
   const retryQueue: Array<{ spec: ModelSpec; points: ForecastPoint[] }> = [];
   const requested = new Map<string, number>();
   for (const st of steps) requested.set(st.spec.model, (requested.get(st.spec.model) ?? 0) + st.points.length);
@@ -418,18 +431,13 @@ async function main() {
 
   const absorb = (pointId: string, model: string, fc: PointForecast & { times: string[] }) => {
     /*
-     * La sèrie més llarga mana, no la primera que arribi.
+     * Cada punt es queda amb la seva pròpia base de temps.
      *
-     * Els punts que es conserven d'un refresc anterior poden portar un horitzó
-     * més curt que el que demanem ara. Amb `if (!result.times.length)` el
-     * fitxer es quedava amb les 168 hores velles mentre els punts nous en
-     * portaven 336: la segona setmana hi era, escrita al disc, i **no la veia
-     * ningú**. Es va veure en canviar l'horitzó de set dies a catorze.
-     *
-     * Els punts curts queden amb la cua sense valor, i qui llegeix ja ho sap
-     * tractar: una hora sense dada no és una hora amb zero.
+     * No es tria aquí quina mana: es fa al final, a `alignAll()`, i el motiu
+     * està escrit allà. Aquí només cal apuntar de quin instant surt cada
+     * sèrie perquè després es puguin quadrar totes.
      */
-    if (fc.times.length > result.times.length) result.times = fc.times;
+    timesOf.set(pointId, fc.times);
     result.points[pointId] ??= {};
     // Un mismo punto puede recibir varias peticiones del mismo modelo con
     // conjuntos distintos de variables: se fusionan en vez de sobrescribirse.
@@ -502,6 +510,8 @@ async function main() {
       }
     }
   }
+
+  alignAll(result, timesOf);
 
   result.models = [...new Set(
     Object.values(result.points).flatMap((byModel) => Object.keys(byModel)),

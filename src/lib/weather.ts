@@ -7,7 +7,7 @@ import {
 import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
 import { consensusCode, dailySummaryCode } from './weather-codes';
 import { airCellKey } from './air-grid';
-import { forecastShard } from './forecast-shards';
+import { airShard, forecastShard, historyShard } from './shards';
 import {
   AIR_VARIABLES, POLLENS, POLLUTANTS, SUB_INDEX_OF, SUB_INDICES,
   pollenLevel, type AirSlug, type PollenLevel,
@@ -520,15 +520,26 @@ export async function historyFor(loc: Location): Promise<StationHistory | null> 
   return historyOfStation(loc.stationRef.codi);
 }
 
-/** Todo el histórico, para las páginas que comparan estaciones entre ellas. */
+/**
+ * Todo el histórico, para las páginas que comparan estaciones entre ellas.
+ *
+ * Son dos megas y **solo lo piden cuatro URL**: `/neu`, `/bolets`,
+ * `/senderisme` y `/nautica`. Cualquier página que hable de un sitio concreto
+ * usa `historyOfStation`, que se baja diez kilobytes. La diferencia entre esas
+ * dos llamadas es la que agotó el almacén: ver `src/lib/shards.ts`.
+ */
 export async function allHistory(): Promise<StationHistory[]> {
   return (await snapshot<StationHistory[]>('xema-history'))?.data ?? [];
 }
 
-/** Histórico por código de estación, para la ficha de la propia estación. */
+/**
+ * Histórico de una estación.
+ *
+ * Su propio trozo, no una búsqueda dentro del monolito. Es la única forma de
+ * que la ficha de un pueblo pague por una estación y no por las 189.
+ */
 export async function historyOfStation(codi: string): Promise<StationHistory | null> {
-  const snap = await snapshot<StationHistory[]>('xema-history');
-  return snap?.data.find((h) => h.station === codi) ?? null;
+  return (await snapshot<StationHistory>(historyShard(codi)))?.data ?? null;
 }
 
 /** Observación actual de una estación concreta, sin corrección de altitud. */
@@ -587,9 +598,15 @@ export function astronomyFor(loc: Location, date = new Date()): Astronomy | null
 // ── Calidad del aire ────────────────────────────────────────────────────────
 
 interface AirCellData { values: Partial<Record<AirSlug, Array<number | null>>> }
-interface AirQualityRaw {
+/**
+ * Una celda sola, que es lo único que necesita la ficha de un pueblo.
+ *
+ * El fichero con las 372 lo sigue escribiendo el worker —es el que documenta
+ * `/dades`— pero la aplicación ya no lo lee desde ninguna página.
+ */
+interface AirCellShard {
   times: string[];
-  cells: Record<string, AirCellData>;
+  cell: AirCellData;
   cellDeg: number;
 }
 
@@ -628,10 +645,12 @@ export interface AirQuality {
  */
 export async function airQualityFor(loc: Location): Promise<AirQuality | null> {
   if (loc.lat == null || loc.lon == null) return null;
-  const snap = await snapshot<AirQualityRaw>('air-quality');
+  // Solo su celda. El fichero con las 372 pesa un mega y medio, y una ficha
+  // usa una: ver `src/lib/shards.ts`.
+  const snap = await snapshot<AirCellShard>(airShard(airCellKey(loc.lat, loc.lon)));
   if (!snap) return null;
 
-  const cell = snap.data.cells[airCellKey(loc.lat, loc.lon)];
+  const cell = snap.data.cell;
   if (!cell) return null;
 
   const times = snap.data.times;

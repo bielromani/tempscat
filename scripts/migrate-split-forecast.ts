@@ -12,7 +12,7 @@ import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { CACHE, writeSnapshot } from './lib/store.ts';
 import { build } from './lib/paths.ts';
-import { FORECAST_INDEX, forecastShard, type ForecastIndex } from '../src/lib/forecast-shards.ts';
+import { FORECAST_INDEX, forecastShard, type ForecastIndex } from '../src/lib/shards.ts';
 
 interface PointForecast { modelElevation: number; values: Record<string, Array<number | null>> }
 interface ForecastData { times: string[]; points: Record<string, Record<string, PointForecast>>; models: string[] }

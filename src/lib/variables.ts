@@ -224,11 +224,22 @@ export const ESSENTIAL_HOURLY: VariableSlug[] = [
   'weather_code', 'cloud_cover', 'humidity', 'wind_speed', 'wind_direction', 'wind_gust',
 ];
 
-/** Todo lo anterior más lo que enriquece la ficha de un lugar destacado. */
+/**
+ * Todo lo anterior más lo que enriquece la ficha de un lugar destacado.
+ *
+ * **Lo que no se pinta, no se pide.** `snow_depth` y `solar_radiation` estuvieron
+ * aquí y no los leía nadie: eran 3 MB de los 50 que ocupa la predicción, y
+ * viajaban del modelo al almacén y del almacén a cada página sin llegar nunca a
+ * una pantalla. El gruix de neu que sí se enseña es el **medido** en las
+ * estaciones de altura, que sale del histórico y no del modelo.
+ *
+ * Y encima se cobran: Open-Meteo factura por decenas de variables, así que
+ * dejar de pedirlas bajó el peso de cada llamada de 1,9 a 1,7 — un 10 % de
+ * cuota diaria recuperado sin quitar ni un modelo.
+ */
 export const RICH_HOURLY: VariableSlug[] = [
   ...ESSENTIAL_HOURLY,
-  'dew_point', 'pressure', 'uv_index', 'visibility', 'freezing_level', 'snowfall',
-  'snow_depth', 'solar_radiation', 'cape',
+  'dew_point', 'pressure', 'uv_index', 'visibility', 'freezing_level', 'snowfall', 'cape',
 ];
 
 /** Peso que Open-Meteo cobrará por una petición. */
