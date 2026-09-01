@@ -236,7 +236,7 @@ function snowLevelFrom(hours: HourlyPoint[]): number | null {
   return Math.round((mean - 250) / 50) * 50;
 }
 
-export async function forecastFor(loc: Location, hours = 168): Promise<LocationForecast | null> {
+export async function forecastFor(loc: Location, hours = 336): Promise<LocationForecast | null> {
   if (!loc.forecastPointId || !loc.comarcaCodi) return null;
   // Solo el trozo de su comarca. El punto de un municipio de frontera está
   // duplicado en los dos trozos justamente para que aquí no haya que buscarlo.

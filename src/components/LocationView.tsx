@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { Meteogram } from './Meteogram';
 import { WeatherIcon, WeatherIconSprite } from './WeatherIcon';
@@ -194,6 +195,26 @@ function Current({
   );
 }
 
+/**
+ * A partir d'aquí la predicció deixa de ser una predicció i passa a ser una
+ * tendència. No és un número rodó triat a ull: és on un model determinista
+ * comença a tenir poca traça i on els grans deixen de posar-hi decimals.
+ */
+const CONFIDENT_DAYS = 7;
+
+/**
+ * Els catorze dies, amb la segona setmana dita com el que és.
+ *
+ * Demanar catorze dies en comptes de set **no costa cap unitat de quota** —el
+ * factor de dies d'Open-Meteo té terra a 1—, així que estàvem pagant per una
+ * setmana que no ensenyàvem. Però que la dada hi sigui no vol dir que valgui
+ * igual, i ensenyar el dia dotze amb la mateixa cara que el de demà seria
+ * prometre una precisió que no tenim.
+ *
+ * Per això la segona setmana va apagada, sense mil·límetres —a dotze dies vista
+ * la quantitat de pluja és soroll, la probabilitat encara diu alguna cosa— i
+ * amb una separació pel mig que es veu.
+ */
 function DailyStrip({ daily, today }: { daily: LocationForecast['daily']; today: string }) {
   const all = daily.flatMap((d) => [d.tMax, d.tMin]).filter((v): v is number => v != null);
   const lo = Math.min(...all);
@@ -202,13 +223,21 @@ function DailyStrip({ daily, today }: { daily: LocationForecast['daily']; today:
 
   return (
     <div className="scroll-x">
-      <ol className="flex min-w-max gap-2">
-        {daily.map((d) => {
+      <ol className="flex min-w-max items-stretch gap-2">
+        {daily.map((d, i) => {
           const barTop = d.tMax != null ? ((hi - d.tMax) / span) * 100 : 0;
           const barBottom = d.tMin != null ? ((d.tMin - lo) / span) * 100 : 0;
+          const tendency = i >= CONFIDENT_DAYS;
           return (
-            <li key={d.date}
-              className="w-[110px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] p-2.5 text-center">
+            <Fragment key={d.date}>
+              {i === CONFIDENT_DAYS && (
+                <li aria-hidden className="flex w-8 shrink-0 items-center justify-center">
+                  <span className="h-full w-px bg-[var(--line)]" />
+                </li>
+              )}
+            <li
+              className="w-[110px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] p-2.5 text-center"
+              style={tendency ? { opacity: 0.62 } : undefined}>
               <p className="text-xs font-semibold capitalize tracking-wide text-[var(--ink-2)]">
                 {relativeDayTiny(d.date, today)}
               </p>
@@ -237,9 +266,13 @@ function DailyStrip({ daily, today }: { daily: LocationForecast['daily']; today:
               <div className="mt-1.5 space-y-0.5 text-[11px]">
                 {d.precipitation > 0 || d.precipProbability >= 20 ? (
                   <p className="tnum font-medium" style={{ color: 'oklch(52% 0.13 245)' }}>
-                    {d.precipitation > 0 ? `${num(d.precipitation, 1)} mm` : ''}
+                    {/* A la segona setmana, la quantitat és soroll i la
+                        probabilitat encara diu alguna cosa. Només la segona. */}
+                    {!tendency && d.precipitation > 0 ? `${num(d.precipitation, 1)} mm` : ''}
                     {d.precipProbability > 0 && (
-                      <span className={d.precipitation > 0 ? 'ml-1 opacity-75' : ''}>{d.precipProbability} %</span>
+                      <span className={!tendency && d.precipitation > 0 ? 'ml-1 opacity-75' : ''}>
+                        {d.precipProbability} %
+                      </span>
                     )}
                   </p>
                 ) : <p className="text-[var(--line)]">—</p>}
@@ -257,9 +290,19 @@ function DailyStrip({ daily, today }: { daily: LocationForecast['daily']; today:
                 )}
               </div>
             </li>
+            </Fragment>
           );
         })}
       </ol>
+      {daily.length > CONFIDENT_DAYS && (
+        <p className="mt-3 max-w-[68ch] text-xs leading-relaxed text-[var(--muted)]">
+          Els dies que queden després de la ratlla són <strong className="font-medium text-[var(--ink-2)]">tendència,
+          no predicció</strong>. Un model encerta força la setmana que ve i molt
+          menys la següent, així que allà no hi posem els mil·límetres —a dotze
+          dies vista la quantitat és soroll— i sí la probabilitat, que encara diu
+          alguna cosa. Serveixen per veure cap on va, no per fer plans.
+        </p>
+      )}
     </div>
   );
 }
@@ -427,7 +470,7 @@ export function LocationView({
 
       {forecast && forecast.daily.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">7 dies</h2>
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Els pròxims dies</h2>
           <DailyStrip daily={forecast.daily} today={today} />
         </section>
       )}

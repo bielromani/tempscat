@@ -509,7 +509,7 @@ ser un interruptor global.
 
 Pedidas contra las APIs reales el 1 de septiembre de 2026, no supuestas.
 
-### Previsión a más días · **sí, y hasta 14 sale gratis**
+### Previsión a más días · ✅ **hecho: 14 días, y no ha costado una unidad**
 
 La fórmula de Open-Meteo es `max(1, vars/10) × max(1, días/14) × ubicaciones`, y
 ese segundo factor **tiene suelo en 1**. O sea que pedir 14 días cuesta
@@ -528,6 +528,28 @@ dejan al 93 % del techo mensual, sin margen para un `--fill` tras un corte.
 día siete un modelo determinista tiene poca habilidad, y publicar «19 °C el
 jueves que viene» sería precisión no demostrada. Sin horas, sin decimales, y
 diciendo que es tendencia.
+
+**Lo que sí ha costado es sitio.** Al pasar de 168 a 336 horas por punto, el
+conjunto de la predicción va camino de **unos 80 MB por vuelta**, y a cuatro
+refrescos diarios son ~322 MB/día subidos al almacén. Medido, no estimado.
+
+Y es casi todo desperdicio: **solo se enseñan 48 horas de detalle horario**. El
+resto de la serie existe únicamente para que `forecastFor` calcule los máximos y
+mínimos diarios. La solución limpia es que **el worker calcule los agregados
+diarios y guarde solo las 48 horas de detalle**, que además quita ese cálculo de
+cada render. La corrección por altitud no lo impide: es un desplazamiento
+constante que se puede aplicar después sobre el máximo y el mínimo.
+
+Queda pendiente y conviene hacerlo antes de que el almacén empiece a doler.
+
+### Un fallo que solo aparece al cambiar el horizonte
+
+El array de horas es **común a todos los puntos de un trozo**, y los puntos que
+se conservan de un refresco anterior pueden traer un horizonte más corto. Con
+`if (!result.times.length) result.times = fc.times` el fichero se quedaba con
+las 168 horas viejas mientras los puntos nuevos traían 336: la segunda semana
+estaba escrita en el disco y **no la veía nadie**. Ahora manda la serie más
+larga.
 
 ### A un mes vista · **existe, pero no como número diario**
 
@@ -587,6 +609,30 @@ las comarcas.
 
 Apuntado tal como salió, para no perderlo. Nada de esto es de datos: es de que
 lo que ya hay se entienda y se use.
+
+### El radar, con el pasado y el futuro
+
+Hoy `/radar` enseña los últimos marcos y ya está. Lo que se pide —y es lo que
+hace [meteo.cat](https://www.meteo.cat/observacions/radar)— es **ver moverse la
+lluvia**: de dónde viene, hacia dónde va, y si va a llegar aquí o va a pasar de
+largo. Eso necesita tres cosas que hoy no hay:
+
+- **El nowcast.** RainViewer publica marcos futuros además de los pasados, y el
+  worker ya los lee (`maps.radar.nowcast`); simplemente ese día venían vacíos.
+  Hay que guardarlos y distinguirlos de los observados, que no son lo mismo y
+  no se pueden pintar igual.
+- **Movimiento.** Una secuencia de marcos, no una foto. Sin JavaScript se puede
+  con animación CSS pura, o con el mismo truco de los radios de `NextHours`.
+- **Zoom y encuadre.** Hoy el tilecache público solo llega al zoom 7. Mirar una
+  comarca de cerca exige más, y del 8 en adelante devuelve un PNG que dice
+  «Zoom Level Not Supported» con código 200. Hay que ver si hay otra vía antes
+  de prometerlo.
+
+### El mapa no dice de quién es cada comarca
+
+Solo sale la cifra grande. Quien no se sepa el mapa de memoria no sabe qué está
+mirando, y el `<title>` del `hover` no existe en un móvil. Hay que poner el
+nombre —al menos en las que quepa— o resolverlo de otra manera.
 
 ### El diseño general
 

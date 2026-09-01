@@ -99,7 +99,24 @@ const PLAN_BY_TIER: Record<Tier, ModelSpec[]> = {
 };
 
 const BATCH = 200;
-const FORECAST_DAYS = 7;
+
+/**
+ * Catorze dies, i no set, perquè **no costa ni una unitat més**.
+ *
+ * La fórmula d'Open-Meteo és `max(1, variables/10) × max(1, dies/14) ×
+ * ubicacions`, i aquell segon factor **té terra a 1**: qualsevol horitzó fins a
+ * catorze dies val exactament el mateix. Estàvem demanant set i pagant per
+ * catorze.
+ *
+ * Setze també funcionen —comprovat, els retorna tots amb valor— però pugen la
+ * factura un 14 % i ens deixen al 93 % del sostre mensual, sense marge per a un
+ * `--fill` després d'un tall de xarxa.
+ *
+ * Que la dada hi sigui no vol dir que valgui igual: a partir del dia set un
+ * model determinista té poca traça, i això es diu a la pàgina en comptes
+ * d'amagar-ho darrere d'una xifra amb decimals.
+ */
+const FORECAST_DAYS = 14;
 /** Pausa mínima entre lotes, por el límite de 600 unidades por minuto. */
 const MIN_PAUSE_MS = 21_000;
 
@@ -400,7 +417,19 @@ async function main() {
   let failed = 0;
 
   const absorb = (pointId: string, model: string, fc: PointForecast & { times: string[] }) => {
-    if (!result.times.length) result.times = fc.times;
+    /*
+     * La sèrie més llarga mana, no la primera que arribi.
+     *
+     * Els punts que es conserven d'un refresc anterior poden portar un horitzó
+     * més curt que el que demanem ara. Amb `if (!result.times.length)` el
+     * fitxer es quedava amb les 168 hores velles mentre els punts nous en
+     * portaven 336: la segona setmana hi era, escrita al disc, i **no la veia
+     * ningú**. Es va veure en canviar l'horitzó de set dies a catorze.
+     *
+     * Els punts curts queden amb la cua sense valor, i qui llegeix ja ho sap
+     * tractar: una hora sense dada no és una hora amb zero.
+     */
+    if (fc.times.length > result.times.length) result.times = fc.times;
     result.points[pointId] ??= {};
     // Un mismo punto puede recibir varias peticiones del mismo modelo con
     // conjuntos distintos de variables: se fusionan en vez de sobrescribirse.
