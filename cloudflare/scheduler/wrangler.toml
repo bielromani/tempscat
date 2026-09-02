@@ -11,9 +11,15 @@ name = "tempscat-scheduler"
 main = "worker.js"
 compatibility_date = "2026-09-01"
 
-# Sin URL pública. Este worker no tiene manejador HTTP — solo un reloj — y sin
-# esto wrangler pide registrar un subdominio de workers.dev para publicarlo
-# ahí. Sería una dirección pública que no responde a nada.
+# Sin URL pública. Este worker no tiene manejador HTTP — solo un reloj — así
+# que no hay nada que publicar en workers.dev.
+#
+# Ojo, que no exime de nada: **la cuenta necesita tener registrado su
+# subdominio de workers.dev igualmente**, porque sin él la API de Cloudflare
+# rechaza registrar cron triggers — `code: 10063`, y el mensaje habla de
+# publicar, que es lo que hace pensar que esta línea lo evita. Se crea una sola
+# vez abriendo el menú de Workers en el panel. Con eso hecho, esta línea sigue
+# haciendo su trabajo: el worker no queda accesible desde fuera.
 workers_dev = false
 
 [vars]
