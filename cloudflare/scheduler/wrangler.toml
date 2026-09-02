@@ -25,7 +25,10 @@ workers_dev = false
 [vars]
 GITHUB_REPO = "bielromani/tempscat"
 
-# Tres, que es el máximo por worker en el plan gratuito. Las cadenas tienen que
-# ser idénticas a las claves de `WORKFLOWS` en worker.js.
+# Uno solo, y la decisión de qué toca a cada hora está en worker.js.
+#
+# El plan gratuito permite tres por worker y hacen falta cinco horarios
+# distintos. Con un tic cada cinco minutos sobran dos, y encima la predicción
+# se puede disparar con el nivel puesto en vez de deducirlo de la hora.
 [triggers]
-crons = ["*/10 * * * *", "*/15 * * * *", "0,30 * * * *"]
+crons = ["*/5 * * * *"]
