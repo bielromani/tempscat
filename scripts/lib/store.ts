@@ -383,7 +383,12 @@ export async function syncState(): Promise<void> {
     const res = await fetch(`${base}/${name}`);
     if (res.status === 404) return;   // primer día: aún no existe
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    writeFileSync(join(CACHE, name), await res.text(), 'utf8');
+    // Los contadores viven en `quota/`, y en un servidor de integración
+    // `data/cache/` arranca vacío: sin esto, `writeFileSync` falla con ENOENT
+    // sobre una carpeta que en la máquina de quien lo escribió ya existía.
+    const dest = join(CACHE, name);
+    ensureFor(dest);
+    writeFileSync(dest, await res.text(), 'utf8');
   };
 
   /*
