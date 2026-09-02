@@ -38,3 +38,20 @@ runs:
           if (typeof s3Config !== 'function') throw new Error('s3.ts carregat pero sense s3Config()');
           console.log('publicacio a R2: modul carregat');
         "
+
+    # Quina configuracio de publicacio hi ha, sense ensenyar-ne cap valor.
+    #
+    # Els workers es planten a l'arrencada si els falta alguna -i han de
+    # plantar-se: sense magatzem el que escriuen no va enlloc i la quota
+    # gastada no es recupera-. Pero "Run failed" en un correu no diu quina, i
+    # secrets i variables son dos calaixos que s'assemblen prou per pegar un
+    # valor al que no toca. Aixi surt a les primeres linies del registre.
+    #
+    # A "Comprovacions" surten totes com a absents, i es correcte: aquell
+    # treball no publica res.
+    - name: Configuracio de publicacio
+      shell: bash
+      run: |
+        for v in R2_ACCOUNT_ID R2_BUCKET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY DATA_BASE_URL; do
+          if [ -n "${!v}" ]; then echo "  hi es    $v"; else echo "  ABSENT   $v"; fi
+        done

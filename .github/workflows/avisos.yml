@@ -21,11 +21,14 @@ jobs:
     timeout-minutes: 10
     env:
       AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
-      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-      R2_BUCKET: ${{ vars.R2_BUCKET }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      DATA_BASE_URL: ${{ vars.DATA_BASE_URL }}
+      # Secret o variable, indiferent. Els dos calaixos de GitHub s'assemblen
+      # prou perque un valor acabi al que no toca, i llavors l'expressio surt
+      # buida: el worker es planta a l'arrencada i no diu per que. Va passar.
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET || vars.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || vars.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || vars.R2_SECRET_ACCESS_KEY }}
+      DATA_BASE_URL: ${{ secrets.DATA_BASE_URL || vars.DATA_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
