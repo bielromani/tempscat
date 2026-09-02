@@ -3,8 +3,9 @@
 # Despliegue:  cd cloudflare/scheduler && npx wrangler deploy
 # El secreto:  npx wrangler secret put GITHUB_TOKEN
 #
-# También se puede hacer entero desde el panel de Cloudflare, que es lo que
-# está escrito en docs/13-full-de-ruta.md.
+# Se despliega desde aquí y no desde el panel a propósito: pegar el código en
+# el editor de Cloudflare hace que lo que corre y lo que está versionado se
+# separen sin que nadie se entere. Los pasos, en docs/13-full-de-ruta.md.
 
 name = "tempscat-scheduler"
 main = "worker.js"

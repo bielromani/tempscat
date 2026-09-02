@@ -925,6 +925,19 @@ un repositorio público los minutos no se cobran.
 
 Está en `cloudflare/scheduler/`, con el porqué escrito en `worker.js`.
 
+Se despliega desde el propio repositorio, que es lo que evita que el código de
+ahí dentro y el que corre de verdad se separen:
+
+```bash
+cd cloudflare/scheduler
+npx wrangler deploy
+npx wrangler secret put GITHUB_TOKEN
+```
+
+El token es un **fine-grained PAT de GitHub** con acceso solo a este repositorio
+y un único permiso: *Actions → Read and write*. Nada más; no puede leer código
+ni escribir en el repositorio.
+
 Los `schedule` de GitHub **se quedan puestos**, degradados a uno por hora y
 escalonados. Si el reloj se para —el token caduca, Cloudflare tiene un mal
 día— la ingesta vuelve a la cadencia mala en vez de apagarse, y `/estat` lo
