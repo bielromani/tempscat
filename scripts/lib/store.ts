@@ -271,6 +271,41 @@ export async function publishQuota(): Promise<void> {
 }
 
 /**
+ * En un servidor de integración, no poder publicar no es «no publicar».
+ *
+ * Localmente está bien: los workers escriben en `data/cache/` y ahi se quedan.
+ * En GitHub Actions no hay disco que sobreviva a la ejecución, así que un
+ * worker que no puede publicar **está tirando el trabajo a la basura** — y el
+ * trabajo cuesta cuota de una API que se agota.
+ *
+ * Pasó el 2 de septiembre de 2026: un refresco del nivel C corrió sin las
+ * variables de R2 puestas todavía, gastó su cuota de Open-Meteo, no publicó
+ * nada y **acabó en verde**. Y lo mismo por el otro lado: sin `DATA_BASE_URL`,
+ * `pullSnapshot()` se cae al disco vacío y «no hay nada anterior» se vuelve
+ * indistinguible de «no lo he sabido leer», que es lo que un día dejó
+ * producción con 350 puntos de 3.190.
+ *
+ * Así que aquí se comprueban las dos mitades, **antes** de gastar nada.
+ */
+function assertConfiguredForCI(): void {
+  if (!process.env.CI) return;
+
+  // Lanza por su cuenta si está a medias, que es el caso más traicionero.
+  const write = s3Config();
+  const missing = [
+    !write && 'les variables R2_*',
+    !process.env.DATA_BASE_URL && 'DATA_BASE_URL',
+  ].filter(Boolean);
+
+  if (missing.length) {
+    throw new Error(
+      `no es pot treballar en un servidor d'integració sense ${missing.join(' ni ')}: `
+      + "el que s'escrigui no aniria enlloc i la quota gastada no es recupera",
+    );
+  }
+}
+
+/**
  * Se trae del almacén el estado que **tiene que sobrevivir entre ejecuciones**.
  *
  * Son dos ficheros y los dos tienen el mismo problema: `data/cache/` es un
@@ -320,6 +355,8 @@ export async function publishQuota(): Promise<void> {
  * de otras.
  */
 export async function syncState(): Promise<void> {
+  assertConfiguredForCI();
+
   const base = process.env.DATA_BASE_URL?.replace(/[/]$/, '');
   if (!base) return;   // en local los ficheros ya están donde toca
 

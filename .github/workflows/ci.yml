@@ -28,4 +28,10 @@ jobs:
       # Que compili sense dades és una comprovació de veritat: en un desplegament
       # nou el magatzem pot ser buit, i el lloc ha de sortir igualment amb el
       # territori sencer i cada buit dit en veu alta.
+      #
+      # ALLOW_NO_DATA ho diu explícitament perquè «magatzem buit» i «sense
+      # magatzem ni disc» no són el mateix: el segon és una avería i des d'ara
+      # peta. Sense aquesta variable no hi hauria manera de provar el primer.
       - run: npm run build
+        env:
+          ALLOW_NO_DATA: '1'

@@ -134,17 +134,25 @@ function remember(name: string, snap: Snapshot<unknown> | null, etag?: string) {
  * error, sino **4.293 fichas diciendo «encara no hi ha dades»**, generadas y
  * guardadas así. Un fallo de configuración que se parece a un estado normal es
  * la peor clase de fallo, y este proyecto ya ha pagado esa lección varias veces.
+ *
+ * ## Y el caso en que sí es legal no tener nada
+ *
+ * Un almacén **configurado y vacío** es un estado legítimo —el primer día de
+ * un despliegue nuevo— y el sitio tiene que salir igual, con el territorio
+ * entero y cada hueco dicho en voz alta. La integración continua lo comprueba
+ * en cada cambio, y para eso pone `ALLOW_NO_DATA=1`.
+ *
+ * Que sea una variable explícita y no una deducción es justamente el punto: un
+ * despliegue mal configurado no la lleva puesta por accidente.
  */
 let checked = false;
 function assertReadable() {
   if (checked) return;
-  if (!existsSync(LOCAL)) {
-    throw new Error(
-      "cache-store: no hi ha ni DATA_BASE_URL ni data/cache/. Sense cap de les "
-      + "dues no hi ha dades vives: posa DATA_BASE_URL a l'entorn.",
-    );
-  }
-  checked = true;
+  if (process.env.ALLOW_NO_DATA === '1' || existsSync(LOCAL)) { checked = true; return; }
+  throw new Error(
+    "cache-store: no hi ha ni DATA_BASE_URL ni data/cache/. Sense cap de les dues "
+    + "no hi ha dades vives: posa DATA_BASE_URL a l'entorn.",
+  );
 }
 
 const mtimes = new Map<string, number>();
