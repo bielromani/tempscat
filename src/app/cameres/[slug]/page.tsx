@@ -107,10 +107,9 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
         <section className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
           <h2 className="text-base font-semibold tracking-tight">Aquesta càmera està aturada</h2>
           <p className="mt-2 max-w-[60ch] text-sm leading-relaxed text-[var(--ink-2)]">
-            El seu servidor respon i el catàleg la dona per activa, però el fotograma
-            que serveix és el mateix des del {dateFull(cam.capturedLocal)} a les{' '}
-            {hour(cam.capturedLocal)} — {ago(cam.ageMin)}. No l’ensenyem: seria
-            presentar una fotografia d’aquell dia com la d’avui.
+            Consta com a activa al catàleg de Ferrocarrils, però el fotograma que
+            serveix és el mateix des del {dateFull(cam.capturedLocal)} a les{' '}
+            {hour(cam.capturedLocal)}, {ago(cam.ageMin)}.
           </p>
         </section>
       )}
@@ -129,19 +128,18 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
 
         {cam.lat == null && (
           <p>
-            El catàleg no dona una coordenada creïble d’aquesta càmera, així que no
-            l’enllacem amb cap municipi. Sabem l’estació on és i prou.
+            El catàleg no en dona la coordenada, així que aquesta càmera no apareix a
+            la fitxa de cap municipi.
           </p>
         )}
 
         {cam.panoramic && cam.viewer && (
           <p>
-            És una panoràmica: la càmera gira i aquí se’n serveix la imatge plana. Per
-            girar-la hi ha el{' '}
+            És una càmera panoràmica i aquí se’n mostra la imatge plana. Al{' '}
             <a href={cam.viewer} rel="noopener noreferrer" className="font-medium text-[var(--ink)]">
-              visor original
-            </a>
-            , que és d’un altre domini — l’enllacem, no l’encastem.
+              visor de Ferrocarrils
+            </a>{' '}
+            es pot girar.
           </p>
         )}
       </section>
@@ -185,9 +183,8 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
             camera i la llicencia son les mateixes tant si el fotograma es de
             fa deu minuts com si es d'abril. */}
         <p>
-          Càmera de {cam.attribution}; les seves imatges es publiquen amb llicència{' '}
-          {cam.license}. Les baixa i les reescala un servidor nostre cada hora, i
-          aquesta pàgina no fa cap petició a cap altre domini.{' '}
+          Càmera de {cam.attribution}; les imatges es publiquen amb llicència{' '}
+          {cam.license} i es desen un cop per hora.{' '}
           <Link href="/cameres" className="text-[var(--ink-2)]">Totes les càmeres</Link>.
         </p>
       </footer>

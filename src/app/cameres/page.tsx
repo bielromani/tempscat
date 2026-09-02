@@ -71,10 +71,10 @@ export default async function CameresPage() {
             </>
           ) : (
             <>
-              {cams.list.length} {cams.list.length === 1 ? 'càmera' : 'càmeres'} de
-              Ferrocarrils, amb l’hora de cada fotografia. Una imatge diu en un segon
-              el que un pronòstic no diu en un paràgraf: si hi ha boira al fons de la
-              vall, si el cel és net o si la neu arriba fins baix.
+              Fotogrames de {cams.list.length}{' '}
+              {cams.list.length === 1 ? 'càmera' : 'càmeres'} de Ferrocarrils al Pirineu
+              i al Montsec, cada un amb l’hora en què es va prendre. No són imatges en
+              directe: s’actualitzen un cop per hora.
             </>
           )}
         </p>
@@ -132,9 +132,8 @@ export default async function CameresPage() {
             {cams.stale.length === 1 ? 'Una càmera aturada' : `${cams.stale.length} càmeres aturades`}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
-            Consten com actives al catàleg i el seu servidor respon, però el fotograma
-            que serveixen és el mateix des de la data que hi ha al costat. No s’ensenya:
-            una foto de fa mesos presentada com la d’ara és pitjor que no tenir-ne cap.
+            Consten com a actives al catàleg de Ferrocarrils, però el fotograma que
+            serveixen no ha canviat des de la data indicada.
           </p>
           <ul className="mt-3 list-none space-y-1.5 p-0 text-sm">
             {cams.stale.map((c) => (
@@ -151,28 +150,6 @@ export default async function CameresPage() {
         </section>
       )}
 
-      <section className="mt-8 max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--ink)]">
-          Com es llegeix això
-        </h2>
-        <p>
-          Cada fotograma porta l’hora en què el va fer la càmera, no l’hora en què
-          nosaltres el vam desar. Per sota d’una hora i mitja és la imatge d’ara; més
-          enllà surt amb l’antiguitat davant, i passades {CAMERA_SHOW_HOURS} hores es
-          retira i la càmera passa a la llista de les aturades.
-        </p>
-        <p>
-          De nit les imatges surten fosques. No és una errada: és el que hi ha, i
-          guardar-se la de la tarda per ensenyar-la a mitjanit seria dir que la
-          muntanya està com estava a les set.
-        </p>
-        <p>
-          Les panoràmiques són fotogrames amples d’una càmera que gira. Aquí se’n
-          serveix la imatge plana; per girar-la hi ha l’enllaç al visor original a la
-          pàgina de cada càmera.
-        </p>
-      </section>
-
       <footer className="mt-8 border-t border-[var(--line-soft)] pt-4 text-xs leading-relaxed text-[var(--muted)]">
         <p>
           Imatges de {cams.attribution} ({cams.license}), del conjunt{' '}
@@ -183,13 +160,8 @@ export default async function CameresPage() {
           >
             «Webcams dels equipaments turístics»
           </a>
-          . Les baixa i les reescala un servidor nostre cada hora: aquesta pàgina no
-          fa cap petició a cap altre domini.
-        </p>
-        <p className="mt-1.5">
-          El catàleg en publica 30. Cinc no s’hi poden incloure —la imatge és de la
-          Corporació Catalana de Mitjans Audiovisuals, que no entra a la llicència del
-          conjunt— i una altra és un reproductor incrustat, no una fotografia.
+          . Es desen un cop per hora i es retiren passades {CAMERA_SHOW_HOURS} hores
+          sense fotograma nou.
         </p>
       </footer>
     </article>

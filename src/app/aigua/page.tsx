@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { dateFull, hour, int, num, signed } from '@/lib/format';
-import {
-  droughtLevel, droughtSummary, reservoirColor, reservoirs, riverGauges,
-} from '@/lib/water';
+import { droughtLevel, droughtSummary, gaugeName, reservoirColor, reservoirs, riverGauges } from '@/lib/water';
 
 /**
  * Los embalses, los ríos y la sequía.
@@ -218,7 +216,7 @@ export default async function AiguaPage() {
                         className="flex items-baseline justify-between gap-3 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2"
                       >
                         <span className="min-w-0 truncate text-sm text-[var(--ink-2)]">
-                          {r.name.replace(/^Aforament - /, '')}
+                          {gaugeName(r.name)}
                         </span>
                         <span className="tnum shrink-0 text-sm font-medium text-[var(--ink)]">
                           {num(r.flow, 2)}

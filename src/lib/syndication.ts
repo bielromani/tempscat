@@ -1,5 +1,6 @@
 import 'server-only';
 import { dateTimeLong } from './format';
+import { phenomenonName, thresholdValue, zoneName } from './warning-labels';
 import type { Warning } from './weather';
 
 /**
@@ -60,16 +61,33 @@ export function atomFeed(warnings: Warning[], opts: FeedOptions): string {
     // manteniendo el identificador, tiene que aparecer como entrada nueva, porque
     // para el lector es información nueva.
     const id = `${opts.site}/avisos#${w.id}-${w.level}`;
-    const zones = w.zones.length ? `\n      Zones: ${w.zones.join(', ')}` : '';
+    const zones = w.zones.length ? `\n      Zones: ${w.zones.map(zoneName).join(', ')}` : '';
+    /*
+     * El titular es nostre i en catala, no el d'AEMET.
+     *
+     * AEMET publica els avisos nomes en castella i en angles, i el feed va
+     * declarat `xml:lang="ca"`: posar-hi el seu titular era declarar una cosa i
+     * servir-ne una altra. El fenomen, el nivell i el llindar surten dels codis
+     * del CAP -veure src/lib/warning-labels.ts- i el text oficial va sencer al
+     * cos de l'entrada, dit que es seu.
+     */
+    const threshold = thresholdValue(w.threshold);
+    const title = [
+      w.level.toUpperCase(),
+      phenomenonName(w.phenomenon),
+      threshold,
+    ].filter(Boolean).join(' · ');
     return `  <entry>
     <id>${xml(id)}</id>
-    <title>${xml(`${w.level.toUpperCase()} · ${w.event}`)}</title>
+    <title>${xml(title)}</title>
     <updated>${xml(w.onset)}</updated>
     <link rel="alternate" href="${xml(w.web || `${opts.site}/avisos`)}"/>
     <author><name>AEMET</name></author>
     <category term="${xml(w.phenomenon)}"/>
-    <summary type="text">${xml(`${w.headline}
-      Vigent ${dateTimeLong(local(w.onset))} → ${dateTimeLong(local(w.expires))}${zones}
+    <summary type="text">${xml(`Vigent ${dateTimeLong(local(w.onset))} → ${dateTimeLong(local(w.expires))}${zones}
+
+      Text oficial de l'AEMET, en castella:
+      ${w.headline}
       ${w.description}
       ${w.instruction}`.replace(/\s+\n/g, '\n').trim())}</summary>
   </entry>`;
@@ -170,14 +188,26 @@ export function icsFeed(warnings: Warning[], name: string): string {
       `DTSTAMP:${ics(w.onset)}`,
       `DTSTART:${ics(w.onset)}`,
       `DTEND:${ics(w.expires)}`,
-      fold(`SUMMARY:${escapeIcs(`Avís ${w.level}: ${w.event}`)}`),
-      fold(`DESCRIPTION:${escapeIcs([w.headline, w.description, w.instruction]
-        .filter(Boolean).join('\n\n'))}`),
+      // Igual que al feed: el resum es nostre i en catala; el text d'AEMET va
+      // sencer a la descripcio, etiquetat.
+      fold(`SUMMARY:${escapeIcs([
+        `Avís ${w.level}`,
+        phenomenonName(w.phenomenon),
+        thresholdValue(w.threshold),
+        w.zones.map(zoneName).join(', ') || null,
+      ].filter(Boolean).join(' · '))}`),
+      fold(`DESCRIPTION:${escapeIcs([
+        `Vigent ${dateTimeLong(local(w.onset))} → ${dateTimeLong(local(w.expires))}`,
+        'Text oficial de l\'AEMET, en castellà:',
+        [w.headline, w.description, w.instruction].filter(Boolean).join('\n\n'),
+      ].join('\n\n'))}`),
       fold(`URL:${escapeIcs(w.web)}`),
       // Naranja y rojo llevan aviso; el amarillo no despierta a nadie.
       ...(w.level === 'taronja' || w.level === 'vermell'
         ? ['BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT2H',
-          fold(`DESCRIPTION:${escapeIcs(w.event)}`), 'END:VALARM']
+          fold(`DESCRIPTION:${escapeIcs(
+            [phenomenonName(w.phenomenon), thresholdValue(w.threshold)].filter(Boolean).join(' · '),
+          )}`), 'END:VALARM']
         : []),
       'END:VEVENT',
     );

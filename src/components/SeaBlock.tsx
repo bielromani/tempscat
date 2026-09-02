@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { windCardinal } from '@/lib/variables';
 import { ago, hour, num } from '@/lib/format';
 import {
-  douglas, flagStyle, parseJellyfish, FLAG_CURRENT_HOURS, FLAG_SHOW_HOURS,
+  douglas, flagReasonText, flagStyle, parseJellyfish, FLAG_CURRENT_HOURS, FLAG_SHOW_HOURS,
   type SeaNearby,
 } from '@/lib/sea';
 import { FlagMark, JellyfishMark } from '@/components/SeaMarks';
@@ -52,7 +52,7 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
 
                 <p className="mt-1 text-sm text-[var(--ink-2)]">
                   {style.meaning}
-                  {b.flagReason && <span className="text-[var(--muted)]"> · {b.flagReason.trim().toLowerCase()}</span>}
+                  {flagReasonText(b.flagReason) && <span className="text-[var(--muted)]"> · {flagReasonText(b.flagReason)}</span>}
                 </p>
 
                 <p className="mt-1.5 text-xs text-[var(--muted)]">

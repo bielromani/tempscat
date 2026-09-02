@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { dateFull, deName, num, signed } from '@/lib/format';
-import { droughtLevel, reservoirColor, type WaterNearby } from '@/lib/water';
+import { droughtLevel, gaugeName, reservoirColor, type WaterNearby } from '@/lib/water';
 
 /**
  * El agua cerca de este pueblo.
@@ -16,6 +16,17 @@ import { droughtLevel, reservoirColor, type WaterNearby } from '@/lib/water';
  */
 export function WaterBlock({ water, nom }: { water: WaterNearby; nom: string }) {
   const { reservoir, river, drought } = water;
+
+  /*
+   * Un aforament pot estar **al mateix embassament**, i sis ho estan.
+   *
+   * A la Morera de Montsant la fitxa ensenyava «Embassament de Siurana
+   * (Cornudella de Montsant)» dues vegades seguides, sota dos titols diferents:
+   * una amb el percentatge de reserva i l'altra amb el cabal. Son dues mesures
+   * distintes i les dues valen, pero repetir el nom fa que sembli un error.
+   */
+  const gauge = river ? gaugeName(river.name) : null;
+  const sameSpot = !!(reservoir && gauge && gauge === reservoir.name);
 
   return (
     <section>
@@ -81,7 +92,7 @@ export function WaterBlock({ water, nom }: { water: WaterNearby; nom: string }) 
               L&apos;aforament més proper
             </p>
             <p className="mt-0.5 font-medium text-[var(--ink)]">
-              {river.name.replace(/^Aforament - /, '')}
+              {sameSpot ? 'Al mateix embassament' : gauge}
             </p>
             <p className="mt-2 flex items-baseline gap-2">
               <span className="tnum text-3xl font-semibold text-[var(--ink)]">

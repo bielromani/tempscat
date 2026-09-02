@@ -6,6 +6,7 @@ import {
   airQualityFor, currentFor, forecastFor, localNowHour, localToday, warningsFor,
 } from './weather';
 import { comarcaOf, locationById, type Location } from './territory';
+import { phenomenonName } from './warning-labels';
 
 /**
  * Feed público por ubicación.
@@ -237,8 +238,11 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
 
     warnings: warnings.map((w) => ({
       id: w.id,
+      /** Text oficial d'AEMET, en castella i sense tocar. */
       event: w.event,
       phenomenon: w.phenomenon,
+      /** El mateix fenomen dit en catala, que es el que ensenya el web. */
+      phenomenon_name: phenomenonName(w.phenomenon),
       level: w.level,
       onset: w.onset,
       expires: w.expires,

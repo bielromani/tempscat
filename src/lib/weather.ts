@@ -341,6 +341,92 @@ export async function warningsFor(loc: Location): Promise<Warning[]> {
 
 const LEVEL_RANK: Record<WarningLevel, number> = { verd: 0, groc: 1, taronja: 2, vermell: 3 };
 
+/**
+ * Un aviso, o varios que son el mismo aviso repetido día a día.
+ *
+ * AEMET emite **un fichero CAP por día y por zona**, así que una ola de calor
+ * de tres días llega como tres avisos idénticos salvo la fecha. La Vall de Boí
+ * enseñaba tres tarjetas seguidas —mismo fenómeno, mismo nivel, misma zona,
+ * mismas ocho horas de la tarde— que el lector tenía que comparar palabra por
+ * palabra para descubrir que solo cambiaba el día.
+ *
+ * Se agrupan por fenómeno, nivel y zona, **nunca por menos**: si el viernes
+ * pasa a naranja, el naranja va en su propia tarjeta. Y dentro del grupo se
+ * conserva cada día con su umbral, porque 35 °C el miércoles y 36 °C el viernes
+ * no son el mismo número y esconder el segundo detrás del primero sería
+ * exactamente lo que un aviso no puede hacer.
+ */
+export interface WarningGroup {
+  /** Clave estable, para el `key` de React. */
+  key: string;
+  level: WarningLevel;
+  /** Código del fenómeno: AT, PR, NE… El nombre en catalán sale de `warning-labels`. */
+  phenomenon: string;
+  zones: string[];
+  /** Del primer instante cubierto al último. */
+  onset: string;
+  expires: string;
+  /** Un tramo por aviso original, en orden. Uno solo cuando no hay repetición. */
+  spans: Array<{ id: string; onset: string; expires: string; threshold?: string }>;
+  probability?: string;
+  web: string;
+  /** El texto tal como lo emite AEMET, sin tocar. Puede diferir entre días. */
+  official: { event: string; descriptions: string[]; instructions: string[] };
+}
+
+/**
+ * Agrupa los avisos que son el mismo aviso en días distintos.
+ *
+ * Función pura: no mira el reloj. El filtro de vigencia lo hace quien la llama,
+ * que es donde vive el reloj en este proyecto.
+ */
+export function groupWarnings(warnings: Warning[]): WarningGroup[] {
+  const byKey = new Map<string, WarningGroup>();
+
+  for (const w of warnings) {
+    const key = [w.phenomenon, w.level, [...w.zones].sort().join('+')].join('|');
+    const span = { id: w.id, onset: w.onset, expires: w.expires, threshold: w.threshold };
+    const found = byKey.get(key);
+
+    if (!found) {
+      byKey.set(key, {
+        key,
+        level: w.level,
+        phenomenon: w.phenomenon,
+        zones: w.zones,
+        onset: w.onset,
+        expires: w.expires,
+        spans: [span],
+        probability: w.probability,
+        web: w.web,
+        official: {
+          event: w.event,
+          descriptions: w.description ? [w.description] : [],
+          instructions: w.instruction ? [w.instruction] : [],
+        },
+      });
+      continue;
+    }
+
+    found.spans.push(span);
+    if (w.onset < found.onset) found.onset = w.onset;
+    if (w.expires > found.expires) found.expires = w.expires;
+    // Repetido no se guarda dos veces; distinto no se pierde.
+    if (w.description && !found.official.descriptions.includes(w.description)) {
+      found.official.descriptions.push(w.description);
+    }
+    if (w.instruction && !found.official.instructions.includes(w.instruction)) {
+      found.official.instructions.push(w.instruction);
+    }
+  }
+
+  const groups = [...byKey.values()];
+  for (const g of groups) g.spans.sort((a, b) => a.onset.localeCompare(b.onset));
+  return groups.sort(
+    (a, b) => LEVEL_RANK[b.level] - LEVEL_RANK[a.level] || a.onset.localeCompare(b.onset),
+  );
+}
+
 /** Todos los avisos vigentes, para la portada y la página de comarca. */
 export async function activeWarnings(): Promise<Warning[]> {
   const snap = await snapshot<Warning[]>('warnings');

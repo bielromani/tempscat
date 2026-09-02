@@ -164,6 +164,32 @@ export function droughtLevel(state: string) {
  * sería inventarse una norma. Un degradado dice «más o menos lleno» sin fingir
  * que existe una línea roja.
  */
+/**
+ * El nom d'un aforament, sense l'etiqueta de tipus de l'ACA.
+ *
+ * Els noms del registre porten davant de quina mena d'estacio es tracta, i
+ * **de vegades en porten dues**: sis son `Aforament - Qualitat - <lloc>`,
+ * estacions que mesuren cabal i qualitat a la vegada. Traient nomes la primera
+ * etiqueta, la fitxa de Malgrat de Mar ensenyava «Qualitat - Fogars de la Selva
+ * (Can Simo)» sota el titol «L'aforament mes proper»: el numero era el cabal
+ * bo, pero el nom deia una altra cosa.
+ *
+ * Nomes es treu una paraula coneguda seguida de ` - `, i per aixo
+ * «Sant Vicenç dels Horts (riu - canal de la Dreta)» es queda sencer: el seu
+ * guio va dins del parentesi i no obre cap etiqueta.
+ */
+const GAUGE_PREFIXES = /^(Aforament|Qualitat|Embassament|Piezòmetre|Piezometre) - /;
+
+export function gaugeName(raw: string): string {
+  let out = raw.trim();
+  for (let i = 0; i < 3; i++) {
+    const next = out.replace(GAUGE_PREFIXES, '');
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+}
+
 export function reservoirColor(pct: number): string {
   const k = Math.max(0, Math.min(1, pct / 100));
   const l = 55 + k * 12;

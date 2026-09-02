@@ -7,7 +7,7 @@ import {
 } from '@/lib/territory';
 import {
   airQualityFor, astronomyFor, currentFor, forecastFor, historyFor,
-  localNowHour, localToday, warningsFor,
+  groupWarnings, localNowHour, localToday, warningsFor,
 } from '@/lib/weather';
 import { comarcaComparison } from '@/lib/comparison';
 import { waterNear } from '@/lib/water';
@@ -69,7 +69,7 @@ export default async function EntitatPage({ params }: { params: Params }) {
         breadcrumbs={breadcrumbs(loc)}
         current={current}
         forecast={forecast}
-        warnings={await warningsFor(loc)}
+        warnings={groupWarnings(await warningsFor(loc))}
         astro={astronomyFor(loc)}
         history={history}
         air={await airQualityFor(loc)}

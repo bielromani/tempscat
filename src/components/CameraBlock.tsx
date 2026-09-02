@@ -58,8 +58,8 @@ export function CameraBlock({ cameras }: { cameras: Array<CameraNow & { distKm: 
         ))}
       </ul>
       <p className="mt-2 text-xs text-[var(--muted)]">
-        Imatges de Ferrocarrils de la Generalitat de Catalunya (CC BY 4.0), desades
-        pel nostre servidor. <Link href="/cameres" className="text-[var(--ink-2)]">Totes les càmeres</Link>.
+        Imatges de Ferrocarrils de la Generalitat de Catalunya (CC BY 4.0), desades un
+        cop per hora. <Link href="/cameres" className="text-[var(--ink-2)]">Totes les càmeres</Link>.
       </p>
     </>
   );

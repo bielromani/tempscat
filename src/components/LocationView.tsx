@@ -24,7 +24,7 @@ import {
 import { localNowHour, localToday } from '@/lib/weather';
 import type {
   AirQuality as AirQualityData, Astronomy, CurrentConditions, LocationForecast,
-  StationHistory, Warning,
+  StationHistory, WarningGroup,
 } from '@/lib/weather';
 import type { ComarcaComparison } from '@/lib/comparison';
 import type { Narrative } from '@/lib/narrative';
@@ -331,7 +331,14 @@ interface Props {
   breadcrumbs: Array<{ nom: string; path: string }>;
   current: CurrentConditions | null;
   forecast: LocationForecast | null;
-  warnings: Warning[];
+  /**
+   * Avisos vigents, ja agrupats.
+   *
+   * Agrupats i no crus: AEMET emet un fitxer per dia i per zona, i sense
+   * agrupar-los una onada de calor de tres dies sortien tres targetes
+   * gairebe identiques. El perque, a `groupWarnings()`.
+   */
+  warnings: WarningGroup[];
   astro: Astronomy | null;
   history: StationHistory | null;
   siblings: Location[];
@@ -555,15 +562,6 @@ export function LocationView({
         </section>
       )}
 
-      {cameras.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
-            {cameras.length === 1 ? 'Una càmera a prop' : 'Càmeres a prop'}
-          </h2>
-          <CameraBlock cameras={cameras} />
-        </section>
-      )}
-
       {comparison && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">
@@ -577,6 +575,15 @@ export function LocationView({
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">Sol i lluna</h2>
           <SunMoon astro={astro} />
+        </section>
+      )}
+
+      {cameras.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+            {cameras.length === 1 ? 'Una càmera a prop' : 'Càmeres a prop'}
+          </h2>
+          <CameraBlock cameras={cameras} />
         </section>
       )}
 

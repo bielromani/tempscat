@@ -314,6 +314,35 @@ export async function seaNear(loc: Location): Promise<SeaNearby | null> {
  * medido justo encima — con el lector teniendo que adivinar si «marejolada» y
  * «arrissada» son lo mismo. Lo son: 0,3 m.
  */
+/**
+ * El motiu de la bandera, normalitzat.
+ *
+ * El registre de platges el fa servir com una etiqueta d'una llista curta
+ * -`MEDUSES`, `Vent`, `Estat del mar`, `Qualitat de l'aigua`, `Altres`- pero
+ * l'escriu qui fa el comunicat, i aixo es nota: hi ha `MEDUSES` en majuscules i
+ * hi ha **`Medusas`, en castella**, escrit per un socorrista d'una platja
+ * concreta. Sortia aixi publicat en una pagina en catala.
+ *
+ * No es reescriure un text oficial: es una categoria d'una llista tancada, i
+ * aqui nomes se li posa la forma que li toca. El que no consti a la taula surt
+ * tal com ve, en minuscules, que es millor que amagar-lo.
+ */
+const FLAG_REASONS: Record<string, string> = {
+  medusas: 'meduses',
+  meduses: 'meduses',
+  vent: 'vent',
+  'estat del mar': 'estat del mar',
+  'qualitat de l’aigua': 'qualitat de l’aigua',
+  "qualitat de l'aigua": 'qualitat de l’aigua',
+  altres: 'altres motius',
+};
+
+export function flagReasonText(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const key = raw.trim().toLowerCase();
+  return FLAG_REASONS[key] ?? key;
+}
+
 export function douglas(heightM: number): string {
   if (heightM < 0.1) return 'mar plana';
   if (heightM < 0.5) return 'arrissada';

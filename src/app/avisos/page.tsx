@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { WarningBanner } from '@/components/WarningBanner';
 import { comarcaName, dateTimeLong } from '@/lib/format';
-import { activeWarnings } from '@/lib/weather';
+import { phenomenonName } from '@/lib/warning-labels';
+import { activeWarnings, groupWarnings } from '@/lib/weather';
 import { allComarques } from '@/lib/territory';
 
 /**
@@ -34,6 +35,15 @@ export default async function AvisosPage() {
   const warnings = await activeWarnings();
   const comarques = allComarques();
 
+  /*
+   * Los grupos, y el número que se enseña es el de los grupos.
+   *
+   * AEMET emite un fichero por día y por zona: hoy son 18 avisos que son 7
+   * situaciones. Decir «18 avisos en vigor» encima de siete tarjetas obliga al
+   * lector a contar para descubrir que no cuadra.
+   */
+  const groups = groupWarnings(warnings);
+
   // Una comarca puede tener varios avisos y un aviso puede cubrir varias
   // comarcas: la relación es de muchos a muchos y viene resuelta por geometría
   // desde el worker, no por nombre de zona.
@@ -41,10 +51,8 @@ export default async function AvisosPage() {
     .map((c) => ({ c, list: warnings.filter((w) => w.comarcaCodis.includes(c.codi)) }))
     .filter((x) => x.list.length > 0);
 
-  const worst = [...warnings].sort((a, b) => {
-    const rank = { vermell: 3, taronja: 2, groc: 1, verd: 0 } as const;
-    return rank[b.level] - rank[a.level];
-  })[0];
+  // Ya vienen ordenados por nivel descendente desde `groupWarnings()`.
+  const worst = groups[0];
 
   return (
     <article>
@@ -67,18 +75,22 @@ export default async function AvisosPage() {
           <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
             Hi ha{' '}
             <strong className="font-semibold text-[var(--ink)]">
-              {warnings.length} {warnings.length === 1 ? 'avís' : 'avisos'}
+              {groups.length} {groups.length === 1 ? 'avís' : 'avisos'}
             </strong>{' '}
-            en vigor, que afecten {byComarca.length}{' '}
+            en vigor, que {byComarca.length === 1 ? 'afecten' : 'afecten'} {byComarca.length}{' '}
             {byComarca.length === 1 ? 'comarca' : 'comarques'}.
-            {worst && <> El més alt és de nivell {worst.level} per {worst.phenomenon.toLowerCase()}.</>}
+            {worst && (
+              <> El més alt és de nivell {worst.level}, per {phenomenonName(worst.phenomenon).toLowerCase()}.</>
+            )}
           </p>
         )}
         <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-          Els emet l&apos;Agència Estatal de Meteorologia. Aquí no se&apos;n reescriu
-          el text ni se&apos;n canvia el color: es reprodueixen tal com surten, amb
-          l&apos;enllaç a l&apos;original. Per a decisions de seguretat, la font són
-          l&apos;AEMET, el Meteocat i Protecció Civil.
+          Els emet l&apos;Agència Estatal de Meteorologia, que els publica en
+          castellà i en anglès. El nivell, el color, la zona, l&apos;horari i el
+          llindar es reprodueixen tal com surten; el text oficial va sencer a cada
+          avís, en el seu idioma i amb l&apos;enllaç a l&apos;original. Per a
+          decisions de seguretat, la font són l&apos;AEMET, el Meteocat i Protecció
+          Civil.
         </p>
       </header>
 
@@ -86,7 +98,7 @@ export default async function AvisosPage() {
         <>
           <section className="mb-8">
             <h2 className="mb-3 text-lg font-semibold tracking-tight">Tots els avisos</h2>
-            <WarningBanner warnings={warnings} />
+            <WarningBanner warnings={groups} />
           </section>
 
           <section>
@@ -103,7 +115,7 @@ export default async function AvisosPage() {
                   <ul className="mt-1 space-y-0.5">
                     {list.map((w) => (
                       <li key={w.id} className="text-xs text-[var(--muted)]">
-                        {w.phenomenon} · nivell {w.level} · fins {dateTimeLong(
+                        {phenomenonName(w.phenomenon)} · nivell {w.level} · fins {dateTimeLong(
                           new Date(w.expires)
                             .toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
                             .replace(' ', 'T'),
