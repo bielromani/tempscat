@@ -52,8 +52,18 @@ const TILE = 512;
 const COLOR = 2;
 const OPTIONS = '1_1';
 
-/** Marcos pasados que se conservan. Una hora de historia es lo que se lee de un vistazo. */
-const PAST_FRAMES = 7;
+/**
+ * Marcos pasados que se conservan: **todos los que da RainViewer**.
+ *
+ * Eran siete —una hora— y bastaban mientras el mapa se mirara marco a marco.
+ * Para animarlo hacen falta los trece: dos horas en pasos de diez minutos, que
+ * es lo que la API pública publica y lo que permite ver de dónde viene una
+ * tormenta y hacia dónde va.
+ *
+ * No cuesta prácticamente nada: cuatro teselas de 2 kB por marco, y en cada
+ * vuelta solo se baja el marco nuevo.
+ */
+const PAST_FRAMES = 13;
 
 /**
  * Tamaño exacto del PNG de «Zoom Level Not Supported», en bytes.
