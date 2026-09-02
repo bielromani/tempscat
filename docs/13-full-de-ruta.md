@@ -888,6 +888,45 @@ parte de la necesidad sin ninguno de estos riesgos.
 
 ---
 
+## El planificador de GitHub no cumple las cadencias · **medido, sin decidir**
+
+Los tres workers de alta frecuencia declaran una cosa y hacen otra. Medido el 2
+de septiembre de 2026 sobre las últimas veinte ejecuciones programadas de cada
+uno:
+
+| worker | `cron` declarado | intervalo real (mín / medio / máx) |
+|---|---|---|
+| Observació i radar | cada 10 min | 117 / **194** / 272 min |
+| Avisos oficials | cada 15 min | 116 / **176** / 273 min |
+| Mar i platges | cada 30 min | 117 / **190** / 267 min |
+
+No es que uno vaya mal: **van los tres igual y a la vez**, lo que apunta a que
+el planificador los agrupa y los lanza cada tres horas largas sin mirar el
+intervalo pedido. GitHub documenta que `schedule` puede retrasarse con carga
+alta; esto no es un retraso, es otra cadencia.
+
+**Lo que no está roto:** la página nunca ha dicho «hace 10 minutos». Enseña la
+hora real de la lectura, así que un dato de hace tres horas se presenta como lo
+que es. La honestidad se sostiene; la frescura no.
+
+**Lo que sí hay que corregir:** los `stalenessLimitMin` del registro de frescura
+están calculados sobre la cadencia declarada, y `AGENTS.md` promete «cada 10
+min». Mientras no se arregle lo de abajo, esas dos cosas dicen algo que no pasa.
+
+Tres salidas, sin decidir todavía:
+
+1. **Aceptarlo y ajustar lo que se promete.** Coste cero. La observación pasa a
+   ser «cada pocas horas», que para temperatura y viento es poco, y para el
+   radar —siete marcos de diez minutos— lo deja casi inservible.
+2. **Que cada ejecución haga varias pasadas.** Un bucle de una hora con esperas
+   de diez minutos convierte una ejecución en seis ingestas. Tapa el agujero
+   sin cambiar de sitio, pero gasta minutos de Actions durmiendo y no cubre los
+   huecos de tres horas entre ejecuciones.
+3. **Mover los workers de alta frecuencia a Cloudflare Workers.** Sus *cron
+   triggers* sí cumplen el minuto, ya tenemos la cuenta, y el enlace a R2 es
+   nativo — el destino de escritura ya está ahí. Es la salida buena y la más
+   trabajo: los workers son Node y habría que portar los tres.
+
 ## Lo que se descarta, y por qué
 
 Dejarlo escrito ahorra que alguien lo vuelva a buscar.
