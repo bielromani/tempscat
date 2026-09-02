@@ -22,11 +22,20 @@ interface Props {
   hours?: number;
   /** Dia d'avui en hora local, per poder escriure "avui" i "dema". */
   today?: string;
-  /** Abierta de entrada en las páginas donde el detalle es el motivo de la visita. */
-  open?: boolean;
 }
 
-export function HourlyTable({ hourly, hours = 48, open = false, today }: Props) {
+/**
+ * El detall hora a hora.
+ *
+ * ## Per què ja no és un desplegable
+ *
+ * Ho era, i tenia sentit mentre estava enmig de la pàgina: quaranta-vuit files
+ * obertes de bon començament són una paret. Ara viu darrere d'una pestanya
+ * —«Hora per hora», al costat del gràfic— i la pestanya ja fa aquella feina.
+ * Deixar-hi el `<details>` volia dir dos clics per veure una taula que ja
+ * s'havia demanat, i un títol repetit a dins.
+ */
+export function HourlyTable({ hourly, hours = 48, today }: Props) {
   const data = hourly.slice(0, hours);
   if (!data.length) return null;
 
@@ -43,12 +52,8 @@ export function HourlyTable({ hourly, hours = 48, open = false, today }: Props) 
   const hasSnow = data.some((h) => (h.snowfall ?? 0) > 0);
 
   return (
-    <details open={open} className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)]">
-      <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-2)]">
-        Detall hora a hora · {data.length} hores
-      </summary>
-
-      <div className="scroll-x border-t border-[var(--line-soft)]">
+    <div className="overflow-hidden rounded-lg border border-[var(--line-soft)] bg-[var(--surface)]">
+      <div className="scroll-x">
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">
             Predicció hora a hora: temperatura, precipitació, vent i cel
@@ -162,6 +167,6 @@ export function HourlyTable({ hourly, hours = 48, open = false, today }: Props) 
         model, no el percentatge de models que preveuen pluja: són dues coses
         diferents i la primera és millor.
       </p>
-    </details>
+    </div>
   );
 }

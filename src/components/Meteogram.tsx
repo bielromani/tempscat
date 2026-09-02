@@ -2,7 +2,7 @@ import { temperatureColor } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
 import { weatherSpriteHref } from './WeatherIcon';
-import { dateTime, hour, num, relativeDay, temp } from '@/lib/format';
+import { hour, num, relativeDay } from '@/lib/format';
 import type { HourlyPoint } from '@/lib/weather';
 
 /**
@@ -48,6 +48,13 @@ interface Props {
   showSpread?: boolean;
   /** Hora en curso (2026-08-31T14) para marcar el «ara». */
   nowHour?: string | null;
+  /**
+   * `id` del radio de la pestaña que enseña estas mismas horas en tabla.
+   *
+   * Es la alternativa en texto del gráfico. Se señala en vez de duplicarse
+   * — ver el bloque del final del componente.
+   */
+  tableFor?: string;
 }
 
 const W = 1000;
@@ -69,7 +76,9 @@ const PRECIP_BASE = TEMP_BOTTOM + PRECIP_H;
 
 const RAIN = 'oklch(52% 0.13 245)';
 
-export function Meteogram({ hourly, hours = 48, showSpread = true, nowHour = null }: Props) {
+export function Meteogram({
+  hourly, hours = 48, showSpread = true, nowHour = null, tableFor,
+}: Props) {
   const data = hourly.slice(0, hours);
   if (data.length < 2) return null;
 
@@ -418,41 +427,33 @@ export function Meteogram({ hourly, hours = 48, showSpread = true, nowHour = nul
         )}
       </ul>
 
-      {/* Tabla equivalente: accesible con lector de pantalla, extraíble por el
-          crawler y consultable por quien quiera el número exacto. */}
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-[var(--muted)] hover:text-[var(--ink)]">
-          Veure les dades en taula
-        </summary>
-        <div className="scroll-x mt-2">
-          <table className="w-full text-sm tnum border-collapse">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)]">
-                <th className="py-1 pr-4 font-semibold">Dia i hora</th>
-                <th className="py-1 pr-4 font-semibold">Cel</th>
-                <th className="py-1 pr-4 font-semibold">Temperatura</th>
-                <th className="py-1 pr-4 font-semibold">Pluja</th>
-                <th className="py-1 pr-4 font-semibold">Vent</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.filter((_, i) => i % 3 === 0).map((d) => (
-                <tr key={d.time} className="border-t border-[var(--line-soft)]">
-                  {/* Antes aquí salía «08-31 00:00», que no es cap format. */}
-                  <td className="py-1 pr-4">{dateTime(d.time)}</td>
-                  <td className="py-1 pr-4 whitespace-nowrap">{weatherCode(d.weatherCode).ca}</td>
-                  <td className="py-1 pr-4">{temp(d.temperature)}</td>
-                  <td className="py-1 pr-4">{d.precipitation ? `${num(d.precipitation, 1)} mm` : '—'}</td>
-                  <td className="py-1 pr-4 whitespace-nowrap">
-                    {d.windSpeed != null ? `${msToKmh(d.windSpeed).toFixed(0)} km/h` : '—'}
-                    {d.windDirection != null ? ` ${windCardinal(d.windDirection)}` : ''}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
+      {/*
+        * La alternativa en texto del gráfico, que un gráfico necesita.
+        *
+        * Aquí había una tabla equivalente dentro de un `<details>`. Cuando el
+        * gráfico y la tabla horaria pasaron a ser dos pestañas del mismo bloque,
+        * esa tabla se convirtió en la **tercera** copia de las mismas 48 horas
+        * en la misma página.
+        *
+        * Así que la alternativa ya no se duplica: se señala. `tableFor` es el
+        * identificador del radio de la pestaña de al lado, y esta etiqueta la
+        * enciende — el mismo mecanismo, sin JavaScript y sin repetir un solo
+        * número.
+        *
+        * Sin `tableFor` —si alguna vez se usa el gráfico solo— no se enseña
+        * nada, porque prometer una tabla que no existe es peor que no
+        * prometerla.
+        */}
+      {tableFor && (
+        <p className="mt-3 text-sm">
+          <label
+            htmlFor={tableFor}
+            className="cursor-pointer text-[var(--muted)] underline decoration-dotted hover:text-[var(--ink)]"
+          >
+            Les mateixes dades, hora per hora i en xifres
+          </label>
+        </p>
+      )}
     </figure>
   );
 }

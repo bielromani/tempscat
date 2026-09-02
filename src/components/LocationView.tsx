@@ -444,6 +444,24 @@ export function LocationView({
         </section>
       )}
 
+      {/*
+        * Les mateixes 48 hores, com a dibuix o com a xifres.
+        *
+        * Estaven en dos blocs seguits —el gràfic, els pròxims dies, i després
+        * la taula— i eren la mateixa predicció dues vegades: temperatura, pluja
+        * i vent al gràfic, i temperatura, pluja i vent a la taula. Es notava, i
+        * amb raó.
+        *
+        * Cadascun té el seu motiu, així que no en sobra cap: el gràfic ensenya
+        * la forma i el marge de desacord entre models; la taula ensenya el que
+        * el gràfic no pot dir —sensació, humitat, UV, neu— hora per hora. El
+        * que sobrava era llegir-los un darrere l'altre.
+        *
+        * Les pestanyes són dos radios i dos panells amb `:checked`, com les de
+        * `NextHours`. Els panells han de ser `section` i la barra un `div`:
+        * `nth-of-type` compta per etiqueta i no per classe, i barrejar-los
+        * corre tots els índexs — ja va passar.
+        */}
       {forecast && forecast.hourly.length > 0 && (
         <section className="mt-8">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
@@ -456,15 +474,38 @@ export function LocationView({
                 ` · corregit ${signed(forecast.altitudeCorrectionM, 0, 'm')} d'altitud`}
             </p>
           </div>
-          <Meteogram hourly={forecast.hourly} hours={48} showSpread={forecast.nModels > 1} nowHour={nowIso} />
-          {/* La franja de desacuerdo del gráfico es correcta y nadie la sabe
-              leer. Lo que hace falta saber es hasta qué día se puede confiar en
-              el número, y eso es una frase, no un área sombreada. */}
-          {narrative?.uncertainty && (
-            <p className="mt-2 max-w-[70ch] text-xs leading-relaxed text-[var(--muted)]">
-              {narrative.uncertainty}
-            </p>
-          )}
+
+          <div className="tabs">
+            <input type="radio" name={`h-${loc.id}`} id={`h-${loc.id}-1`} defaultChecked />
+            <input type="radio" name={`h-${loc.id}`} id={`h-${loc.id}-2`} />
+
+            <div className="tablist mb-3 flex gap-5 border-b border-[var(--line-soft)] text-sm">
+              <label htmlFor={`h-${loc.id}-1`} className="pb-2">Gràfic</label>
+              <label htmlFor={`h-${loc.id}-2`} className="pb-2">Hora per hora</label>
+            </div>
+
+            <section className="panel">
+              <Meteogram
+                hourly={forecast.hourly}
+                hours={48}
+                showSpread={forecast.nModels > 1}
+                nowHour={nowIso}
+                tableFor={`h-${loc.id}-2`}
+              />
+              {/* La franja de desacord del gràfic és correcta i ningú la sap
+                  llegir. El que cal saber és fins quin dia es pot confiar en el
+                  número, i això és una frase, no una àrea ombrejada. */}
+              {narrative?.uncertainty && (
+                <p className="mt-2 max-w-[70ch] text-xs leading-relaxed text-[var(--muted)]">
+                  {narrative.uncertainty}
+                </p>
+              )}
+            </section>
+
+            <section className="panel scroll-x">
+              <HourlyTable hourly={forecast.hourly} hours={48} today={today} />
+            </section>
+          </div>
         </section>
       )}
 
@@ -475,11 +516,6 @@ export function LocationView({
         </section>
       )}
 
-      {forecast && forecast.hourly.length > 0 && (
-        <section className="mt-6">
-          <HourlyTable hourly={forecast.hourly} hours={48} today={today} />
-        </section>
-      )}
 
       {(air || airStation) && (
         <section className="mt-8">
