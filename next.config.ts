@@ -19,6 +19,25 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/**': ['./data/build/**'],
   },
+
+  /*
+   * El relleu no canvia mai, i porta la versio al nom.
+   *
+   * Next serveix `public/` amb `max-age=0, must-revalidate`, que per a una
+   * imatge de 183 kB que apareix a cada visita del radar vol dir una peticio de
+   * validacio cada vegada. Amb la versio al nom del fitxer es pot dir
+   * `immutable` sense mentir: si algun dia es recalcula, sera `relleu-v2.png`.
+   */
+  async headers() {
+    return [
+      {
+        source: '/relleu-:version.png',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

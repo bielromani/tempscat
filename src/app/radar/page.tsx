@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { radar } from '@/lib/weather';
-import { allComarques, comarquesGeoJson, municipisOfComarca } from '@/lib/territory';
+import { allComarques, comarquesGeoJson, municipisOfComarca, relief } from '@/lib/territory';
 import { project, type TileGrid } from '@/lib/mercator';
 import { radarZones } from '@/lib/radar-zones';
 import { ago, hour, dateLong } from '@/lib/format';
@@ -217,6 +217,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
   ].join('');
 
   const paths = comarcaPaths(grid);
+  const terrain = relief();
   const cities = referenceCities();
   const { ageMin, lastObserved } = data;
 
@@ -274,6 +275,27 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
             aria-label={`Radar de precipitació sobre ${view.label} a ${hour(frame.local)}`}
             style={{ display: 'block' }}
           >
+            {/*
+              * El relleu, a sota de tot.
+              *
+              * Sense ell el radar és una taca de colors damunt d'una silueta;
+              * amb ell s'entén el que ensenya — per què plou al vessant nord i
+              * no al sud, i on cauen els ecos respecte de les serralades.
+              *
+              * És una imatge feta un sol cop: ni canvia ni es recalcula. Quadra
+              * exactament amb les tessel·les perquè les dues coses són Web
+              * Mercator del mateix mosaic — el perquè és a
+              * `scripts/11-relief.ts`.
+              */}
+            <image
+              className="relief"
+              href={terrain.src}
+              x={terrain.x}
+              y={terrain.y}
+              width={terrain.w}
+              height={terrain.h}
+            />
+
             {/*
               * Els tretze marcs, un grup cadascun i tots amagats.
               *
@@ -446,6 +468,17 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
           i Geològic de Catalunya. Les tessel·les les descarrega el nostre worker
           cada deu minuts i les serveix aquest domini: així la vostra visita no
           arriba mai a un tercer.
+        </p>
+        {/*
+          * L'atribució que demana la font del relleu, tal com la demana.
+          *
+          * No és una fórmula que ens haguem inventat: és la cadena exacta que
+          * exigeix l'EU-DEM, i va aquí perquè la imatge del relleu es publica
+          * dins d'aquesta pàgina.
+          */}
+        <p className="text-[var(--muted)]">
+          El relleu surt de {terrain.source}, calculat un sol cop.{' '}
+          <span lang="en">{terrain.attribution}</span>
         </p>
       </section>
     </article>

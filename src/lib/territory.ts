@@ -264,6 +264,30 @@ export function municipisGeoJson(): GeoFeatureCollection {
   return load<GeoFeatureCollection>('geo/municipis.geojson');
 }
 
+export interface Relief {
+  /** Ruta de la imatge a `public/`. */
+  src: string;
+  /** On va, en píxels del mosaic del radar. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  mosaic: { z: number; tile: number; width: number; height: number };
+  source: string;
+  attribution: string;
+}
+
+/**
+ * On va la imatge del relleu dins del mosaic, i qui l'ha de citar.
+ *
+ * La imatge és a `public/` — no canvia mai i es versiona amb el codi. Aquí
+ * només hi ha on posar-la, perquè està retallada a la terra i no comença a
+ * l'origen del mosaic. Ho escriu `scripts/11-relief.ts`.
+ */
+export function relief(): Relief {
+  return load<Relief>('geo/relleu.json');
+}
+
 export function stationByCodi(codi: string): Station | undefined {
   return db().stations.find((s) => s.codi === codi);
 }

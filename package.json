@@ -12,6 +12,7 @@
     "data:geocode": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/03-geocode-entitats.ts",
     "data:stations": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/04-fetch-stations.ts",
     "data:build": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/07-build-territory.ts",
+    "data:relief": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/11-relief.ts",
     "data:validate": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/08-validate.ts",
     "data:all": "npm run data:nomenclator && npm run data:geo && npm run data:stations && npm run data:geocode && npm run data:elevation && npm run data:polygons && npm run data:build && npm run data:map && npm run data:validate",
     "test:catalan": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-catalan.ts",

@@ -1,0 +1,15 @@
+{
+  "src": "/relleu-v1.png",
+  "x": 0,
+  "y": 0,
+  "w": 788,
+  "h": 1024,
+  "mosaic": {
+    "z": 7,
+    "tile": 512,
+    "width": 1024,
+    "height": 1024
+  },
+  "source": "Terrain Tiles (AWS Open Data) · EU-DEM, Copernicus",
+  "attribution": "Produced using Copernicus data and information funded by the European Union - EU-DEM layers."
+}
