@@ -152,13 +152,19 @@ async function main() {
        * definitivo. Sin esta comprobación, cada ejecución rebajaría las siete
        * horas de historia entera cada diez minutos.
        *
-       * Pero «ya está en disco» no es «ya está publicada». Se marca igualmente
-       * para subir: si no, la primera vez que se enciende el almacén las
-       * teselas que ya estaban aquí no llegarían nunca, y el radar saldría
-       * vacío en producción sin que nada diera error. Son 4 KB cada una.
+       * Y tampoco se vuelven a subir. Durante un tiempo sí —por miedo a que la
+       * primera vez que se encendiera el almacén las teselas que ya estaban en
+       * disco no llegaran nunca— y eran **4.032 subidas diarias de ficheros
+       * idénticos**, dos tercios de todo lo que este proyecto escribe. Con un
+       * almacén que cobra por operación y no por bytes, eso pasa de ser gratis
+       * a ser la partida más cara.
+       *
+       * El hueco que tapábamos lo tapa ahora `npm run store:sync`, que sube
+       * todo lo que hay en `data/cache/` de una vez. Es lo que hay que hacer al
+       * estrenar almacén, y solo entonces.
        */
-      markForPublish(rel);
       if (existsSync(dest)) { skipped++; return; }
+      markForPublish(rel);
 
       const url = `${maps.host}${frame.path}/${TILE}/${Z}/${t.x}/${t.y}/${COLOR}/${OPTIONS}.png`;
       const r = await fetchWithRetry(url, { retries: 3, timeoutMs: 30_000 });
