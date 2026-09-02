@@ -39,6 +39,25 @@ runs:
           console.log('publicacio a R2: modul carregat');
         "
 
+    # I que sharp arrenca, que es l'altra cosa que pot fallar despres d'un
+    # `npm ci` en verd.
+    #
+    # Es un modul natiu: el paquet que porta el binari depen del sistema
+    # -`@img/sharp-linux-x64` aqui, un altre a Windows- i el lockfile ja ha
+    # tingut aquest problema una vegada, quan un `npm install` sol va podar les
+    # entrades d'`@emnapi` i `npm ci` es va quedar sense poder installar-lo a
+    # Linux. Nomes el fa servir el worker de cameres, i descobrir-ho a mitja
+    # baixada de vint-i-quatre fotogrames no serveix de res.
+    - name: Comprovar que sharp arrenca
+      shell: bash
+      run: |
+        node --input-type=module -e "
+          const sharp = (await import('sharp')).default;
+          const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#000' } }).png().toBuffer();
+          if (!png.length) throw new Error('sharp carregat pero sense poder codificar');
+          console.log('sharp ' + sharp.versions.sharp + ': funciona');
+        "
+
     # Quina configuracio de publicacio hi ha, sense ensenyar-ne cap valor.
     #
     # Els workers es planten a l'arrencada si els falta alguna -i han de

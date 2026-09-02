@@ -604,25 +604,41 @@ como medida de confianza: «38 de 51 miembros apuntan a más cálido de lo norma
 para la época». Eso es un pronóstico probabilístico bien presentado; una
 temperatura para el 15 de octubre no lo es.
 
-### Cámaras · **sí, 30 y con licencia**
+### Cámaras · **hecho, y eran 24 de 30**
 
-`FGC - Webcams dels equipaments turístics` en el portal es solo un enlace, pero
-lleva al portal propio de Ferrocarrils, que sí tiene API:
+Está en `/cameres`, en una página por cámara y en las fichas de los pueblos que
+tienen alguna a menos de 25 km. El worker es `scripts/workers/cameras.ts` y su
+cabecera lleva el detalle; aquí queda lo que cambió respecto a lo que se
+esperaba.
 
-    https://dadesobertes.fgc.cat/api/explore/v2.1/catalog/datasets/webcams-actives-tim/records
+**Eran 30 y son 24.** Y ninguna de las seis que faltan da error. Cinco apuntan a
+`api.pirineu365.cat`, que redirige a `statics.3cat.cat`: la imagen es de la CCMA
+y la CC-BY del conjunto de FGC no cubre el material de un tercero que el
+conjunto solo enlaza. La sexta es un reproductor de `webtv.feratel.com` con 404.
 
-**30 cámaras** en Boí Taüll, Espot, La Molina, Port Ainé, Vall de Núria, Vallter
-y el Parc Astronòmic, con coordenadas, nombre —que lleva la altitud dentro— y la
-URL del fotograma. Licencia **CC-BY 4.0**.
+**Cinco traían la coordenada inventada** —tres en el centro de la península, dos
+de Vallter con la longitud a cero—, así que el filtro es la ubicación publicada
+más cercana: a más de 20 km, no hay coordenada. Vallter se queda sin ninguna
+colocada, porque las dos que tiene están mal y no hay hermana buena.
 
-Y son vivas de verdad: la imagen directa traía `Last-Modified` de hacía un
-minuto. Ojo, que la del propio portal es una copia más vieja y distinta.
+**Y cinco llevan horas o meses paradas**, sirviendo el mismo fotograma con un
+200 — una de ellas desde el 10 de abril. Salen en la página como paradas, con la
+fecha, y sin imagen.
 
-**Hay que descargarlas nosotros, como las teselas del radar.** Las URL apuntan a
-un tercero (`app.projecte4estacions.com`); enlazarlas desde nuestras páginas
-mandaría la IP de cada visitante allí, que es justo lo que el radar evita. El
-coste a vigilar es la transferencia: 30 imágenes de ~250 KB son 7,5 MB por
-vuelta. Cada hora y solo un subconjunto sale a unos 40 MB al día.
+Lo que costó descubrir de verdad fue **datarlas**. En las panorámicas de
+Roundshot, `og:updated_time` es la hora en que se ha generado la página y el
+`Last-Modified` de la imagen falta justo en las paradas; la hora buena está en
+la ruta del fichero al que redirige, en hora local de Madrid, y el worker lo
+comprueba cada vuelta contra las que sí traen cabecera.
+
+El coste no fue la transferencia sino **las escrituras**, que es lo único que el
+almacén cobra. Se resolvió con nombre de fichero fijo —la hora de captura va en
+la consulta de la URL, no en el nombre— y saltándose las cámaras cuya foto no ha
+cambiado: 48 objetos por vuelta como mucho, unos 35.000 al mes contra el millón
+del plan gratuito. Bajar y reescalar es gratis: 6,4 MB por vuelta que salen 2,0.
+
+Lo que queda pendiente es lo que no depende de nosotros: **Vallter sin
+coordenada** mientras el catálogo no la arregle.
 
 ### Mapa con relieve · **viable, pero hace falta pedir la altimetría**
 

@@ -1,0 +1,41 @@
+name: Cameres de muntanya
+
+# Un cop per hora.
+#
+# Les camares mandan cada deu minuts, pero no es demanen cada deu: una foto de
+# la muntanya no canvia prou en deu minuts per justificar sis vegades mes
+# escriptures a l'emmagatzematge, que es l'unica cosa que aqui es paga. A un cop
+# per hora son 48 objectes per volta i unes 35.000 al mes, contra el milio del
+# pla gratuit.
+#
+# I les que no han canviat no s'escriuen: el worker compara l'hora de captura
+# amb la de la volta anterior.
+on:
+  schedule:
+    # Xarxa de seguretat, no el rellotge. El de debo es el cron trigger de
+    # Cloudflare que crida workflow_dispatch — cloudflare/scheduler/worker.js.
+    # Aqui la cadencia ja es la bona, perque es una per hora en tots dos casos.
+    - cron: '25 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: cameres
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Secret o variable, indiferent. Els dos calaixos de GitHub s'assemblen
+      # prou perque un valor acabi al que no toca, i llavors l'expressio surt
+      # buida: el worker es planta a l'arrencada i no diu per que. Va passar.
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET || vars.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || vars.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || vars.R2_SECRET_ACCESS_KEY }}
+      DATA_BASE_URL: ${{ secrets.DATA_BASE_URL || vars.DATA_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: npm run worker:cameres

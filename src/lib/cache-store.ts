@@ -84,6 +84,15 @@ const TTL_MS: Array<[RegExp, number]> = [
   [/^radar$/, 5 * 60_000],
   [/^warnings$/, 5 * 60_000],
   [/^sea$/, 10 * 60_000],
+  /*
+   * Les cameres es refresquen cada hora, i el termini generic tambe es d'una
+   * hora: amb els dos iguals, una foto nova pot trigar el doble a sortir. I no
+   * nomes tard: la URL de la imatge porta l'hora de captura a dins, aixi que
+   * mentre aquest proces servis la instantania vella, el CDN seguiria servint
+   * el fotograma vell amb ell. Deu minuts, que es menys que els quinze que
+   * triga la pagina a regenerar-se, i per tant mai es el que mana.
+   */
+  [/^cameres$/, 10 * 60_000],
   [/^forecast\//, 30 * 60_000],         // se refresca cada 12-24 h
   [/^forecast\/index$/, 30 * 60_000],
   [/./, 60 * 60_000],                   // histórico, aire, agua: una vez al día

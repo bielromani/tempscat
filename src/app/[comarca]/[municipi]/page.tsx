@@ -14,6 +14,7 @@ import { comarcaComparison } from '@/lib/comparison';
 import { waterNear } from '@/lib/water';
 import { nearestAirStation } from '@/lib/air-stations';
 import { seaNear } from '@/lib/sea';
+import { camerasNear } from '@/lib/cameras';
 import { aName } from '@/lib/format';
 import { narrativeFor } from '@/lib/narrative';
 
@@ -102,6 +103,7 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         water={await waterNear(loc)}
         airStation={await nearestAirStation(loc)}
         sea={await seaNear(loc)}
+        cameras={await camerasNear(loc)}
         siblings={entitats}
         siblingsLabel={`Nuclis i entitats de ${loc.nom}`}
         neighbours={adjacent}

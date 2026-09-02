@@ -13,6 +13,7 @@ import { Headline } from './Headline';
 import { WaterBlock } from './WaterBlock';
 import { MeasuredAir } from './MeasuredAir';
 import { SeaBlock } from './SeaBlock';
+import { CameraBlock } from './CameraBlock';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
@@ -30,6 +31,7 @@ import type { Narrative } from '@/lib/narrative';
 import type { WaterNearby } from '@/lib/water';
 import type { NearestAirStation } from '@/lib/air-stations';
 import type { SeaNearby } from '@/lib/sea';
+import type { CameraNow } from '@/lib/cameras';
 import type { Comarca, Location } from '@/lib/territory';
 
 /**
@@ -349,12 +351,19 @@ interface Props {
   airStation: NearestAirStation | null;
   /** Playas del municipio y estado del mar. Null si no tiene costa. */
   sea: SeaNearby | null;
+  /**
+   * Cámaras de montaña a menos de 25 km, con imagen vigente.
+   *
+   * Vacío en casi todas las fichas: solo hay cámaras en siete estaciones del
+   * Pirineu y en el Montsec.
+   */
+  cameras: Array<CameraNow & { distKm: number }>;
 }
 
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
-  air, comparison, narrative, water, airStation, sea,
+  air, comparison, narrative, water, airStation, sea, cameras,
 }: Props) {
   /*
    * La hora en curso dentro de la serie, para completar el bloque actual con las
@@ -543,6 +552,15 @@ export function LocationView({
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">Aigua</h2>
           <WaterBlock water={water} nom={loc.nom} />
+        </section>
+      )}
+
+      {cameras.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+            {cameras.length === 1 ? 'Una càmera a prop' : 'Càmeres a prop'}
+          </h2>
+          <CameraBlock cameras={cameras} />
         </section>
       )}
 

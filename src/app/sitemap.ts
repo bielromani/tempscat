@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { allPublishedPaths, buildSummary, operativeStations } from '@/lib/territory';
+import { cameraSlugs } from '@/lib/cameras';
 import { IS_PRODUCTION, absolute } from '@/lib/site';
 
 /**
@@ -41,8 +42,15 @@ export async function generateSitemaps() {
   return SITEMAP_KINDS.map((id) => ({ id }));
 }
 
-/** Páginas que no salen del territorio: portada, temáticas y estaciones. */
-function thematic(lastModified: Date): MetadataRoute.Sitemap {
+/**
+ * Páginas que no salen del territorio: portada, temáticas, estaciones y cámaras.
+ *
+ * Las cámaras son las únicas de este fichero que salen de un dato vivo y no del
+ * territorio construido, así que esta función es asíncrona por ellas. Si el
+ * worker no ha corrido nunca la lista viene vacía y el sitemap sale sin ellas,
+ * que es preferible a anunciar veinticuatro URL que darían 404.
+ */
+async function thematic(lastModified: Date): Promise<MetadataRoute.Sitemap> {
   const fixed: Array<[string, number]> = [
     ['/', 1],
     ['/cerca', 0.6],
@@ -60,6 +68,7 @@ function thematic(lastModified: Date): MetadataRoute.Sitemap {
     ['/estacions', 0.6],
     ['/dades', 0.5],
     ['/estat', 0.4],
+    ['/cameres', 0.7],
   ];
 
   return [
@@ -68,6 +77,9 @@ function thematic(lastModified: Date): MetadataRoute.Sitemap {
     })),
     ...operativeStations().map((s) => ({
       url: absolute(`/estacions/${s.codi}`), lastModified, priority: 0.5,
+    })),
+    ...(await cameraSlugs()).map((slug) => ({
+      url: absolute(`/cameres/${slug}`), lastModified, priority: 0.5,
     })),
   ];
 }

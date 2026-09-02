@@ -21,6 +21,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `src/lib/` | Frontera entre datos y aplicación |
 | `src/lib/narrative.ts` | Del dato a la frase: el titular, las franjas del día, las preguntas |
 | `data/cache/radar/` | Teselas de radar ya descargadas. Las sirve una route handler |
+| `data/cache/cameres/` | Fotogramas de las cámaras de FGC, ya reescalados. Igual: los sirve una route handler |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
@@ -162,6 +163,7 @@ npm run worker:warnings   # avisos AEMET, cada 15 min · necessita .env.local
 npm run worker:air        # qualitat de l'aire i pol·len, cada 12 h
 npm run worker:forecast   # predicció · accepta --tiers=A,B,C i --fill
 npm run worker:history    # rècords i normals, un cop al dia
+npm run worker:cameres    # cameres de muntanya de FGC, cada hora
 ```
 
 Pruebas:
@@ -338,6 +340,25 @@ cuota para exactamente la misma información.
   diario lo calcula el worker. Cualquier frase que hable del horizonte tiene que salir de
   `forecast.daily`: sacándola de `forecast.hourly` se afirma sobre catorce días habiendo mirado
   cinco. Pasó con la frase del desacuerdo entre modelos.
+- **Una càmera pot portar mesos aturada servint el mateix fotograma amb un 200.** És la
+  trampa de la bandera de platja una altra vegada: cinc de les vint-i-quatre de FGC ho estaven,
+  una des del 10 d'abril, i totes amb `is_active: 1`. Cada imatge viatja amb la seva hora de
+  captura i els llindars són a `src/lib/cameras.ts`: vigent < 90 min, s'ensenya < 6 h.
+- **A Roundshot, `og:updated_time` és l'hora en què s'ha generat la pàgina**, no la de la
+  fotografia — les dotze càmeres tornaven el mateix segon—, i el `Last-Modified` de la imatge
+  **falta justament a les aturades**. L'hora bona és a la ruta del fitxer al qual redirigeix, i
+  és **hora local de Madrid**. El worker ho verifica cada volta contra les que sí que porten
+  capçalera: si algun dia passa a UTC, salta amb dues hores de diferència en comptes de datar
+  malament les vint-i-quatre.
+- **Un fitxer d'imatge amb nom fix vol dir escriptura a cada volta, i R2 cobra per operació.**
+  El nom no pot portar l'instant a dins —vint-i-quatre fotogrames nous cada hora amb nom propi
+  són 3,6 GB al mes contra un cupó de deu— així que va a la consulta de la URL (`?v=<captura>`).
+  I si la foto no ha canviat des de la volta anterior, no es reescriu: és el mateix error que ja
+  va costar 4.032 pujades diàries idèntiques al radar.
+- **`sharp` rebutja de sèrie imatges que qualsevol navegador pinta.** Quatre de les
+  vint-i-quatre càmeres porten escombraries abans d'un marcador JPEG i amb `failOn: 'warning'`
+  —el valor per defecte— es queden fora. Va amb `failOn: 'truncated'`, que continua rebutjant un
+  fitxer tallat per la meitat.
 - **El camp de meduses porta diverses espècies separades per `;`.** Cada una és
   `espècie,abundància,talla`. Llegint només fins a la primera coma, a Castell-Platja d'Aro
   —que en reporta tres— sortia la inofensiva i **quedava amagada la que pica**. `parseJellyfish()`

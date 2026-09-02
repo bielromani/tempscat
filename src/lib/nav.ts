@@ -45,6 +45,7 @@ export const SECTIONS: NavGroup[] = [
       { href: '/radar', label: 'Radar de pluja', blurb: 'On plou ara mateix, i el que un radar no pot veure.' },
       { href: '/avisos', label: 'Avisos oficials', blurb: 'Els avisos de l’AEMET vigents, sense reescriure.' },
       { href: '/ranquings', label: 'Rànquings del dia', blurb: 'El poble més fred i el més càlid, i on ha plogut més.' },
+      { href: '/cameres', label: 'Càmeres de muntanya', blurb: 'Com està ara mateix el Pirineu, vist per les càmeres de Ferrocarrils.' },
     ],
   },
   {

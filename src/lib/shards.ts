@@ -195,4 +195,5 @@ export const FRESHNESS_SOURCES = [
   'air-stations',
   'water',
   'xema-history',
+  'cameras',
 ] as const;

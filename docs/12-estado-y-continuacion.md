@@ -60,6 +60,7 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 | `xema-history.json` | Récords y normales de 189 estaciones | 24 h |
 | `air-quality.json` | 372 celdas de 0,1° × 18 variables × 72 h | 12 h |
 | `radar.json` + `radar/` | 7 marcos de radar × 4 teselas de 512 px · 200 KB | 10 min |
+| `cameres.json` + `cameres/` | 24 cámaras de FGC × 2 tamaños de JPEG · 2 MB | 1 h |
 | `freshness.json`, `quota.json` | Estado de las fuentes y consumo | — |
 
 **Medido**: 402 páginas prerenderizadas, TTFB 21 ms en caliente, página de municipio de 38 KB
@@ -84,6 +85,12 @@ por la red, **cero JavaScript propio**.
 - ✅ **Legibilidad.** `src/lib/format.ts` centraliza fechas, horas, números y las contracciones
   del catalán. Meteograma rehecho: iconos de cielo, marca de «ara», extremos de cada día
   rotulados, probabilidad de lluvia visible aunque sean 0 mm, unidades en los ejes y leyenda.
+
+- ✅ **Cámaras de montaña** en `/cameres` y en las fichas de los pueblos que las tienen a menos
+  de 25 km. Las 24 publicables del catálogo de FGC, bajadas y reescaladas por un worker cada
+  hora: la página no hace ni una petición a los cinco dominios de terceros a los que apuntan las
+  URL originales. Dos tamaños —400 px para la reja, 1.280 para la ficha— y la hora de captura en
+  cada imagen.
 
 ## Lo que falta para cerrar la fase 1
 
@@ -171,6 +178,33 @@ Esta es la parte que más tiempo ahorra. **Todas son reales, todas costaron enco
 - La paleta del PNG **cambia de tesela a tesela** (son PNG indexados y cuantizados), así que no se
   puede extraer una escala de intensidad fija del propio fichero. Por eso la página no publica una
   leyenda numérica en dBZ: sería inventada.
+
+### Cámaras de FGC
+
+- **El catálogo dice 30 y son 24 las que se pueden publicar, y ninguna de las seis da error.**
+  `is_active: 1` en las treinta. Cinco apuntan a `api.pirineu365.cat`, que redirige a
+  `statics.3cat.cat`: la imagen es de la CCMA, no de FGC, así que la CC-BY del conjunto no la
+  cubre — el conjunto solo la enlaza. La sexta es un reproductor de `webtv.feratel.com` y
+  devuelve 404.
+- **Cinco de las treinta traen la coordenada inventada.** Tres dan `40.3298, -3.7793` —el centro
+  de la península, a 345 km del punto publicado más cercano— y dos de Vallter llevan la longitud
+  a cero, que cae en Francia a 59 km. El filtro es la ubicación publicada más cercana: si está a
+  más de 20 km, no hay coordenada. Vallter se queda sin ninguna cámara colocada.
+- **Y cinco llevan horas o meses paradas, sirviendo el mismo fotograma con un 200.** Una de Boí
+  Taüll servía el 2 de septiembre la imagen del 10 de abril. Es la trampa de la bandera de playa
+  otra vez: cada imagen viaja con su hora de captura y no se enseña ninguna de más de seis horas.
+- **En Roundshot, `og:updated_time` es la hora en que se ha generado la página**, no la de la
+  fotografía: las doce cámaras devolvían el mismo segundo. Y el `Last-Modified` de la imagen
+  **falta justo en las paradas**, que son las que más importa datar. La hora buena está en la
+  ruta del fichero al que redirige —`…/2026-09-02/15-40-00/…`— y es **hora local de Madrid**. El
+  worker lo comprueba cada vuelta contra el `Last-Modified` de las que sí lo traen.
+- **Cuatro de las veinticuatro traen basura antes de un marcador JPEG** —«608 extraneous bytes
+  before marker 0xfe»— y con las opciones de serie de sharp eso es un error, no un aviso: la
+  cámara se quedaba fuera por una imagen que cualquier navegador pinta. Va con
+  `failOn: 'truncated'`, que sigue rechazando un fichero cortado por la mitad.
+- **El fallo habitual no es que la cámara se apague: es bajar el fotograma mientras el proveedor
+  lo escribe** y recibirlo cortado. Si eso pasa se conserva la ficha de la vuelta anterior — con
+  su hora, así que si de verdad ha dejado de mandar el reloj lo dice igual.
 
 ### Calidad del aire
 

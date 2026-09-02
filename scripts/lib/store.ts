@@ -586,6 +586,13 @@ export const DAILY_LIMITS: Record<string, number> = {
    * accidente, y un bucle mal escrito no debe descubrirse en su registro.
    */
   'rainviewer': 20_000,
+  /*
+   * FGC no publica limite. Se cuenta cada peticion —el catalogo, la pagina de
+   * cada panoramica y cada imagen—, que a 24 camaras y una vuelta por hora son
+   * unas 1.200 al dia: la mitad del contador, y por tanto un bucle mal escrito
+   * salta antes de que lo note nadie del otro lado.
+   */
+  'fgc': 2_500,
 };
 
 /**
