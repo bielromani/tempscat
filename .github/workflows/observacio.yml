@@ -12,7 +12,17 @@ name: Observació i radar
 # cada pàgina diu l'hora exacta de la lectura.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    # Aquest cron és la **xarxa de seguretat**, no el rellotge.
+    #
+    # El planificador de GitHub no compleix: mesurat el 2 de setembre de 2026,
+    # aquest workflow declarava cada deu minuts i corria cada tres hores
+    # llargues. El rellotge de debo es un cron trigger de Cloudflare que crida
+    # workflow_dispatch -veure cloudflare/scheduler/worker.js-.
+    #
+    # Es queda posat, degradat a un cop per hora, per si aquell rellotge s'atura:
+    # el token caduca, Cloudflare te un mal dia. Tornar a la cadencia mala es
+    # molt millor que quedar-se sense cap.
+    - cron: '5 * * * *'
   workflow_dispatch:
 
 # Si una volta encara corre, la següent espera. Dues execucions alhora no

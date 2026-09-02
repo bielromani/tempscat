@@ -1,0 +1,19 @@
+# El reloj de la ingesta. El por qué está en worker.js.
+#
+# Despliegue:  cd cloudflare/scheduler && npx wrangler deploy
+# El secreto:  npx wrangler secret put GITHUB_TOKEN
+#
+# También se puede hacer entero desde el panel de Cloudflare, que es lo que
+# está escrito en docs/13-full-de-ruta.md.
+
+name = "tempscat-scheduler"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+GITHUB_REPO = "bielromani/tempscat"
+
+# Tres, que es el máximo por worker en el plan gratuito. Las cadenas tienen que
+# ser idénticas a las claves de `WORKFLOWS` en worker.js.
+[triggers]
+crons = ["*/10 * * * *", "*/15 * * * *", "0,30 * * * *"]

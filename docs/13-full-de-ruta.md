@@ -888,11 +888,10 @@ parte de la necesidad sin ninguno de estos riesgos.
 
 ---
 
-## El planificador de GitHub no cumple las cadencias · **medido, sin decidir**
+## El planificador de GitHub no cumple las cadencias · **resuelto**
 
-Los tres workers de alta frecuencia declaran una cosa y hacen otra. Medido el 2
-de septiembre de 2026 sobre las últimas veinte ejecuciones programadas de cada
-uno:
+Los tres workers de alta frecuencia declaraban una cosa y hacían otra. Medido el
+2 de septiembre de 2026 sobre las últimas veinte ejecuciones programadas:
 
 | worker | `cron` declarado | intervalo real (mín / medio / máx) |
 |---|---|---|
@@ -900,32 +899,40 @@ uno:
 | Avisos oficials | cada 15 min | 116 / **176** / 273 min |
 | Mar i platges | cada 30 min | 117 / **190** / 267 min |
 
-No es que uno vaya mal: **van los tres igual y a la vez**, lo que apunta a que
-el planificador los agrupa y los lanza cada tres horas largas sin mirar el
-intervalo pedido. GitHub documenta que `schedule` puede retrasarse con carga
-alta; esto no es un retraso, es otra cadencia.
+No es que uno fuera mal: iban **los tres igual y a la vez**, lo que delata que el
+planificador los agrupa y se salta el intervalo pedido. Para un radar de siete
+marcos de diez minutos eso no es un retraso, es otro producto.
 
-**Lo que no está roto:** la página nunca ha dicho «hace 10 minutos». Enseña la
-hora real de la lectura, así que un dato de hace tres horas se presenta como lo
-que es. La honestidad se sostiene; la frescura no.
+La página no mentía —siempre ha enseñado la hora real de la lectura— pero la
+frescura no era la que decían los documentos.
 
-**Lo que sí hay que corregir:** los `stalenessLimitMin` del registro de frescura
-están calculados sobre la cadencia declarada, y `AGENTS.md` promete «cada 10
-min». Mientras no se arregle lo de abajo, esas dos cosas dicen algo que no pasa.
+### Por qué no se movió la ingesta a Cloudflare, que era la idea
 
-Tres salidas, sin decidir todavía:
+Porque no cabe en el plan gratuito, y no por poco:
 
-1. **Aceptarlo y ajustar lo que se promete.** Coste cero. La observación pasa a
-   ser «cada pocas horas», que para temperatura y viento es poco, y para el
-   radar —siete marcos de diez minutos— lo deja casi inservible.
-2. **Que cada ejecución haga varias pasadas.** Un bucle de una hora con esperas
-   de diez minutos convierte una ejecución en seis ingestas. Tapa el agujero
-   sin cambiar de sitio, pero gasta minutos de Actions durmiendo y no cubre los
-   huecos de tres horas entre ejecuciones.
-3. **Mover los workers de alta frecuencia a Cloudflare Workers.** Sus *cron
-   triggers* sí cumplen el minuto, ya tenemos la cuenta, y el enlace a R2 es
-   nativo — el destino de escritura ya está ahí. Es la salida buena y la más
-   trabajo: los workers son Node y habría que portar los tres.
+| límite (plan gratuito) | valor | qué lo rompe |
+|---|---|---|
+| CPU por invocación | **10 ms** | la observación agrega 189 estaciones |
+| Subpeticiones por invocación | **50** | el radar baja 28 teselas y sube 28 |
+| Duración de un cron | 15 min | la predicción tarda 40 |
+
+### Lo que sí se movió: el reloj
+
+Un worker de Cloudflare que **solo llama a `workflow_dispatch`** de GitHub.
+Una subpetición y unas décimas de milisegundo de CPU: **288 invocaciones al día
+de las 100.000 gratuitas, el 0,3 %**. El trabajo se queda en Actions, donde en
+un repositorio público los minutos no se cobran.
+
+Está en `cloudflare/scheduler/`, con el porqué escrito en `worker.js`.
+
+Los `schedule` de GitHub **se quedan puestos**, degradados a uno por hora y
+escalonados. Si el reloj se para —el token caduca, Cloudflare tiene un mal
+día— la ingesta vuelve a la cadencia mala en vez de apagarse, y `/estat` lo
+enseña.
+
+Lo que queda pendiente de esto: **el token de GitHub caduca**, y un token
+caducado deja el reloj parado sin avisar. Un aviso propio sobre la frescura de
+`/estat` —que ya está en la lista de avisos propios— lo cubriría.
 
 ## Lo que se descarta, y por qué
 

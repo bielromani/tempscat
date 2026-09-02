@@ -124,6 +124,16 @@ porqué de cada hora están en `prediccio.yml`, que es el único que gasta cuota
 verdad: **A dos veces al día, B y C una** — 8.126 unidades diarias, el 81 % del
 techo mensual.
 
+**Pero el reloj de los tres de alta frecuencia no es de GitHub.** Su
+planificador no cumple: declaraban cada 10, 15 y 30 minutos y corrían cada tres
+horas largas, los tres a la vez. Los dispara un cron de Cloudflare que solo
+llama a `workflow_dispatch` —`cloudflare/scheduler/worker.js`, donde está la
+medición y el porqué—. La ingesta sigue en Actions: en Cloudflare no cabe, con
+10 ms de CPU y 50 subpeticiones por invocación.
+
+Las `schedule` de GitHub se quedan puestas, degradadas a una por hora: son la
+red de seguridad si el reloj se para.
+
 Dos cosas que no son evidentes y que cuestan caro descubrir:
 
 - **El contador de cuota vive en el almacén, no en el disco.** Cada ejecución
