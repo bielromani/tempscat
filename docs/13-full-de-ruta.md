@@ -943,9 +943,13 @@ escalonados. Si el reloj se para —el token caduca, Cloudflare tiene un mal
 día— la ingesta vuelve a la cadencia mala en vez de apagarse, y `/estat` lo
 enseña.
 
-Lo que queda pendiente de esto: **el token de GitHub caduca**, y un token
-caducado deja el reloj parado sin avisar. Un aviso propio sobre la frescura de
-`/estat` —que ya está en la lista de avisos propios— lo cubriría.
+**El token va sin caducidad, y es una decisión, no un descuido.** Un token
+caducado para el reloj sin avisar a nadie, que es justo la clase de fallo que
+este proyecto lleva pagando. Y el daño si se filtrara es pequeño y acotado: con
+`Actions: Read and write` sobre un repositorio público solo se pueden lanzar o
+cancelar nuestros workflows. No da acceso al código, no permite escribir en el
+repositorio, y **no llega a las credenciales de R2** — disparar un workflow no
+entrega sus secretos a quien lo dispara.
 
 ## Lo que se descarta, y por qué
 
