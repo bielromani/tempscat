@@ -423,6 +423,20 @@ async function main() {
    */
   const fillOnly = process.argv.includes('--fill');
 
+  /*
+   * `--limit=N` demana només els N primers punts de cada nivell.
+   *
+   * No és una comoditat: és l'única manera d'exercitar la canonada sencera
+   * —fusió, quadratge d'hores, resum diari, retall i publicació— sense gastar
+   * les 1.816 unitats que costa el nivell A. Un error que només apareix
+   * després de catorze minuts de baixades és car de trobar d'una altra manera.
+   *
+   * Conserva tot el que no ha demanat, igual que `--fill`. Sense això, una
+   * prova de setze punts esborraria del magatzem els altres tres-cents
+   * quaranta del seu nivell.
+   */
+  const limit = Number(process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 0;
+
   const before = await readForecast();
 
   const steps: Array<{ tier: Tier; spec: ModelSpec; points: ForecastPoint[] }> = [];
@@ -432,7 +446,7 @@ async function main() {
     for (const spec of PLAN_BY_TIER[tier]) {
       const target = fillOnly
         ? tierPoints.filter((p) => !before?.data.points[p.id]?.[spec.model])
-        : tierPoints;
+        : (limit ? tierPoints.slice(0, limit) : tierPoints);
       if (target.length) steps.push({ tier, spec, points: target });
     }
   }
@@ -483,7 +497,7 @@ async function main() {
   // que trajo el de A hace dos horas.
   const previous = before;
   // En modo --fill no se descarta nada: se conserva todo y solo se añade.
-  const refreshed = fillOnly ? new Set<Tier>() : new Set(onlyTiers);
+  const refreshed = fillOnly || limit ? new Set<Tier>() : new Set(onlyTiers);
   const kept: ForecastData['points'] = {};
   if (previous) {
     const tierOf = new Map(points.map((p) => [p.id, p.tier]));
