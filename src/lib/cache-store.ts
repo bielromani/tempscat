@@ -61,6 +61,9 @@ const REMOTE = process.env.DATA_BASE_URL?.replace(/\/$/, '') ?? '';
 
 export const IS_REMOTE = REMOTE !== '';
 
+/** Quien pide. Ver `download()`. */
+const USER_AGENT = 'tempscat.cat/1.0 (+https://tempscat.cat)';
+
 export interface Snapshot<T> {
   fetchedAt: string;
   /** Marca del dato más reciente que contiene. No es lo mismo que `fetchedAt`. */
@@ -202,7 +205,14 @@ function download(url: string, etag?: string): Promise<Download | null> {
      * esto, cada vez que caduca el plazo se vuelve a bajar el fichero entero
      * para descubrir que es el mismo. Con esto, un `304` sin cuerpo.
      */
-    const headers = etag ? { 'if-none-match': etag } : undefined;
+    /*
+     * Se dice quién pide. No es cortesía: el almacén va detrás de Cloudflare
+     * con un dominio propio, y una petición sin agente es exactamente lo que
+     * una protección contra bots desafía primero. Si eso pasara alguna vez, el
+     * síntoma sería un 403 en la ruta de datos y nada que lo explicara.
+     */
+    const headers: Record<string, string> = { 'user-agent': USER_AGENT };
+    if (etag) headers['if-none-match'] = etag;
     const req = httpsGet(url, { headers }, (res) => {
       const status = res.statusCode ?? 0;
       if (status === 404) { res.resume(); resolve(null); return; }

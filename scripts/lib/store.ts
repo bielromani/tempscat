@@ -19,6 +19,16 @@ import { ROOT } from './paths.ts';
 
 export const CACHE = join(ROOT, 'data', 'cache');
 
+/**
+ * Quien pide, en las lecturas del almacén.
+ *
+ * El mismo motivo que en `src/lib/cache-store.ts`: el almacén va detrás de
+ * Cloudflare, y una petición sin agente es lo que una protección contra bots
+ * desafía primero. Un worker que no puede leer el contador de quota **se
+ * planta**, así que ese 403 pararía la ingesta entera.
+ */
+const USER_AGENT = 'tempscat.cat/1.0 (+https://tempscat.cat)';
+
 function ensure() {
   if (!existsSync(CACHE)) mkdirSync(CACHE, { recursive: true });
 }
@@ -198,7 +208,7 @@ export async function pullSnapshot<T>(name: string): Promise<Snapshot<T> | null>
   const base = process.env.DATA_BASE_URL?.replace(/[/]$/, '');
   if (!base) return readSnapshot<T>(name);
 
-  const res = await fetch(`${base}/${name}.json`);
+  const res = await fetch(`${base}/${name}.json`, { headers: { 'user-agent': USER_AGENT } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`no s'ha pogut llegir ${name} de l'emmagatzematge: HTTP ${res.status}`);
   return await res.json() as Snapshot<T>;
@@ -380,7 +390,7 @@ export async function syncState(): Promise<void> {
   ensure();
 
   const bring = async (name: string) => {
-    const res = await fetch(`${base}/${name}`);
+    const res = await fetch(`${base}/${name}`, { headers: { 'user-agent': USER_AGENT } });
     if (res.status === 404) return;   // primer día: aún no existe
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     // Los contadores viven en `quota/`, y en un servidor de integración
