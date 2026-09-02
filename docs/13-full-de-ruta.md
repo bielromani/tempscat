@@ -604,6 +604,27 @@ como medida de confianza: «38 de 51 miembros apuntan a más cálido de lo norma
 para la época». Eso es un pronóstico probabilístico bien presentado; una
 temperatura para el 15 de octubre no lo es.
 
+### Estaciones de esquí · **el catálogo de FGC tiene mucho más que cámaras**
+
+Buscando si había más cámaras salió que no —en el portal de la Generalitat no
+hay ni un dataset de cámaras—, pero el portal propio de Ferrocarrils tiene 50
+conjuntos y varios son directamente lo que falta en `/neu` y en las fichas de
+montaña:
+
+| Conjunto | Qué trae |
+|---|---|
+| `estat-dels-serveis-explotacio-*` | **`is_open` por instalación**, una por estación: 83 solo en La Molina |
+| `pistes-desqui` | 181 pistas con color, desnivel, longitud y si tiene nieve producida |
+| `remuntadors` | 55 remontes con tipo, duración y cotas |
+| `meteo-tim` | **9 estaciones meteorológicas propias** en las estaciones: temperatura, humedad, presión, viento y dirección |
+| `informacio-tecnica-circuits-*` | Senderismo, raquetas, esquí de montaña, fuera de pista y bikepark |
+| `avisos-i-alertes-de-tim` | Avisos propios de las estaciones |
+
+Las dos primeras contestan «¿está abierto?», que es la pregunta que se hace
+quien mira una estación de esquí, y `meteo-tim` añade **temperatura medida a
+2.000 m** donde la XEMA es escasa. Misma licencia CC-BY y mismo portal que las
+cámaras, así que el worker ya está escrito a medias.
+
 ### Cámaras · **hecho, y eran 24 de 30**
 
 Está en `/cameres`, en una página por cámara y en las fichas de los pueblos que

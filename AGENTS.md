@@ -340,6 +340,29 @@ cuota para exactamente la misma información.
   diario lo calcula el worker. Cualquier frase que hable del horizonte tiene que salir de
   `forecast.daily`: sacándola de `forecast.hourly` se afirma sobre catorce días habiendo mirado
   cinco. Pasó con la frase del desacuerdo entre modelos.
+- **AEMET publica els avisos només en castellà i en anglès.** Els fitxers CAP de l'àrea 69
+  porten dos blocs `<info>`, `es-ES` i `en-GB`, i cap més: no hi ha versió catalana per demanar.
+  Per això la targeta d'avís **no fa servir el seu text**: el nivell, el fenomen, la zona,
+  l'horari i el llindar venen com a codis i números, i amb això n'hi ha prou per escriure-la de
+  zero. Les taules -10 fenòmens i 21 zones, tots dos conjunts tancats- són a
+  `src/lib/warning-labels.ts`. El text oficial va plegat, etiquetat i en el seu idioma; traduir
+  informació de seguretat no ho fem.
+- **`warning.phenomenon` és el codi (`AT`, `PR`, `NE`), no un nom.** `/avisos` en va publicar
+  «El més alt és de nivell groc per **at**». El nom en surt de `phenomenonName()`.
+- **AEMET emet un fitxer CAP per dia i per zona.** Una onada de calor de tres dies arriba com
+  tres avisos idèntics excepte la data, i la Vall de Boí ensenyava tres targetes seguides que
+  calia comparar paraula per paraula. Els ajunta `groupWarnings()`, i **mai per menys que
+  fenomen + nivell + zona**: si un dia puja a taronja, el taronja va a part. Dins del grup es
+  conserva el llindar de cada dia.
+- **Els noms de l'ACA porten l'etiqueta del tipus d'estació davant, i de vegades en porten
+  dues.** Sis aforaments es diuen `Aforament - Qualitat - <lloc>`, i traient només la primera
+  la fitxa de Malgrat ensenyava «Qualitat - Fogars de la Selva» sota «L'aforament més proper».
+  Fes servir `gaugeName()`. I sis aforaments **són** a l'embassament més proper: repetir-ne el
+  nom sota dos títols fa que sembli un error, i per això hi ha `sameSpot` a `WaterBlock`.
+- **El motiu d'una bandera de platja el tecleja qui fa el comunicat.** La llista és tancada
+  -`MEDUSES`, `Vent`, `Estat del mar`, `Qualitat de l'aigua`, `Altres`- però hi havia
+  `MEDUSES` en majúscules i, en una platja, `Medusas` en castellà. Normalitza amb
+  `flagReasonText()`.
 - **Una càmera pot portar mesos aturada servint el mateix fotograma amb un 200.** És la
   trampa de la bandera de platja una altra vegada: cinc de les vint-i-quatre de FGC ho estaven,
   una des del 10 d'abril, i totes amb `is_active: 1`. Cada imatge viatja amb la seva hora de

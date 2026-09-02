@@ -179,6 +179,24 @@ Esta es la parte que más tiempo ahorra. **Todas son reales, todas costaron enco
   puede extraer una escala de intensidad fija del propio fichero. Por eso la página no publica una
   leyenda numérica en dBZ: sería inventada.
 
+### AEMET y los avisos
+
+- **Solo publica en castellano y en inglés.** Los CAP del área 69 traen `es-ES` y `en-GB` y
+  nada más; no hay versión catalana que pedir. La tarjeta se escribe desde los códigos
+  —nivel, fenómeno, zona, ventana, umbral— y el texto oficial va aparte, etiquetado y en su
+  idioma. Tablas en `src/lib/warning-labels.ts`. Lo natural sería tomar los avisos del
+  **Meteocat**, que los emite en catalán: hace falta pedirles una clave.
+- **`phenomenon` es el código, no el nombre.** `/avisos` publicó «de nivell groc per at».
+- **Un fichero CAP por día y por zona.** Tres días de ola de calor son tres avisos idénticos
+  salvo la fecha, y salían tres tarjetas seguidas. `groupWarnings()` los junta por fenómeno,
+  nivel y zona, y nunca por menos: un día que suba a naranja va en su propia tarjeta.
+- El registro de playas trae el motivo de la bandera **tecleado a mano**: había `MEDUSES` en
+  mayúsculas y `Medusas` en castellano. Lista cerrada de seis valores, normalizada en
+  `flagReasonText()`.
+- Los nombres de la ACA llevan la etiqueta del tipo de estación delante, y seis llevan **dos**:
+  `Aforament - Qualitat - <lugar>`. Y seis aforos están *en* el embalse más cercano, así que el
+  mismo nombre salía dos veces bajo dos títulos distintos.
+
 ### Cámaras de FGC
 
 - **El catálogo dice 30 y son 24 las que se pueden publicar, y ninguna de las seis da error.**
