@@ -734,7 +734,17 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
     source: 'xema-history',
     lastSuccessAt: new Date().toISOString(),
     lastDataTs: newest ? `${newest}T00:00:00Z` : null,
-    stalenessLimitMin: 60 * 36,
+    /*
+     * Tres dias, y no las 36 horas que había, porque el límite se mide contra
+     * **la fecha del dato**, no contra la hora de la ingesta.
+     *
+     * El dataset diario `7bvh-jvq2` lleva dos dias de retraso por diseño —su
+     * ultima fila el 31 de agosto era del 29—, asi que con 36 horas el panel
+     * marcaba «endarrerida» un minuto despues de un refresco perfecto de las
+     * 189 estaciones. Un aviso que no puede apagarse nunca no es un aviso: es
+     * ruido que enseña a no mirar el panel.
+     */
+    stalenessLimitMin: 60 * 24 * 3,
     rows: valid.length,
     apiCalls: calls,
   });
@@ -750,7 +760,7 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
 main().catch((err) => {
   recordFreshness({
     source: 'xema-history', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 36, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
+    stalenessLimitMin: 60 * 24 * 3, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
   });
   console.error(err);
   process.exit(1);
