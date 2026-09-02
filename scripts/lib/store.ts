@@ -1,6 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { putObject, s3Config } from './s3.ts';
+import {
+  FRESHNESS_SOURCES, QUOTA_DIR, freshnessShard, quotaShard,
+} from '../../src/lib/shards.ts';
 import { ROOT } from './paths.ts';
 
 /**
@@ -224,19 +227,28 @@ export interface FreshnessEntry {
  */
 export function recordFreshness(entry: FreshnessEntry): void {
   ensure();
-  const p = join(CACHE, 'freshness.json');
-  const all: Record<string, FreshnessEntry> = existsSync(p)
-    ? JSON.parse(readFileSync(p, 'utf8'))
-    : {};
-  all[entry.source] = entry;
-  writeFileSync(p, JSON.stringify(all, null, 1), 'utf8');
-  // El panel de estado lee este fichero, así que también tiene que viajar.
-  pending.add('freshness.json');
+  /*
+   * Su propio fichero, no una entrada dentro de uno compartido.
+   *
+   * Con un solo `freshness.json` cada worker hacía leer-modificar-escribir
+   * sobre el fichero entero, y dos que publiquen a la vez se borran el uno al
+   * otro. Con el reloj nuevo los tres de alta frecuencia arrancan juntos, y
+   * pasó en la primera vuelta. El porqué completo, en `src/lib/shards.ts`.
+   */
+  const name = `${freshnessShard(entry.source)}.json`;
+  const dest = join(CACHE, name);
+  ensureFor(dest);
+  writeFileSync(dest, JSON.stringify(entry, null, 1), 'utf8');
+  pending.add(name);
 }
 
 export function readFreshness(): Record<string, FreshnessEntry> {
-  const p = join(CACHE, 'freshness.json');
-  return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : {};
+  const all: Record<string, FreshnessEntry> = {};
+  for (const source of FRESHNESS_SOURCES) {
+    const p = join(CACHE, `${freshnessShard(source)}.json`);
+    if (existsSync(p)) all[source] = JSON.parse(readFileSync(p, 'utf8')) as FreshnessEntry;
+  }
+  return all;
 }
 
 /**
@@ -257,16 +269,21 @@ export function readFreshness(): Record<string, FreshnessEntry> {
 export async function publishQuota(): Promise<void> {
   const cfg = s3Config();
   if (!cfg) return;
-  const p = join(CACHE, 'quota.json');
-  if (!existsSync(p)) return;
-  try {
-    await putObject(cfg, 'quota.json', readFileSync(p), {
-      contentType: 'application/json', cacheSeconds: 0,
-    });
-    pending.delete('quota.json');
-  } catch {
-    // Que no puje el comptador no ha d'aturar la ingesta: al final de tot
-    // `publish()` ho torna a intentar.
+
+  // Solo los contadores que esta ejecución haya tocado.
+  const names = [...pending].filter((n) => n.startsWith(`${QUOTA_DIR}/`));
+  for (const name of names) {
+    const p = join(CACHE, name);
+    if (!existsSync(p)) continue;
+    try {
+      await putObject(cfg, name, readFileSync(p), {
+        contentType: 'application/json', cacheSeconds: 0,
+      });
+      pending.delete(name);
+    } catch {
+      // Que no puge el comptador no ha d'aturar la ingesta: al final de tot
+      // `publish()` ho torna a intentar.
+    }
   }
 }
 
@@ -369,28 +386,41 @@ export async function syncState(): Promise<void> {
     writeFileSync(join(CACHE, name), await res.text(), 'utf8');
   };
 
+  /*
+   * Los contadores, uno por fuente. Si uno no se puede leer **se lanza**: la
+   * alternativa es empezar el día creyendo que no se ha gastado nada, y eso
+   * acaba en un `429` a media tarde con media Catalunya sin predicción.
+   *
+   * El registro de frescura ya no se trae: cada worker escribe **solo su
+   * propia** entrada, así que no necesita saber nada de las de los demás. Eso
+   * es justamente lo que arregló que dos workers simultáneos se borraran la
+   * entrada el uno al otro.
+   */
   try {
-    await bring('quota.json');
+    await Promise.all(Object.keys(DAILY_LIMITS).map((src) => bring(`${quotaShard(src)}.json`)));
   } catch (err) {
     throw new Error(`No s'ha pogut llegir el comptador de quota: ${err}`);
-  }
-
-  try {
-    await bring('freshness.json');
-  } catch (err) {
-    console.warn(`avís: no s'ha pogut llegir el registre de frescor (${err}); `
-      + 'aquesta volta el deixarà incomplet i la següent el refarà');
   }
 }
 
 // ── Control de cuota ────────────────────────────────────────────────────────
 
 interface Spend { at: number; units: number }
-interface QuotaState {
+
+/**
+ * El contador de **una** fuente. Un fichero por fuente, no uno compartido.
+ *
+ * Con un solo `quota.json`, dos workers que gastaran a la vez se borraban el
+ * gasto el uno al otro — y esa pérdida va en la dirección mala: hace creer que
+ * se ha gastado menos de lo gastado. La predicción va al 81 % del techo de
+ * Open-Meteo, así que ese error se paga con un `429` a media tarde. El porqué
+ * completo está en `src/lib/shards.ts`.
+ */
+interface SourceQuota {
   day: string;
-  used: Record<string, number>;
+  used: number;
   /** Gastos recientes con marca de tiempo, para el límite por hora. */
-  recent?: Record<string, Spend[]>;
+  recent: Spend[];
 }
 
 /**
@@ -401,8 +431,8 @@ interface QuotaState {
  * una sensación de holgura que no existe.
  */
 export class QuotaGuard {
-  private state: QuotaState;
-  private readonly path: string;
+  private state: Record<string, SourceQuota>;
+  private readonly today: string;
   private readonly limits: Record<string, number>;
 
   // Nota: nada de propiedades de parámetro (`constructor(private x)`) ni de
@@ -412,15 +442,25 @@ export class QuotaGuard {
   constructor(limits: Record<string, number>) {
     this.limits = limits;
     ensure();
-    this.path = join(CACHE, 'quota.json');
-    const today = new Date().toISOString().slice(0, 10);
-    const loaded: QuotaState | null = existsSync(this.path)
-      ? JSON.parse(readFileSync(this.path, 'utf8'))
-      : null;
-    this.state = loaded && loaded.day === today ? loaded : { day: today, used: {} };
+    this.today = new Date().toISOString().slice(0, 10);
+    this.state = {};
+    for (const source of Object.keys(limits)) {
+      const p = join(CACHE, `${quotaShard(source)}.json`);
+      const loaded: SourceQuota | null = existsSync(p)
+        ? JSON.parse(readFileSync(p, 'utf8')) as SourceQuota
+        : null;
+      this.state[source] = loaded && loaded.day === this.today
+        ? { day: loaded.day, used: loaded.used ?? 0, recent: loaded.recent ?? [] }
+        : { day: this.today, used: 0, recent: [] };
+    }
   }
 
-  used(source: string): number { return this.state.used[source] ?? 0; }
+  private of(source: string): SourceQuota {
+    this.state[source] ??= { day: this.today, used: 0, recent: [] };
+    return this.state[source];
+  }
+
+  used(source: string): number { return this.state[source]?.used ?? 0; }
   limit(source: string): number { return this.limits[source] ?? Infinity; }
   remaining(source: string): number { return this.limit(source) - this.used(source); }
   ratio(source: string): number { return this.used(source) / this.limit(source); }
@@ -434,15 +474,20 @@ export class QuotaGuard {
   isDegraded(source: string): boolean { return this.ratio(source) >= 0.8; }
 
   spend(source: string, units: number): void {
-    this.state.used[source] = this.used(source) + units;
-    this.state.recent ??= {};
-    const list = this.state.recent[source] ?? [];
-    list.push({ at: Date.now(), units });
-    this.state.recent[source] = this.prune(list);
-    writeFileSync(this.path, JSON.stringify(this.state), 'utf8');
-    // El contador viaja con el resto. Ver `syncQuota()`: sin esto, cada
+    const q = this.of(source);
+    q.used += units;
+    q.recent.push({ at: Date.now(), units });
+    q.recent = this.prune(q.recent);
+
+    // Solo el fichero de esta fuente. Es lo que hace que dos workers que
+    // gasten a la vez no se borren el gasto el uno al otro.
+    const name = `${quotaShard(source)}.json`;
+    const dest = join(CACHE, name);
+    ensureFor(dest);
+    writeFileSync(dest, JSON.stringify(q), 'utf8');
+    // El contador viaja con el resto. Ver `syncState()`: sin esto, cada
     // ejecución en un servidor de integración empezaría el día de cero.
-    pending.add('quota.json');
+    pending.add(name);
   }
 
   // ── Límite por hora ───────────────────────────────────────────────────────
@@ -463,7 +508,7 @@ export class QuotaGuard {
 
   /** Unidades gastadas en los últimos 60 minutos. */
   usedThisHour(source: string): number {
-    const list = this.prune(this.state.recent?.[source] ?? []);
+    const list = this.prune(this.state[source]?.recent ?? []);
     return list.reduce((a, s) => a + s.units, 0);
   }
 
@@ -475,7 +520,7 @@ export class QuotaGuard {
     const limit = HOURLY_LIMITS[source];
     if (!limit) return 0;
 
-    const list = this.prune(this.state.recent?.[source] ?? []).sort((a, b) => a.at - b.at);
+    const list = this.prune(this.state[source]?.recent ?? []).sort((a, b) => a.at - b.at);
     let inWindow = list.reduce((a, s) => a + s.units, 0);
     if (inWindow + units <= limit * 0.95) return 0;
 

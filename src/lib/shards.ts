@@ -144,3 +144,55 @@ export const AIR_DIR = 'air';
 export function airShard(cellKey: string): string {
   return `${AIR_DIR}/${cellKey.replace(',', '_')}`;
 }
+
+// ── Registro de frescura y contadores de cuota ───────────────────────
+
+/**
+ * Los dos ficheros que **escriben todos** y por eso había que partir.
+ *
+ * `freshness.json` y `quota.json` eran uno solo cada uno, y cada worker hacía
+ * leer-modificar-escribir sobre el fichero entero. Mientras el planificador de
+ * GitHub repartió las ejecuciones a lo largo del día casi nunca coincidían.
+ *
+ * El 2 de septiembre de 2026, con el reloj nuevo disparando los tres workers de
+ * alta frecuencia **a la vez**, se vio en la primera vuelta: los avisos se
+ * publicaron a las 10:31:12 con 18 avisos vigentes, y su entrada en el registro
+ * la borró el worker de radar al publicar un minuto después. `/estat` habría
+ * dicho que los avisos eran de hace diecisiete horas.
+ *
+ * En el contador de cuota la misma pérdida es peor, porque va en la dirección
+ * mala: **hace creer que se ha gastado menos de lo gastado**, y la predicción
+ * va al 81 % del techo de Open-Meteo.
+ *
+ * Un fichero por escritor y no vuelve a pasar.
+ */
+export const FRESHNESS_DIR = 'freshness';
+export const QUOTA_DIR = 'quota';
+
+export function freshnessShard(source: string): string {
+  return `${FRESHNESS_DIR}/${source}`;
+}
+
+export function quotaShard(source: string): string {
+  return `${QUOTA_DIR}/${source}`;
+}
+
+/**
+ * Los workers que existen, en el orden en que se enseñan en `/estat`.
+ *
+ * Hace falta una lista porque ya no hay un fichero que los enumere. Y eso añade
+ * algo que antes no existía: un worker que **nunca** ha publicado sale en la
+ * página como lo que es, en vez de no salir. Antes, si uno no llegaba a
+ * escribir su entrada, desaparecía del panel sin dejar rastro.
+ */
+export const FRESHNESS_SOURCES = [
+  'xema-observations',
+  'radar',
+  'aemet-warnings',
+  'sea',
+  'forecast-refresh',
+  'air-quality',
+  'air-stations',
+  'water',
+  'xema-history',
+] as const;

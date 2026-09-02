@@ -9,7 +9,9 @@ import { airCellKey } from './air-grid';
 import {
   aggregateDaily, mergeHourly, type PointForecast, type StoredDaily,
 } from './forecast-merge';
-import { airShard, forecastShard, historyShard } from './shards';
+import {
+  FRESHNESS_SOURCES, airShard, forecastShard, freshnessShard, historyShard,
+} from './shards';
 import {
   AIR_VARIABLES, POLLENS, POLLUTANTS, SUB_INDEX_OF, SUB_INDICES,
   pollenLevel, type AirSlug, type PollenLevel,
@@ -680,13 +682,45 @@ export interface FreshnessEntry {
   error?: string;
 }
 
-/** Estado de cada fuente, para el panel público. */
-export async function freshness(): Promise<Array<FreshnessEntry & { stale: boolean; ageMin: number | null }>> {
-  const all = await plainJson<Record<string, FreshnessEntry>>('freshness');
-  if (!all) return [];
-  return Object.values(all).map((e) => {
-    const ageMin = e.lastDataTs ? Math.round((Date.now() - Date.parse(e.lastDataTs)) / 60_000) : null;
-    return { ...e, ageMin, stale: ageMin != null && ageMin > e.stalenessLimitMin };
+/**
+ * Estado de cada fuente, para el panel público.
+ *
+ * Una entrada por worker y no un fichero compartido: dos workers que publiquen
+ * a la vez se borraban la entrada el uno al otro, y esta página llegó a decir
+ * que los avisos eran de hace diecisiete horas un minuto después de
+ * refrescarlos. El porqué está en `src/lib/shards.ts`.
+ *
+ * Se piden las nueve, y las que no estén salen igualmente: un worker que nunca
+ * ha publicado es una cosa que este panel tiene que decir, no callar.
+ */
+export async function freshness(): Promise<Array<
+  FreshnessEntry & { stale: boolean; ageMin: number | null; missing?: true }
+>> {
+  const entries = await Promise.all(
+    FRESHNESS_SOURCES.map(async (source) => ({
+      source,
+      entry: await plainJson<FreshnessEntry>(freshnessShard(source)),
+    })),
+  );
+
+  return entries.map(({ source, entry }) => {
+    if (!entry) {
+      return {
+        source,
+        lastSuccessAt: '',
+        lastDataTs: null,
+        stalenessLimitMin: 0,
+        rows: 0,
+        apiCalls: 0,
+        ageMin: null,
+        stale: true,
+        missing: true as const,
+      };
+    }
+    const ageMin = entry.lastDataTs
+      ? Math.round((Date.now() - Date.parse(entry.lastDataTs)) / 60_000)
+      : null;
+    return { ...entry, ageMin, stale: ageMin != null && ageMin > entry.stalenessLimitMin };
   });
 }
 

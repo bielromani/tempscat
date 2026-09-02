@@ -43,11 +43,8 @@ export default async function EstatPage() {
         d&apos;una xifra del lloc, si la font que hi ha al darrere està al dia.
       </p>
 
-      {sources.length === 0 ? (
-        <p className="mt-8 rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] p-4 text-sm text-[var(--muted)]">
-          Encara no s&apos;ha executat cap ingesta.
-        </p>
-      ) : (
+      {/* Sempre les nou fonts: una que no hagi publicat mai ha de sortir
+          dient-ho, no desapareixer del panel. Veure src/lib/shards.ts. */}
         <div className="scroll-x mt-8">
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -67,7 +64,9 @@ export default async function EstatPage() {
                   </td>
                   <td className="tnum py-2.5 pr-4 text-[var(--ink-2)]">{age(s.ageMin)}</td>
                   <td className="py-2.5">
-                    {s.error ? (
+                    {s.missing ? (
+                      <span className="font-medium" style={{ color: 'var(--muted)' }}>mai executada</span>
+                    ) : s.error ? (
                       <span className="font-medium" style={{ color: 'var(--bad)' }}>error</span>
                     ) : s.stale ? (
                       <span className="font-medium" style={{ color: 'var(--warn)' }}>endarrerida</span>
@@ -80,7 +79,6 @@ export default async function EstatPage() {
             </tbody>
           </table>
         </div>
-      )}
 
       <h2 className="mt-10 text-lg font-semibold tracking-tight">Per què l&apos;observació sempre porta retard</h2>
       <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
