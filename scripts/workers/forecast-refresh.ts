@@ -162,7 +162,7 @@ export interface ForecastData {
  * Los puntos de frontera están en dos ficheros y se sobrescriben con el mismo
  * contenido, que es exactamente lo que se quiere.
  */
-async function readForecast(): Promise<{ data: ForecastData } | null> {
+async function readForecast(): Promise<{ data: ForecastData; index: ForecastIndex } | null> {
   const index = await pullSnapshot<ForecastIndex>(FORECAST_INDEX);
   if (!index) return null;
 
@@ -175,7 +175,10 @@ async function readForecast(): Promise<{ data: ForecastData } | null> {
     if (shard) Object.assign(points, shard.data.points);
   }
 
-  return { data: { times: index.data.times, points, models: index.data.models } };
+  return {
+    data: { times: index.data.times, points, models: index.data.models },
+    index: index.data,
+  };
 }
 
 /**
@@ -271,6 +274,7 @@ function writeForecast(
   result: ForecastData,
   points: ForecastPoint[],
   source: string,
+  refreshedAt: Record<string, string>,
 ): { shards: number; bytes: number; largest: number } {
   const comarquesOf = new Map(points.map((p) => [p.id, p.comarques]));
 
@@ -320,6 +324,7 @@ function writeForecast(
       models: result.models,
       points: Object.keys(result.points).length,
       comarques: entries,
+      refreshedAt,
     } satisfies ForecastIndex,
     result.times[0] ?? null,
   );
@@ -439,8 +444,43 @@ async function main() {
 
   const before = await readForecast();
 
+  /*
+   * Un nivell que s'acaba de refrescar no es torna a demanar.
+   *
+   * El planificador de GitHub acumula les hores que no ha pogut servir i les
+   * dispara en ràfega: el 2 de setembre de 2026 va llançar tres refrescos de
+   * predicció en dues hores i mitja, amb horaris previstos de 02:00, 03:30 i
+   * 05:00. Un nivell A costa 3.290 de les 10.000 unitats diaries d'Open-Meteo.
+   *
+   * El llindar és tres quartes parts de la seva pròpia cadència, no una xifra
+   * inventada: així una execució una mica aviat sí que passa, i la segona de
+   * la mateixa ràfega no.
+   *
+   * `--force` se'l salta, per a quan cal refrescar de veritat.
+   */
+  const force = process.argv.includes('--force');
+  const skipped: string[] = [];
+  const eligible = onlyTiers.filter((tier) => {
+    if (force || fillOnly) return true;
+    const last = before?.index.refreshedAt?.[tier];
+    if (!last) return true;
+    const everyHours = Math.min(...PLAN_BY_TIER[tier].map((sp) => sp.everyHours));
+    const hours = (Date.now() - new Date(last).getTime()) / 3_600_000;
+    if (hours >= everyHours * 0.75) return true;
+    skipped.push(`${tier} (fa ${hours.toFixed(1)} h, cada ${everyHours} h)`);
+    return false;
+  });
+
+  if (skipped.length) {
+    console.log(`Nivells que no toquen encara: ${skipped.join(', ')}`);
+  }
+  if (!eligible.length) {
+    console.log('Res a refrescar. Amb --force es fa igualment.');
+    return;
+  }
+
   const steps: Array<{ tier: Tier; spec: ModelSpec; points: ForecastPoint[] }> = [];
-  for (const tier of onlyTiers) {
+  for (const tier of eligible) {
     const tierPoints = points.filter((p) => p.tier === tier);
     if (!tierPoints.length) continue;
     for (const spec of PLAN_BY_TIER[tier]) {
@@ -463,7 +503,7 @@ async function main() {
   const cost = steps.reduce(
     (s, st) => s + callWeight(st.spec.variables.length, FORECAST_DAYS, st.points.length), 0,
   );
-  const daily = onlyTiers.reduce((s, t) => {
+  const daily = eligible.reduce((s, t) => {
     const n = points.filter((p) => p.tier === t).length;
     return s + PLAN_BY_TIER[t].reduce(
       (a, spec) => a + callWeight(spec.variables.length, FORECAST_DAYS, n) * (24 / spec.everyHours), 0,
@@ -497,7 +537,7 @@ async function main() {
   // que trajo el de A hace dos horas.
   const previous = before;
   // En modo --fill no se descarta nada: se conserva todo y solo se añade.
-  const refreshed = fillOnly || limit ? new Set<Tier>() : new Set(onlyTiers);
+  const refreshed = fillOnly || limit ? new Set<Tier>() : new Set(eligible);
   const kept: ForecastData['points'] = {};
   if (previous) {
     const tierOf = new Map(points.map((p) => [p.id, p.tier]));
@@ -672,7 +712,18 @@ async function main() {
   console.log(`\nPunts amb predicció: ${total.toLocaleString('ca-ES')} / ${points.length.toLocaleString('ca-ES')} del territori`);
   console.log(`Horitzó: ${result.times.length} hores (${result.times[0]} → ${result.times.at(-1)})`);
 
-  const written = writeForecast(result, points, 'Open-Meteo · CC-BY 4.0');
+  /*
+   * Només es marquen els nivells refrescats de debo. En mode `--limit` o
+   * `--fill` no, perquè no s'ha refrescat el nivell sencer: marcar-lo faria
+   * que el refresc de veritat se saltes.
+   */
+  const marks: Record<string, string> = { ...(before?.index.refreshedAt ?? {}) };
+  if (!fillOnly && !limit) {
+    const now = new Date().toISOString();
+    for (const tier of eligible) marks[tier] = now;
+  }
+
+  const written = writeForecast(result, points, 'Open-Meteo · CC-BY 4.0', marks);
   recordFreshness({
     source: 'forecast-refresh',
     lastSuccessAt: new Date().toISOString(),

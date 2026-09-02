@@ -43,7 +43,7 @@ const WORKFLOWS = {
   '0,30 * * * *': 'mar.yml',
 };
 
-export default {
+const scheduler = {
   async scheduled(event, env) {
     const file = WORKFLOWS[event.cron];
     if (!file) {
@@ -73,3 +73,5 @@ export default {
     }
   },
 };
+
+export default scheduler;

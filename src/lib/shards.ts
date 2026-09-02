@@ -95,6 +95,20 @@ export interface ForecastIndex {
   /** Puntos distintos en todo el territorio, sin contar dos veces los de frontera. */
   points: number;
   comarques: Array<{ codi: string; points: number; bytes: number }>;
+  /**
+   * Cuándo se refrescó cada nivel por última vez.
+   *
+   * No es informativo: es lo que evita pagar dos veces por lo mismo. El
+   * planificador de GitHub acumula las horas que no ha podido servir y las
+   * dispara **en ráfaga** — el 2 de septiembre de 2026 lanzó tres refrescos de
+   * predicción en dos horas y media, con horarios previstos de 02:00, 03:30 y
+   * 05:00. Un nivel A cuesta 3.290 de las 10.000 unidades diarias de
+   * Open-Meteo, así que tres ráfagas se comen el día entero.
+   *
+   * Opcional porque un índice escrito antes de que existiera no lo trae; sin
+   * él, el worker se comporta como antes.
+   */
+  refreshedAt?: Record<string, string>;
 }
 
 
