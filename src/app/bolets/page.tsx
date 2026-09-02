@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { aName, int, num } from '@/lib/format';
 import { allRainConditions } from '@/lib/conditions';
 import { allComarques, stationByCodi } from '@/lib/territory';
+import { ListFilter, groupsOf } from '@/components/ListFilter';
 
 /**
  * Ha llovido bastante para los bolets.
@@ -44,6 +45,10 @@ export default async function BoletsPage() {
     .filter((x): x is NonNullable<typeof x> => x != null)
     .sort((a, b) => b.c.rain15 - a.c.rain15);
 
+  const groups = groupsOf(rows, (r) => (
+    r.station.comarcaCodi ? { key: r.station.comarcaCodi, label: r.comarca } : null
+  ));
+
   const top = rows[0];
   const wet = rows.filter((r) => r.c.rain15 >= 20).length;
 
@@ -82,6 +87,7 @@ export default async function BoletsPage() {
         </p>
       </header>
 
+      <ListFilter id="fb" groups={groups} legend="Filtra per comarca" allLabel="Totes les comarques">
       <div className="scroll-x">
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">
@@ -98,7 +104,11 @@ export default async function BoletsPage() {
           </thead>
           <tbody>
             {rows.map(({ c, station, comarca }) => (
-              <tr key={station.codi} className="border-b border-[var(--line-soft)]">
+              <tr
+                key={station.codi}
+                data-lf={station.comarcaCodi ?? undefined}
+                className="border-b border-[var(--line-soft)]"
+              >
                 <td className="py-2.5 pr-4">
                   <Link
                     href={`/estacions/${station.codi}`}
@@ -148,6 +158,7 @@ export default async function BoletsPage() {
           </tbody>
         </table>
       </div>
+      </ListFilter>
 
       <section className="mt-8 max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
         <h2 className="text-lg font-semibold tracking-tight text-[var(--ink)]">

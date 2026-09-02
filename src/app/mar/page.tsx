@@ -7,6 +7,7 @@ import {
   FLAG_SHOW_HOURS,
 } from '@/lib/sea';
 import { FlagLegend, FlagMark, JellyfishMark } from '@/components/SeaMarks';
+import { ListFilter, groupsOf } from '@/components/ListFilter';
 
 /**
  * El mar: banderas de playa y estado del agua.
@@ -68,6 +69,10 @@ export default async function MarPage() {
 
   const temps = strip.map((s) => s.sst).filter((v): v is number => v != null);
   const waves = strip.map((s) => s.wave).filter((v): v is number => v != null);
+
+  const flagGroups = groupsOf(recent, (b) => (
+    b.flag ? { key: b.flag, label: flagStyle(b.flag).label } : null
+  ));
 
   const byCoast = new Map<string, typeof recent>();
   for (const b of recent) {
@@ -133,11 +138,27 @@ export default async function MarPage() {
         </section>
       )}
 
-      {/* ── Banderas ── */}
+      {/*
+        * ── Banderas ──
+        *
+        * El filtro es por bandera y no por costa: las costas ya son las
+        * secciones, con su título y su recuento. Lo que ninguna agrupación
+        * responde es «on no em puc banyar», y eso es el color.
+        *
+        * Con un solo color —115 verdes, que es lo normal— `ListFilter` no
+        * dibuja nada: el filtro aparece el día que hay algo que filtrar.
+        */}
+      <ListFilter
+        id="fm"
+        groups={flagGroups}
+        legend="Filtra per bandera"
+        allLabel="Totes les banderes"
+      >
       {[...byCoast].map(([coast, list]) => (
-        <section key={coast} className="mb-6">
+        <section key={coast} className="lf-section mb-6">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
-            {coast} · {list.length}
+            {coast}
+            <span className="lf-total"> · {list.length}</span>
           </h2>
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {list.map((b) => {
@@ -146,6 +167,7 @@ export default async function MarPage() {
               return (
                 <li
                   key={b.code}
+                  data-lf={b.flag}
                   className="rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2.5"
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -181,6 +203,7 @@ export default async function MarPage() {
           </ul>
         </section>
       ))}
+      </ListFilter>
 
       {/* ── Modelo, de norte a sur ── */}
       {strip.length > 0 && (

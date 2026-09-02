@@ -204,3 +204,71 @@ button:focus-visible,
   outline-offset: 3px;
   border-radius: 3px;
 }
+
+/* ── Acotar una llista llarga ─────────────────────────────────────
+ *
+ * Aquí només el que no depèn de cap clau. Les regles `:checked` les genera
+ * `src/components/ListFilter.tsx`, on hi ha escrit el perquè.
+ */
+/* Els radios i la casella: invisibles pero enfocables amb el teclat, igual
+   que a les pestanyes de NextHours. El focus es pinta a l'etiqueta. */
+.lfilter > input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lf-toggle {
+  margin-bottom: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.lf-toggle > label {
+  cursor: pointer;
+  color: var(--ink-2);
+  border-bottom: 1px dotted var(--line);
+}
+
+.lf-toggle > label:hover { color: var(--ink); border-bottom-color: var(--ink-2); }
+
+.lf-toggle > label::before {
+  content: '›';
+  display: inline-block;
+  margin-right: 0.35rem;
+  transition: transform 120ms ease;
+}
+
+.lfilter > input[type='checkbox']:checked ~ .lf-toggle > label::before {
+  transform: rotate(90deg);
+}
+
+/* Plegades per defecte: quaranta-dues pastilles son cinc linies abans del
+   contingut. S'obren amb un clic, i soles si hi ha filtre posat -aquella
+   regla la genera el component, perque porta l'identificador dins-. */
+.lf-chips {
+  display: none;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.lfilter > input[type='checkbox']:checked ~ .lf-chips { display: flex; }
+
+.lf-chips > label {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+  white-space: nowrap;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+
+.lf-chips > label:hover { border-color: var(--ink-2); color: var(--ink); }
+
+.lf-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+}
