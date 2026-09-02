@@ -121,9 +121,9 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
            * mira, y el árbol rehecho, que no se ve.
            */
           const tip = [
-            `${s.label} · ${(s.share * 100).toFixed(1)} % dels dies`,
-            kmh != null ? `ratxa mitjana ${kmh.toFixed(0)} km/h` : null,
-            s.gustMax != null ? `màxima ${msToKmh(s.gustMax).toFixed(0)} km/h` : null,
+            `${s.label} · ${num(s.share * 100, 1)} % dels dies`,
+            kmh != null ? `ratxa mitjana ${int(kmh)} km/h` : null,
+            s.gustMax != null ? `màxima ${int(msToKmh(s.gustMax))} km/h` : null,
           ].filter(Boolean).join(' · ');
           return (
             <path

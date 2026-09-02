@@ -2,7 +2,7 @@
    worker ya ha desat cada fotograma en les dues mides que la web ensenya, i `next/image`
    només hi afegiria una quota de plataforma per repetir una feina feta. */
 import Link from 'next/link';
-import { ago, int } from '@/lib/format';
+import { ago, int, num } from '@/lib/format';
 import { cameraImage, type CameraNow } from '@/lib/cameras';
 
 /**
@@ -45,7 +45,7 @@ export function CameraBlock({ cameras }: { cameras: Array<CameraNow & { distKm: 
                 <span className="block text-xs text-[var(--muted)]">
                   {[
                     c.resort,
-                    `${c.distKm} km`,
+                    `${num(c.distKm, 1)} km`,
                     c.altitudM != null && `${int(c.altitudM)} m`,
                   ].filter(Boolean).join(' · ')}
                 </span>

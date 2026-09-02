@@ -135,7 +135,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
                 {sorted[0].m.nom}
               </Link>
               <span className="tnum ml-2 text-lg text-[var(--ink-2)]">
-                {sorted[0].current!.temperatureAdjusted!.toFixed(1).replace('.', ',')} °C
+                {num(sorted[0].current!.temperatureAdjusted, 1)} °C
               </span>
             </p>
           </div>
@@ -146,7 +146,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
                 {sorted[sorted.length - 1].m.nom}
               </Link>
               <span className="tnum ml-2 text-lg text-[var(--ink-2)]">
-                {sorted[sorted.length - 1].current!.temperatureAdjusted!.toFixed(1).replace('.', ',')} °C
+                {num(sorted[sorted.length - 1].current!.temperatureAdjusted, 1)} °C
               </span>
             </p>
           </div>

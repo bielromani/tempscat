@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cameraBySlug, cameraImage, cameraSlugs, CAMERA_SHOW_HOURS } from '@/lib/cameras';
-import { ago, dateFull, hour, int } from '@/lib/format';
+import { ago, dateFull, hour, int, num } from '@/lib/format';
 
 /**
  * Una cámara.
@@ -122,7 +122,7 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
             <Link href={cam.nearest.path} className="font-medium text-[var(--ink)]">
               {cam.nearest.nom}
             </Link>
-            , a {cam.nearest.distKm} km en línia recta. Allà hi ha la predicció, el que
+            , a {num(cam.nearest.distKm, 1)} km en línia recta. Allà hi ha la predicció, el que
             mesura l’estació més propera i la cota de neu.
           </p>
         )}

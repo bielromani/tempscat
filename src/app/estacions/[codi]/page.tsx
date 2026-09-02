@@ -210,6 +210,7 @@ export default async function EstacioPage({ params }: { params: Params }) {
               dAltM: 0,
             }}
             month={month}
+            today={today}
           />
         </section>
       )}

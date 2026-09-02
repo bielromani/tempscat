@@ -594,6 +594,7 @@ export function LocationView({
             history={history}
             station={current.station}
             month={Number(today.slice(5, 7))}
+            today={today}
             stationHref={`/estacions/${current.station.codi}`}
           />
         </section>

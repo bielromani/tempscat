@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { WindRose } from './WindRose';
 import { msToKmh } from '@/lib/variables';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
+import { int, num, signed } from '@/lib/format';
 import type { StationHistory } from '@/lib/weather';
 import type { StationRef } from '@/lib/territory';
 
@@ -15,6 +16,28 @@ import type { StationRef } from '@/lib/territory';
  *
  * Todo va atribuido a la estación de la que procede, con su distancia y su
  * desnivel: son datos de allí, no de aquí, y decirlo es lo honesto.
+ *
+ * ## Los números pasan por `format.ts`, y aquí no pasaban
+ *
+ * Este bloque escribía `toFixed(1)` directamente, así que la tabla de récords
+ * publicaba **«38.8 °C» y «-7.3 °C»** — punto decimal y guion de teclado— tres
+ * pantallas por debajo de un «28,7 °C» con coma y de un menos tipográfico. En
+ * catalán el separador es la coma, y el guion es más corto y más alto que el
+ * signo menos: en una columna de cifras tabulares los negativos quedaban
+ * desalineados. Es lo que `num()` y `signed()` existen para resolver.
+ *
+ * ## Y el recuento del mes llegaba dos días tarde sin decirlo
+ *
+ * El conjunto diario de la XEMA se publica con dos días de retraso, así que los
+ * días 1 y 2 de cada mes los cinco contadores decían **cero** pasara lo que
+ * pasara. El 2 de septiembre de 2026 esta ficha decía «0 nits tropicals aquest
+ * mes» con la mínima de la madrugada en 21,2 °C escrita más arriba, en la misma
+ * página. El número era correcto —cero noches *registradas*— y la lectura era
+ * falsa.
+ *
+ * Ahora el bloque mira hasta dónde llega su propia serie y lo dice. Cuando del
+ * mes todavía no hay ni un día, el contador no escribe un cero: escribe que no
+ * hay datos.
  */
 
 const MONTHS = [
@@ -25,15 +48,23 @@ const MONTHS = [
 const fmtDate = (iso: string) =>
   new Date(`${iso}T12:00:00`).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 
-function Counter({ label, month, year, hint }: { label: string; month: number; year: number; hint?: string }) {
+function Counter(
+  { label, month, year, hint, monthCovered }:
+  { label: string; month: number; year: number; hint?: string; monthCovered: boolean },
+) {
   return (
     <div className="rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2.5">
       <p className="text-xs text-[var(--muted)]">{label}</p>
       <p className="tnum mt-0.5">
-        <span className="text-xl font-semibold text-[var(--ink)]">{year}</span>
+        <span className="text-xl font-semibold text-[var(--ink)]">{int(year)}</span>
         <span className="ml-1.5 text-xs text-[var(--muted)]">l&apos;any</span>
       </p>
-      <p className="tnum text-xs text-[var(--muted)]">{month} aquest mes</p>
+      {/* Un zero sense cap dia comptat no vol dir zero: vol dir que encara no
+          se sap. Es calla, i la nota de sota ho explica una vegada per als cinc
+          en comptes de repetir-ho cinc. Veure la capcalera. */}
+      {monthCovered && (
+        <p className="tnum text-xs text-[var(--muted)]">{int(month)} aquest mes</p>
+      )}
       {hint && <p className="mt-1 text-[11px] leading-tight text-[var(--muted)]">{hint}</p>}
     </div>
   );
@@ -89,7 +120,7 @@ function RecentChart({ daily }: { daily: StationHistory['daily'] }) {
                 width={Math.max(3, step * 0.6)} height={Math.max(2, yMin - yMax)}
                 fill={`url(#g${i})`} rx={2}
               >
-                <title>{`${fmtDate(d.day)}: ${d.tMin.toFixed(1)} a ${d.tMax.toFixed(1)} °C${d.precip ? ` · ${d.precip} mm` : ''}`}</title>
+                <title>{`${fmtDate(d.day)}: ${num(d.tMin, 1)} a ${num(d.tMax, 1)} °C${d.precip ? ` · ${num(d.precip, 1)} mm` : ''}`}</title>
               </rect>
             </g>
           );
@@ -103,13 +134,13 @@ function RecentChart({ daily }: { daily: StationHistory['daily'] }) {
           return (
             <rect key={`r${d.day}`} x={x - Math.max(1.5, step * 0.3)} y={H - 18 - h}
               width={Math.max(3, step * 0.6)} height={h} fill="oklch(52% 0.13 245)" rx={1}>
-              <title>{`${fmtDate(d.day)}: ${d.precip} mm`}</title>
+              <title>{`${fmtDate(d.day)}: ${num(d.precip, 1)} mm`}</title>
             </rect>
           );
         })}
         {maxRain > 1 && (
           <text x={W - PAD_R + 4} y={H - 18 - RAIN_H + 12} fontSize={9} fill="var(--muted)" className="tnum">
-            {maxRain.toFixed(0)} mm
+            {int(maxRain)} mm
           </text>
         )}
 
@@ -133,16 +164,30 @@ interface Props {
   /** Mes en curso, 1–12. */
   month: number;
   /**
+   * La fecha local de hoy, `AAAA-MM-DD`.
+   *
+   * Hace falta el año además del mes: la serie que llega son 45 días, y en enero
+   * eso incluye diciembre. Con solo el número de mes, «los días de este mes» y
+   * «los días del mismo mes del año pasado» son indistinguibles.
+   */
+  today: string;
+  /**
    * Enlace a la ficha de la estación. Se omite cuando el bloque **está** en esa
    * ficha: un enlace a la página en la que ya estás es ruido.
    */
   stationHref?: string;
 }
 
-export function ClimateBlock({ history, station, month, stationHref }: Props) {
+export function ClimateBlock({ history, station, month, today, stationHref }: Props) {
   const { records, counters, normals, monthAnomaly, dryStreak } = history;
   const normal = normals.find((n) => n.month === month);
   const monthName = MONTHS[month - 1];
+
+  // Hasta dónde llega de verdad el mes en curso dentro de la serie.
+  const monthPrefix = today.slice(0, 7);
+  const monthDays = history.daily.filter((d) => d.day.startsWith(monthPrefix));
+  const lastMonthDay = monthDays.at(-1)?.day ?? null;
+  const monthCovered = monthDays.length > 0;
 
   const yearsOfSeries = records.since
     ? new Date().getFullYear() - Number(records.since.slice(0, 4))
@@ -161,16 +206,16 @@ export function ClimateBlock({ history, station, month, stationHref }: Props) {
               className="tnum text-3xl font-semibold"
               style={{ color: monthAnomaly > 0 ? 'var(--bad)' : monthAnomaly < 0 ? 'var(--accent)' : 'var(--ink)' }}
             >
-              {monthAnomaly > 0 ? '+' : ''}{monthAnomaly.toFixed(1)} °C
+              {signed(monthAnomaly, 1, '°C')}
             </span>
             <span className="text-[var(--ink-2)]">
               {monthAnomaly > 0 ? 'per damunt' : monthAnomaly < 0 ? 'per sota' : 'igual que'} la mitjana
             </span>
           </p>
           <p className="mt-1.5 text-sm leading-relaxed text-[var(--muted)]">
-            La mitjana de {monthName} a {station.nom} és de {normal.tMean.toFixed(1)} °C,
+            La mitjana de {monthName} a {station.nom} és de {num(normal.tMean, 1)} °C,
             calculada sobre {normal.years} anys de sèrie de la mateixa estació.
-            {normal.precip != null && ` Hi sol ploure ${normal.precip.toFixed(0)} mm, i aquest mes en porta ${counters.precip.month.toFixed(0)} mm.`}
+            {normal.precip != null && ` Hi sol ploure ${int(normal.precip)} mm, i aquest mes en porta ${int(counters.precip.month)} mm.`}
           </p>
         </div>
       )}
@@ -181,12 +226,18 @@ export function ClimateBlock({ history, station, month, stationHref }: Props) {
           Comptadors de l&apos;any
         </h3>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          <Counter label="Dies d'estiu" month={counters.summerDays.month} year={counters.summerDays.year} hint="màxima ≥ 25 °C" />
-          <Counter label="Dies de calor" month={counters.hotDays.month} year={counters.hotDays.year} hint="màxima ≥ 30 °C" />
-          <Counter label="Nits tropicals" month={counters.tropicalNights.month} year={counters.tropicalNights.year} hint="mínima ≥ 20 °C" />
-          <Counter label="Dies de glaçada" month={counters.frostDays.month} year={counters.frostDays.year} hint="mínima < 0 °C" />
-          <Counter label="Dies de pluja" month={counters.rainDays.month} year={counters.rainDays.year} hint="≥ 0,2 mm" />
+          <Counter label="Dies d'estiu" month={counters.summerDays.month} year={counters.summerDays.year} hint="màxima ≥ 25 °C" monthCovered={monthCovered} />
+          <Counter label="Dies de calor" month={counters.hotDays.month} year={counters.hotDays.year} hint="màxima ≥ 30 °C" monthCovered={monthCovered} />
+          <Counter label="Nits tropicals" month={counters.tropicalNights.month} year={counters.tropicalNights.year} hint="mínima ≥ 20 °C" monthCovered={monthCovered} />
+          <Counter label="Dies de glaçada" month={counters.frostDays.month} year={counters.frostDays.year} hint="mínima < 0 °C" monthCovered={monthCovered} />
+          <Counter label="Dies de pluja" month={counters.rainDays.month} year={counters.rainDays.year} hint="≥ 0,2 mm" monthCovered={monthCovered} />
         </div>
+        {/* Una vegada per als cinc, i no cinc vegades. */}
+        <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">
+          {lastMonthDay
+            ? `El recompte del mes arriba fins al ${fmtDate(lastMonthDay)}: el conjunt diari de la XEMA es publica amb dos dies de retard.`
+            : 'El conjunt diari de la XEMA es publica amb dos dies de retard, i d’aquest mes encara no n’hi ha cap dia.'}
+        </p>
         {dryStreak >= 5 && (
           <p className="mt-2 text-sm text-[var(--ink-2)]">
             Fa <strong className="font-semibold">{dryStreak} dies</strong> que no hi plou de manera apreciable.
@@ -208,7 +259,7 @@ export function ClimateBlock({ history, station, month, stationHref }: Props) {
                   <td className="px-4 py-2.5 text-right">
                     <span className="tnum rounded px-2 py-0.5 font-semibold"
                       style={{ background: temperatureColor(records.tMaxAbs.value), color: temperatureInk(records.tMaxAbs.value) }}>
-                      {records.tMaxAbs.value.toFixed(1)} °C
+                      {num(records.tMaxAbs.value, 1)} °C
                     </span>
                   </td>
                   <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">{fmtDate(records.tMaxAbs.date)}</td>
@@ -220,7 +271,7 @@ export function ClimateBlock({ history, station, month, stationHref }: Props) {
                   <td className="px-4 py-2.5 text-right">
                     <span className="tnum rounded px-2 py-0.5 font-semibold"
                       style={{ background: temperatureColor(records.tMinAbs.value), color: temperatureInk(records.tMinAbs.value) }}>
-                      {records.tMinAbs.value.toFixed(1)} °C
+                      {num(records.tMinAbs.value, 1)} °C
                     </span>
                   </td>
                   <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">{fmtDate(records.tMinAbs.date)}</td>
@@ -229,14 +280,14 @@ export function ClimateBlock({ history, station, month, stationHref }: Props) {
               {records.precipMaxDay && (
                 <tr className="border-b border-[var(--line-soft)]">
                   <th scope="row" className="px-4 py-2.5 text-left font-normal text-[var(--muted)]">Dia amb més pluja</th>
-                  <td className="tnum px-4 py-2.5 text-right font-semibold text-[var(--ink)]">{records.precipMaxDay.value.toFixed(1)} mm</td>
+                  <td className="tnum px-4 py-2.5 text-right font-semibold text-[var(--ink)]">{num(records.precipMaxDay.value, 1)} mm</td>
                   <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">{fmtDate(records.precipMaxDay.date)}</td>
                 </tr>
               )}
               {records.gustMax && (
                 <tr className="border-b border-[var(--line-soft)] last:border-0">
                   <th scope="row" className="px-4 py-2.5 text-left font-normal text-[var(--muted)]">Ratxa de vent més forta</th>
-                  <td className="tnum px-4 py-2.5 text-right font-semibold text-[var(--ink)]">{msToKmh(records.gustMax.value).toFixed(0)} km/h</td>
+                  <td className="tnum px-4 py-2.5 text-right font-semibold text-[var(--ink)]">{int(msToKmh(records.gustMax.value))} km/h</td>
                   <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">{fmtDate(records.gustMax.date)}</td>
                 </tr>
               )}
@@ -252,7 +303,7 @@ export function ClimateBlock({ history, station, month, stationHref }: Props) {
               </Link>
             )
             : <strong className="font-medium text-[var(--ink-2)]">{station.nom}</strong>},
-          a {station.distKm.toFixed(1).replace('.', ',')} km
+          a {num(station.distKm, 1)} km
           {station.dAltM != null && Math.abs(station.dAltM) >= 25 && ` i ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivell`}.
           {records.since && ` Sèrie des del ${fmtDate(records.since)}`}
           {records.days > 0 && ` · ${records.days.toLocaleString('ca-ES')} dies amb dada`}
@@ -318,10 +369,10 @@ export function ClimateBlock({ history, station, month, stationHref }: Props) {
                       <th scope="row" className="tnum px-3 py-1.5 text-left font-medium text-[var(--ink-2)]">
                         {d.day.slice(8, 10)}/{d.day.slice(5, 7)}
                       </th>
-                      <td className="tnum px-3 py-1.5">{d.tMax != null ? `${d.tMax.toFixed(1)}°` : '—'}</td>
-                      <td className="tnum px-3 py-1.5">{d.tMin != null ? `${d.tMin.toFixed(1)}°` : '—'}</td>
-                      <td className="tnum px-3 py-1.5 text-[var(--muted)]">{d.tMean != null ? `${d.tMean.toFixed(1)}°` : '—'}</td>
-                      <td className="tnum px-3 py-1.5">{d.precip ? `${d.precip} mm` : <span className="text-[var(--line)]">—</span>}</td>
+                      <td className="tnum px-3 py-1.5">{d.tMax != null ? `${num(d.tMax, 1)}°` : '—'}</td>
+                      <td className="tnum px-3 py-1.5">{d.tMin != null ? `${num(d.tMin, 1)}°` : '—'}</td>
+                      <td className="tnum px-3 py-1.5 text-[var(--muted)]">{d.tMean != null ? `${num(d.tMean, 1)}°` : '—'}</td>
+                      <td className="tnum px-3 py-1.5">{d.precip ? `${num(d.precip, 1)} mm` : <span className="text-[var(--line)]">—</span>}</td>
                       <td className="tnum px-3 py-1.5 text-[var(--muted)]">{d.gust != null ? `${msToKmh(d.gust).toFixed(0)}` : '—'}</td>
                       <td className="tnum px-3 py-1.5 text-[var(--muted)]">{d.rhMean != null ? `${d.rhMean} %` : '—'}</td>
                     </tr>
