@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { beaufort, hikingConditions, MOUNTAIN_M } from '@/lib/activities';
 import { windCardinal } from '@/lib/variables';
 import { ago, int, num } from '@/lib/format';
+import { allRoutes } from '@/lib/routes';
 
 /**
  * Com està la muntanya ara mateix.
@@ -31,6 +32,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SenderismePage() {
+  const routeCount = allRoutes().routes.length;
   const data = await hikingConditions();
   const stations = data?.stations ?? [];
   const worst = stations
@@ -92,6 +94,19 @@ export default async function SenderismePage() {
           </p>
         )}
       </header>
+
+      {/*
+        L'enllaç als itineraris va aquí dalt i no al peu: qui entra a mirar com
+        està la muntanya sovint hi entra per decidir on va, i la llista dels
+        senyalitzats és la resposta a aquella pregunta.
+      */}
+      <p className="mb-6 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] px-4 py-3 text-sm leading-relaxed text-[var(--ink-2)]">
+        <Link href="/senderisme/rutes" className="font-medium text-[var(--ink)]">
+          {int(routeCount)} itineraris senyalitzats
+        </Link>{' '}
+        — els GR i els PR-C, amb la distància del traçat, les cotes per on passen i la
+        predicció a la seva altura.
+      </p>
 
       {/* ── Isoterma ── */}
       {fz && (

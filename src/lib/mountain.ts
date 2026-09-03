@@ -164,10 +164,11 @@ export async function resortNear(loc: Location): Promise<ResortNearby | null> {
 }
 
 /**
- * Quina part del desnivell esquiable queda per damunt de la cota de neu.
+ * Quina part d'un desnivell queda per damunt de la cota de neu.
  *
  * És l'única cosa d'aquest fitxer que no ve de FGC: la cota surt del nostre
- * consens de models i el rang de cotes del catàleg tècnic de pistes. Juntes
+ * consens de models i el rang de cotes, del catàleg de pistes o d'un itinerari.
+ * Juntes
  * contesten la pregunta que ni l'una ni l'altra contesta sola — «nevarà a les
  * pistes o hi plourà?».
  *
@@ -175,12 +176,12 @@ export async function resortNear(loc: Location): Promise<ResortNearby | null> {
  * precipitació arriba en forma de neu**, no quanta se n'acumula. Amb la cota a
  * la base, tot el desnivell és de neu; amb la cota al cim, res.
  */
-export function slopesAboveSnowLine(
+export function shareAboveSnowLine(
   snowLevelM: number | null,
-  slopes: { minM: number | null; maxM: number | null } | null,
+  range: { minM: number | null; maxM: number | null } | null,
 ): number | null {
-  if (snowLevelM == null || slopes?.minM == null || slopes.maxM == null) return null;
-  const { minM, maxM } = slopes;
+  if (snowLevelM == null || range?.minM == null || range.maxM == null) return null;
+  const { minM, maxM } = range;
   if (maxM <= minM) return null;
 
   const share = (maxM - snowLevelM) / (maxM - minM);

@@ -7,6 +7,14 @@ export interface FetchOptions {
   backoffMs?: number;
   timeoutMs?: number;
   headers?: Record<string, string>;
+  /**
+   * Per a les APIs que només accepten POST, com Overpass.
+   *
+   * Els reintents hi valen igual: el que es reintenta són errors de xarxa i
+   * 5xx, i una consulta d'Overpass és idempotent — no crea res.
+   */
+  method?: 'GET' | 'POST';
+  body?: string;
 }
 
 const UA = 'meteo-catalunya/0.1 (proyecto de datos abiertos; contacto en el repositorio)';
@@ -18,7 +26,9 @@ const UA = 'meteo-catalunya/0.1 (proyecto de datos abiertos; contacto en el repo
  * reintentan fallos de red, timeouts y 5xx/429.
  */
 export async function fetchWithRetry(url: string, opts: FetchOptions = {}): Promise<Response> {
-  const { retries = 4, backoffMs = 600, timeoutMs = 60_000, headers = {} } = opts;
+  const {
+    retries = 4, backoffMs = 600, timeoutMs = 60_000, headers = {}, method, body,
+  } = opts;
 
   let lastError: unknown;
   let retryAfterMs = 0;
@@ -36,6 +46,8 @@ export async function fetchWithRetry(url: string, opts: FetchOptions = {}): Prom
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const res = await fetch(url, {
+          method,
+          body,
           headers: { 'User-Agent': UA, ...headers },
           signal: controller.signal,
         });

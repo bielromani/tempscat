@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { allPublishedPaths, buildSummary, operativeStations } from '@/lib/territory';
 import { cameraSlugs } from '@/lib/cameras';
+import { routeSlugs } from '@/lib/routes';
 import { IS_PRODUCTION, absolute } from '@/lib/site';
 
 /**
@@ -35,7 +36,7 @@ import { IS_PRODUCTION, absolute } from '@/lib/site';
  */
 
 /** Los cuatro ficheros. Los enumera también robots.txt, que es quien los anuncia. */
-export const SITEMAP_KINDS = ['tematiques', 'comarques', 'municipis', 'nuclis'] as const;
+export const SITEMAP_KINDS = ['tematiques', 'comarques', 'municipis', 'nuclis', 'rutes'] as const;
 type Kind = typeof SITEMAP_KINDS[number];
 
 export async function generateSitemaps() {
@@ -69,6 +70,7 @@ async function thematic(lastModified: Date): Promise<MetadataRoute.Sitemap> {
     ['/dades', 0.5],
     ['/estat', 0.4],
     ['/cameres', 0.7],
+    ['/senderisme/rutes', 0.7],
   ];
 
   return [
@@ -108,6 +110,22 @@ export default async function sitemap(
   const lastModified = new Date(String(buildSummary().builtAt));
 
   if (kind === 'tematiques') return thematic(lastModified);
+
+  /*
+   * Els itineraris, al seu fitxer.
+   *
+   * Són 683 adreces noves de cop, i el risc declarat d'aquest projecte és
+   * justament l'inflament de l'índex. Amb un fitxer propi, Search Console diu
+   * quantes n'entren de veritat i la decisió d'ampliar-ho —o de retirar-ho— es
+   * pren mirant un número, no una intuïció.
+   */
+  if (kind === 'rutes') {
+    return routeSlugs().map((slug) => ({
+      url: absolute(`/senderisme/rutes/${slug}`),
+      lastModified,
+      priority: 0.5,
+    }));
+  }
 
   const wanted = kind === 'comarques'
     ? (level: string) => level === 'comarca'

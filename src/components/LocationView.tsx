@@ -15,6 +15,7 @@ import { MeasuredAir } from './MeasuredAir';
 import { SeaBlock } from './SeaBlock';
 import { CameraBlock } from './CameraBlock';
 import { ResortBlock } from './ResortBlock';
+import { networkLabel, refApart, type Route } from '@/lib/routes';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
@@ -33,7 +34,7 @@ import type { WaterNearby } from '@/lib/water';
 import type { NearestAirStation } from '@/lib/air-stations';
 import type { SeaNearby } from '@/lib/sea';
 import type { CameraNow } from '@/lib/cameras';
-import { slopesAboveSnowLine, type ResortNearby } from '@/lib/mountain';
+import { shareAboveSnowLine, type ResortNearby } from '@/lib/mountain';
 import type { Comarca, Location } from '@/lib/territory';
 
 /**
@@ -373,12 +374,19 @@ interface Props {
    * Nul a la immensa majoria de les fitxes: només hi ha sis estacions.
    */
   resort: ResortNearby | null;
+  /**
+   * Itineraris senyalitzats que travessen la comarca.
+   *
+   * Per comarca i no per distància: un GR de dues-centes hores no té «una
+   * distància» a un poble, hi passa o no hi passa.
+   */
+  routes: Route[];
 }
 
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
-  air, comparison, narrative, water, airStation, sea, cameras, resort,
+  air, comparison, narrative, water, airStation, sea, cameras, resort, routes,
 }: Props) {
   /*
    * La hora en curso dentro de la serie, para completar el bloque actual con las
@@ -570,6 +578,38 @@ export function LocationView({
         </section>
       )}
 
+      {routes.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+            Itineraris senyalitzats {deComarca(comarca.nom)}
+          </h2>
+          <ul className="grid list-none gap-2 p-0 sm:grid-cols-2">
+            {routes.map((r) => (
+              <li key={r.slug}>
+                <Link
+                  href={`/senderisme/rutes/${r.slug}`}
+                  className="block rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2 no-underline"
+                >
+                  <span className="text-sm font-medium text-[var(--ink)]">{r.name}</span>
+                  <span className="block text-xs text-[var(--muted)]">
+                    {[
+                      refApart(r),
+                      networkLabel(r.network),
+                      `${num(r.km, 1)} km`,
+                      r.minM != null && r.maxM != null && `${int(r.minM)}–${int(r.maxM)} m`,
+                    ].filter(Boolean).join(' · ')}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            Traçats d&apos;OpenStreetMap (ODbL).{' '}
+            <Link href="/senderisme/rutes" className="text-[var(--ink-2)]">Tots els itineraris</Link>.
+          </p>
+        </section>
+      )}
+
       {comparison && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">
@@ -601,7 +641,7 @@ export function LocationView({
              * neu això no hi és: caldria un tros de predicció per estació, i
              * són fins a dos megues cadascun per una frase.
              */
-            snowShare={slopesAboveSnowLine(
+            snowShare={shareAboveSnowLine(
               forecast?.daily.find((d) => d.snowLevel != null)?.snowLevel ?? null,
               resort.resort.slopes,
             )}

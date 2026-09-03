@@ -120,6 +120,26 @@ export type { CurrentConditions, DailyPoint, HourlyPoint, LocationForecast };
 /** Gradiente térmico estándar en atmósfera bien mezclada, °C por metro. */
 const LAPSE_RATE = 0.0065;
 
+/**
+ * Una temperatura, portada d'una cota a una altra.
+ *
+ * El gradient és el mateix que ja fa servir tot el projecte per corregir la
+ * lectura d'una estació que és més amunt o més avall del poble: 6,5 °C per
+ * quilòmetre, l'atmosfera estàndard.
+ *
+ * **És una correcció, no una mesura.** En una nit d'inversió tèrmica la vall és
+ * més freda que el cim i això la fa anar al revés; per això qualsevol lloc que
+ * la faci servir ho ha de dir. La fa servir la fitxa dels itineraris, on la
+ * pregunta és quina temperatura hi haurà **a dalt** i el punt de predicció més
+ * proper és a la vall.
+ */
+export function tempAtAltitude(
+  value: number | null | undefined, fromM: number | null, toM: number | null,
+): number | null {
+  if (value == null || !Number.isFinite(value) || fromM == null || toM == null) return null;
+  return Math.round((value - (toM - fromM) * LAPSE_RATE) * 10) / 10;
+}
+
 export async function currentFor(loc: Location): Promise<CurrentConditions | null> {
   const snap = await snapshot<RawObservation[]>('xema-current');
   if (!snap || !loc.stationRef) return null;

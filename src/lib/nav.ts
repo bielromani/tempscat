@@ -61,6 +61,7 @@ export const SECTIONS: NavGroup[] = [
     title: 'Per sortir',
     links: [
       { href: '/senderisme', label: 'Muntanya', blurb: 'Ratxes, fred i la isoterma de zero graus, mesurats.' },
+      { href: '/senderisme/rutes', label: 'Itineraris senyalitzats', blurb: 'Els GR i els PR-C, amb la predicció a la cota per on passen.' },
       { href: '/nautica', label: 'Navegar', blurb: 'Vent mesurat, onatge i període, tram a tram.' },
       { href: '/bolets', label: 'Bolets', blurb: 'Quanta pluja ha caigut i quan va ser l’últim ruixat.' },
     ],

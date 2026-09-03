@@ -16,6 +16,7 @@ import { nearestAirStation } from '@/lib/air-stations';
 import { seaNear } from '@/lib/sea';
 import { camerasNear } from '@/lib/cameras';
 import { resortNear } from '@/lib/mountain';
+import { routesNear } from '@/lib/routes';
 import { aName, deName } from '@/lib/format';
 import { narrativeFor } from '@/lib/narrative';
 
@@ -106,6 +107,7 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         sea={await seaNear(loc)}
         cameras={await camerasNear(loc)}
         resort={await resortNear(loc)}
+        routes={routesNear(loc.comarcaCodi)}
         siblings={entitats}
         siblingsLabel={`Nuclis i entitats ${deName(loc.nom)}`}
         neighbours={adjacent}
