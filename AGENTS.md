@@ -365,6 +365,12 @@ cuota para exactamente la misma información.
   -`MEDUSES`, `Vent`, `Estat del mar`, `Qualitat de l'aigua`, `Altres`- però hi havia
   `MEDUSES` en majúscules i, en una platja, `Medusas` en castellà. Normalitza amb
   `flagReasonText()`.
+- **El rètol d'endarreriment de `/estat` es mesura contra la data de la dada, no contra
+  l'execució.** Una font que publica un cop al dia amb un límit de tres hores surt en roig
+  sempre, també amb el worker acabat de passar — i un rètol que sempre està en roig deixa
+  d'avisar de res. Va passar amb els rècords de la XEMA i amb els avisos de l'AEMET, que
+  elabora el lot de fitxers CAP un o dos cops al dia. El límit ha de ser el cicle real de
+  la font, no la cadència del worker.
 - **El `limit` de l'API d'FGC té el sostre a cent i no ho diu.** `pistes-desqui` en té 181:
   torna un 200 amb cent files i el `total_count` a 181 en un racó. Sense paginar, la Molina
   passava de 66 pistes a 18 i el desnivell del catàleg s'escurçava 400 m. Fes servir

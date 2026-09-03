@@ -140,7 +140,20 @@ async function main() {
     source: 'aemet-warnings',
     lastSuccessAt: new Date().toISOString(),
     lastDataTs: newest,
-    stalenessLimitMin: 180,
+    /*
+     * Trenta hores, i no tres.
+     *
+     * El limit es mesura contra la data de la **dada**, no contra l ultima
+     * execucio, i la dada aqui es l hora en que AEMET va elaborar el lot de
+     * CAP: ho fa un o dos cops al dia. Amb tres hores, /estat deia
+     * 'endarrerida' la major part del dia amb el worker acabat de passar --el
+     * mateix error que ja va passar amb els records de la XEMA-- i un rètol que
+     * sempre esta en roig deixa d avisar de res.
+     *
+     * Trenta hores es el cicle diari amb marge. Si AEMET no elabora avisos en
+     * trenta hores, alla passa alguna cosa i val la pena dir-ho.
+     */
+    stalenessLimitMin: 30 * 60,
     rows: alerts.length,
     apiCalls: 2,
   });
@@ -157,7 +170,7 @@ async function main() {
 main().catch((err) => {
   recordFreshness({
     source: 'aemet-warnings', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 180, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
+    stalenessLimitMin: 30 * 60, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
   });
   console.error(err);
   process.exit(1);
