@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cameraBySlug, cameraImage, cameraSlugs, CAMERA_SHOW_HOURS } from '@/lib/cameras';
-import { ago, dateFull, hour, int, num } from '@/lib/format';
+import { ago, dateFull, deWord, hour, int, num } from '@/lib/format';
 
 /**
  * Una cámara.
@@ -147,7 +147,7 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
       {siblings.length > 0 && (
         <section className="mt-8">
           <h2 className="text-lg font-semibold tracking-tight">
-            Més càmeres {deResort(cam.resort)}
+            Més càmeres {deWord(cam.resort)}
           </h2>
           <ul className="mt-3 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
             {siblings.map((s) => (
@@ -190,15 +190,4 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
       </footer>
     </article>
   );
-}
-
-/**
- * «de La Molina», «d’Espot».
- *
- * Los nombres de las estaciones no llevan artículo en el catálogo, así que no
- * sirve `deName()` —que está para topónimos con artículo— pero la contracción
- * ante vocal sí hace falta: «Més càmeres de Espot» es una falta visible.
- */
-function deResort(resort: string): string {
-  return /^[aeiouàèéíòóúh]/i.test(resort) ? `d’${resort}` : `de ${resort}`;
 }

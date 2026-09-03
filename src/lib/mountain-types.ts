@@ -28,6 +28,18 @@ export interface LiftStats {
   byType: Array<{ type: string; count: number }>;
 }
 
+/** Un itinerari d'esquí de muntanya del catàleg de l'estació. */
+export interface SkiTouringRoute {
+  name: string;
+  /** Fàcil, Mitjana o Difícil, tal com ho classifica l'estació. */
+  difficulty: string | null;
+  lengthM: number | null;
+  /** Desnivell positiu acumulat. */
+  ascentM: number | null;
+  minM: number | null;
+  maxM: number | null;
+}
+
 /**
  * Una estació d'esquí o equipament de muntanya, amb el seu comunicat.
  *
@@ -68,6 +80,22 @@ export interface Resort {
 
   slopes: SlopeStats | null;
   lifts: LiftStats | null;
+
+  /**
+   * Quants itineraris hi ha de cada mena: senderisme, raquetes, esquí de
+   * muntanya i fora de pista. Comptar-los sí que es pot; descriure'ls, no
+   * sempre — dels 87 del catàleg només 31 porten cota.
+   */
+  circuits: Array<{ kind: string; count: number }>;
+
+  /**
+   * Els itineraris d'esquí de muntanya, un per un.
+   *
+   * D'aquesta mena **sí** que hi ha les dades senceres: els 22 del catàleg
+   * porten dificultat, longitud, desnivell i cota mínima i màxima. Les altres
+   * tres menes es queden al recompte.
+   */
+  skiTouring: SkiTouringRoute[];
 }
 
 /**

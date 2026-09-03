@@ -12,6 +12,8 @@
  *  3. **El catàleg tècnic de 181 pistes i 55 remuntadors**: cota mínima i
  *     màxima, longitud, dificultat i innivació. No canvia d'un dia per l'altre,
  *     i és el que dona sentit a un «50 % obert».
+ *  4. **87 itineraris** de senderisme, raquetes, esquí de muntanya i fora de
+ *     pista — dels quals només els 22 d'esquí de muntanya estan complets.
  *
  * ## Què no es publica, i per què
  *
@@ -34,6 +36,23 @@
  * dient «3 - Marcat» cinc mesos després. Un risc d'allaus caducat no és una
  * dada endarrerida: és una dada perillosa. El butlletí oficial el fa el
  * Meteocat amb l'ICGC, i aquí s'hi enllaça en comptes de copiar-lo.
+ *
+ * ## Dels 87 itineraris només se'n descriuen 22, i és a posta
+ *
+ * Mesurat: 68 dels 87 porten longitud, 57 porten dificultat i **només 31
+ * porten cota**. Sense cota no es pot creuar amb la cota de neu, que és el que
+ * faria útil un itinerari en aquesta web.
+ *
+ * Els 22 d'**esquí de muntanya** són l'excepció: tots 22 porten dificultat,
+ * longitud, desnivell i les dues cotes. D'aquests se'n publica la fitxa; de les
+ * altres tres menes, el recompte. Inventar la cota que falta a un itinerari de
+ * senderisme per fer bonica una taula seria publicar 56 altituds falses.
+ *
+ * I un dels 22 porta **la longitud i el desnivell intercanviats**: «Clot de la
+ * Bassa» diu 351 m de recorregut i 2.840 de desnivell, i 351 és exactament la
+ * diferència entre les seves dues cotes. Es detecta perquè un desnivell més
+ * gran que el recorregut vol dir un pendent de més de 45° tota l'estona, cosa
+ * que no és cap itinerari d'esquí de muntanya.
  *
  * ## Dues trampes al catàleg de pistes
  *
@@ -170,6 +189,33 @@ interface LiftRow {
   sections_item_facility_type_literals_ca: string | null;
 }
 
+interface CircuitRow {
+  businessunit_id: string;
+  name_ca: string;
+  color_literals_ca?: string | null;
+  /** Sí: al conjunt de raquetes el camp es diu així. Veure `difficultyOf()`. */
+  color_literals_a?: string | null;
+  longitude: number | null;
+  slope: number | null;
+  min_height: number | null;
+  max_height: number | null;
+}
+
+/**
+ * Els quatre conjunts d'itineraris, amb el nom que se'ls dona a la pàgina.
+ *
+ * L'ordre és el de la targeta: primer el que es fa a l'hivern amb esquís.
+ */
+const CIRCUIT_SETS: Array<{ kind: string; dataset: string }> = [
+  { kind: 'esquí de muntanya', dataset: 'informacio-tecnica-circuits-esqui-de-muntanya' },
+  { kind: 'fora de pista', dataset: 'informacio-tecnica-circuits-fora-de-pista' },
+  { kind: 'raquetes', dataset: 'informacio-tecnica-circuits-amb-raquetes' },
+  { kind: 'senderisme', dataset: 'informacio-tecnica-circuits-de-senderisme' },
+];
+
+/** L'índex del conjunt d'esquí de muntanya dins de `CIRCUIT_SETS`. */
+const SKI_TOURING = 0;
+
 interface BuildLocation {
   id: string; level: string; nom: string; path: string;
   lat: number | null; lon: number | null; published: boolean;
@@ -194,6 +240,48 @@ function reportInstant(raw: string): Date {
   const m = raw.trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
   if (!m) throw new Error(`last_update no llegible: ${raw}`);
   return madridToUtc(Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5]));
+}
+
+/**
+ * La dificultat d'un itinerari.
+ *
+ * El camp es diu `color_literals_ca` a tres dels quatre conjunts i
+ * **`color_literals_a`** al de raquetes: una lletra menys al nom del camp, i
+ * llegint només el primer els tretze itineraris amb raquetes es quedaven sense.
+ * Que allà siguin tots nuls no treu que el nom del camp sigui una trampa.
+ */
+function difficultyOf(r: CircuitRow): string | null {
+  return (r.color_literals_ca ?? r.color_literals_a)?.trim() || null;
+}
+
+/**
+ * «A) Puigllançada» → «Puigllançada».
+ *
+ * Els itineraris de senderisme van numerats amb una lletra i un parèntesi que
+ * és l'ordre del plànol de l'estació, no part del nom del lloc.
+ */
+function circuitName(raw: string): string {
+  return raw.replace(/^\s*[A-Za-z0-9]{1,3}\)\s*/, '').replace(/\s{2,}/g, ' ').trim();
+}
+
+/**
+ * Longitud i desnivell, desfent l'intercanvi quan hi és.
+ *
+ * Un desnivell més gran que el recorregut és un pendent de més de 45° de mitjana
+ * en tot l'itinerari. Quan passa, els dos valors estan girats — i es comprova
+ * contra la diferència de cotes, que és qui té raó. Veure la capçalera.
+ */
+export function lengthAndAscent(
+  longitude: number | null, slope: number | null, minM: number | null, maxM: number | null,
+): { lengthM: number | null; ascentM: number | null; swapped: boolean } {
+  if (longitude != null && slope != null && slope > longitude) {
+    const drop = minM != null && maxM != null ? maxM - minM : null;
+    // Si girant-los el desnivell quadra amb les cotes, estaven girats.
+    if (drop == null || Math.abs(longitude - drop) <= Math.abs(slope - drop)) {
+      return { lengthM: slope, ascentM: longitude, swapped: true };
+    }
+  }
+  return { lengthM: longitude, ascentM: slope, swapped: false };
 }
 
 /** Un número que pot venir com a text, amb coma de milers o amb `N/A`. */
@@ -281,19 +369,22 @@ async function main() {
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 
-  const [states, meteo, slopes, lifts] = await Promise.all([
+  const [states, meteo, slopes, lifts, ...circuitSets] = await Promise.all([
     allRecords<StateRow>('estat-d-obertura-de-les-explotacions'),
     allRecords<MeteoRow>('meteo-tim'),
     allRecords<SlopeRow>('pistes-desqui'),
     allRecords<LiftRow>('remuntadors'),
+    ...CIRCUIT_SETS.map((c) => allRecords<CircuitRow>(c.dataset)),
   ]);
-  quota.spend('fgc', 6);
+  quota.spend('fgc', 10);
 
   if (!states.length) throw new Error('FGC no ha retornat cap estat d’obertura.');
   if (!meteo.length) throw new Error('FGC no ha retornat cap estació meteorològica.');
+  let swapped = 0;
   console.log(
     `Catàleg: ${states.length} estacions · ${meteo.length} estacions meteorològiques`
-    + ` · ${slopes.length} pistes · ${lifts.length} remuntadors\n`,
+    + ` · ${slopes.length} pistes · ${lifts.length} remuntadors`
+    + ` · ${circuitSets.reduce((a, c) => a + c.length, 0)} itineraris\n`,
   );
 
   const municipis = (JSON.parse(readFileSync(build('locations.json'), 'utf8')) as BuildLocation[])
@@ -364,6 +455,29 @@ async function main() {
       visibility: r.observed_meteo_visibility_literals_ca?.trim() || null,
       slopes: slopeStats(slopes.filter((s) => s.businessunit_id === r.bunit_id)),
       lifts: liftStats(lifts.filter((l) => l.businessunit_id === r.bunit_id)),
+      circuits: CIRCUIT_SETS
+        .map((c, i) => ({
+          kind: c.kind,
+          count: circuitSets[i].filter((x) => x.businessunit_id === r.bunit_id).length,
+        }))
+        .filter((c) => c.count > 0),
+      skiTouring: circuitSets[SKI_TOURING]
+        .filter((x) => x.businessunit_id === r.bunit_id)
+        .map((x) => {
+          const { lengthM, ascentM, swapped: sw } = lengthAndAscent(
+            x.longitude, x.slope, x.min_height, x.max_height,
+          );
+          if (sw) swapped++;
+          return {
+            name: circuitName(x.name_ca),
+            difficulty: difficultyOf(x),
+            lengthM,
+            ascentM,
+            minM: x.min_height,
+            maxM: x.max_height,
+          };
+        })
+        .sort((a, b) => (b.ascentM ?? 0) - (a.ascentM ?? 0)),
     });
   }
 
@@ -468,6 +582,12 @@ async function main() {
       + ` · ${s.measuredAt.slice(11, 16)} UTC`,
     );
   }
+  if (swapped) {
+    console.log(
+      `\n${swapped} itinerari(s) d'esquí de muntanya portaven la longitud i el desnivell`
+      + ' intercanviats. S’han girat.',
+    );
+  }
   if (badPressure) {
     console.log(`\n${badPressure} estació(ns) donen una pressió impossible. No se’n publica cap.`);
   }
@@ -493,7 +613,7 @@ async function main() {
     lastDataTs: newest,
     stalenessLimitMin: 150,
     rows: resorts.length + stations.length,
-    apiCalls: 6 + stations.length,
+    apiCalls: 10 + stations.length,
   });
 
   console.log(`\n→ data/cache/muntanya.json (${((Date.now() - started) / 1000).toFixed(1)} s)`);

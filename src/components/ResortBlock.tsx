@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ago, dateFull, int, num, temp } from '@/lib/format';
+import { ago, dateFull, deWord, int, num, temp } from '@/lib/format';
 import { windCardinal } from '@/lib/variables';
 import { REPORT_SHOW_HOURS, type ResortNow, type StationNow } from '@/lib/mountain';
 
@@ -14,6 +14,13 @@ import { REPORT_SHOW_HOURS, type ResortNow, type StationNow } from '@/lib/mounta
  *
  * Fora de temporada això vol dir que la targeta segueix dient coses certes: el
  * desnivell, la temperatura a 2.500 m i la data de l'últim comunicat.
+ *
+ * ## Dels itineraris se'n compten quatre menes i se'n descriu una
+ *
+ * Els d'esquí de muntanya porten dificultat, longitud, desnivell i les dues
+ * cotes, tots vint-i-dos: aquests van desplegats. Dels de senderisme, raquetes
+ * i fora de pista només se'n diu quants n'hi ha, perquè de 65 només 9 porten
+ * cota i una taula amb els forats tapats seria una taula inventada.
  */
 export function ResortBlock({
   resort, stations, snowShare, distKm,
@@ -54,6 +61,12 @@ export function ResortBlock({
             lifts && `${int(lifts.count)} ${lifts.count === 1 ? 'remuntador' : 'remuntadors'}`,
             distKm != null && `a ${num(distKm, 0)} km`,
           ].filter(Boolean).join(' · ')}
+        </p>
+      )}
+
+      {resort.circuits.length > 0 && (
+        <p className="mt-0.5 text-xs text-[var(--muted)]">
+          Itineraris: {resort.circuits.map((c) => `${int(c.count)} ${deWord(c.kind)}`).join(' · ')}
         </p>
       )}
 
@@ -133,6 +146,40 @@ export function ResortBlock({
           {stations.length === 1 ? 'Estació meteorològica de l’estació' : `${stations.length} estacions meteorològiques de l’estació`}
           {' · '}{ago(Math.min(...stations.map((s) => s.ageMin)))}
         </p>
+      )}
+
+      {/*
+        Els itineraris d'esquí de muntanya, plegats.
+        Son com a molt cinc per estacio, aixi que caben; i van dins d'un
+        `details` perque qui ve a mirar la neu no els ha de tenir al davant.
+      */}
+      {resort.skiTouring.length > 0 && (
+        <details className="mt-3 border-t border-[var(--line-soft)] pt-2">
+          <summary className="cursor-pointer text-xs font-medium text-[var(--ink-2)]">
+            {resort.skiTouring.length === 1
+              ? 'Un itinerari d’esquí de muntanya'
+              : `${int(resort.skiTouring.length)} itineraris d’esquí de muntanya`}
+          </summary>
+          <ul className="mt-2 list-none space-y-1.5 p-0">
+            {resort.skiTouring.map((r) => (
+              <li key={r.name} className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
+                <span className="text-[var(--ink)]">
+                  {r.name}
+                  {r.difficulty && (
+                    <span className="ml-1.5 text-[var(--muted)]">{r.difficulty.toLowerCase()}</span>
+                  )}
+                </span>
+                <span className="tnum text-[var(--muted)]">
+                  {[
+                    r.lengthM != null && `${num(r.lengthM / 1000, 1)} km`,
+                    r.ascentM != null && `+${int(r.ascentM)} m`,
+                    r.minM != null && r.maxM != null && `${int(r.minM)}–${int(r.maxM)} m`,
+                  ].filter(Boolean).join(' · ')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
       {/* La cota de neu prevista contra el desnivell. Només a les fitxes, on ja

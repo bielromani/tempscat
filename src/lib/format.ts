@@ -218,6 +218,20 @@ const COMARCA_ARTICLE: Record<string, string> = {
 };
 
 /** «l'Alt Camp», «el Bages», «Osona». */
+/**
+ * «de» o «d'» davant d'un mot que no porta article: d'esquí, de senderisme.
+ *
+ * No és `deName()`: aquell és per a topònims, on l'article forma part del nom i
+ * es contrau («de l'Ametlla» → «de l'Ametlla», «de el Prat» mai). Aquí el mot
+ * va pelat i l'única cosa que cal decidir és si comença per vocal.
+ *
+ * La `h` hi entra perquè és muda: «d'hivern», no «de hivern». La `u` de «uix»
+ * i la `i` de «iogurt» serien excepcions de manual; no n'hi ha cap al lloc.
+ */
+export function deWord(word: string): string {
+  return /^[aeiouàèéíòóúh]/i.test(word.trim()) ? `d'${word}` : `de ${word}`;
+}
+
 export function comarcaName(nom: string): string {
   const article = COMARCA_ARTICLE[nom];
   // Si aparece una comarca nueva y no está en la tabla, se devuelve pelada: es
