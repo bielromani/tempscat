@@ -128,16 +128,36 @@ export function routesOfComarca(codi: string): Route[] {
   return load().routes.filter((r) => r.comarques.includes(codi));
 }
 
+function distKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const R = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLon = ((bLon - aLon) * Math.PI) / 180;
+  const s = Math.sin(dLat / 2) ** 2
+    + Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
 /**
- * Els itineraris que passen a la vora d'una ubicació.
+ * Els itineraris que una fitxa de poble ha d'ensenyar.
  *
- * Per comarca i no per distància: la comarca ja la porten calculada i un
- * itinerari de vint quilòmetres no té «una distància» a un poble — passa o no
- * passa per allà.
+ * Es filtra per comarca —que és el que hi ha calculat— i s'ordena **pel punt
+ * d'inici més proper**, no pels més llargs.
+ *
+ * La primera versió posava els de gran recorregut al davant i Gósol acabava
+ * ensenyant quatre GR de 400, 390, 198 i 180 km que travessen el Berguedà
+ * sencer. Passen per allà, sí, però ningú que miri el temps a Gósol està
+ * decidint fer el Camí Ramader de Marina: la pregunta és què es pot caminar
+ * aquí, i la contesta el que comença a prop.
  */
-export function routesNear(comarcaCodi: string, limit = 4): Route[] {
-  return routesOfComarca(comarcaCodi)
-    // Els de gran recorregut primer, i entre iguals el més llarg.
-    .sort((a, b) => (a.network === b.network ? b.km - a.km : a.network === 'nwn' ? -1 : 1))
-    .slice(0, limit);
+export function routesNear(
+  loc: { lat: number | null; lon: number | null; comarcaCodi: string }, limit = 4,
+): Route[] {
+  const list = routesOfComarca(loc.comarcaCodi);
+  if (loc.lat == null || loc.lon == null) return list.slice(0, limit);
+
+  return list
+    .map((r) => ({ r, d: distKm(loc.lat as number, loc.lon as number, r.start.lat, r.start.lon) }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, limit)
+    .map((x) => x.r);
 }

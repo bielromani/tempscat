@@ -107,7 +107,7 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         sea={await seaNear(loc)}
         cameras={await camerasNear(loc)}
         resort={await resortNear(loc)}
-        routes={routesNear(loc.comarcaCodi)}
+        routes={routesNear(loc)}
         siblings={entitats}
         siblingsLabel={`Nuclis i entitats ${deName(loc.nom)}`}
         neighbours={adjacent}

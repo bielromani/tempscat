@@ -82,7 +82,7 @@ export default async function EntitatPage({ params }: { params: Params }) {
         sea={await seaNear(loc)}
         cameras={await camerasNear(loc)}
         resort={await resortNear(loc)}
-        routes={routesNear(loc.comarcaCodi)}
+        routes={routesNear(loc)}
         siblings={siblings}
         siblingsLabel={municipiLoc ? `Altres nuclis ${deName(municipiLoc.nom)}` : 'Altres nuclis del municipi'}
         neighbours={[]}
