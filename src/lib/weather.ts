@@ -766,6 +766,15 @@ export interface FreshnessEntry {
   rows: number;
   apiCalls: number;
   error?: string;
+  /**
+   * L'últim error d'aquesta font, encara que després anés bé.
+   *
+   * Sobreviu a les execucions correctes a posta: sense això, un worker que
+   * falla una vegada i a la volta següent ja va bé no deixa cap rastre, i el
+   * registre d'Actions caduca. El perquè és a `scripts/lib/store.ts`.
+   */
+  lastError?: string;
+  lastErrorAt?: string;
 }
 
 /**

@@ -16,7 +16,7 @@
  * Salida: data/cache/warnings.json
  */
 import { readFileSync } from 'node:fs';
-import { fetchJson, fetchWithRetry } from '../lib/http.ts';
+import { fetchJson, fetchWithRetry, sleep } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import { readTar } from '../lib/tar.ts';
 import { parseCap, type CapAlert, type CapLevel } from '../lib/cap.ts';
@@ -60,15 +60,39 @@ async function main() {
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 
-  // AEMET responde en dos saltos: primero una URL temporal, luego el contenido.
-  const meta = await fetchJson<{ estado: number; datos?: string; descripcion: string }>(
-    `${BASE}/avisos_cap/ultimoelaborado/area/${AREA_CATALUNYA}`,
-    { headers: { api_key: key }, timeoutMs: 40_000 },
-  );
-  quota.spend('aemet', 1);
+  /*
+   * AEMET responde en dos saltos: primero una URL temporal, luego el contenido.
+   *
+   * Y **el estado va dentro del cuerpo, no en el HTTP**: cuando están saturados
+   * devuelven `200 OK` con `{"estado": 429, "descripcion": "Too Many
+   * Requests"}` o con un 500 ahí dentro. `fetchWithRetry` ve el 200, no
+   * reintenta, y el worker se planta — que es lo que le pasó a la ejecución de
+   * las 09:15 del 3 de septiembre de 2026 y a unas cuantas más.
+   *
+   * Así que el reintento se hace aquí, mirando el estado de verdad. Cuatro
+   * intentos con espera creciente; si a la cuarta sigue saturado, es que pasa
+   * algo suyo y entonces sí que vale la pena que salte.
+   */
+  interface AemetMeta { estado: number; datos?: string; descripcion: string }
+  let meta: AemetMeta | null = null;
 
-  if (!meta.datos) {
-    throw new Error(`AEMET no devolvió datos: ${meta.estado} ${meta.descripcion}`);
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    meta = await fetchJson<AemetMeta>(
+      `${BASE}/avisos_cap/ultimoelaborado/area/${AREA_CATALUNYA}`,
+      { headers: { api_key: key }, timeoutMs: 40_000 },
+    );
+    quota.spend('aemet', 1);
+    if (meta.datos) break;
+
+    console.log(`  AEMET diu ${meta.estado} ${meta.descripcion} (intent ${attempt} de 4)`);
+    if (attempt < 4) await sleep(attempt * 5_000);
+  }
+
+  if (!meta?.datos) {
+    throw new Error(
+      `AEMET no ha donat dades en quatre intents: ${meta?.estado} ${meta?.descripcion}. `
+      + 'L\'estat va dins del cos de la resposta, no a l\'HTTP.',
+    );
   }
 
   const res = await fetchWithRetry(meta.datos, { timeoutMs: 90_000 });

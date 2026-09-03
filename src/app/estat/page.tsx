@@ -75,6 +75,18 @@ export default async function EstatPage() {
                     ) : (
                       <span className="font-medium" style={{ color: 'var(--good)' }}>al dia</span>
                     )}
+                    {/*
+                      L'ultim ensopec, encara que ara vagi be.
+                      Es el que converteix un correu de «Run failed» en una
+                      cosa que es pot mirar: el registre d'Actions caduca i
+                      demana autenticacio, i aixo no.
+                    */}
+                    {!s.error && s.lastError && s.lastErrorAt && (
+                      <span className="mt-0.5 block text-[11px] text-[var(--muted)]">
+                        últim ensopec el {s.lastErrorAt.slice(0, 16).replace('T', ' ')}:{' '}
+                        {s.lastError.slice(0, 90)}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

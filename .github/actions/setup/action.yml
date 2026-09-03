@@ -1,6 +1,10 @@
 name: Preparar l'entorn
 description: Node i dependències. El codi ja hi ha de ser.
 
+# Les accions van a la v5: la v4 apunta a Node 20, que GitHub ja ha marcat com
+# a obsolet i ara força a executar-se sobre Node 24 amb un avís a cada volta.
+# Val més fer el salt abans que l'avís passi a ser un error.
+#
 # El `checkout` NO pot anar aquí. Una acció local es carrega des del disc del
 # servidor, així que el repositori ha d'estar-hi abans de poder-la usar: posar
 # el checkout dins seu és demanar-li que es trobi a si mateixa. Cada workflow fa
@@ -8,7 +12,7 @@ description: Node i dependències. El codi ja hi ha de ser.
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v5
       with:
         # La mateixa versió que en local. Node executa el TypeScript directament,
         # sense pas de compilació, i això depèn de la versió.

@@ -225,7 +225,23 @@ export interface FreshnessEntry {
   stalenessLimitMin: number;
   rows: number;
   apiCalls: number;
+  /** L'error d'aquesta execució, si ha fallat. */
   error?: string;
+  /**
+   * L'últim error que va tenir aquesta font, **encara que després anés bé**.
+   *
+   * Sense això, un worker que falla una vegada i a la següent volta ja va bé es
+   * queda sense rastre: l'entrada nova sobreescriu la de l'error i l'únic que
+   * en queda és un correu de GitHub que diu «Run failed» i prou. Els registres
+   * d'Actions demanen autenticació i caduquen, així que a la pràctica el motiu
+   * es perd.
+   *
+   * Es conserva fins que la font torna a fallar, i llavors s'actualitza. No es
+   * neteja mai en una execució correcta: «l'última vegada que això va petar,
+   * i per què» és exactament el que es vol saber quan arriba el correu.
+   */
+  lastError?: string;
+  lastErrorAt?: string;
 }
 
 /**
@@ -248,7 +264,27 @@ export function recordFreshness(entry: FreshnessEntry): void {
   const name = `${freshnessShard(entry.source)}.json`;
   const dest = join(CACHE, name);
   ensureFor(dest);
-  writeFileSync(dest, JSON.stringify(entry, null, 1), 'utf8');
+
+  /*
+   * L'últim error sobreviu a les execucions bones. Veure `lastError`.
+   *
+   * Es llegeix del disc i no del magatzem a posta: si el contenidor arrenca
+   * buit, el pitjor que passa és perdre el rastre d'un error vell, i pagar una
+   * petició de xarxa a cada volta de cada worker per conservar-lo no val la
+   * pena. Qui falla dues vegades ho torna a escriure.
+   */
+  let previous: FreshnessEntry | null = null;
+  if (existsSync(dest)) {
+    try { previous = JSON.parse(readFileSync(dest, 'utf8')) as FreshnessEntry; } catch { previous = null; }
+  }
+
+  const stored: FreshnessEntry = {
+    ...entry,
+    lastError: entry.error ?? previous?.lastError,
+    lastErrorAt: entry.error ? new Date().toISOString() : previous?.lastErrorAt,
+  };
+
+  writeFileSync(dest, JSON.stringify(stored, null, 1), 'utf8');
   pending.add(name);
 }
 
