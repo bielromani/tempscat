@@ -196,4 +196,5 @@ export const FRESHNESS_SOURCES = [
   'water',
   'xema-history',
   'cameras',
+  'fgc-mountain',
 ] as const;

@@ -58,6 +58,7 @@ const PLAN = [
   { file: 'mar.yml', at: (h, m) => m === 0 || m === 30 },
   { file: 'diari.yml', at: (h, m) => h === 6 && m === 0 },
   { file: 'cameres.yml', at: (h, m) => m === 25 },
+  { file: 'muntanya.yml', at: (h, m) => m === 40 },
 
   { file: 'prediccio.yml', at: (h, m) => h === 2 && m === 0, inputs: { tiers: 'B' } },
   { file: 'prediccio.yml', at: (h, m) => h === 3 && m === 30, inputs: { tiers: 'C' } },

@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
   'air-stations': 'Qualitat de l’aire mesurada (XVPCA)',
   'sea': 'Banderes de platja i onatge',
   'cameras': 'Càmeres de muntanya (FGC)',
+  'fgc-mountain': 'Neu i obertura d’estacions (FGC)',
 };
 
 function age(minutes: number | null): string {

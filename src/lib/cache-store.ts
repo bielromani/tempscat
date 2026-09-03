@@ -93,6 +93,8 @@ const TTL_MS: Array<[RegExp, number]> = [
    * triga la pagina a regenerar-se, i per tant mai es el que mana.
    */
   [/^cameres$/, 10 * 60_000],
+  /* Igual que les cameres: es refresca cada hora i el termini generic tambe. */
+  [/^muntanya$/, 10 * 60_000],
   [/^forecast\//, 30 * 60_000],         // se refresca cada 12-24 h
   [/^forecast\/index$/, 30 * 60_000],
   [/./, 60 * 60_000],                   // histórico, aire, agua: una vez al día

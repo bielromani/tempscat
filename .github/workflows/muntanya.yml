@@ -1,0 +1,33 @@
+name: Neu i estacions de muntanya
+
+# Un cop per hora.
+#
+# El comunicat de cada estacio el tecleja una persona i canvia unes quantes
+# vegades al dia; les nou estacions meteorologiques mesuren cada quart d'hora.
+# Un cop per hora cobreix les dues coses i son sis peticions al cataleg mes una
+# per estacio.
+on:
+  schedule:
+    # Xarxa de seguretat, no el rellotge. El de debo es el cron trigger de
+    # Cloudflare que crida workflow_dispatch — cloudflare/scheduler/worker.js.
+    - cron: '40 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: muntanya
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET || vars.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || vars.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || vars.R2_SECRET_ACCESS_KEY }}
+      DATA_BASE_URL: ${{ secrets.DATA_BASE_URL || vars.DATA_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: npm run worker:muntanya

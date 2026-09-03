@@ -54,7 +54,7 @@ export const SECTIONS: NavGroup[] = [
       { href: '/aire', label: 'Qualitat de l’aire', blurb: 'L’índex europeu modelat i el que mesuren les estacions.' },
       { href: '/aigua', label: 'Embassaments i rius', blurb: 'Com estan els pantans, els cabals i la sequera.' },
       { href: '/mar', label: 'Platges i mar', blurb: 'Banderes, temperatura de l’aigua, onatge i meduses.' },
-      { href: '/neu', label: 'Neu al Pirineu', blurb: 'El gruix mesurat a les estacions d’alçada.' },
+      { href: '/neu', label: 'Neu i estacions d’esquí', blurb: 'Gruix mesurat, què hi ha obert i la temperatura a cota.' },
     ],
   },
   {

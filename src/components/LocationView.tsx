@@ -14,6 +14,7 @@ import { WaterBlock } from './WaterBlock';
 import { MeasuredAir } from './MeasuredAir';
 import { SeaBlock } from './SeaBlock';
 import { CameraBlock } from './CameraBlock';
+import { ResortBlock } from './ResortBlock';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
@@ -32,6 +33,7 @@ import type { WaterNearby } from '@/lib/water';
 import type { NearestAirStation } from '@/lib/air-stations';
 import type { SeaNearby } from '@/lib/sea';
 import type { CameraNow } from '@/lib/cameras';
+import { slopesAboveSnowLine, type ResortNearby } from '@/lib/mountain';
 import type { Comarca, Location } from '@/lib/territory';
 
 /**
@@ -365,12 +367,18 @@ interface Props {
    * Pirineu y en el Montsec.
    */
   cameras: Array<CameraNow & { distKm: number }>;
+  /**
+   * L'estació d'esquí més propera, si n'hi ha cap a menys de 30 km.
+   *
+   * Nul a la immensa majoria de les fitxes: només hi ha sis estacions.
+   */
+  resort: ResortNearby | null;
 }
 
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
-  air, comparison, narrative, water, airStation, sea, cameras,
+  air, comparison, narrative, water, airStation, sea, cameras, resort,
 }: Props) {
   /*
    * La hora en curso dentro de la serie, para completar el bloque actual con las
@@ -575,6 +583,29 @@ export function LocationView({
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">Sol i lluna</h2>
           <SunMoon astro={astro} />
+        </section>
+      )}
+
+      {resort && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+            {resort.resort.name}, l’estació d’esquí més propera
+          </h2>
+          <ResortBlock
+            resort={resort.resort}
+            stations={resort.stations}
+            distKm={resort.resort.distKm}
+            /*
+             * La cota de neu ve de la predicció que aquesta fitxa ja té
+             * carregada, i el desnivell del catàleg de pistes. A la pàgina de
+             * neu això no hi és: caldria un tros de predicció per estació, i
+             * són fins a dos megues cadascun per una frase.
+             */
+            snowShare={slopesAboveSnowLine(
+              forecast?.daily.find((d) => d.snowLevel != null)?.snowLevel ?? null,
+              resort.resort.slopes,
+            )}
+          />
         </section>
       )}
 

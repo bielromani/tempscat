@@ -93,6 +93,7 @@ import sharp from 'sharp';
 import { fetchWithRetry, throttledMap } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import { slugify } from '../lib/catalan.ts';
+import { madridToUtc } from '../lib/madrid.ts';
 import {
   CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, pullSnapshot, recordFreshness,
   syncState, writeSnapshot,
@@ -228,32 +229,12 @@ function slugOf(resort: string, name: string, altitudM: number | null): string {
 }
 
 /**
- * «2026-09-02 15:40» en Madrid → el instante en UTC.
- *
- * Sin biblioteca y sin restar horas a mano, que es lo que se rompe el domingo
- * del cambio: se supone que la hora leída es UTC, se pregunta qué hora marca
- * ese instante en Madrid, y la diferencia es el desplazamiento que hay que
- * quitar. Se repite una vez porque en la madrugada del cambio horario el
- * desplazamiento del instante supuesto y el del real no son el mismo.
- */
-function madridToUtc(y: number, mo: number, d: number, h: number, mi: number): Date {
-  const wall = Date.UTC(y, mo - 1, d, h, mi);
-  let guess = wall;
-  for (let i = 0; i < 2; i++) {
-    const asMadrid = new Date(guess)
-      .toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
-      .replace(' ', 'T');
-    const offset = Date.parse(`${asMadrid}Z`) - guess;
-    guess = wall - offset;
-  }
-  return new Date(guess);
-}
-
-/**
  * El instante de una panorámica, de la ruta del fichero al que ha redirigido.
  *
  * Ver la cabecera: es lo único que traen todas, y el `Last-Modified` —cuando
- * está— sirve para comprobar que la ruta sigue siendo hora local.
+ * está— sirve para comprobar que la ruta sigue siendo hora local. La conversión
+ * de hora de Madrid a instante está en `scripts/lib/madrid.ts`, porque los XML
+ * de meteorología de FGC tienen el mismo problema.
  */
 function roundshotCapturedAt(finalUrl: string, lastModified: string | null): Date {
   const m = finalUrl.match(/[/](\d{4})-(\d{2})-(\d{2})[/](\d{2})-(\d{2})-(\d{2})[/]/);

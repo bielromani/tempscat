@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { dateFull, dateShort, int, relativeDay } from '@/lib/format';
 import { allHistory, localToday } from '@/lib/weather';
 import { stationByCodi } from '@/lib/territory';
+import { mountainView } from '@/lib/mountain';
+import { ResortBlock } from '@/components/ResortBlock';
 
 /**
  * La nieve del Pirineo: medida, no estimada.
@@ -21,6 +23,17 @@ import { stationByCodi } from '@/lib/territory';
  *
  * Solo 24 de las 189 estaciones tienen sensor de nieve. Las otras 165 no salen —
  * no con un cero, que es lo que pasaría si se confundiera «no mide» con «no hay».
+ *
+ * ## Y las seis estaciones de esquí, que miden otra cosa
+ *
+ * Un sensor de la XEMA mide el espesor en un punto; una estación de esquí
+ * comunica el rango de sus pistas, cuánto tiene abierto y qué calidad tiene la
+ * nieve. Son dos preguntas distintas —«cuánta nieve hay ahí» y «se puede
+ * esquiar»— y por eso van en dos bloques.
+ *
+ * Las nueve estaciones meteorológicas de Ferrocarrils, además, cubren de 1.664
+ * a 2.537 m, que es donde la XEMA tiene menos: son temperatura medida donde
+ * antes solo había modelo.
  */
 export const revalidate = 1800;
 
@@ -34,6 +47,7 @@ export const metadata: Metadata = {
 
 export default async function NeuPage() {
   const today = localToday();
+  const mountain = await mountainView();
 
   const rows = (await allHistory())
     .map((h) => {
@@ -91,6 +105,40 @@ export default async function NeuPage() {
           surten — no amb un zero, que voldria dir una cosa que no sabem.
         </p>
       </header>
+
+      {mountain && mountain.resorts.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+            Les estacions d&apos;esquí
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {mountain.resorts.map((r) => (
+              <ResortBlock
+                key={r.bunitId}
+                resort={r}
+                stations={mountain.stations.filter((st) => st.bunitId === r.bunitId)}
+              />
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
+            {mountain.attribution} ({mountain.license}). El comunicat el fa cada estació
+            i el gruix de neu es retira quan passa de dos dies. El risc d&apos;allaus
+            no surt d&apos;aquí: el butlletí oficial és el{' '}
+            <a
+              href="https://www.icgc.cat/ca/Ciutada/Explora-Catalunya/Allaus"
+              rel="noopener noreferrer"
+              className="text-[var(--ink-2)]"
+            >
+              butlletí de perill d&apos;allaus
+            </a>{' '}
+            de l&apos;ICGC amb el Meteocat.
+          </p>
+        </section>
+      )}
+
+      <h2 className="mb-3 text-lg font-semibold tracking-tight">
+        Gruix mesurat a les estacions de la XEMA
+      </h2>
 
       <div className="scroll-x">
         <table className="w-full border-collapse text-sm">

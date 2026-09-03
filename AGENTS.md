@@ -22,6 +22,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `src/lib/narrative.ts` | Del dato a la frase: el titular, las franjas del día, las preguntas |
 | `data/cache/radar/` | Teselas de radar ya descargadas. Las sirve una route handler |
 | `data/cache/cameres/` | Fotogramas de las cámaras de FGC, ya reescalados. Igual: los sirve una route handler |
+| `src/lib/mountain.ts` | Las seis estaciones de esquí: qué hay abierto, cuánta nieve y la temperatura a cota |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
@@ -164,6 +165,7 @@ npm run worker:air        # qualitat de l'aire i pol·len, cada 12 h
 npm run worker:forecast   # predicció · accepta --tiers=A,B,C i --fill
 npm run worker:history    # rècords i normals, un cop al dia
 npm run worker:cameres    # cameres de muntanya de FGC, cada hora
+npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
 ```
 
 Pruebas:
@@ -363,6 +365,24 @@ cuota para exactamente la misma información.
   -`MEDUSES`, `Vent`, `Estat del mar`, `Qualitat de l'aigua`, `Altres`- però hi havia
   `MEDUSES` en majúscules i, en una platja, `Medusas` en castellà. Normalitza amb
   `flagReasonText()`.
+- **El `limit` de l'API d'FGC té el sostre a cent i no ho diu.** `pistes-desqui` en té 181:
+  torna un 200 amb cent files i el `total_count` a 181 en un racó. Sense paginar, la Molina
+  passava de 66 pistes a 18 i el desnivell del catàleg s'escurçava 400 m. Fes servir
+  `allRecords()` de `scripts/workers/fgc-mountain.ts`.
+- **`facility_type_literals_ca` de les pistes porta el literal en català a 104 files i la clau
+  de l'enumerat —`ski_slope`— a les altres 26.** Filtrant per «Pista», Vallter es quedava amb
+  una pista de catorze.
+- **El `last_update` de l'estat de les estacions diu `+00:00` i és hora local de Madrid.** Es va
+  veure perquè un comunicat de les 09:13 «+00:00» quedava mitja hora al futur. Llegit com a UTC,
+  tot comunicat sembla dues hores més fresc del que és. El worker el reinterpreta i comprova que
+  cap no quedi al futur, que és l'única direcció on l'error es veu.
+- **D'`FGC meteo-tim` no es publica ni la pressió ni la velocitat del vent, i és a posta.** La
+  pressió ve reduïda al nivell del mar —per tant no diu res que la XEMA no digui millor— i una
+  de les nou dona 1.056,6 hPa, que no existeix. El `VentActual` de Boí Taüll va estar clavat a
+  16,1 mitja hora **sent més gran que el seu propi màxim**, i cap fitxer declara la unitat.
+- **El risc d'allaus d'FGC no es publica mai.** El camp hi és i el comunicat d'Espot del 8
+  d'abril seguia dient «3 - Marcat» cinc mesos després. Un risc d'allaus caducat no és una dada
+  endarrerida: és perillosa. El butlletí oficial és el de l'ICGC amb el Meteocat, i s'hi enllaça.
 - **Una càmera pot portar mesos aturada servint el mateix fotograma amb un 200.** És la
   trampa de la bandera de platja una altra vegada: cinc de les vint-i-quatre de FGC ho estaven,
   una des del 10 d'abril, i totes amb `is_active: 1`. Cada imatge viatja amb la seva hora de

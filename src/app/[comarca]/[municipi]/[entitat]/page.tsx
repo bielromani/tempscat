@@ -14,7 +14,8 @@ import { waterNear } from '@/lib/water';
 import { nearestAirStation } from '@/lib/air-stations';
 import { seaNear } from '@/lib/sea';
 import { camerasNear } from '@/lib/cameras';
-import { aName } from '@/lib/format';
+import { resortNear } from '@/lib/mountain';
+import { aName, deName } from '@/lib/format';
 import { narrativeFor } from '@/lib/narrative';
 
 /**
@@ -79,8 +80,9 @@ export default async function EntitatPage({ params }: { params: Params }) {
         airStation={await nearestAirStation(loc)}
         sea={await seaNear(loc)}
         cameras={await camerasNear(loc)}
+        resort={await resortNear(loc)}
         siblings={siblings}
-        siblingsLabel={`Altres nuclis de ${municipiLoc?.nom ?? 'el municipi'}`}
+        siblingsLabel={municipiLoc ? `Altres nuclis ${deName(municipiLoc.nom)}` : 'Altres nuclis del municipi'}
         neighbours={[]}
         neighboursLabel=""
         description={describeLocation(loc, com, municipiLoc, siblings)}

@@ -61,6 +61,7 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 | `air-quality.json` | 372 celdas de 0,1° × 18 variables × 72 h | 12 h |
 | `radar.json` + `radar/` | 7 marcos de radar × 4 teselas de 512 px · 200 KB | 10 min |
 | `cameres.json` + `cameres/` | 24 cámaras de FGC × 2 tamaños de JPEG · 2 MB | 1 h |
+| `muntanya.json` | 6 estaciones de esquí, 9 estaciones meteo de 1.664 a 2.537 m, 181 pistas | 1 h |
 | `freshness.json`, `quota.json` | Estado de las fuentes y consumo | — |
 
 **Medido**: 402 páginas prerenderizadas, TTFB 21 ms en caliente, página de municipio de 38 KB
@@ -91,6 +92,12 @@ por la red, **cero JavaScript propio**.
   hora: la página no hace ni una petición a los cinco dominios de terceros a los que apuntan las
   URL originales. Dos tamaños —400 px para la reja, 1.280 para la ficha— y la hora de captura en
   cada imagen.
+
+- ✅ **Nieve y estaciones de esquí.** Las seis estaciones de FGC con lo que comunican —abierto,
+  espesor, calidad, última nevada, porcentaje de pistas y remontes—, el catálogo técnico de 181
+  pistas y 55 remontes, y **nueve estaciones meteorológicas propias de 1.664 a 2.537 m**, que es
+  donde la XEMA tiene menos. En `/neu` y en la ficha de los pueblos a menos de 30 km, donde
+  además se compara la cota de nieve prevista con el desnivel esquiable.
 
 ## Lo que falta para cerrar la fase 1
 
@@ -196,6 +203,24 @@ Esta es la parte que más tiempo ahorra. **Todas son reales, todas costaron enco
 - Los nombres de la ACA llevan la etiqueta del tipo de estación delante, y seis llevan **dos**:
   `Aforament - Qualitat - <lugar>`. Y seis aforos están *en* el embalse más cercano, así que el
   mismo nombre salía dos veces bajo dos títulos distintos.
+
+### Estaciones de esquí de FGC
+
+- **El `limit` de la API tiene el techo en cien y no lo dice.** `pistes-desqui` tiene 181 filas:
+  devuelve un 200 con cien y el `total_count` a 181. Sin paginar, La Molina pasaba de 66 pistas a
+  18 y su desnivel de 1.654–2.530 a 1.654–2.138 m.
+- **El tipo de pista llega de dos formas en el mismo campo**: «Pista» en 104 filas y la clave del
+  enumerado, `ski_slope`, en 26. Filtrando por «Pista», Vallter se quedaba con 1 pista de 14.
+- **`last_update` dice `+00:00` y es hora local de Madrid.** Un comunicado de las 09:13 quedaba
+  media hora en el futuro. Leído como UTC, todo comunicado parece dos horas más fresco.
+- **Nada de presión ni de velocidad de viento.** La presión viene reducida al nivel del mar y una
+  de las nueve estaciones da 1.056,6 hPa. El `VentActual` de Boí Taüll estuvo clavado en 16,1
+  media hora siendo mayor que su propio máximo, y ningún fichero declara la unidad.
+- **Y nada de riesgo de aludes.** El campo existe y el comunicado de Espot del 8 de abril seguía
+  diciendo «3 - Marcat» cinco meses después. El boletín oficial es el del ICGC con el Meteocat.
+- **Tres de los seis comunicados llevaban semanas o meses parados.** El contenido variable —nieve,
+  porcentajes, cielo— se retira a las 48 h; el abierto/cerrado y el catálogo de pistas se quedan,
+  porque el primero sigue siendo cierto y el segundo no caduca.
 
 ### Cámaras de FGC
 
