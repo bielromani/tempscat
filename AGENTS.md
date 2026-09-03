@@ -371,10 +371,12 @@ cuota para exactamente la misma información.
   d'avisar de res. Va passar amb els rècords de la XEMA i amb els avisos de l'AEMET, que
   elabora el lot de fitxers CAP un o dos cops al dia. El límit ha de ser el cicle real de
   la font, no la cadència del worker.
-- **El `limit` de l'API d'FGC té el sostre a cent i no ho diu.** `pistes-desqui` en té 181:
-  torna un 200 amb cent files i el `total_count` a 181 en un racó. Sense paginar, la Molina
-  passava de 66 pistes a 18 i el desnivell del catàleg s'escurçava 400 m. Fes servir
-  `allRecords()` de `scripts/workers/fgc-mountain.ts`.
+- **El `limit` de l'API d'FGC té el sostre a cent, i el catàleg també pot arribar curt sense
+  motiu.** `pistes-desqui` en té 181 i torna cent amb el `total_count` en un racó; i el 3 de
+  setembre de 2026 el de càmeres —trenta files, que hi caben— va tornar una resposta parcial i
+  el worker va publicar **quinze càmeres de vint-i-quatre en verd**, amb la Molina sencera fora
+  del web. Fes servir `allRecords()` de `scripts/lib/fgc.ts`, que compara amb el `total_count`
+  i llança: un catàleg incomplet és pitjor que la instantània anterior, que era sencera.
 - **`facility_type_literals_ca` de les pistes porta el literal en català a 104 files i la clau
   de l'enumerat —`ski_slope`— a les altres 26.** Filtrant per «Pista», Vallter es quedava amb
   una pista de catorze.

@@ -54,14 +54,12 @@
  * gran que el recorregut vol dir un pendent de més de 45° tota l'estona, cosa
  * que no és cap itinerari d'esquí de muntanya.
  *
- * ## Dues trampes al catàleg de pistes
+ * ## La trampa del tipus de pista
  *
- * **L'API en dona cent i n'hi ha cent vuitanta-una.** El `limit` de l'Explore
- * v2.1 té el sostre a cent i no avisa de res: torna un 200 amb cent files i el
- * `total_count` posat a 181 en un racó. Sense paginar, la Molina passava de
- * trenta-tres pistes a divuit i el desnivell sortia escurçat.
+ * La paginació del portal —cent files per petició, i el `total_count` en un
+ * racó— viu a `scripts/lib/fgc.ts`, que és qui la comprova.
  *
- * **I el tipus arriba de dues maneres.** El camp es diu
+ * **El tipus arriba de dues maneres.** El camp es diu
  * `facility_type_literals_ca` —o sigui, el literal en català— i porta «Pista»
  * en cent quatre files i **`ski_slope`** en vint-i-sis: la clau de l'enumerat
  * sense traduir. Filtrant per «Pista», Vallter es quedava amb una pista de les
@@ -89,7 +87,8 @@
  * Sortida: data/cache/muntanya.json
  */
 import { readFileSync } from 'node:fs';
-import { fetchWithRetry, fetchJson, throttledMap } from '../lib/http.ts';
+import { fetchWithRetry, throttledMap } from '../lib/http.ts';
+import { allRecords } from '../lib/fgc.ts';
 import { build } from '../lib/paths.ts';
 import { slugify } from '../lib/catalan.ts';
 import { fgcTimestamp, madridToUtc } from '../lib/madrid.ts';
@@ -101,36 +100,6 @@ import type {
 } from '../../src/lib/mountain-types.ts';
 
 const API = 'https://dadesobertes.fgc.cat/api/explore/v2.1/catalog/datasets';
-
-/** El sostre per pàgina de l'Explore v2.1. Més amunt no serveix de res. */
-const PAGE = 100;
-
-/**
- * Totes les files d'un conjunt, paginant.
- *
- * Cent per petició, i es demana fins que se n'han recollit tantes com diu el
- * `total_count`. El tall de seguretat és per no fer un bucle infinit si algun
- * dia el comptador i les files deixen de quadrar.
- */
-async function allRecords<T>(dataset: string): Promise<T[]> {
-  const out: T[] = [];
-  let total = Infinity;
-
-  for (let offset = 0; out.length < total && offset < 5_000; offset += PAGE) {
-    const url = `${API}/${dataset}/records?limit=${PAGE}&offset=${offset}`;
-    const page = await fetchJson<{ total_count: number; results: T[] }>(
-      url, { retries: 3, timeoutMs: 30_000 },
-    );
-    total = page.total_count ?? out.length;
-    if (!page.results?.length) break;
-    out.push(...page.results);
-  }
-
-  if (out.length < total) {
-    throw new Error(`${dataset}: se n'han llegit ${out.length} de ${total} files.`);
-  }
-  return out;
-}
 
 /** Fins a quina distància una estació reclama un municipi com el seu més proper. */
 const MAX_NEAREST_KM = 25;
@@ -370,11 +339,11 @@ async function main() {
   const started = Date.now();
 
   const [states, meteo, slopes, lifts, ...circuitSets] = await Promise.all([
-    allRecords<StateRow>('estat-d-obertura-de-les-explotacions'),
-    allRecords<MeteoRow>('meteo-tim'),
-    allRecords<SlopeRow>('pistes-desqui'),
-    allRecords<LiftRow>('remuntadors'),
-    ...CIRCUIT_SETS.map((c) => allRecords<CircuitRow>(c.dataset)),
+    allRecords<StateRow>('estat-d-obertura-de-les-explotacions', API),
+    allRecords<MeteoRow>('meteo-tim', API),
+    allRecords<SlopeRow>('pistes-desqui', API),
+    allRecords<LiftRow>('remuntadors', API),
+    ...CIRCUIT_SETS.map((c) => allRecords<CircuitRow>(c.dataset, API)),
   ]);
   quota.spend('fgc', 10);
 

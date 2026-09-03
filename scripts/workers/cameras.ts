@@ -73,6 +73,21 @@
  * de mandar. Por eso cada imagen viaja con su hora de captura y la aplicación
  * no enseña ninguna que pase de las horas de `src/lib/cameras.ts`.
  *
+ * ## El catálogo puede llegar corto, y llegó
+ *
+ * El 3 de septiembre de 2026 este worker publicó **quince cámaras de
+ * veinticuatro** y terminó en verde: La Molina entera desapareció del sitio.
+ * El catálogo tiene treinta filas, que caben de sobra en una página, así que
+ * nadie sospecharía una respuesta parcial — pero el portal la dio, y leer
+ * `results` sin más la acepta sin decir nada.
+ *
+ * Ahora la lectura pasa por `scripts/lib/fgc.ts`, que compara lo que llega con
+ * el `total_count` que el propio portal declara y **lanza si falta algo**. Y
+ * hay una segunda red por debajo: si el número de cámaras publicables cae más
+ * de un tercio respecto a la vuelta anterior, tampoco se publica. Vale más la
+ * instantánea de hace una hora, que estaba completa, que una nueva a la que le
+ * falta un tercio.
+ *
  * ## Y no se vuelve a subir la misma foto
  *
  * Con el nombre del fichero fijo —`<id>.jpg`, que es lo que evita acumular
@@ -91,6 +106,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { fetchWithRetry, throttledMap } from '../lib/http.ts';
+import { allRecords } from '../lib/fgc.ts';
 import { build } from '../lib/paths.ts';
 import { slugify } from '../lib/catalan.ts';
 import { madridToUtc } from '../lib/madrid.ts';
@@ -100,8 +116,16 @@ import {
 } from '../lib/store.ts';
 import type { Camera, CamerasData } from '../../src/lib/camera-types.ts';
 
-const API = 'https://dadesobertes.fgc.cat/api/explore/v2.1/catalog/datasets'
-  + '/webcams-actives-tim/records?limit=100';
+const API = 'https://dadesobertes.fgc.cat/api/explore/v2.1/catalog/datasets';
+const DATASET = 'webcams-actives-tim';
+
+/**
+ * Fins on es tolera que la llista encongeixi d'una volta a l'altra.
+ *
+ * Veure la capçalera: una caiguda d'un terç no és que FGC hagi apagat càmeres,
+ * és que alguna cosa ha anat malament pel camí.
+ */
+const MIN_SHARE_OF_PREVIOUS = 2 / 3;
 
 /** Ancho de la imagen que se enseña en la página de cada cámara. */
 const VIEW_W = 1280;
@@ -279,11 +303,8 @@ async function main() {
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 
-  const res = await fetchWithRetry(API, { retries: 3, timeoutMs: 30_000 });
-  const payload = (await res.json()) as { total_count: number; results: FgcRecord[] };
+  const all = await allRecords<FgcRecord>(DATASET, API);
   quota.spend('fgc', 1);
-
-  const all = payload.results ?? [];
   if (!all.length) throw new Error('El cataleg de FGC no ha retornat cap camera.');
 
   const municipis = (JSON.parse(readFileSync(build('locations.json'), 'utf8')) as BuildLocation[])
@@ -476,6 +497,20 @@ async function main() {
     for (const f of failures) console.log(`  ${f}`);
   }
   if (!cameras.length) throw new Error('Cap camera no ha donat imatge.');
+
+  /*
+   * La segona xarxa: no encongir en silenci. Veure la capçalera.
+   *
+   * Va després de la conservació de fitxes, així que només salta quan de debò
+   * s'han perdut càmeres i no hi havia res anterior per conservar.
+   */
+  const had = previous?.data.cameras.length ?? 0;
+  if (had && cameras.length < had * MIN_SHARE_OF_PREVIOUS) {
+    throw new Error(
+      `Nomes s'han pogut fer ${cameras.length} cameres de les ${had} de la volta anterior. `
+      + 'No es publica: la instantania d’abans es millor que una a la qual li falta un terç.',
+    );
+  }
 
   // Slugs repetidos: dos cámaras con el mismo nombre en la misma estación
   // acabarían compartiendo URL, y la segunda taparía la primera sin dar error.
