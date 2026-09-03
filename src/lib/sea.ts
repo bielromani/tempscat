@@ -104,21 +104,21 @@ export function flagStyle(flag: string) {
 }
 
 /**
- * QuÃ¨ Ã©s cada medusa i quÃ¨ fa si la toques.
+ * Què és cada medusa i què fa si la toques.
  *
- * El registre les anota amb el nom cientÃ­fic i prou. Â«Cotylorhiza tuberculataÂ»
- * no diu res a ningÃº, i Â«Physalia physalisÂ» âque Ã©s la que de debÃ² importaâ
+ * El registre les anota amb el nom científic i prou. «Cotylorhiza tuberculata»
+ * no diu res a ningú, i «Physalia physalis» —que és la que de debò importa—
  * tampoc.
  *
- * ## Com estÃ  escrita aquesta taula
+ * ## Com està escrita aquesta taula
  *
- * En to conservador i sense entrar en tractaments. Una espÃ¨cie que no hi
- * consti es tracta **com si piquÃ©s**, no com si fos inofensiva: val mÃ©s
- * quedar-se curt que tranquilÂ·litzar sobre una cosa que no coneixem.
+ * En to conservador i sense entrar en tractaments. Una espècie que no hi
+ * consti es tracta **com si piqués**, no com si fos inofensiva: val més
+ * quedar-se curt que tranquil·litzar sobre una cosa que no coneixem.
  *
- * La `Physalia` no Ã©s una medusa sinÃ³ un sifonÃ²for. AquÃ­ importaria poc si no
- * fos perquÃ¨ la seva picada Ã©s d'una altra categoria i els tentacles piquen
- * igual a la sorra i hores desprÃ©s.
+ * La `Physalia` no és una medusa sinó un sifonòfor. Aquí importaria poc si no
+ * fos perquè la seva picada és d'una altra categoria i els tentacles piquen
+ * igual a la sorra i hores després.
  */
 export type StingLevel = 'inofensiva' | 'lleu' | 'dolorosa' | 'perillosa' | 'desconeguda';
 
@@ -127,17 +127,17 @@ interface Species { common: string; sting: StingLevel; note?: string }
 const JELLYFISH: Record<string, Species> = {
   'pelagia noctiluca': {
     common: 'medusa clavell', sting: 'dolorosa',
-    note: 'La mÃ©s freqÃ¼ent a la costa catalana.',
+    note: 'La més freqüent a la costa catalana.',
   },
   'rhizostoma pulmo': { common: 'bot blau', sting: 'lleu' },
   'cotylorhiza tuberculata': { common: 'ou ferrat', sting: 'inofensiva' },
   'aurelia aurita': { common: 'medusa vera', sting: 'lleu' },
   'velella velella': { common: 'barqueta de Sant Pere', sting: 'inofensiva' },
-  'chrysaora hysoscella': { common: 'medusa de compÃ s', sting: 'dolorosa' },
+  'chrysaora hysoscella': { common: 'medusa de compàs', sting: 'dolorosa' },
   'carybdea marsupialis': { common: 'medusa cub', sting: 'dolorosa' },
   'physalia physalis': {
-    common: 'vaixell portuguÃ¨s', sting: 'perillosa',
-    note: 'No Ã©s una medusa. Els tentacles piquen tambÃ© fora de lâaigua i hores desprÃ©s.',
+    common: 'vaixell portuguès', sting: 'perillosa',
+    note: 'No és una medusa. Els tentacles piquen també fora de l’aigua i hores després.',
   },
 };
 
@@ -146,10 +146,10 @@ export const STING_STYLE: Record<StingLevel, { label: string; color: string }> =
   lleu: { label: 'picada lleu', color: 'var(--cap-yellow)' },
   dolorosa: { label: 'pica, i fa mal', color: 'var(--warn)' },
   perillosa: { label: 'perillosa', color: 'var(--cap-red)' },
-  desconeguda: { label: 'tracteu-la com si piquÃ©s', color: 'var(--muted)' },
+  desconeguda: { label: 'tracteu-la com si piqués', color: 'var(--muted)' },
 };
 
-/** QuÃ¨ se sap d'una espÃ¨cie. Mai diu Â«inofensivaÂ» d'una que no consti. */
+/** Què se sap d'una espècie. Mai diu «inofensiva» d'una que no consti. */
 export function speciesInfo(scientific: string): Species {
   return JELLYFISH[scientific.trim().toLowerCase()]
     ?? { common: '', sting: 'desconeguda' };

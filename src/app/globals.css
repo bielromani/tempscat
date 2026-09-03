@@ -279,10 +279,68 @@ button:focus-visible,
  * retards i les regles per marc les genera la pàgina, on hi ha escrit el
  * perquè.
  */
+/*
+ * Els controls invisibles, i per què van `fixed`.
+ *
+ * Han d'anar davant del mapa al DOM perquè `~` no mira enrere, però estaven
+ * `position: absolute` dins del `figure`, o sigui a dalt de tot del mapa. En
+ * clicar «Reprodueix», el navegador acosta a la vista el control que acabes
+ * d'activar i **la pàgina saltava amunt** — amb un mapa que feia una pantalla
+ * i mitja, perdent de vista el botó que havies premut.
+ *
+ * `position: fixed` ho arregla d'arrel: un element fix ja és sempre a la vista,
+ * així que no hi ha res a acostar. Mesurat amb un clic de debò: abans anava de
+ * 500 a 314 píxels de desplaçament, i ara es queda clavat.
+ *
+ * Provat abans i descartat: deixar-los al flux amb mida zero i posar-los al
+ * costat de la barra amb `order`. Reduïa el salt però no el treia.
+ *
+ * Les regles de germans no depenen de res d'això: miren l'ordre del DOM.
+ */
+.radar {
+  display: flex;
+  flex-direction: column;
+}
+
 .radar > input {
-  position: absolute;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
   opacity: 0;
   pointer-events: none;
+}
+
+/* Tots els fills porten `order`: el que no en porti es queda a zero i se'n va
+   al davant del mapa. Hi va passar amb el `nav` de les zones. */
+.radar > .rmap { order: 1; }
+.radar > .rbar { order: 3; }
+.radar > nav { order: 4; }
+.radar > figcaption { order: 5; }
+
+/*
+ * El mapa no pot ser més alt que la pantalla.
+ *
+ * Amb `width: 100%` i un `viewBox`, l'alçada surt de l'amplada i de la relació
+ * d'aspecte de la zona: a Catalunya sencera això és gairebé un quadrat, i en un
+ * portàtil el mapa ocupava més que tota la finestra — la barra de reproducció i
+ * la llegenda quedaven sota el plec.
+ *
+ * El sostre és 60vh i no 70: la capçalera de la pàgina ja ocupa uns 260 px, i
+ * amb 68vh el botó de reproduir tornava a caure just per sota del plec en una
+ * finestra de 800 px d'alt.
+ *
+ * En comptes de retallar l'SVG, es limita l'amplada del contenidor: la pàgina
+ * passa la relació d'aspecte de la zona a `--raspect` i d'aquí surt l'amplada
+ * màxima que fa que l'alçada no passi del sostre. Així el mapa queda tan gran
+ * com hi càpiga, centrat, i sense franges negres als costats.
+ */
+.rmap {
+  --rmax-height: 60vh;
+  max-width: calc(var(--rmax-height) * var(--raspect, 1));
+  margin-inline: auto;
+  width: 100%;
 }
 
 /* Tots apagats. La regla que encén el triat porta un `id` al davant i hi

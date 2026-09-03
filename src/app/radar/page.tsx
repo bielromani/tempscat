@@ -251,6 +251,10 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
       <figure className="m-0 radar">
         {/*
           * Els controls van primer i germans del mapa: `~` no surt del pare.
+          *
+          * Al DOM van aquí i a la pantalla van entre el mapa i la barra, que
+          * `globals.css` els hi posa amb `order`. Si anessin posicionats en
+          * absolut a dalt, enfocar-los faria saltar la pàgina — hi va passar.
           */}
         <input type="checkbox" id="rplay" />
         {frames.map((f, i) => (
@@ -266,7 +270,13 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
 
         <div
           className="rmap overflow-hidden rounded-lg border border-[var(--line-soft)]"
-          style={{ background: 'var(--surface-2)', ['--rcycle' as string]: `${cycleS}s` }}
+          style={{
+            background: 'var(--surface-2)',
+            ['--rcycle' as string]: `${cycleS}s`,
+            // La relació d'aspecte de la zona, perquè el CSS pugui limitar
+            // l'alçada sense retallar. El perquè, a `globals.css`.
+            ['--raspect' as string]: (view.w / view.h).toFixed(4),
+          }}
         >
           <svg
             viewBox={`${view.x.toFixed(1)} ${view.y.toFixed(1)} ${view.w.toFixed(1)} ${view.h.toFixed(1)}`}
