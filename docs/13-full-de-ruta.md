@@ -682,6 +682,92 @@ las comarcas.
 
 ---
 
+## Revisión del usuario, 3 de septiembre de 2026
+
+Todo lo que salió de una pasada por el sitio, con lo que ya está medido de cada
+cosa. Ordenado por lo que cuesta arreglarlo, no por lo que molesta.
+
+### El radar · **hecho a medias**
+
+Arreglado ya: el mapa ocupaba más de una pantalla de portátil y «Reprodueix les
+2 hores» hacía saltar la página arriba. Los dos, con su porqué, en el commit.
+
+**Lo que falta es el producto, y es lo más pedido:**
+
+- **Mezclar observación y predicción en una sola línea de tiempo**, con el
+  presente en el centro y el futuro a la derecha, como
+  [meteo.cat](https://www.meteo.cat/observacions/radar). Hoy las dos horas son
+  todas pasadas.
+- **Arrastrar la línea** en vez de pinchar marcas sueltas. Esto **no cabe sin
+  JavaScript**: un `input[type=range]` puede mover marcos con CSS
+  (`:checked` no, pero sí con `accent-color` y hermanos), pero el gesto de
+  arrastrar con inercia y el rótulo que sigue al dedo no. Es la primera cosa
+  del sitio que justificaría un componente cliente, y hay que decidirlo a
+  propósito, no por descuido.
+- **Zoom de verdad y topónimos que aparecen al ampliar.** Hoy las seis zonas
+  amplían la misma imagen: el tilecache público de RainViewer se acaba en el
+  zoom 7 —un píxel son 460 m— así que ampliar no añade detalle de radar. Lo que
+  sí gana son las fronteras y los nombres, que son vectores. Para más detalle de
+  radar hace falta otra fuente: el del **Meteocat** llega a 1 km y pide clave.
+- **El nowcast.** RainViewer publica marcos futuros en su API de pago; la
+  pública no. Sin eso, «futuro» solo puede salir de nuestra predicción horaria,
+  y entonces hay que etiquetarlo como lo que es: modelo, no radar.
+
+### Platges i mar · **apuntado**
+
+- **Un mapa de la costa con las playas encima**, cada una con su bandera,
+  temperatura del agua, oleaje y medusas. Hoy es una lista.
+- **Ordenar y filtrar por municipio**, no solo por tramo de costa.
+- Un **buscador de playas** propio.
+
+### Neu i estacions d'esquí · **apuntado**
+
+- **Las cámaras de la estación, en la propia tarjeta.** El dato ya está: las
+  cámaras traen `bunitId` y las estaciones también, así que el cruce es directo.
+- **Un mapa** con las seis estaciones, el gruix y lo que hay abierto.
+- Comprobar si alguna cámara da **vídeo en directo** y no solo fotograma. Las de
+  Roundshot tienen visor con movimiento; habría que ver si hay un flujo servible
+  sin incrustar su reproductor.
+
+### El buscador · **diagnosticado, y está roto de verdad**
+
+- **Falla con nombres coloquiales.** «cala fosca» no encuentra nada, y el sitio
+  existe: es **«la Fosca»**, un núcleo de Palamós. La causa está medida: el
+  puntuador de `src/lib/search.ts` solo hace prefijo y subcadena sobre el nombre
+  entero plegado, así que `la fosca` no contiene `cala fosca` y devuelve cero.
+  La solución es puntuar **por palabras**, tratando los artículos como
+  prescindibles: las palabras del nombre menos los artículos —`{fosca}`— sí
+  están dentro de la consulta.
+- **No está en todas las páginas**, solo en la cabecera de algunas.
+- **El *placeholder* dice «Cercar un poble…»** cuando debería poder buscar
+  playas, estaciones y ríos. Hoy solo busca ubicaciones del territorio.
+
+### Bolets · **hay que rehacerla o quitarla**
+
+La página no se sostiene y el usuario tiene razón en el diagnóstico: ordena por
+lluvia acumulada en las 189 estaciones de la XEMA, así que la «mejor zona» sale
+Torredembarra o Vielha — sitios donde nadie va a buscar setas. El error de
+concepto es ordenar **estaciones meteorológicas** cuando la pregunta es sobre
+**bosques**.
+
+Dos salidas, y la segunda es mejor:
+
+1. Filtrar por zonas con bosque de verdad, lo que exige una capa de usos del
+   suelo que no tenemos.
+2. **Quitar la página de país** y poner el bloque de setas **en la ficha de los
+   pueblos donde se buscan**, que es donde la pregunta se hace. La lluvia de los
+   últimos quince días, cuándo fue el último chubasco y las temperaturas ya
+   están calculados por ubicación.
+
+### Los textos · **regla ya escrita, aplicarla a todo**
+
+Está en `AGENTS.md`: la página no habla de sí misma, registro neutro, sin
+pullas. Se aplicó a las cámaras después de que el usuario señalara «De nit les
+imatges surten fosques. No és una errada: és el que hi ha…». Falta una pasada
+por el resto con el mismo criterio.
+
+---
+
 ## Pendiente de diseño y de producto
 
 Apuntado tal como salió, para no perderlo. Nada de esto es de datos: es de que
