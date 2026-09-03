@@ -23,6 +23,8 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/cache/radar/` | Teselas de radar ya descargadas. Las sirve una route handler |
 | `data/cache/cameres/` | Fotogramas de las cámaras de FGC, ya reescalados. Igual: los sirve una route handler |
 | `src/lib/mountain.ts` | Las seis estaciones de esquí: qué hay abierto, cuánta nieve y la temperatura a cota |
+| `src/lib/routes.ts` | Los 683 itinerarios señalizados. **ODbL, no CC-BY: fuera del API** |
+| `data/build/routes.json` | Se construye con `npm run data:routes`. **Se versiona** |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
@@ -371,6 +373,19 @@ cuota para exactamente la misma información.
   d'avisar de res. Va passar amb els rècords de la XEMA i amb els avisos de l'AEMET, que
   elabora el lot de fitxers CAP un o dos cops al dia. El límit ha de ser el cicle real de
   la font, no la cadència del worker.
+- **Els itineraris són d'OpenStreetMap i per tant **ODbL**, no CC-BY.** Ensenyar-los en una
+  pàgina només demana atribució, però posar-los al feed de `/dades` en faria una base de dades
+  derivada i xocaria amb el CC-BY que aquell feed promet. Es queden fora de l'API.
+- **L'etiqueta `distance` d'OSM la tecleja qui mapa.** Hi havia cinc rutes seguides amb
+  exactament «15.0 km», i en 26 dels 683 la geometria i l'etiqueta es separen més d'un 25 %. Es
+  publica la calculada del traçat. El **desnivell acumulat**, en canvi, no es calcula: amb un
+  model de 57 m sortiria curt sense que es notés, i només surt quan OSM el porta.
+- **El filtre d'àrea d'Overpass agafa el que *passa* pel territori.** Entraven etapes de la
+  Haute Randonnée Pyrénéenne amb un 3 % dins de Catalunya. Es demana la meitat com a mínim,
+  mesurada amb els mateixos punts de mostreig que donen la cota.
+- **El model d'elevació dona cotes negatives a la vora del mar.** És el soroll d'interpolar
+  entre el terreny i la batimetria: `−4 m` en un camí de la costa. La cota mínima es limita a
+  zero, i el `createDem()` de `scripts/lib/dem.ts` descarta el que baixa de −100.
 - **El `limit` de l'API d'FGC té el sostre a cent, i el catàleg també pot arribar curt sense
   motiu.** `pistes-desqui` en té 181 i torna cent amb el `total_count` en un racó; i el 3 de
   setembre de 2026 el de càmeres —trenta files, que hi caben— va tornar una resposta parcial i
