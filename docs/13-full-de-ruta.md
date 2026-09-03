@@ -731,13 +731,18 @@ Arreglado ya: el mapa ocupaba más de una pantalla de portátil y «Reprodueix l
 
 ### El buscador · **diagnosticado, y está roto de verdad**
 
-- **Falla con nombres coloquiales.** «cala fosca» no encuentra nada, y el sitio
-  existe: es **«la Fosca»**, un núcleo de Palamós. La causa está medida: el
-  puntuador de `src/lib/search.ts` solo hace prefijo y subcadena sobre el nombre
-  entero plegado, así que `la fosca` no contiene `cala fosca` y devuelve cero.
-  La solución es puntuar **por palabras**, tratando los artículos como
-  prescindibles: las palabras del nombre menos los artículos —`{fosca}`— sí
-  están dentro de la consulta.
+- **La causa principal es de cobertura, no de puntuación.** «cala fosca» no
+  encuentra nada, y **«Cala la Fosca» existe**: es una playa de Palamós, está en
+  el registro con su bandera. El buscador indexa **solo las 4.250 ubicaciones
+  del territorio** — ni las 229 playas, ni las 189 estaciones, ni los embalses,
+  ni los aforos. Por eso el *placeholder* dice «Cercar un poble…»: es literal.
+  Arreglar esto es lo mismo que pide el usuario cuando habla de un buscador de
+  playas y otro de ríos — un solo índice con todas las entidades y su tipo.
+- **Y de paso, puntuar por palabras.** Hoy `src/lib/search.ts` solo hace prefijo
+  y subcadena sobre el nombre entero plegado, así que aunque la playa estuviera
+  indexada, `cala la fosca` contra la consulta `cala fosca` fallaría igual: no
+  es subcadena. Con las palabras del nombre menos los artículos —`{cala,
+  fosca}`— encaja exactamente.
 - **No está en todas las páginas**, solo en la cabecera de algunas.
 - **El *placeholder* dice «Cercar un poble…»** cuando debería poder buscar
   playas, estaciones y ríos. Hoy solo busca ubicaciones del territorio.
