@@ -35,7 +35,8 @@ export function ResortBlock({
   const hasSnow = resort.reportUsable && resort.snowMaxCm != null && resort.snowMaxCm > 0;
 
   return (
-    <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+    /* L'ancora es perque el cercador hi pugui portar: /neu#e-la-molina. */
+    <div id={`e-${resort.slug}`} className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h3 className="text-base font-semibold tracking-tight text-[var(--ink)]">
           {resort.name}

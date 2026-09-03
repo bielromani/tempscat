@@ -60,8 +60,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {/*
               * El cercador va a la capçalera i és un formulari, no un component.
               * Sense JavaScript no hi ha suggeriments mentre s'escriu, però hi ha
-              * el que importa: es pot arribar a qualsevol dels 4.293 llocs des de
+              * el que importa: es pot arribar a qualsevol lloc del web des de
               * qualsevol pàgina, amb el teclat i sense carregar res.
+              *
+              * El text de dins deia «Cercar un poble», i era una promesa curta:
+              * també s'hi troben platges, pantans, estacions i itineraris. Un
+              * exemple de cada mena en diu més que una llista.
               */}
             <form
               action="/cerca"
@@ -69,12 +73,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               role="search"
               className="ms-auto flex min-w-0 items-center"
             >
-              <label htmlFor="site-q" className="sr-only">Cercar un lloc</label>
+              <label htmlFor="site-q" className="sr-only">
+                Cercar un poble, una platja, un pantà o una estació
+              </label>
               <input
                 id="site-q"
                 name="q"
                 type="search"
-                placeholder="Cercar un poble…"
+                placeholder="Cadaqués, Sau, GR-11…"
                 className="w-36 min-w-0 rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-1 text-sm text-[var(--ink)] outline-none placeholder:text-[var(--muted)] focus:w-52 focus:border-[var(--accent)] sm:w-44"
               />
             </form>

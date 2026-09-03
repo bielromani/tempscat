@@ -99,6 +99,7 @@ export default async function AiguaPage() {
           return (
             <li
               key={r.code}
+              id={`e-${r.code}`}
               className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -213,6 +214,7 @@ export default async function AiguaPage() {
                     .map((r) => (
                       <li
                         key={r.code}
+                        id={`a-${r.code}`}
                         className="flex items-baseline justify-between gap-3 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2"
                       >
                         <span className="min-w-0 truncate text-sm text-[var(--ink-2)]">

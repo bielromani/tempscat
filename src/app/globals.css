@@ -414,3 +414,30 @@ button:focus-visible,
 
 :root[data-theme='dark'] .relief { opacity: 0.42; }
 
+
+/* Arribar-hi des del cercador.
+   -------------------------------------------------------------------------
+   Un resultat de platja portava a /mar i prou: la pagina te 229 platges i
+   trobar-hi la que s'havia demanat tornava a ser feina del lector. Ara
+   l'adreca porta l'ancora, i aixo es el que la fa visible en arribar-hi.
+
+   El desplacament de dalt es perque el navegador no la deixi enganxada al
+   caire, i el ressaltat s'apaga sol: es un «es aqui», no un estat. */
+[id^='p-'],
+[id^='e-'],
+[id^='a-'] { scroll-margin-top: 1.5rem; }
+
+:target {
+  animation: found 2.4s ease-out;
+  border-radius: 0.5rem;
+}
+
+@keyframes found {
+  from { box-shadow: 0 0 0 2px var(--accent); }
+  60%  { box-shadow: 0 0 0 2px var(--accent); }
+  to   { box-shadow: 0 0 0 2px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :target { animation: none; box-shadow: 0 0 0 2px var(--accent); }
+}

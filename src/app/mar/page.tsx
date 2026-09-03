@@ -167,6 +167,7 @@ export default async function MarPage() {
               return (
                 <li
                   key={b.code}
+                  id={`p-${b.code}`}
                   data-lf={b.flag}
                   className="rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2.5"
                 >

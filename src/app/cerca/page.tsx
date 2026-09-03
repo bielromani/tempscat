@@ -15,8 +15,9 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Cercar un poble, una platja o una estació',
   description:
-    'Cerca entre les 4.293 poblacions de Catalunya, les comarques, les platges i '
-    + 'les estacions automàtiques del Meteocat.',
+    'Cerca entre les 4.293 poblacions de Catalunya, les comarques, les platges, '
+    + 'els embassaments, les estacions automàtiques, les càmeres de muntanya i '
+    + 'els itineraris senyalitzats.',
   alternates: { canonical: '/cerca' },
   robots: { index: true, follow: true },
 };
@@ -26,6 +27,11 @@ const KIND_LABEL: Record<SearchKind, string> = {
   comarca: 'Comarca',
   estacio: 'Estació',
   platja: 'Platja',
+  embassament: 'Embassament',
+  aforament: 'Aforament',
+  esqui: 'Muntanya',
+  camera: 'Càmera',
+  itinerari: 'Itinerari',
   pagina: 'Pàgina',
 };
 
@@ -46,7 +52,9 @@ export default async function CercaPage(
 
       <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Cercar</h1>
       <p className="mt-2 max-w-[62ch] text-[var(--ink-2)]">
-        Pobles, nuclis, comarques, platges i estacions, tot alhora.
+        Pobles, nuclis i comarques; platges, embassaments i aforaments; estacions
+        de mesura, estacions de muntanya, càmeres i itineraris senyalitzats. Tot
+        alhora, en una sola llista.
       </p>
 
       <form action="/cerca" method="get" role="search" className="mt-5 flex max-w-lg gap-2">
@@ -57,7 +65,7 @@ export default async function CercaPage(
           type="search"
           defaultValue={q}
           autoFocus
-          placeholder="Molló, Cadaqués, Vall d&apos;Aran…"
+          placeholder="Molló, Cala la Fosca, Embassament de Sau…"
           className="min-w-0 flex-1 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-[var(--ink)] outline-none focus:border-[var(--accent)]"
         />
         <button
@@ -81,9 +89,10 @@ export default async function CercaPage(
               Cap resultat per a <strong className="font-medium text-[var(--ink)]">{q}</strong>.
             </p>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Els accents i els articles no cal escriure&apos;ls: «ametlla» troba
-              l&apos;Ametlla del Vallès i «mollo», Molló. Els disseminats no tenen
-              pàgina pròpia i es consulten des de la seva entitat.
+              Els accents, els articles i les preposicions no cal escriure&apos;ls:
+              «cala fosca» troba Cala la Fosca i «sant cugat valles», Sant Cugat del
+              Vallès. Els disseminats no tenen pàgina pròpia i es consulten des de
+              la seva entitat.
             </p>
           </div>
         ) : (
@@ -120,9 +129,10 @@ export default async function CercaPage(
 
       {!asked && (
         <p className="mt-6 max-w-[62ch] text-sm leading-relaxed text-[var(--muted)]">
-          No cal escriure els accents ni els articles: «ametlla» troba l&apos;Ametlla
-          del Vallès i «mollo», Molló. Les platges porten a la pàgina del mar i les
-          estacions, a la seva fitxa.
+          No cal escriure els accents, ni els articles, ni les preposicions:
+          «mollo» troba Molló i «cala fosca», Cala la Fosca. Les platges,
+          els embassaments i els aforaments porten a la seva fila dins de la
+          pàgina corresponent, i la resta, a la seva fitxa.
         </p>
       )}
     </article>

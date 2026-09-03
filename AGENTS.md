@@ -58,10 +58,10 @@ Comprueba ambos proyectos con `npm run typecheck`.
 
 ## Código compartido entre scripts y aplicación
 
-Hay ocho ficheros que importan los dos lados: los scripts los cargan con extensión `.ts` y la
-aplicación con el alias `@/`. Siete **no importan nada**, y la condición para añadir uno es esa.
+Hay nueve ficheros que importan los dos lados: los scripts los cargan con extensión `.ts` y la
+aplicación con el alias `@/`. Ocho **no importan nada**, y la condición para añadir uno es esa.
 
-El octavo, `forecast-merge.ts`, sí importa —y es la excepción que ya describe la sección de
+El noveno, `forecast-merge.ts`, sí importa —y es la excepción que ya describe la sección de
 arriba: importa con extensión `.ts` y **toda su cadena acaba en ficheros que no importan nada**.
 Está así porque duplicarlo sería tener dos predicciones distintas para el mismo sitio según
 quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los dos lados.
@@ -76,6 +76,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/forecast-types.ts` | Las formas de la observación y de la predicción, sin `node:fs` detrás |
 | `src/lib/shards.ts` | Dónde vive cada trozo de cada dato, y por qué está partido |
 | `src/lib/forecast-merge.ts` | De los modelos a una serie, y de la serie al resumen por días |
+| `src/lib/search-match.ts` | Cómo se parece lo que se escribe en el buscador al nombre de un sitio |
 
 ## Dónde viven los datos vivos
 
@@ -173,7 +174,8 @@ npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
 Pruebas:
 
 ```bash
-npm run test              # topónimos, astronomía, hora cero de la predicción y frases
+npm run test              # topónimos, astronomía, hora cero de la predicción, buscador y frases
+npm run test:search       # lo que el buscador tiene que encontrar y lo que no
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
@@ -425,6 +427,16 @@ cuota para exactamente la misma información.
   vint-i-quatre càmeres porten escombraries abans d'un marcador JPEG i amb `failOn: 'warning'`
   —el valor per defecte— es queden fora. Va amb `failOn: 'truncated'`, que continua rebutjant un
   fitxer tallat per la meitat.
+- **Un cercador que no troba res no dona cap error: dona una pàgina sencera amb zero
+  resultats.** La comparació es feia amb `includes()`, i per tant «cala fosca» no trobava
+  **Cala la Fosca** —hi ha un «la» pel mig— ni «sant cugat valles», **Sant Cugat del
+  Vallès**. Qualsevol consulta a la qual li faltés una paraula del nom deia que allò no
+  existia. Ara la comparació és per paraules i viu a `src/lib/search-match.ts`, que no
+  importa res i té prova: `npm run test:search`.
+- **Un resultat que porta a una pàgina de 229 files no és un resultat.** Les platges anaven
+  totes a `/mar` i trobar-hi la que s'havia demanat tornava a ser feina del lector. Les
+  files porten `id` —`p-` platges, `e-` embassaments i estacions de muntanya, `a-`
+  aforaments— i el `:target` de `globals.css` fa que es vegi en arribar-hi.
 - **El camp de meduses porta diverses espècies separades per `;`.** Cada una és
   `espècie,abundància,talla`. Llegint només fins a la primera coma, a Castell-Platja d'Aro
   —que en reporta tres— sortia la inofensiva i **quedava amagada la que pica**. `parseJellyfish()`

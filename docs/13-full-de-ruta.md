@@ -718,7 +718,8 @@ Arreglado ya: el mapa ocupaba más de una pantalla de portátil y «Reprodueix l
 - **Un mapa de la costa con las playas encima**, cada una con su bandera,
   temperatura del agua, oleaje y medusas. Hoy es una lista.
 - **Ordenar y filtrar por municipio**, no solo por tramo de costa.
-- Un **buscador de playas** propio.
+- Un **buscador de playas** propio — descartado: las 229 ya están en `/cerca`
+  con su etiqueta y su enlace a la fila. Ver la sección del buscador.
 
 ### Neu i estacions d'esquí · **apuntado**
 
@@ -729,23 +730,62 @@ Arreglado ya: el mapa ocupaba más de una pantalla de portátil y «Reprodueix l
   Roundshot tienen visor con movimiento; habría que ver si hay un flujo servible
   sin incrustar su reproductor.
 
-### El buscador · **diagnosticado, y está roto de verdad**
+### El buscador · ✅ arreglado el 3 de septiembre de 2026
 
-- **La causa principal es de cobertura, no de puntuación.** «cala fosca» no
-  encuentra nada, y **«Cala la Fosca» existe**: es una playa de Palamós, está en
-  el registro con su bandera. El buscador indexa **solo las 4.250 ubicaciones
-  del territorio** — ni las 229 playas, ni las 189 estaciones, ni los embalses,
-  ni los aforos. Por eso el *placeholder* dice «Cercar un poble…»: es literal.
-  Arreglar esto es lo mismo que pide el usuario cuando habla de un buscador de
-  playas y otro de ríos — un solo índice con todas las entidades y su tipo.
-- **Y de paso, puntuar por palabras.** Hoy `src/lib/search.ts` solo hace prefijo
-  y subcadena sobre el nombre entero plegado, así que aunque la playa estuviera
-  indexada, `cala la fosca` contra la consulta `cala fosca` fallaría igual: no
-  es subcadena. Con las palabras del nombre menos los artículos —`{cala,
-  fosca}`— encaja exactamente.
-- **No está en todas las páginas**, solo en la cabecera de algunas.
-- **El *placeholder* dice «Cercar un poble…»** cuando debería poder buscar
-  playas, estaciones y ríos. Hoy solo busca ubicaciones del territorio.
+**Mi diagnóstico anterior era falso y conviene dejarlo escrito.** Dije que la
+causa era de cobertura —«el buscador indexa solo las 4.250 ubicaciones del
+territorio»— y no lo era: `git show HEAD:src/lib/search.ts` demuestra que las
+229 playas y las 189 estaciones **ya estaban indexadas** desde el primer día.
+La causa era una sola, y era la comparación.
+
+**Lo que fallaba.** `match()` comparaba con `includes()` sobre el nombre entero
+plegado, así que a cualquier consulta a la que le faltara una palabra del nombre
+le tocaba cero resultados:
+
+| consulta | no encontraba |
+|---|---|
+| `cala fosca` | Cala la Fosca — hay un «la» en medio |
+| `sant cugat valles` | Sant Cugat del Vallès — falta el «del» |
+| `vall aran` | Vall d'Aran |
+
+El segundo es el que más se nota: no es un caso raro de playa, es cómo la gente
+escribe el nombre de un municipio de 93.000 habitantes.
+
+Y el fallo **no daba ningún error**. La página salía entera, con su formulario,
+el contador a cero y un texto amable. El sitio parecía no tener aquel lugar.
+
+**Lo que se hizo.**
+
+- La comparación se fue a `src/lib/search-match.ts`, que **no importa nada** y
+  por tanto tiene prueba: `npm run test:search`. Es la razón de partirlo — un
+  fallo que no da error tiene que tener una prueba que sí la dé.
+- La consulta se parte en palabras, los artículos y las preposiciones no cuentan
+  y cada palabra tiene que encajar con el principio de alguna palabra del nombre.
+  Seis escalones, del 100 al 25, documentados en la función.
+- **Palabra entera y principio de palabra puntúan distinto.** Sin esa
+  distinción, «sau» ponía *els Saulons d'en Deu* por delante de Vilanova de Sau.
+- **Cobertura, que sí faltaba en parte**: se añadieron los 9 embalses, los 79
+  aforos, las 6 estaciones de montaña, las 24 cámaras y los 683 itinerarios.
+- **Los embalses se comparan con el nombre corto.** Entero es «Embassament de
+  Sau (Vilanova de Sau)» y «sau» encajaba ahí como una palabra cualquiera;
+  contra «Sau» es exacto. Está en `reservoirName()`.
+- **Seis aforos están en el embalse y se llaman como él.** Indexados aparte,
+  «susqueda» devolvía dos filas con el mismo título y una etiqueta distinta, que
+  parece un error del sitio antes que una distinción. Se omiten.
+- **Cada resultado lleva a su fila, no a la cabecera de la página.** Las playas
+  iban todas a `/mar`, que tiene 229: encontrarla volvía a ser trabajo del
+  lector. Ahora hay `id` en las filas y un `:target` que la señala al llegar.
+- El *placeholder* decía «Cercar un poble» y era una promesa corta. Ahora dice
+  «Cadaqués, Sau, GR-11…», que es un ejemplo de cada tipo.
+
+**Lo que no se hizo.** Buscadores separados por dominio —uno de playas, otro de
+ríos— como pedía el usuario. Con un solo índice que los incluye a todos y una
+etiqueta por tipo en cada resultado, tres buscadores serían tres sitios donde
+buscar en vez de uno. Si aparece la necesidad de filtrar por tipo, el sitio para
+eso es un filtro en `/cerca`, no un buscador nuevo.
+
+Y **la caja ya estaba en todas las páginas**: va en la cabecera de `layout.tsx`,
+que envuelve el sitio entero. Eso también estaba mal en la nota anterior.
 
 ### Bolets · **hay que rehacerla o quitarla**
 

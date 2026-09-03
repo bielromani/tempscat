@@ -190,6 +190,25 @@ export function gaugeName(raw: string): string {
   return out;
 }
 
+/**
+ * El nom curt d'un embassament: ni l'etiqueta ni el municipi.
+ *
+ * Al registre són «Embassament de Sau (Vilanova de Sau)», i el que la gent
+ * escriu és «Sau». Amb el nom sencer, al cercador «sau» hi encaixava com una
+ * paraula qualsevol de dins —igual que «vilanova»—; contra el nom curt és
+ * exacte, que és el que la consulta volia dir.
+ *
+ * L'article es conserva: és «la Baells» i «la Llosa del Cavall», i qui hagi de
+ * compondre la frase té `deName()`.
+ */
+export function reservoirName(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^Embassament\s+(de\s+l'|de\s+|d')/i, '')
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .trim();
+}
+
 export function reservoirColor(pct: number): string {
   const k = Math.max(0, Math.min(1, pct / 100));
   const l = 55 + k * 12;
