@@ -63,7 +63,12 @@ export const SECTIONS: NavGroup[] = [
       { href: '/senderisme', label: 'Muntanya', blurb: 'Ratxes, fred i la isoterma de zero graus, mesurats.' },
       { href: '/senderisme/rutes', label: 'Itineraris senyalitzats', blurb: 'Els GR i els PR-C, amb la predicció a la cota per on passen.' },
       { href: '/nautica', label: 'Navegar', blurb: 'Vent mesurat, onatge i període, tram a tram.' },
-      { href: '/bolets', label: 'Bolets', blurb: 'Quanta pluja ha caigut i quan va ser l’últim ruixat.' },
+      /*
+       * L'adreça segueix sent `/bolets` —no es trenca un enllaç publicat— però
+       * el rètol diu el que la pàgina dóna. Prometre bolets i donar una taula
+       * de pluviòmetres és el mateix desajust, un nivell més amunt.
+       */
+      { href: '/bolets', label: 'Pluja acumulada', blurb: 'Quanta aigua ha caigut aquests quinze dies i quan va ser l’últim ruixat.' },
     ],
   },
   {

@@ -215,7 +215,25 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           <p className="mt-1.5 text-sm leading-relaxed text-[var(--muted)]">
             La mitjana de {monthName} a {station.nom} és de {num(normal.tMean, 1)} °C,
             calculada sobre {normal.years} anys de sèrie de la mateixa estació.
-            {normal.precip != null && ` Hi sol ploure ${int(normal.precip)} mm, i aquest mes en porta ${int(counters.precip.month)} mm.`}
+            {/*
+              El total del mes va amb els dies que cobreix, sempre.
+
+              Deia «Hi sol ploure 86 mm, i aquest mes en porta 0 mm» el 4 de
+              setembre, quan la sèrie diària de la XEMA —que va dos dies enrere—
+              només tenia el dia 1 i el 2. El número era cert i la lectura,
+              falsa: comparar dos dies contra la normal de trenta no és comparar
+              res. Es va veure quan el bloc de pluja acumulada, just a sobre,
+              va escriure 168,8 mm dels últims trenta dies a la mateixa pàgina.
+            */}
+            {normal.precip != null && (
+              monthCovered
+                ? ` Hi sol ploure ${int(normal.precip)} mm en tot el mes, i dels `
+                  + `${monthDays.length} ${monthDays.length === 1 ? 'dia' : 'dies'} `
+                  + `de ${monthName} que la sèrie ja té, n'han caigut `
+                  + `${int(counters.precip.month)} mm.`
+                : ` Hi sol ploure ${int(normal.precip)} mm en tot el mes; de ${monthName} `
+                  + 'la sèrie encara no en té cap dia.'
+            )}
           </p>
         </div>
       )}

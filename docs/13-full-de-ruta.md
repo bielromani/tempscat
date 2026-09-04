@@ -798,22 +798,34 @@ eso es un filtro en `/cerca`, no un buscador nuevo.
 Y **la caja ya estaba en todas las páginas**: va en la cabecera de `layout.tsx`,
 que envuelve el sitio entero. Eso también estaba mal en la nota anterior.
 
-### Bolets · **hay que rehacerla o quitarla**
+### Bolets · ✅ rehecha el 4 de septiembre de 2026
 
-La página no se sostiene y el usuario tiene razón en el diagnóstico: ordena por
-lluvia acumulada en las 189 estaciones de la XEMA, así que la «mejor zona» sale
-Torredembarra o Vielha — sitios donde nadie va a buscar setas. El error de
-concepto es ordenar **estaciones meteorológicas** cuando la pregunta es sobre
-**bosques**.
+Se tomó la salida 2, la que esta nota ya decía que era mejor, y por la razón
+que decía: el error era de concepto, no de datos. Ordenar **189 aparatos** por
+lluvia acumulada no da las mejores zonas de setas — da dónde hay pluviómetros y
+dónde descargó la última tormenta. Torredembarra encabezaba la lista con 187,7
+mm, que es verdad y no significa nada sobre setas.
 
-Dos salidas, y la segunda es mejor:
+- **El bloque está ahora en la ficha de cada lugar** (`RainBlock`): acumulado de
+  15 y 30 días, cuándo fue el último chubasco de más de 5 mm, y las medias de
+  mínimas y máximas de la decena, atribuido a la estación más cercana con su
+  distancia y su desnivel. **No cuesta ni una petición**: sale de la misma serie
+  diaria que la ficha ya se baja para el bloque de clima, vía
+  `rainConditionsOf()`.
+- **La página de país sigue existiendo y ahora dice lo que es**: «Quanta pluja ha
+  caigut», sin proclamar ningún ganador y diciendo explícitamente que la tabla no
+  ordena ninguna «mejor zona». La URL se queda en `/bolets` —no se rompe un
+  enlace publicado— pero el rótulo del menú pasa a «Pluja acumulada».
+- **Lo que no se puede arreglar sin datos nuevos**: distinguir bosque de playa
+  necesita una capa de usos del suelo (MCSC del CREAF, o CORINE). Mientras no
+  esté, el sitio no puede decir dónde hay setas, y ahora tampoco lo insinúa.
 
-1. Filtrar por zonas con bosque de verdad, lo que exige una capa de usos del
-   suelo que no tenemos.
-2. **Quitar la página de país** y poner el bloque de setas **en la ficha de los
-   pueblos donde se buscan**, que es donde la pregunta se hace. La lluvia de los
-   últimos quince días, cuándo fue el último chubasco y las temperaturas ya
-   están calculados por ubicación.
+**Y de paso apareció otro fallo del mismo tipo.** Con el acumulado de 30 días
+—168,8 mm— escrito justo encima, el bloque de clima decía dos párrafos más abajo
+«Hi sol ploure 86 mm, i aquest mes en porta **0 mm**». Cierto: la serie de la
+XEMA va dos días atrás y el 4 de septiembre solo tenía el día 1 y el 2. Pero
+comparar dos días contra la normal de treinta no es comparar nada. Ahora dice
+cuántos días cubre la cifra.
 
 ### Los textos · **regla ya escrita, aplicarla a todo**
 

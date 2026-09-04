@@ -7,6 +7,8 @@ import { NextHours } from '@/components/NextHours';
 import { HourlyTable } from './HourlyTable';
 import { SunMoon } from './SunMoon';
 import { ClimateBlock } from './ClimateBlock';
+import { RainBlock } from './RainBlock';
+import { rainConditionsOf } from '@/lib/conditions';
 import { AirQuality } from './AirQuality';
 import { ComarcaCompare } from './ComarcaCompare';
 import { Headline } from './Headline';
@@ -398,6 +400,14 @@ export function LocationView({
    */
   const nowIso = localNowHour();
   const today = localToday();
+
+  /*
+   * La pluja acumulada surt de la sèrie que el bloc de clima ja té. Vivia només
+   * a `/bolets`, que ordenava les 189 estacions per acumulat i donava «la millor
+   * zona de bolets és Torredembarra»: ordenar aparells quan la pregunta és sobre
+   * boscos. La pregunta es fa d'un lloc, i aquí és on hi ha el lloc.
+   */
+  const rain = history ? rainConditionsOf(history, today) : null;
   // La comarca se nombra con su artículo: és «l'Alt Camp», no «Alt Camp».
   const comarcaLabel = comarcaName(comarca.nom);
   const nowHour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
@@ -664,6 +674,23 @@ export function LocationView({
         </h2>
         <p className="max-w-[65ch] leading-relaxed text-[var(--ink-2)]">{description}</p>
       </section>
+
+      {/*
+        L'aigua acumulada. Surt de la mateixa sèrie diària que el bloc de clima,
+        que la fitxa ja s'ha baixat: no costa cap petició ni cap byte de més.
+      */}
+      {rain && current && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+            L&apos;aigua que ha caigut
+          </h2>
+          <RainBlock
+            conditions={rain}
+            station={current.station}
+            stationHref={`/estacions/${current.station.codi}`}
+          />
+        </section>
+      )}
 
       {history && current && (
         <section className="mt-8">

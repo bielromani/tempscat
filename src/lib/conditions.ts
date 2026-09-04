@@ -53,7 +53,15 @@ export interface RainConditions {
 /** Umbral de «ruixat important»: por debajo, el suelo no llega a mojarse en serio. */
 const WET_DAY_MM = 5;
 
-function conditionsOf(history: StationHistory, today: string): RainConditions | null {
+/**
+ * L'acumulat d'una sèrie diària que ja es té a la mà.
+ *
+ * Exportada perquè la fitxa d'un poble **ja s'ha baixat** la sèrie de la seva
+ * estació per al bloc de clima. Passant-la per aquí, el bloc de pluja no costa
+ * ni una petició ni un byte de més: és aritmètica sobre el que ja hi ha.
+ * `rainConditionsFor()` és per a qui encara no la té.
+ */
+export function rainConditionsOf(history: StationHistory, today: string): RainConditions | null {
   const daily = history.daily.filter((d) => d.day <= today);
   if (daily.length < 10) return null;
 
@@ -98,14 +106,14 @@ function conditionsOf(history: StationHistory, today: string): RainConditions | 
 /** Condiciones acumuladas en la estación de referencia de una ubicación. */
 export async function rainConditionsFor(stationCodi: string): Promise<RainConditions | null> {
   const h = await historyOfStation(stationCodi);
-  return h ? conditionsOf(h, localToday()) : null;
+  return h ? rainConditionsOf(h, localToday()) : null;
 }
 
 /** Todas las estaciones, para la página de conjunto. */
 export async function allRainConditions(): Promise<RainConditions[]> {
   const today = localToday();
   return (await allHistory())
-    .map((h) => conditionsOf(h, today))
+    .map((h) => rainConditionsOf(h, today))
     .filter((c): c is RainConditions => c != null);
 }
 

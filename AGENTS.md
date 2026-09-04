@@ -284,6 +284,16 @@ cuota para exactamente la misma información.
 - **`worker:history --station=XX` fusiona, no sustituye.** Antes sustituía, y una comprobación de
   una estación dejaba el fichero con una sola: el bloque de clima desaparecía de las 4.293 páginas
   sin que nada diera error.
+- **Un total del mes en curs s'ha de dir amb quants dies cobreix.** «Hi sol ploure 86 mm, i
+  aquest mes en porta 0 mm» era cert el 4 de setembre —la sèrie diària va dos dies enrere i
+  només tenia l'1 i el 2— i es llegia com que no hi havia plogut. Comparar dos dies contra la
+  normal de trenta no és comparar res. Es va veure perquè el bloc de pluja acumulada, a la
+  mateixa pàgina i just a sobre, deia 168,8 mm en trenta dies.
+- **Ordenar aparells no contesta una pregunta sobre boscos.** `/bolets` obria amb «on més ha
+  plogut és a Torredembarra», que és on hi ha un pluviòmetre i on va descarregar la tempesta.
+  La pàgina ara diu el que és —pluja acumulada per estació— i la pregunta, que es fa d'un lloc
+  concret, es contesta a la fitxa d'aquell lloc amb `RainBlock`. Es corregiria de debò amb una
+  capa d'usos del sòl, que no tenim.
 - **El dataset diario `7bvh-jvq2` lleva dos días de retraso.** Su última fila el 31 de agosto era
   del 29, así que «ahir» nunca sale de ahí: los extremos de ayer los da el agregado semihorario
   del worker de observación.

@@ -1,34 +1,43 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { aName, int, num } from '@/lib/format';
+import { int, num } from '@/lib/format';
 import { allRainConditions } from '@/lib/conditions';
 import { allComarques, stationByCodi } from '@/lib/territory';
 import { ListFilter, groupsOf } from '@/components/ListFilter';
 
 /**
- * Ha llovido bastante para los bolets.
+ * La pluja acumulada de les 189 estacions de la XEMA.
  *
- * ## Por qué esta página y no un índice
+ * ## El que aquesta pàgina deia i no podia dir
  *
- * La tentación es publicar un «índex boletaire» del 1 al 10. No se hace, y la
- * razón está escrita en `conditions.ts`: un número compuesto oculta qué lo mueve
- * y nadie lo puede discutir. Aquí van los tres datos que usa quien entiende —
- * cuánta agua ha caído, cuándo fue la última buena, y con qué temperaturas — y la
- * conclusión la saca el lector.
+ * Es deia «Ha plogut prou per als bolets?» i obria amb «on més ha plogut aquests
+ * quinze dies és **a Torredembarra**». El número era correcte i la lectura,
+ * absurda. Ordenar les 189 estacions per acumulat no dona les millors zones de
+ * bolets: dona **on hi ha pluviòmetres** i on va descarregar l'última tempesta.
+ * Un poble de platja i un fons de vall del Pirineu competien pel primer lloc
+ * d'una llista que insinuava una cosa que les dades no diuen.
  *
- * ## Por qué funciona todo el año
+ * Ordenar **aparells** quan la pregunta és sobre **boscos** és un error de
+ * concepte, i no es corregeix puntuant millor. Es corregiria amb una capa
+ * d'usos del sòl que digués on hi ha bosc, i no la tenim.
  *
- * Es una página de **lluvia acumulada** con un título que dice para qué la busca
- * la gente. En mayo sirve igual para saber si el campo está seco. No se apaga
- * fuera de temporada porque no depende de la temporada.
+ * ## Què és ara
+ *
+ * El que sempre va ser: la pluja que ha caigut, allà on la mesuren. El títol ho
+ * diu, la portada no proclama cap guanyador, i la pregunta dels bolets —que es
+ * fa d'un lloc concret— es contesta a la fitxa d'aquell lloc, amb l'estació més
+ * propera, la seva distància i el seu desnivell. El bloc és `RainBlock`.
+ *
+ * Segueix funcionant tot l'any: al maig serveix igual per saber si el camp és
+ * sec.
  */
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: 'Ha plogut prou per als bolets?',
+  title: 'Quanta pluja ha caigut, estació per estació',
   description:
-    'Pluja acumulada dels últims quinze i trenta dies a cada comarca, quan va ser '
-    + 'l\'últim ruixat i amb quines temperatures. Dades de les estacions de la XEMA.',
+    'Pluja acumulada dels últims quinze i trenta dies a cada estació de la XEMA, '
+    + 'quan va ser l\'últim ruixat de més de 5 mm i amb quines temperatures.',
   alternates: { canonical: '/bolets' },
 };
 
@@ -49,7 +58,6 @@ export default async function BoletsPage() {
     r.station.comarcaCodi ? { key: r.station.comarcaCodi, label: r.comarca } : null
   ));
 
-  const top = rows[0];
   const wet = rows.filter((r) => r.c.rain15 >= 20).length;
 
   return (
@@ -57,33 +65,31 @@ export default async function BoletsPage() {
       <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
-        <span className="text-[var(--ink-2)]">Bolets</span>
+        <span className="text-[var(--ink-2)]">Pluja acumulada</span>
       </nav>
 
       <header className="mb-6 max-w-[64ch]">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Ha plogut prou per als bolets?
+          Quanta pluja ha caigut
         </h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
-          {top ? (
-            <>
-              On més ha plogut aquests quinze dies és{' '}
-              <Link href={`/estacions/${top.station.codi}`} className="text-[var(--ink)] no-underline hover:underline">
-                {aName(top.station.nom)}
-              </Link>
-              , amb <span className="tnum font-semibold text-[var(--ink)]">{num(top.c.rain15, 1)} mm</span>.{' '}
-              {wet > 0
-                ? `${wet} ${wet === 1 ? 'estació passa' : 'estacions passen'} dels 20 mm en quinze dies.`
-                : 'Cap estació passa dels 20 mm en quinze dies.'}
-            </>
-          ) : (
-            'Encara no hi ha sèrie diària carregada.'
-          )}
+          L&apos;acumulat dels últims quinze i trenta dies a cada estació de la XEMA,
+          amb el dia de l&apos;últim ruixat de més de 5 mm i les temperatures de la
+          desena. {int(rows.length)} estacions en servei
+          {wet > 0
+            ? `, i ${wet} ${wet === 1 ? 'passa' : 'passen'} dels 20 mm en quinze dies.`
+            : ', i cap no passa dels 20 mm en quinze dies.'}
         </p>
         <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
           No hi ha cap índex ni cap nota del zero al deu: hi ha la pluja que ha
-          caigut, quan va caure i amb quines temperatures. Són les tres dades
-          que fa servir qui hi entén, i cadascuna es pot comprovar per separat.
+          caigut, quan va caure i amb quines temperatures. Són les tres dades que
+          fa servir qui hi entén, i cadascuna es pot comprovar per separat.
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+          La taula no ordena cap «millor zona». Un acumulat alt diu on va
+          descarregar l&apos;última tempesta i on hi ha un pluviòmetre, no on hi ha
+          bosc. Per a un lloc concret, la seva fitxa porta el mateix càlcul amb
+          l&apos;estació més propera i el desnivell que hi ha entremig.
         </p>
       </header>
 
