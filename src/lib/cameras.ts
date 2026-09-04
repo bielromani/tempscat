@@ -178,6 +178,38 @@ export async function camerasNear(loc: Location): Promise<Array<CameraNow & { di
 }
 
 /**
+ * Les cameres de cada estació de muntanya, per unitat de negoci.
+ *
+ * El creuament es fa pel `bunitId` i no pel nom. Els noms coincideixen avui
+ * —«La Molina» als dos catàlegs— i és justament aquesta coincidència la que es
+ * trenca sense avisar: n'hi hauria prou que un dels dos escrivís «Molina» o «La
+ * Molina - Alp» perquè l'estació es quedés sense cameres amb tot en verd i
+ * ningú no ho notés fins que algú comptés. El `business_unit` és un número i és
+ * als dos conjunts.
+ *
+ * Només hi entren les vigents. Una imatge de fa cinc hores es pot ensenyar a
+ * `/cameres`, on hi ha lloc per dir-ne l'hora i el retard; dins d'una targeta
+ * d'estació d'esquí no hi ha aquest lloc, i una foto sense data al costat del
+ * gruix de neu es llegeix com si fos d'ara.
+ */
+export async function camerasByResort(): Promise<Map<string, CameraNow[]>> {
+  const got = await read();
+  const out = new Map<string, CameraNow[]>();
+  if (!got) return out;
+
+  for (const c of got.data.cameras) {
+    if (!c.bunitId) continue;
+    const now = withAge(c);
+    if (!now.current) continue;
+    const list = out.get(c.bunitId) ?? [];
+    list.push(now);
+    out.set(c.bunitId, list);
+  }
+  for (const list of out.values()) list.sort((a, b) => (b.altitudM ?? 0) - (a.altitudM ?? 0));
+  return out;
+}
+
+/**
  * La URL de una imagen ya bajada.
  *
  * Lleva la hora de captura en la consulta a propósito. El fichero del almacén

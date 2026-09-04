@@ -386,10 +386,22 @@ async function main() {
       }
       const captured = capturedAt.toISOString();
 
-      // ── La misma foto que la vuelta pasada ─────────────────────────────
+      /*
+       * ── La misma foto que la vuelta pasada ───────────────────────────────
+       *
+       * Lo que viene del catálogo —el slug y la unidad de negocio— se vuelve a
+       * derivar y no se hereda. La ficha de antes sale del fichero publicado, y
+       * ese fichero puede ser de una versión que aún no tenía el campo: el día
+       * que se añadió `bunitId`, heredarlo habría dejado veinte cámaras sin
+       * clave de cruce y las estaciones sin cámaras, con la ejecución en verde.
+       */
       const kept = before.get(id);
       if (kept && kept.capturedAt === captured) {
-        cameras.push({ ...kept, slug: slugOf(resort, name, altitudM) });
+        cameras.push({
+          ...kept,
+          slug: slugOf(resort, name, altitudM),
+          bunitId: String(rec.business_unit),
+        });
         unchanged++;
         return;
       }
@@ -460,6 +472,7 @@ async function main() {
         slug: slugOf(resort, name, altitudM),
         name,
         resort,
+        bunitId: String(rec.business_unit),
         altitudM,
         panoramic: kind === 'roundshot',
         viewer,
@@ -485,7 +498,11 @@ async function main() {
        */
       const kept = before.get(id);
       if (kept) {
-        cameras.push({ ...kept, slug: slugOf(resort, name, altitudM) });
+        cameras.push({
+          ...kept,
+          slug: slugOf(resort, name, altitudM),
+          bunitId: String(rec.business_unit),
+        });
         carried++;
       }
       failures.push(`${resort} · ${name}: ${String(err).slice(0, 120)}`);

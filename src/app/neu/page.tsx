@@ -4,6 +4,7 @@ import { dateFull, dateShort, int, relativeDay } from '@/lib/format';
 import { allHistory, localToday } from '@/lib/weather';
 import { stationByCodi } from '@/lib/territory';
 import { mountainView } from '@/lib/mountain';
+import { camerasByResort } from '@/lib/cameras';
 import { ResortBlock } from '@/components/ResortBlock';
 
 /**
@@ -48,6 +49,12 @@ export const metadata: Metadata = {
 export default async function NeuPage() {
   const today = localToday();
   const mountain = await mountainView();
+  /*
+   * Les càmeres van a la targeta aquí i **no a la fitxa d'un poble**: allà ja
+   * hi ha el bloc de càmeres properes, i les mateixes dues fotografies dins de
+   * la targeta de l'estació sortirien dos cops a la mateixa pàgina.
+   */
+  const camsByResort = await camerasByResort();
 
   const rows = (await allHistory())
     .map((h) => {
@@ -117,6 +124,7 @@ export default async function NeuPage() {
                 key={r.bunitId}
                 resort={r}
                 stations={mountain.stations.filter((st) => st.bunitId === r.bunitId)}
+                cameras={camsByResort.get(r.bunitId) ?? []}
               />
             ))}
           </div>

@@ -418,6 +418,13 @@ cuota para exactamente la misma información.
   és **hora local de Madrid**. El worker ho verifica cada volta contra les que sí que porten
   capçalera: si algun dia passa a UTC, salta amb dues hores de diferència en comptes de datar
   malament les vint-i-quatre.
+- **Una càmera i la seva estació d'esquí es creuen pel `business_unit`, no pel nom.** Els noms
+  coincideixen als dos catàlegs d'FGC —«La Molina» i «La Molina»— i és aquesta coincidència la
+  que es trencaria sense avisar: amb un «Molina» o un «La Molina - Alp» l'estació es quedaria
+  sense càmeres i tot seguiria en verd. El camp és `bunitId` a totes dues bandes. I els dos
+  camins que **conserven** la fitxa de la volta anterior l'han de tornar a derivar del catàleg,
+  com ja fan amb el `slug`: la fitxa d'abans surt del fitxer publicat, que pot ser d'una versió
+  sense el camp.
 - **Un fitxer d'imatge amb nom fix vol dir escriptura a cada volta, i R2 cobra per operació.**
   El nom no pot portar l'instant a dins —vint-i-quatre fotogrames nous cada hora amb nom propi
   són 3,6 GB al mes contra un cupó de deu— així que va a la consulta de la URL (`?v=<captura>`).

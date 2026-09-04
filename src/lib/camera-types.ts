@@ -20,6 +20,20 @@ export interface Camera {
   /** La estación o el equipamiento: «La Molina», «Vall de Núria». */
   resort: string;
   /**
+   * La unidad de negocio de FGC, que es la clave que ata la cámara a su
+   * estación en `mountain-types.ts`.
+   *
+   * Va aquí y no se deduce del nombre a propósito. El nombre coincide hoy
+   * —«La Molina» a los dos lados— y esa coincidencia es exactamente lo que se
+   * rompe sin avisar: bastaría que un catálogo escribiera «Molina» o «La
+   * Molina - Alp» para que la estación se quedara sin cámaras con todo en
+   * verde. El `business_unit` es un número y va en los dos conjuntos.
+   *
+   * El 24 es el Parc Astronòmic del Montsec, que no es estación de esquí: su
+   * cámara existe y no cruza con ninguna.
+   */
+  bunitId: string;
+  /**
    * Los metros que el propio nombre llevaba dentro, cuando los llevaba.
    *
    * No es la altitud del catálogo —no la trae—, así que solo está en las que

@@ -1,5 +1,9 @@
+/* eslint-disable @next/next/no-img-element -- El perquè és a eslint.config.mjs: el worker ja
+   ha desat cada fotograma en les dues mides que el web ensenya, i `next/image` només hi
+   afegiria una quota de plataforma per repetir una feina feta. */
 import Link from 'next/link';
 import { ago, dateFull, deWord, int, num, temp } from '@/lib/format';
+import { cameraImage, type CameraNow } from '@/lib/cameras';
 import { windCardinal } from '@/lib/variables';
 import { REPORT_SHOW_HOURS, type ResortNow, type StationNow } from '@/lib/mountain';
 
@@ -15,6 +19,16 @@ import { REPORT_SHOW_HOURS, type ResortNow, type StationNow } from '@/lib/mounta
  * Fora de temporada això vol dir que la targeta segueix dient coses certes: el
  * desnivell, la temperatura a 2.500 m i la data de l'últim comunicat.
  *
+ * ## Les càmeres, i per què només les d'ara mateix
+ *
+ * Una foto de la pista val més que el gruix comunicat, que el tecleja algú al
+ * matí. Però aquí no hi ha lloc per posar-hi l'hora al costat: una imatge dins
+ * d'una targeta que parla de neu es llegeix com si fos d'ara, i cinc de les
+ * vint-i-quatre càmeres d'FGC han estat mesos aturades servint el mateix
+ * fotograma amb un 200. Per això dins la targeta només hi entren les vigents
+ * —menys de 90 minuts— i la resta es queden a `/cameres`, on sí que hi ha lloc
+ * per dir de quan són.
+ *
  * ## Dels itineraris se'n compten quatre menes i se'n descriu una
  *
  * Els d'esquí de muntanya porten dificultat, longitud, desnivell i les dues
@@ -23,10 +37,12 @@ import { REPORT_SHOW_HOURS, type ResortNow, type StationNow } from '@/lib/mounta
  * cota i una taula amb els forats tapats seria una taula inventada.
  */
 export function ResortBlock({
-  resort, stations, snowShare, distKm,
+  resort, stations, cameras = [], snowShare, distKm,
 }: {
   resort: ResortNow;
   stations: StationNow[];
+  /** Les càmeres de l'estació, ja filtrades a les vigents. */
+  cameras?: CameraNow[];
   /** Part del desnivell per damunt de la cota de neu prevista. Només a les fitxes. */
   snowShare?: number | null;
   distKm?: number;
@@ -147,6 +163,44 @@ export function ResortBlock({
           {stations.length === 1 ? 'Estació meteorològica de l’estació' : `${stations.length} estacions meteorològiques de l’estació`}
           {' · '}{ago(Math.min(...stations.map((s) => s.ageMin)))}
         </p>
+      )}
+
+      {/* El que es veu ara mateix, que és el que la gent ve a mirar. */}
+      {cameras.length > 0 && (
+        <div className="mt-3 border-t border-[var(--line-soft)] pt-3">
+          <ul className="grid list-none grid-cols-2 gap-2 p-0">
+            {cameras.slice(0, 2).map((c) => (
+              <li key={c.id}>
+                <Link href={`/cameres/${c.slug}`} className="block no-underline">
+                  <img
+                    src={cameraImage(c, 'thumb')}
+                    width={400}
+                    height={225}
+                    loading="lazy"
+                    decoding="async"
+                    alt={`Fotograma de la càmera ${c.name}, a ${resort.name}`}
+                    className="block h-auto w-full rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)]"
+                  />
+                  <span className="mt-1 block truncate text-[11px] text-[var(--muted)]">
+                    {[c.name, c.altitudM != null && `${int(c.altitudM)} m`]
+                      .filter(Boolean).join(' · ')}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-[11px] text-[var(--muted)]">
+            {cameras.length === 1
+              ? `Càmera de l’estació · ${ago(cameras[0].ageMin)}`
+              : `${cameras.length} càmeres de l’estació · la més recent, ${ago(Math.min(...cameras.map((c) => c.ageMin)))}`}
+            {cameras.length > 2 && (
+              <>
+                {' · '}
+                <Link href="/cameres" className="text-[var(--ink-2)]">totes</Link>
+              </>
+            )}
+          </p>
+        </div>
       )}
 
       {/*

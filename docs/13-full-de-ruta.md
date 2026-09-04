@@ -721,10 +721,21 @@ Arreglado ya: el mapa ocupaba más de una pantalla de portátil y «Reprodueix l
 - Un **buscador de playas** propio — descartado: las 229 ya están en `/cerca`
   con su etiqueta y su enlace a la fila. Ver la sección del buscador.
 
-### Neu i estacions d'esquí · **apuntado**
+### Neu i estacions d'esquí · parcialmente hecho
 
-- **Las cámaras de la estación, en la propia tarjeta.** El dato ya está: las
-  cámaras traen `bunitId` y las estaciones también, así que el cruce es directo.
+- ✅ **Las cámaras de la estación, en la propia tarjeta.** Hecho el 4 de
+  septiembre de 2026. El cruce **no** era directo como decía esta nota: las
+  cámaras traían el nombre de la estación, no su `bunitId`. Se persiste ahora
+  desde el `business_unit` del catálogo, porque un cruce por nombre es de los
+  que se rompen sin dar error.
+  - Solo entran las **vigentes** —menos de 90 minutos—. En `/cameres` hay sitio
+    para poner la hora al lado de una imagen de hace cinco horas; dentro de una
+    tarjeta que habla de nieve no lo hay, y una foto sin fecha se lee como si
+    fuera de ahora. Cinco de las veinticuatro han estado meses paradas.
+  - Dos por tarjeta, y el pie dice cuántas hay con enlace a todas. La Molina
+    tiene nueve.
+  - **No** van en la ficha de un pueblo: allí ya está el bloque de cámaras
+    cercanas y saldría la misma fotografía dos veces en la misma página.
 - **Un mapa** con las seis estaciones, el gruix y lo que hay abierto.
 - Comprobar si alguna cámara da **vídeo en directo** y no solo fotograma. Las de
   Roundshot tienen visor con movimiento; habría que ver si hay un flujo servible
