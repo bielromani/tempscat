@@ -717,7 +717,13 @@ Arreglado ya: el mapa ocupaba más de una pantalla de portátil y «Reprodueix l
 
 - **Un mapa de la costa con las playas encima**, cada una con su bandera,
   temperatura del agua, oleaje y medusas. Hoy es una lista.
-- **Ordenar y filtrar por municipio**, no solo por tramo de costa.
+- ✅ **Ordenar y filtrar por municipio**, hecho el 4 de septiembre de 2026: la
+  tabla «Totes les platges, poble a poble» lleva las 229 con filtro por los 61
+  municipios. Salió de un fallo del propio buscador: fuera de temporada `/mar`
+  no listaba **ni una** playa —ninguna bandera de menos de 12 h— así que el
+  enlace `#p-<codi>` llegaba a una página donde su playa no existía. La tabla
+  enseña nombre, municipio, costa y la fecha del último parte; la bandera, solo
+  cuando es reciente.
 - Un **buscador de playas** propio — descartado: las 229 ya están en `/cerca`
   con su etiqueta y su enlace a la fila. Ver la sección del buscador.
 

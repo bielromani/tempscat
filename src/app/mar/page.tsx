@@ -19,6 +19,18 @@ import { ListFilter, groupsOf } from '@/components/ListFilter';
  *
  * La bandera gana siempre que exista y sea reciente. El modelo es lo que queda
  * cuando no la hay.
+ *
+ * ## Y el registro entero, siempre
+ *
+ * Fuera de temporada `recent` está **vacío** —ningún socorrista de servicio,
+ * ninguna bandera de menos de doce horas— y la página se quedaba sin una sola
+ * playa: un resultado del buscador llegaba a `/mar#p-…` y no encontraba nada
+ * donde aterrizar. La tabla de abajo lleva las 229 con su municipio y la fecha
+ * de su último parte, y **la bandera solo cuando es reciente**: lo que se retira
+ * fuera de horario es el color, no la playa.
+ *
+ * Agrupa por municipio y no por tramo de costa porque «què hi ha al Maresme» no
+ * es la pregunta que se hace nadie.
  */
 export const revalidate = 900;
 
@@ -72,6 +84,29 @@ export default async function MarPage() {
 
   const flagGroups = groupsOf(recent, (b) => (
     b.flag ? { key: b.flag, label: flagStyle(b.flag).label } : null
+  ));
+
+  /*
+   * El registre sencer, ordenat de nord a sud dins de cada municipi.
+   *
+   * Existeix per dues raons. La primera és que fora de temporada `recent` és
+   * **buit** —cap socorrista de servei, cap bandera de menys de dotze hores— i
+   * la pàgina es quedava sense ni una platja: un resultat del cercador hi
+   * arribava i no trobava res. La segona és que agrupar per tram de costa
+   * contesta «què hi ha al Maresme» i no «què hi ha al meu poble», que és la
+   * pregunta.
+   *
+   * Aquí no hi ha cap bandera caducada fent-se passar per bandera: hi ha el
+   * nom, el municipi i **quan va ser l'últim parte**. La bandera només surt
+   * quan és de les últimes {FLAG_SHOW_HOURS} hores, igual que a dalt.
+   */
+  const registry = data.list
+    .slice()
+    .sort((a, b) => a.municipality.localeCompare(b.municipality, 'ca')
+      || a.name.localeCompare(b.name, 'ca'));
+
+  const townGroups = groupsOf(registry, (b) => (
+    b.municipality ? { key: b.municipalityIne5, label: b.municipality } : null
   ));
 
   const byCoast = new Map<string, typeof recent>();
@@ -167,7 +202,6 @@ export default async function MarPage() {
               return (
                 <li
                   key={b.code}
-                  id={`p-${b.code}`}
                   data-lf={b.flag}
                   className="rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2.5"
                 >
@@ -252,6 +286,68 @@ export default async function MarPage() {
         </section>
       )}
 
+      <section className="mt-8">
+        <h2 className="mb-1 text-lg font-semibold tracking-tight">
+          Totes les platges, poble a poble
+        </h2>
+        <p className="mb-3 max-w-[65ch] text-sm leading-relaxed text-[var(--muted)]">
+          Les {registry.length} platges del registre, amb el dia de l&apos;últim parte.
+          La bandera només hi surt quan és de les últimes {FLAG_SHOW_HOURS} hores: la
+          d&apos;abans-d&apos;ahir no diu res de com està l&apos;aigua avui.
+        </p>
+
+        <ListFilter
+          id="fp"
+          groups={townGroups}
+          legend="Filtra per municipi"
+          allLabel="Tots els municipis"
+        >
+          <div className="scroll-x">
+            <table className="w-full border-collapse text-sm">
+              <caption className="sr-only">
+                Registre de platges de Catalunya, per municipi
+              </caption>
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--muted)]">
+                  <th scope="col" className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Platja</th>
+                  <th scope="col" className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Municipi</th>
+                  <th scope="col" className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Costa</th>
+                  <th scope="col" className="border-b border-[var(--line)] py-2 font-semibold">Últim parte</th>
+                </tr>
+              </thead>
+              <tbody>
+                {registry.map((b) => {
+                  const shown = b.ageHours <= FLAG_SHOW_HOURS;
+                  return (
+                    <tr
+                      key={b.code}
+                      id={`p-${b.code}`}
+                      data-lf={b.municipalityIne5}
+                      className="border-b border-[var(--line-soft)]"
+                    >
+                      <td className="py-2 pr-4 text-[var(--ink)]">{b.name}</td>
+                      <td className="py-2 pr-4 text-[var(--ink-2)]">{b.municipality}</td>
+                      <td className="py-2 pr-4 text-[var(--muted)]">{b.coast}</td>
+                      <td className="py-2 text-[var(--muted)]">
+                        {shown ? (
+                          <span className="flex items-center gap-1.5 text-[var(--ink-2)]">
+                            <FlagMark flag={b.flag} size={16} />
+                            {flagStyle(b.flag).label}
+                            <span className="text-[var(--muted)]">· {ago(b.ageHours * 60)}</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs">{dateTimeLong(b.at)}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </ListFilter>
+      </section>
+
       <section className="mt-8 max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
         <h2 className="text-lg font-semibold tracking-tight text-[var(--ink)]">
           Què vol dir i què no
@@ -276,9 +372,9 @@ export default async function MarPage() {
           desconeguda i s&apos;ha de tractar com si piqués.
         </p>
         <p className="text-[var(--muted)]">
-          {data.source}. En total hi ha {data.list.length} platges al registre; les
-          que no tenen parte recent no surten. Estat de la mar amb l&apos;escala
-          Douglas, la mateixa dels partes marítims.
+          {data.source}. Hi ha {data.list.length} platges al registre i totes surten a la
+          taula de sobre; el que no surt fora d&apos;horari és la bandera. Estat de la
+          mar amb l&apos;escala Douglas, la mateixa dels partes marítims.
           {sea && sea.points[0] && (
             <> Model d&apos;onatge de {dateTimeLong(sea.points[0].times[sea.index])}.</>
           )}
