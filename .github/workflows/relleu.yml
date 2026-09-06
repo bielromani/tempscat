@@ -1,0 +1,38 @@
+name: Tessel·les de relleu
+
+# A mà i prou. L'altitud del terreny no canvia.
+#
+# Es corre quan es toca el càlcul de l'ombrejat o quan cal ampliar la piràmide
+# de zooms. Es baixa el terreny d'AWS, calcula les 1.949 tessel·les i les puja
+# a l'emmagatzematge; les que ja hi són al disc de l'executor no es tornen a
+# calcular, però com que cada execució arrenca amb un contenidor net, a la
+# pràctica es calculen totes.
+#
+# ## Per què no es corre en local
+#
+# Perquè es pot, però són 75 MB en 1.949 objectes i una connexió domèstica hi
+# triga i s'hi entrebanca: la primera provatura va acabar amb totes les pujades
+# en `fetch failed` i zero fitxers publicats. Des d'aquí surt bé i és el mateix
+# camí que fan la resta de workers.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: relleu
+  cancel-in-progress: false
+
+jobs:
+  tessel-les:
+    runs-on: ubuntu-latest
+    # Baixar 1.949 tessel·les de terreny i pujar-ne 1.949 de calculades.
+    timeout-minutes: 60
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET || vars.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || vars.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || vars.R2_SECRET_ACCESS_KEY }}
+      DATA_BASE_URL: ${{ secrets.DATA_BASE_URL || vars.DATA_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: npm run data:relleu
