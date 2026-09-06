@@ -139,7 +139,14 @@ export function RouteMap({
    * a una tipografia de pal sec s'hi acosta prou; no cal mesurar el text de
    * veritat per decidir si hi cap.
    */
-  const FS = unit * 3.4;
+  /*
+   * El cos del rètol.
+   *
+   * Amb 3,4 unitats, «Santa Eulàlia de Riuprimer» ocupava un terç del mapa i
+   * el dibuix passava a ser un cartell amb una ratlla a sota. A 2,4, a l'ample
+   * de la columna surt a uns 15 px, que és el cos d'un peu de foto.
+   */
+  const FS = unit * 2.4;
   const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
   const labels: Array<{ nom: string; x: number; y: number; right: boolean }> = [];
 
@@ -207,10 +214,10 @@ export function RouteMap({
             d={d}
             fill="none"
             stroke="var(--surface)"
-            strokeWidth={unit * 1.6}
+            strokeWidth={unit * 2.1}
             strokeLinejoin="round"
             strokeLinecap="round"
-            opacity={0.9}
+            opacity={0.85}
           />
         ))}
         {paths.map((d, i) => (
@@ -219,7 +226,7 @@ export function RouteMap({
             d={d}
             fill="none"
             stroke="var(--accent)"
-            strokeWidth={unit * 0.9}
+            strokeWidth={unit * 1.2}
             strokeLinejoin="round"
             strokeLinecap="round"
           />
@@ -236,7 +243,7 @@ export function RouteMap({
               fontSize={FS}
               fill="var(--ink)"
               stroke="var(--land)"
-              strokeWidth={unit * 0.8}
+              strokeWidth={unit * 0.6}
               paintOrder="stroke"
             >
               {l.nom}
