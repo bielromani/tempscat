@@ -10,10 +10,18 @@ name: Tessel·les de relleu
 #
 # ## Per què no es corre en local
 #
-# Perquè es pot, però són 75 MB en 1.949 objectes i una connexió domèstica hi
-# triga i s'hi entrebanca: la primera provatura va acabar amb totes les pujades
-# en `fetch failed` i zero fitxers publicats. Des d'aquí surt bé i és el mateix
-# camí que fan la resta de workers.
+# Perquè des de la màquina de desenvolupament **no s'hi pot publicar**. La
+# connexió a R2 passa per una intercepció TLS i Node rebutja el certificat:
+# `self-signed certificate`. La primera provatura va acabar amb les 1.949
+# pujades en `fetch failed` i zero fitxers publicats — i el missatge d'aquell
+# error no diu «certificat», així que va semblar una caiguda de xarxa fins que
+# es va provar la connexió a pèl.
+#
+# `--use-system-ca` tampoc no ho resol: l'arrel corporativa no és al magatzem de
+# Windows. I desactivar la verificació no és una opció.
+#
+# El càlcul sí que es pot fer en local —les tessel·les queden a `data/cache/`— i
+# el web les serveix del disc mentre s'hi treballa.
 on:
   # Quan canvia el calcul de l'ombrejat, les tessel·les publicades ja no son
   # les que aquest codi faria. No es una drecera per llancar-ho: es la condicio
