@@ -7,12 +7,15 @@ name: Tessel·les del mapa base
 # puja a l'emmagatzematge. No es baixa Catalunya sencera: al zoom 13 serien
 # vint mil i se n'ensenyen 2.315.
 #
-# ## Per què no es corre en local
+# ## En local es pot, però no s'hi pot comptar
 #
-# El càlcul sí que es pot: les tessel·les queden a `data/cache/` i el web les
-# serveix del disc mentre s'hi treballa. El que no es pot és **publicar-les**:
-# la connexió a R2 des de la màquina de desenvolupament passa per una
-# intercepció TLS i Node rebutja el certificat. El detall és a `relleu.yml`.
+# El càlcul sí que hi va sempre: les tessel·les queden a `data/cache/` i el web
+# les serveix del disc mentre s'hi treballa. **Publicar-les** és una altra cosa:
+# la connexió a R2 des de la màquina de desenvolupament passa a estones per una
+# intercepció TLS que Node rebutja —`self-signed certificate`— i llavors totes
+# les pujades fallen amb un `fetch failed` que no diu que sigui un certificat.
+# El dia que aquest fitxer es va escriure va fallar; una hora després, la
+# mateixa ordre va publicar les 2.315. D'aquí surt bé sempre.
 #
 # ## Llicència
 #

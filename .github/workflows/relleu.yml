@@ -20,6 +20,10 @@ name: Tessel·les de relleu
 # `--use-system-ca` tampoc no ho resol: l'arrel corporativa no és al magatzem de
 # Windows. I desactivar la verificació no és una opció.
 #
+# La intercepció va a estones: una hora més tard, la mateixa ordre va publicar
+# 2.315 tessel·les del mapa base sense una queixa. Per això la publicació viu
+# aquí i no depèn de com estigui la xarxa de qui hi treballa.
+#
 # El càlcul sí que es pot fer en local —les tessel·les queden a `data/cache/`— i
 # el web les serveix del disc mentre s'hi treballa.
 on:

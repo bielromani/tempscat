@@ -103,6 +103,31 @@ export function markForPublish(relativePath: string): void {
  * sí lanza —ver `s3Config()`—, porque eso no es «no publicar», es «creer que
  * publicas».
  */
+/**
+ * El tipo del objeto, por su extensión.
+ *
+ * Antes era `.png ? 'image/png' : 'application/json'`, y el día que aparecieron
+ * las teselas del mapa base en WebP se subieron **2.315 imágenes declaradas
+ * como JSON**. No se veía: la route handler pone su propia cabecera al
+ * servirlas. Pero `DATA_BASE_URL` es un extremo público y documentado, y quien
+ * lea de ahí recibe lo que el objeto dice que es.
+ *
+ * Lo que no está en la tabla sigue siendo JSON, que es lo que publica todo lo
+ * demás.
+ */
+const MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.json': 'application/json',
+};
+
+function mimeOf(rel: string): string {
+  const dot = rel.lastIndexOf('.');
+  return (dot >= 0 ? MIME[rel.slice(dot).toLowerCase()] : undefined) ?? 'application/json';
+}
+
 export async function publish(): Promise<{ uploaded: number; bytes: number; skipped: boolean }> {
   const cfg = s3Config();
   if (!cfg) {
@@ -128,7 +153,7 @@ export async function publish(): Promise<{ uploaded: number; bytes: number; skip
       const body = readFileSync(local);
       try {
         await withRetry(() => putObject(cfg, rel, body, {
-          contentType: rel.endsWith('.png') ? 'image/png' : 'application/json',
+          contentType: mimeOf(rel),
           // La aplicación ya memoriza por su cuenta y con su propio plazo. Que
           // el CDN se quede la copia más que eso solo añade un sitio donde el
           // dato envejece sin que nadie lo sepa.

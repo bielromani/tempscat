@@ -1,6 +1,6 @@
 import { int, num } from '@/lib/format';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { projectToMap, type MapProjection } from '@/lib/mercator';
+import { projectToMap, tileWindow, type MapProjection } from '@/lib/mercator';
 import type { MapFeature } from '@/lib/map';
 
 /**
@@ -90,6 +90,24 @@ export function ResortMap({
     return [...acc, { ...p, up }];
   }, []);
 
+  /*
+   * El relleu a sota, que aquí sí que diu alguna cosa.
+   *
+   * Als itineraris es va provar i no servia: la meitat passen per terreny pla i
+   * un ombrejat d'un pla és un full en blanc. Aquí la finestra és el Pirineu
+   * sencer, i el que es veu són les valls per on baixa cada estació.
+   *
+   * Les tessel·les i el zoom els tria `tileWindow()`, la mateixa funció que fa
+   * servir el mapa dels itineraris — amb els zooms que `13-relief-tiles.ts`
+   * calcula.
+   */
+  const terrain = tileWindow(
+    { x: x0, y: y0, w: x1 - x0, h: y1 - y0 },
+    projection,
+    [9, 10, 11, 12],
+    24,
+  );
+
   return (
     <figure className="m-0">
       <svg
@@ -106,6 +124,19 @@ export function ResortMap({
             stroke="var(--line)"
             strokeWidth="1"
             strokeLinejoin="round"
+          />
+        ))}
+
+        {terrain.map((t) => (
+          <image
+            key={`${t.z}/${t.x}/${t.y}`}
+            href={`/relleu/${t.z}/${t.x}/${t.y}.png`}
+            x={t.px}
+            y={t.py}
+            width={t.pw}
+            height={t.ph}
+            preserveAspectRatio="none"
+            className="relief"
           />
         ))}
 
@@ -174,7 +205,8 @@ export function ResortMap({
         El número és la <strong className="font-medium text-[var(--ink-2)]">temperatura
         mesurada</strong> a l&apos;estació meteorològica més alta de cada domini, que
         mesura tot l&apos;any. L&apos;anell verd vol dir oberta, i el gruix de neu hi surt
-        quan el comunicat encara val.
+        quan el comunicat encara val. El relleu del fons és calculat del model
+        d&apos;elevació de Copernicus.
       </figcaption>
     </figure>
   );
