@@ -9,9 +9,11 @@ import { allComarques, locationById } from '@/lib/territory';
 import { mapOutline } from '@/lib/map';
 import { RouteMap } from '@/components/RouteMap';
 import { ElevationProfile } from '@/components/ElevationProfile';
-import { forecastFor, localToday, tempAtAltitude } from '@/lib/weather';
+import { currentFor, forecastFor, localNowHour, localToday, tempAtAltitude } from '@/lib/weather';
+import { msToKmh, windCardinal } from '@/lib/variables';
+import { NextHours } from '@/components/NextHours';
 import { shareAboveSnowLine } from '@/lib/mountain';
-import { comarcaName, dateShort, deComarca, int, num, relativeDayTiny, temp } from '@/lib/format';
+import { ago, comarcaName, dateShort, deComarca, int, num, relativeDayTiny, temp } from '@/lib/format';
 import { weatherCode } from '@/lib/weather-codes';
 import { External } from '@/components/External';
 
@@ -72,7 +74,59 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
   const forecast = base ? await forecastFor(base) : null;
   const today = localToday();
 
-  const days = (forecast?.daily ?? []).slice(0, 5);
+  const days = (forecast?.daily ?? []).slice(0, 7);
+  const current = base ? await currentFor(base) : null;
+  const nowHour = localNowHour();
+  const up = route.maxM;
+
+  /*
+   * La sèrie horària, amb la temperatura pujada a la cota de l'itinerari.
+   *
+   * Es corregeix **només la temperatura**, amb el gradient estàndard. La pluja,
+   * la ratxa i el cel es queden els del punt de predicció: una tempesta no
+   * canvia d'hora perquè es pugin vuit-cents metres, però el vent en una carena
+   * s'accelera per la forma del terreny i no hi ha cap número honest per
+   * multiplicar-lo. El peu de la taula ho diu.
+   *
+   * La sensació tèrmica es buida a posta: la seva fórmula porta humitat i
+   * radiació, i pujar-hi només la temperatura donaria una xifra que no és ni
+   * la d'aquí ni la de dalt.
+   */
+  const hourlyUp = up != null && base
+    ? (forecast?.hourly ?? []).map((h) => ({
+      ...h,
+      temperature: tempAtAltitude(h.temperature, base.altitud, up),
+      apparent: null,
+    }))
+    : (forecast?.hourly ?? []);
+
+  /*
+   * La temperatura d'ara, a dalt — i «ara» amb rellotge.
+   *
+   * La XEMA va de 45 a 65 minuts enrere, així que per sota de 90 una lectura és
+   * la d'ara i prou. Passades sis hores no explica com està la muntanya i no
+   * s'ensenya: els propers dies ja hi són a sota.
+   *
+   * Sense aquesta comprovació, amb la instantània aturada la fitxa deia «27 °C
+   * ara, a dalt» damunt d'una mesura de feia cinc dies. El número era el que hi
+   * havia; la paraula «ara» era falsa.
+   */
+  const NOW_MIN = 90;
+  const SHOW_HOURS = 6;
+  const fresh = current != null && current.ageMin <= SHOW_HOURS * 60;
+  const isNow = current != null && current.ageMin <= NOW_MIN;
+  /*
+   * Hores que queden per davant dins de la sèrie.
+   *
+   * `NextHours` no dibuixa res amb menys de dues, i sense comprovar-ho la fitxa
+   * escrivia el títol «Hora a hora» i el seu peu damunt del no-res. Passa al
+   * final de la finestra de 120 hores, i amb una instantània aturada, sempre.
+   */
+  const aheadHours = hourlyUp.filter((h) => h.time.slice(0, 13) >= nowHour).length;
+
+  const nowUp = fresh && current && up != null && base
+    ? tempAtAltitude(current.temperatureAdjusted ?? current.temperature, base.altitud, up)
+    : null;
   const others = route.comarques.length
     ? routesOfComarca(route.comarques[0]).filter((r) => r.slug !== route.slug).slice(0, 6)
     : [];
@@ -185,44 +239,13 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
         </p>
       </section>
 
-      {/* ── Per on va ─────────────────────────────────────────────────── */}
-      {geo && geo.trace.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Per on va</h2>
-          <RouteMap
-            projection={mapBase.projection}
-            trace={geo.trace}
-            start={route.start}
-            name={route.name}
-          />
-        </section>
-      )}
-
-      {/* ── El perfil ─────────────────────────────────────────────────── */}
-      {geo?.profile && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Com puja i com baixa</h2>
-          <ElevationProfile profile={geo.profile} km={route.km} />
-        </section>
-      )}
-
-      {geo && !geo.profile && (
-        <p className="mt-8 max-w-[65ch] text-sm leading-relaxed text-[var(--muted)]">
-          D&apos;aquest itinerari no se&apos;n publica el perfil d&apos;alçades. A
-          OpenStreetMap la relació és un conjunt de vies sense ordre, i les
-          d&apos;aquesta no s&apos;encadenen —hi ha branques o trams solts—, així que
-          «distància recorreguda» no vol dir res i el dibuix seria una serra
-          inventada. Les cotes mínima i màxima de dalt sí que són mesurades.
-        </p>
-      )}
-
-      {/* ── El temps a l'altura de l'itinerari ────────────────────────── */}
-      {days.length > 0 && route.maxM != null && base && (
+      {/* ── El temps, que és a què es ve ─────────────────────────────── */}
+      {route.maxM != null && base && (nowUp != null || days.length > 0) && (
         <section className="mt-8">
           <h2 className="mb-1 text-lg font-semibold tracking-tight">
             El temps a {int(route.maxM)} m
           </h2>
-          <p className="mb-3 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
+          <p className="mb-4 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
             La temperatura ve del punt de predicció{' '}
             {route.nearest && (
               <>de <Link href={route.nearest.path} className="text-[var(--ink)]">{route.nearest.nom}</Link>{' '}</>
@@ -230,6 +253,58 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
             i està corregida amb el gradient estàndard fins al punt més alt de
             l&apos;itinerari. És una correcció d&apos;altura, no una mesura d&apos;allà.
           </p>
+        </section>
+      )}
+
+      {/* ── Ara ── */}
+      {current && nowUp != null && base && route.maxM != null && (
+        <section className="mt-4 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+            <p className="m-0">
+              <span className="tnum text-4xl font-semibold tracking-tight text-[var(--ink)]">
+                {temp(nowUp, 0)}
+              </span>
+              <span className="ml-2 text-sm text-[var(--muted)]">
+                {isNow ? 'ara, a dalt' : `a dalt, ${ago(current.ageMin)}`}
+              </span>
+            </p>
+            <p className="m-0 text-sm text-[var(--ink-2)]">
+              {[
+                current.temperature != null
+                  && `${temp(current.temperature, 0)} a ${int(base.altitud ?? 0)} m`,
+                current.windSpeed != null
+                  && `vent ${int(msToKmh(current.windSpeed))} km/h`
+                  + (current.windDirection != null ? ` del ${windCardinal(current.windDirection)}` : ''),
+                current.humidity != null && `${int(current.humidity)} % d’humitat`,
+              ].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            Mesurat a l&apos;estació de {current.station.nom}, a{' '}
+            {num(current.station.distKm, 1)} km{isNow ? `, ${ago(current.ageMin)}` : ''}.
+            {current.provisional && ' Dada provisional.'}
+          </p>
+        </section>
+      )}
+
+      {/* ── Hora a hora, que és el que decideix a quina hora se surt ── */}
+      {aheadHours >= 2 && route.maxM != null && (
+        <section className="mt-6">
+          <h3 className="mb-2 text-base font-semibold tracking-tight">Hora a hora</h3>
+          <NextHours hourly={hourlyUp} nowHour={nowHour} models={forecast?.models.length ?? 1} id="ruta" />
+          <p className="mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+            La temperatura és la de {int(route.maxM)} m; la pluja i el vent són els del
+            punt de predicció, sense pujar. Amb {hoursText(hours)} de camí, el que
+            decideix l&apos;hora de sortida és com estarà a mig matí i a mitja tarda, no
+            la mitjana del dia.
+          </p>
+        </section>
+      )}
+
+      {/* ── El temps a l'altura de l'itinerari ────────────────────────── */}
+      {days.length > 0 && route.maxM != null && base && (
+        <section className="mt-6">
+          <h3 className="mb-2 text-base font-semibold tracking-tight">Els propers dies</h3>
 
           <div className="scroll-x">
             <table className="w-full border-collapse text-sm">
@@ -301,13 +376,45 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
           </div>
 
           <p className="mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
-            La ratxa és la del punt de predicció, a {int(base.altitud ?? 0)} m, i **no** està
+            La ratxa és la del punt de predicció, a {int(base.altitud ?? 0)} m, i{' '}
+            <strong className="font-medium text-[var(--ink-2)]">no</strong> està
             pujada a la cota de l&apos;itinerari: en una carena el vent s&apos;accelera per la
             forma del terreny i multiplicar-lo per un número inventat seria pitjor que
             dir d&apos;on surt. La cota de neu diu per damunt de quina altura la
             precipitació arriba en forma de neu, no quanta se n&apos;acumula.
           </p>
         </section>
+      )}
+
+      {/* ── Per on va ─────────────────────────────────────────────────── */}
+      {geo && geo.trace.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Per on va</h2>
+          <RouteMap
+            projection={mapBase.projection}
+            trace={geo.trace}
+            start={route.start}
+            name={route.name}
+          />
+        </section>
+      )}
+
+      {/* ── El perfil ─────────────────────────────────────────────────── */}
+      {geo?.profile && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Com puja i com baixa</h2>
+          <ElevationProfile profile={geo.profile} km={route.km} />
+        </section>
+      )}
+
+      {geo && !geo.profile && (
+        <p className="mt-8 max-w-[65ch] text-sm leading-relaxed text-[var(--muted)]">
+          D&apos;aquest itinerari no se&apos;n publica el perfil d&apos;alçades. A
+          OpenStreetMap la relació és un conjunt de vies sense ordre, i les
+          d&apos;aquesta no s&apos;encadenen —hi ha branques o trams solts—, així que
+          «distància recorreguda» no vol dir res i el dibuix seria una serra
+          inventada. Les cotes mínima i màxima de dalt sí que són mesurades.
+        </p>
       )}
 
       {/* ── Enllaços ──────────────────────────────────────────────────── */}

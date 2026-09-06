@@ -540,3 +540,19 @@ button:focus-visible,
 
 .rscrub:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
 .rscrub:focus-visible::-moz-range-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* El mapa d'un itinerari, acotat.
+   -------------------------------------------------------------------------
+   A l'ample de la columna sortia de 825 px de costat, i en un itinerari
+   circular això son 825 px d'alt: mig mur abans d'arribar al perfil. El mapa
+   situa, no es el contingut — el contingut d'aquesta web es el temps.
+
+   S'acota per l'alcada i no per l'ample perque els itineraris llargs son
+   apaisats i aquests si que poden ocupar la columna sencera; els que fan nosa
+   son els quadrats. */
+.routemap {
+  max-height: 420px;
+  width: auto;
+  max-width: 100%;
+  margin-inline: auto;
+}

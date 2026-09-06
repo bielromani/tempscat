@@ -86,7 +86,7 @@ export function RouteMap({
         viewBox={`${view.x.toFixed(1)} ${view.y.toFixed(1)} ${view.w.toFixed(1)} ${view.h.toFixed(1)}`}
         role="img"
         aria-label={`Traçat de ${name} sobre el mapa topogràfic`}
-        className="block h-auto w-full rounded-lg border border-[var(--line-soft)]"
+        className="routemap block h-auto w-full rounded-lg border border-[var(--line-soft)]"
         style={{ background: 'var(--surface-2)' }}
       >
         {tiles.map((t) => (
