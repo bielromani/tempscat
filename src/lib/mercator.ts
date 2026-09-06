@@ -143,3 +143,88 @@ export function tileToMap(
   const my = ((ty / n) * 2 - 1) * Math.PI;
   return [(mx - p.minX) * p.scale, (my - p.minY) * p.scale];
 }
+
+/**
+ * Quines tessel·les cobreixen una finestra del mapa, i a quin zoom.
+ *
+ * ## Per què viu aquí i no a cada costat
+ *
+ * Perquè ho han de calcular **igual** el worker que baixa les imatges i la
+ * pàgina que les col·loca. Amb dues còpies, el dia que una canviï el worker
+ * baixarà unes i la pàgina en demanarà unes altres: la pàgina sortirà amb
+ * forats i res no donarà error. És el mateix parany que ja va costar el fitxer
+ * del «Camí de Sant Jaume» — una clau derivada es calcula un cop.
+ *
+ * ## Com es tria el zoom
+ *
+ * El més fi que hi càpiga amb `maxTiles` o menys. El límit no és estètic: cada
+ * tessel·la és una petició i uns cinquanta kB, i un itinerari de quatre-cents
+ * quilòmetres al zoom fi en voldria centenars per a un dibuix de set-cents
+ * píxels. Si cap no hi cap, es queda el més ample, que sempre en són poques.
+ */
+export interface TileBox {
+  z: number;
+  x: number;
+  y: number;
+  /** On cau al `viewBox` del mapa. Recte, perquè les dues projeccions són la mateixa. */
+  px: number; py: number; pw: number; ph: number;
+}
+
+export function tileWindow(
+  view: { x: number; y: number; w: number; h: number },
+  p: MapProjection,
+  zooms: number[],
+  maxTiles: number,
+): TileBox[] {
+  const ordered = [...zooms].sort((a, b) => b - a);
+
+  for (const z of ordered) {
+    const [ax, ay] = mapToTile(view.x, view.y, p, z);
+    const [bx, by] = mapToTile(view.x + view.w, view.y + view.h, p, z);
+    const x0 = Math.floor(ax); const x1 = Math.floor(bx);
+    const y0 = Math.floor(ay); const y1 = Math.floor(by);
+    const count = (x1 - x0 + 1) * (y1 - y0 + 1);
+
+    if (count <= maxTiles || z === ordered[ordered.length - 1]) {
+      const out: TileBox[] = [];
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const [tx, ty] = tileToMap(x, y, p, z);
+          const [ux, uy] = tileToMap(x + 1, y + 1, p, z);
+          out.push({ z, x, y, px: tx, py: ty, pw: ux - tx, ph: uy - ty });
+        }
+      }
+      return out;
+    }
+  }
+  return [];
+}
+
+/**
+ * La finestra que encabeix uns punts, amb marge.
+ *
+ * Va amb `tileWindow()` i pel mateix motiu: el worker i la pàgina han de mirar
+ * **exactament** la mateixa finestra. Un marge diferent en un i altre no dona
+ * cap error; dona un mapa amb una franja sense tessel·les al caire.
+ *
+ * El marge és proporcional amb un mínim. Sense el mínim, una pujada de dos
+ * quilòmetres en línia recta sortiria amb una caixa de dues unitats d'alt i el
+ * mapa seria una ratlla.
+ */
+export function fitBox(
+  pts: Array<[number, number]>,
+  share = 0.12,
+  min = 6,
+): { x: number; y: number; w: number; h: number } {
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const w0 = Math.max(...xs) - Math.min(...xs);
+  const h0 = Math.max(...ys) - Math.min(...ys);
+  const pad = Math.max(w0, h0) * share + min;
+  return {
+    x: Math.min(...xs) - pad,
+    y: Math.min(...ys) - pad,
+    w: w0 + pad * 2,
+    h: h0 + pad * 2,
+  };
+}

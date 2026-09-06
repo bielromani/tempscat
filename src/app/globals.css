@@ -51,6 +51,15 @@
      els punts. */
   --sea: oklch(93% 0.033 232);
   --land: oklch(95.5% 0.007 240);
+
+  /* El traçat d'un itinerari damunt del mapa base.
+     -----------------------------------------------------------------------
+     No és l'accent. L'accent és un blau i el mapa topogràfic ja en porta —els
+     rius, les autopistes— així que el traçat s'hi confonia amb una via més. Un
+     magenta fosc no surt en cap cartografia i per tant no es confon amb res,
+     i el mateix to va bé sobre el mapa clar i sobre el fosc perquè el mapa
+     base és clar en tots dos casos. */
+  --route: oklch(48% 0.22 342);
 }
 
 @media (prefers-color-scheme: dark) {

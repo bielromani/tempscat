@@ -26,6 +26,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `src/lib/routes.ts` | Los 683 itinerarios señalizados. **ODbL, no CC-BY: fuera del API** |
 | `data/build/routes.json` | Índice de los 683: nombre, código, km, cotas, comarcas. **Se versiona** |
 | `data/build/routes/<slug>.json` | Trazado y perfil de alturas de uno. Solo lo lee su ficha |
+| `data/cache/base/` | Teselas del mapa base del ICGC, ya en WebP. Las sirve una route handler |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
@@ -418,6 +419,20 @@ cuota para exactamente la misma información.
   arribar a 1», cada tessel·la plana sortia amb un alfa de 101 sobre 255 —mesurat al delta i a
   mar obert, uniforme— i tot el mapa hauria portat un vel fosc que tapava el color del terra i
   pintava el mar. Es compara contra el pla: per sota, ombra; per damunt, llum.
+- **Un ombrejat no serveix on el terreny és pla, i mig país ho és.** El mapa d'un itinerari es
+  va fer primer amb el relleu calculat del model d'altures, i a la Plana de Vic no dibuixava
+  res: el traçat quedava flotant damunt del blanc. El que fa útil un mapa a qui camina són els
+  camins, les carreteres, els rius i els noms — i això surt d'una cartografia, no d'un DEM. El
+  fons és ara el **mapa base de l'ICGC**, que és CC BY i es pot desar i tornar a servir dient
+  d'on ve. `scripts/14-basemap-tiles.ts`.
+- **Les tessel·les del mapa base van en WebP i no en PNG.** L'ICGC les serveix en PNG de 512 px
+  i entre 310 i 470 kB; en WebP de qualitat 80 es queden entre 36 i 66, vuit vegades menys, amb
+  la mateixa resolució. Amb PNG, un mapa de dotze tessel·les serien quatre megues i mig.
+- **La finestra i el zoom d'un mapa els calculen `fitBox()` i `tileWindow()`, i viuen a
+  `mercator.ts` per una raó.** Els han de calcular **igual** el worker que baixa les imatges i
+  la pàgina que les col·loca; amb dues còpies, el dia que una canviï el mapa surt amb forats i
+  res no dona error. Els zooms i el sostre de tessel·les són constants als dos costats i el
+  comentari de cada un remet a l'altre.
 - **El relleu de `11-relief.ts` no serveix per a un mapa de detall.** És una sola imatge de 788
   × 1024 px per a tot el país, uns 400 m per píxel: retallant-ne el tros d'un itinerari de 26 km
   en surten noranta píxels. Per això hi ha `13-relief-tiles.ts`, que en fa tessel·les del zoom 9

@@ -5,7 +5,7 @@ import {
   hoursText, networkLabel, refApart, routeBySlug, routeGeometry, routeSlugs,
   routesOfComarca, walkingHours, NAISMITH_KMH, NAISMITH_ASCENT_M_PER_H,
 } from '@/lib/routes';
-import { allComarques, locationById, locationsInBox } from '@/lib/territory';
+import { allComarques, locationById } from '@/lib/territory';
 import { mapOutline } from '@/lib/map';
 import { RouteMap } from '@/components/RouteMap';
 import { ElevationProfile } from '@/components/ElevationProfile';
@@ -86,33 +86,6 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
    */
   const geo = routeGeometry(route.slug);
   const mapBase = mapOutline();
-
-  /*
-   * Els noms del mapa: el que hi ha **dins de la caixa del traçat**, i no els
-   * municipis de les comarques que travessa.
-   *
-   * Per comarca, un itinerari de la Plana de Vic sortia amb tres noms i cap
-   * dels pobles pels quals passa; i un GR que creua set comarques n'agafava els
-   * catorze més grans de set comarques senceres, la majoria a cinquanta
-   * quilòmetres del traçat. Dins de la caixa hi entren municipis i nuclis, i el
-   * mapa en col·loca els que hi càpiguen sense trepitjar-se.
-   */
-  const box = (() => {
-    const pts = (geo?.trace ?? []).flat();
-    if (!pts.length) return null;
-    const lats = pts.map((q) => q[0]);
-    const lons = pts.map((q) => q[1]);
-    const m = 0.02;
-    return {
-      south: Math.min(...lats) - m, north: Math.max(...lats) + m,
-      west: Math.min(...lons) - m, east: Math.max(...lons) + m,
-    };
-  })();
-  const towns = box
-    ? locationsInBox(box, 80).map((l) => ({
-      nom: l.nom, lat: l.lat as number, lon: l.lon as number, poblacio: l.poblacio,
-    }))
-    : [];
 
   /*
    * El temps a peu, per la regla de Naismith.
@@ -217,18 +190,11 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">Per on va</h2>
           <RouteMap
-            outline={mapBase.features}
             projection={mapBase.projection}
             trace={geo.trace}
             start={route.start}
-            towns={towns}
             name={route.name}
           />
-          <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-            El punt verd és l&apos;inici que fa servir aquesta pàgina per calcular la
-            predicció i el poble més proper. Traçat d&apos;OpenStreetMap, simplificat
-            a 20 m.
-          </p>
         </section>
       )}
 

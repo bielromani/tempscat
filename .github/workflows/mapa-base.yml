@@ -1,0 +1,49 @@
+name: Tessel·les del mapa base
+
+# A mà, i quan canvia el que decideix quines calen.
+#
+# Baixa del WMTS de l'ICGC les tessel·les que els 683 itineraris ensenyen —amb
+# la finestra i el zoom que la pàgina calcularà—, les reescriu en WebP i les
+# puja a l'emmagatzematge. No es baixa Catalunya sencera: al zoom 13 serien
+# vint mil i se n'ensenyen 2.315.
+#
+# ## Per què no es corre en local
+#
+# El càlcul sí que es pot: les tessel·les queden a `data/cache/` i el web les
+# serveix del disc mentre s'hi treballa. El que no es pot és **publicar-les**:
+# la connexió a R2 des de la màquina de desenvolupament passa per una
+# intercepció TLS i Node rebutja el certificat. El detall és a `relleu.yml`.
+#
+# ## Llicència
+#
+# La cartografia de Catalunya és de l'ICGC amb CC BY, i el servei declara
+# `Fees: none` i `AccessConstraints: none`. Fora de Catalunya el mateix servei
+# dona un mapa base mundial d'OpenMapTiles i OpenStreetMap amb ODbL. Les dues
+# atribucions van al peu del mapa, a `RouteMap.tsx`.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/14-basemap-tiles.ts'
+      - '.github/workflows/mapa-base.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: mapa-base
+  cancel-in-progress: false
+
+jobs:
+  tessel-les:
+    runs-on: ubuntu-latest
+    # Baixar 2.315 tessel·les, reescriure-les i pujar-les.
+    timeout-minutes: 60
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET || vars.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || vars.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || vars.R2_SECRET_ACCESS_KEY }}
+      DATA_BASE_URL: ${{ secrets.DATA_BASE_URL || vars.DATA_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: npm run data:base
