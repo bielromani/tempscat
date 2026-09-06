@@ -960,11 +960,31 @@ en concreto: **una bandera dibujada de su color** en vez de una etiqueta de
 texto, un símbolo para las medusas, y decir **si la especie pica o no** — que es
 lo que quiere saber quien lo mira y hoy tiene que buscarlo fuera.
 
-### Rutas de senderismo
+### Rutas de senderismo · ✅ 683 publicadas, con mapa y perfil
 
-Por explorar: si existe algún conjunto de datos abierto con los GR y PR
-catalanes y con licencia que permita republicarlos. Si lo hay, encaja con el
-mapa que ya está hecho.
+Hechas. Salen de OpenStreetMap (ODbL, por eso están fuera del API) y cada ficha
+lleva **mapa del trazado sobre relieve**, **perfil de alturas** y **tiempo a pie**
+por la regla de Naismith, además de la predicción a la cota — que es lo único
+que no está en ningún otro sitio.
+
+**Lo que sigue faltando frente a una ficha oficial como la del Anella Verda de
+Vic**, y por qué:
+
+- **Carreteras y ríos bajo el trazado.** Es lo que hace que su mapa de Google se
+  lea de un vistazo, y es lo único de su página que sí se podría replicar: está
+  en OSM. Pide bajar y simplificar la red viaria y la hidrografía por comarca, y
+  decidir a qué zoom se dibuja cada clase de vía. Es el siguiente paso natural
+  del mapa.
+- **Fotos.** No las tenemos y no se inventan.
+- **Los «eixos» para recortar la ruta.** En OSM las variantes existen como
+  relaciones propias —las PR-C variantes ya están publicadas como itinerarios— y
+  lo que falta es enlazarlas con su ruta madre. Se puede hacer por el `ref`:
+  «PR-C 123.1» cuelga de «PR-C 123».
+
+**Lo que no se hará: incrustar su mapa.** Sería un `iframe` a google.com en cada
+ficha —JavaScript y cookies de terceros en un sitio que no tiene ninguna—, ese
+mapa existe para **una** de las 683, y el fondo son teselas de Google, que no se
+copian.
 
 ---
 
