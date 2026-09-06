@@ -224,8 +224,14 @@ páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado.
 **Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
 interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí.
 
-La parte que se cumple está medida: **no hay un solo `'use client'` en el proyecto**, así que la
-regla se sostiene al pie de la letra. Lo que hay que dejar de decir es la cifra que la acompañaba.
+Hay **un** `'use client'` en el proyecto, y es el cuadro de búsqueda de la cabecera
+(`SiteSearch.tsx`). Va en todas las páginas, así que el coste se midió antes de ponerlo:
+**1.546 bytes en gzip**, la diferencia de sumar todos los fragmentos de `.next/static/chunks`
+con y sin él. Es tan poco porque el runtime ya estaba —ver la tabla de abajo—. Lo que **no** se
+hizo fue bajar el índice al navegador: los sugerimientos los contesta `/api/cerca`, que solo
+llama quien escribe.
+
+Lo que hay que dejar de decir es la cifra que acompañaba a la regla.
 Medido con `next start` sobre `/maresme/malgrat-de-mar`:
 
 | | crudo | gzip |

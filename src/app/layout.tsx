@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { IS_PRODUCTION, SITE_URL } from '@/lib/site';
 import { PRIMARY, SECTIONS } from '@/lib/nav';
+import { SiteSearch } from '@/components/SiteSearch';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -58,32 +59,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
 
             {/*
-              * El cercador va a la capçalera i és un formulari, no un component.
-              * Sense JavaScript no hi ha suggeriments mentre s'escriu, però hi ha
-              * el que importa: es pot arribar a qualsevol lloc del web des de
-              * qualsevol pàgina, amb el teclat i sense carregar res.
+              * El cercador va a la capçalera, i per tant a totes les pàgines.
               *
-              * El text de dins deia «Cercar un poble», i era una promesa curta:
-              * també s'hi troben platges, pantans, estacions i itineraris. Un
-              * exemple de cada mena en diu més que una llista.
+              * És l'únic component de client del projecte. La regla de zero
+              * JavaScript propi és de les pàgines territorials i segueix sent
+              * certa —cap de les 4.293 fitxes en canvia—, però aquest quadre hi
+              * és a totes, així que el cost s'ha de dir: el runtime de React ja
+              * hi era i ja hidratava, i això hi afegeix el seu propi codi i
+              * prou. El perquè i el que s'ha descartat, a `SiteSearch.tsx`.
+              *
+              * Sense JavaScript continua sent el formulari d'abans: Enter obre
+              * `/cerca?q=…`, que és una pàgina de veritat amb la seva adreça.
               */}
-            <form
-              action="/cerca"
-              method="get"
-              role="search"
-              className="ms-auto flex min-w-0 items-center"
-            >
-              <label htmlFor="site-q" className="sr-only">
-                Cercar un poble, una platja, un pantà o una estació
-              </label>
-              <input
-                id="site-q"
-                name="q"
-                type="search"
-                placeholder="Cadaqués, Sau, GR-11…"
-                className="w-36 min-w-0 rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-1 text-sm text-[var(--ink)] outline-none placeholder:text-[var(--muted)] focus:w-52 focus:border-[var(--accent)] sm:w-44"
-              />
-            </form>
+            <SiteSearch />
           </div>
         </header>
 

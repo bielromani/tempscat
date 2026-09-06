@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { MIN_QUERY, search, type SearchKind } from '@/lib/search';
+import { MIN_QUERY, search } from '@/lib/search';
+import { KIND_LABEL } from '@/lib/search-kinds';
+import { SiteSearch } from '@/components/SiteSearch';
 
 /**
  * El cercador.
@@ -22,18 +24,6 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const KIND_LABEL: Record<SearchKind, string> = {
-  poblacio: 'Població',
-  comarca: 'Comarca',
-  estacio: 'Estació',
-  platja: 'Platja',
-  embassament: 'Embassament',
-  aforament: 'Aforament',
-  esqui: 'Muntanya',
-  camera: 'Càmera',
-  itinerari: 'Itinerari',
-  pagina: 'Pàgina',
-};
 
 export default async function CercaPage(
   { searchParams }: { searchParams: Promise<{ q?: string }> },
@@ -57,24 +47,11 @@ export default async function CercaPage(
         alhora, en una sola llista.
       </p>
 
-      <form action="/cerca" method="get" role="search" className="mt-5 flex max-w-lg gap-2">
-        <label htmlFor="q" className="sr-only">Què busqueu</label>
-        <input
-          id="q"
-          name="q"
-          type="search"
-          defaultValue={q}
-          autoFocus
-          placeholder="Molló, Cala la Fosca, Embassament de Sau…"
-          className="min-w-0 flex-1 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-[var(--ink)] outline-none focus:border-[var(--accent)]"
-        />
-        <button
-          type="submit"
-          className="shrink-0 rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--ink)] hover:border-[var(--accent)]"
-        >
-          Cercar
-        </button>
-      </form>
+      {/* Mateix component que la capçalera: aquí també hi ha suggeriments
+          mentre s'escriu, i sense JavaScript segueix sent el formulari. */}
+      <div className="mt-5">
+        <SiteSearch variant="page" defaultValue={q} autoFocus />
+      </div>
 
       {asked && q.trim().length < MIN_QUERY && (
         <p className="mt-6 text-[var(--ink-2)]">

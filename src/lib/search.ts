@@ -8,6 +8,9 @@ import { allRoutes } from './routes';
 import { fold, match, matchWithContext } from './search-match';
 import { deName } from './format';
 import { SECTIONS } from './nav';
+import type { SearchKind } from './search-kinds';
+
+export type { SearchKind } from './search-kinds';
 
 /**
  * El cercador.
@@ -38,10 +41,6 @@ import { SECTIONS } from './nav';
  *
  * Aquí només hi ha què s'indexa i quant pesa cada cosa.
  */
-
-export type SearchKind =
-  | 'poblacio' | 'comarca' | 'estacio' | 'platja' | 'embassament'
-  | 'aforament' | 'esqui' | 'camera' | 'itinerari' | 'pagina';
 
 export interface SearchHit {
   kind: SearchKind;
