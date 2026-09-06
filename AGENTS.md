@@ -413,6 +413,16 @@ cuota para exactamente la misma información.
   d'avisar de res. Va passar amb els rècords de la XEMA i amb els avisos de l'AEMET, que
   elabora el lot de fitxers CAP un o dos cops al dia. El límit ha de ser el cicle real de
   la font, no la cadència del worker.
+- **En un ombrejat, el terreny pla no és negre al 40 %: és transparent.** Amb el sol a 45
+  graus, un pla reflecteix `cos(45°) = 0,707`, no 1. Comptant l'ombra com «el que falta per
+  arribar a 1», cada tessel·la plana sortia amb un alfa de 101 sobre 255 —mesurat al delta i a
+  mar obert, uniforme— i tot el mapa hauria portat un vel fosc que tapava el color del terra i
+  pintava el mar. Es compara contra el pla: per sota, ombra; per damunt, llum.
+- **El relleu de `11-relief.ts` no serveix per a un mapa de detall.** És una sola imatge de 788
+  × 1024 px per a tot el país, uns 400 m per píxel: retallant-ne el tros d'un itinerari de 26 km
+  en surten noranta píxels. Per això hi ha `13-relief-tiles.ts`, que en fa tessel·les del zoom 9
+  al 12 — i cada mapa tria el zoom on la seva finestra hi cap amb poques, perquè un GR de 400 km
+  al zoom 12 en voldria tres mil per a un dibuix de set-cents píxels.
 - **Els itineraris són d'OpenStreetMap i per tant **ODbL**, no CC-BY.** Ensenyar-los en una
   pàgina només demana atribució, però posar-los al feed de `/dades` en faria una base de dades
   derivada i xocaria amb el CC-BY que aquell feed promet. Es queden fora de l'API.

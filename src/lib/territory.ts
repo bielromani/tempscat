@@ -322,3 +322,27 @@ export function allPublishedPaths(): Array<{ path: string; tier: Tier; level: Le
 export function buildSummary(): Record<string, unknown> {
   return load<Record<string, unknown>>('summary.json');
 }
+
+/**
+ * Les poblacions publicades que cauen dins d'un rectangle.
+ *
+ * Serveix per posar noms a un mapa de detall. Van ordenades per població, que
+ * és l'ordre en què s'han de col·locar quan no hi caben totes: en un mapa,
+ * «Vic» ha de sortir abans que un veïnat de quaranta habitants.
+ *
+ * Hi entren municipis **i** nuclis. Amb només municipis, un itinerari per la
+ * plana quedava amb tres noms i prou; els nuclis són el que fa que un traçat
+ * s'entengui, perquè són per on passa.
+ */
+export function locationsInBox(
+  box: { north: number; south: number; west: number; east: number },
+  limit = 60,
+): Location[] {
+  return db().locations
+    .filter((l) => l.published
+      && l.lat != null && l.lon != null
+      && l.lat >= box.south && l.lat <= box.north
+      && l.lon >= box.west && l.lon <= box.east)
+    .sort((a, b) => (b.poblacio ?? 0) - (a.poblacio ?? 0))
+    .slice(0, limit);
+}

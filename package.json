@@ -12,6 +12,7 @@
     "data:geocode": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/03-geocode-entitats.ts",
     "data:stations": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/04-fetch-stations.ts",
     "data:build": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/07-build-territory.ts",
+    "data:relleu": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/13-relief-tiles.ts",
     "data:routes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/12-routes.ts",
     "data:relief": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/11-relief.ts",
     "data:validate": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/08-validate.ts",

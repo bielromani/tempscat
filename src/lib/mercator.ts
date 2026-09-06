@@ -112,3 +112,34 @@ export function projectToMap(
   const [x, y] = mercPoint(lon, lat);
   return [(x - p.minX) * p.scale, (y - p.minY) * p.scale];
 }
+
+/**
+ * D'unitats del `viewBox` del mapa a coordenades de tessel·la, i al revés.
+ *
+ * Les dues projeccions són la mateixa —Web Mercator— així que el pas és una
+ * regla de tres, i per això una tessel·la cau al mapa com un rectangle recte i
+ * no com un quadrilàter tort. És el que permet posar el relleu sota un mapa
+ * nostre amb un `<image>` per tessel·la i que quadri al píxel.
+ *
+ * La `y` de `mercPoint()` és `-ln(tan(π/4 + φ/2))`, que és la Gudermanniana
+ * inversa canviada de signe; la `y` normalitzada de les tessel·les és
+ * `(1 + y/π) / 2`. La `x` és la longitud en radiants, i la seva normalitzada,
+ * `(x/π + 1) / 2`.
+ */
+export function mapToTile(
+  x: number, y: number, p: MapProjection, z: number,
+): [number, number] {
+  const mx = x / p.scale + p.minX;
+  const my = y / p.scale + p.minY;
+  const n = 2 ** z;
+  return [((mx / Math.PI + 1) / 2) * n, ((1 + my / Math.PI) / 2) * n];
+}
+
+export function tileToMap(
+  tx: number, ty: number, p: MapProjection, z: number,
+): [number, number] {
+  const n = 2 ** z;
+  const mx = ((tx / n) * 2 - 1) * Math.PI;
+  const my = ((ty / n) * 2 - 1) * Math.PI;
+  return [(mx - p.minX) * p.scale, (my - p.minY) * p.scale];
+}
