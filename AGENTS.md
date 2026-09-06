@@ -33,6 +33,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `src/lib/cache-store.ts` | **La frontera de lectura.** Disco en local, almacén de objetos en producción |
 | `data/cache/forecast/` | La predicción, un fichero por comarca. Nunca un monolito: ver `shards.ts` |
 | `data/cache/history/`, `data/cache/air/` | Lo mismo, por estación y por celda. Una ficha no se baja el país |
+| `data/cache/climate/` | La serie **mensual completa** de cada estación. Solo la lee `/estacions/<codi>` |
 | `data/raw/`, `data/cache/` | Descargas y datos vivos. No se versionan |
 | `db/migrations/` | Esquema PostgreSQL, sin aplicar todavía |
 
@@ -311,6 +312,18 @@ cuota para exactamente la misma información.
   La pàgina ara diu el que és —pluja acumulada per estació— i la pregunta, que es fa d'un lloc
   concret, es contesta a la fitxa d'aquell lloc amb `RainBlock`. Es corregiria de debò amb una
   capa d'usos del sòl, que no tenim.
+- **La serie mensual va a su propio trozo, y no al del histórico.** Son 457 meses en la estación
+  más antigua —desde septiembre de 1988— y meterlos en el trozo del histórico lo llevaba de 10 kB
+  a 51. Ese trozo lo leen **las 4.293 fichas de pueblo** y ninguna enseña la serie: solo la ficha
+  de la estación. `climateShard()` en `shards.ts`.
+- **Un mes incompleto no es un mes frío, y un año al que le falta enero sale más cálido.** Todo
+  `src/lib/climate.ts` descarta en vez de promediar lo que hay: meses con menos de 25 días fuera,
+  años con menos de 12 meses fuera. Sin eso, una avería de dos semanas se lee como clima.
+- **La tendencia se calcula por mínimos cuadrados y no restando el primer año al último.** Con
+  dos puntos, un año excepcional en cualquiera de los dos extremos decide el resultado entero.
+  Y no se dibuja por debajo de 15 años completos: con menos, el pendiente de una serie de
+  temperaturas es ruido con un signo. Medido sobre la red: 134 de 135 estaciones con serie
+  suficiente dan pendiente positiva, mediana **+0,45 °C por década**.
 - **El dataset diario `7bvh-jvq2` lleva dos días de retraso.** Su última fila el 31 de agosto era
   del 29, así que «ahir» nunca sale de ahí: los extremos de ayer los da el agregado semihorario
   del worker de observación.

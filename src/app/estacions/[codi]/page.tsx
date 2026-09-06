@@ -9,6 +9,11 @@ import {
   aName, ago, dateFull, deName, int, num, signed, temp,
 } from '@/lib/format';
 import { historyOfStation, localToday, observationOfStation } from '@/lib/weather';
+import {
+  climateOfStation, rankOf, sameMonthAcrossYears, trendOf, yearsOf,
+  MONTH_MIN_DAYS, TREND_MIN_YEARS,
+} from '@/lib/climate';
+import { ClimateTrend } from '@/components/ClimateTrend';
 import { operativeStations, stationByCodi } from '@/lib/territory';
 
 /**
@@ -63,9 +68,34 @@ export default async function EstacioPage({ params }: { params: Params }) {
   if (!station || !station.operativa) notFound();
 
   const history = await historyOfStation(station.codi);
+
   const obs = await observationOfStation(station.codi);
   const today = localToday();
   const month = Number(today.slice(5, 7));
+
+  /*
+   * La sèrie mensual, que viu al seu propi tros.
+   *
+   * No és al de l'històric a posta: aquell el llegeixen les 4.293 fitxes de
+   * poble i cap no ensenya això. Ver `shards.ts`.
+   */
+  const monthly = await climateOfStation(station.codi);
+  const climateYears = monthly ? yearsOf(monthly) : [];
+  const trend = trendOf(climateYears);
+  const monthSeries = monthly ? sameMonthAcrossYears(monthly, month) : [];
+  const monthNow = monthly?.find((m) => m.ym === today.slice(0, 7)) ?? null;
+
+  /*
+   * On queda el mes en curs entre tots els seus germans.
+   *
+   * Només si ja porta prou dies. Amb quatre, la mitjana d'un setembre encara és
+   * la de la primera setmana i dir-ne «el tercer més càlid de 38» seria una
+   * frase amb un número inventat a dins.
+   */
+  const monthRank = monthNow && monthNow.tMean != null && monthNow.days >= MONTH_MIN_DAYS
+    && monthSeries.length >= 5
+    ? rankOf(monthNow.tMean, monthSeries.map((m) => m.tMean as number))
+    : null;
 
   const t = obs?.values.temperature?.value ?? null;
   const wind = obs?.values.wind_speed?.value ?? null;
@@ -212,6 +242,56 @@ export default async function EstacioPage({ params }: { params: Params }) {
             month={month}
             today={today}
           />
+        </section>
+      )}
+
+      {climateYears.length >= 5 && (
+        <section className="mt-8">
+          <h2 className="mb-1 text-lg font-semibold tracking-tight">
+            Com han anat els anys
+          </h2>
+          <p className="mb-4 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
+            {climateYears.length} anys sencers mesurats aquí, de {climateYears[0].year} a{' '}
+            {climateYears[climateYears.length - 1].year}.
+            {monthRank && (
+              <>
+                {' '}Aquest mes va, de moment, el{' '}
+                <strong className="font-medium text-[var(--ink)]">
+                  {monthRank.rank}è més càlid de {monthRank.total}
+                </strong>{' '}
+                de la sèrie.
+              </>
+            )}
+          </p>
+
+          <ClimateTrend
+            years={climateYears}
+            trend={trend}
+            month={month}
+            monthSeries={monthSeries}
+            monthNow={monthNow}
+          />
+
+          <div className="mt-4 max-w-[65ch] space-y-2 text-xs leading-relaxed text-[var(--muted)]">
+            <p>
+              Hi entren els anys amb els dotze mesos mesurats, i els mesos amb{' '}
+              {MONTH_MIN_DAYS} dies o més. Un mes amb quatre dies de dada no es pot
+              comparar amb un mes sencer, i un any al qual li falta el gener surt
+              més càlid que un que el té: descartar-los és el que fa que els punts
+              del gràfic vulguin dir el mateix entre ells.
+            </p>
+            <p>
+              {trend
+                ? `La recta és la de mínims quadrats sobre aquests ${trend.years} anys. Es fa servir la recta i no la diferència entre el primer i l'últim perquè, amb dos punts, un any excepcional a qualsevol dels dos extrems decideix el resultat sencer.`
+                : `No es dibuixa cap tendència: en calen ${TREND_MIN_YEARS} anys sencers i aquí n'hi ha ${climateYears.length}. Amb menys, el pendent d'una sèrie de temperatures és soroll amb un signe.`}
+            </p>
+            <p>
+              <strong className="font-medium text-[var(--ink-2)]">Això és el que ha mesurat
+              aquest aparell</strong>, no el clima de la comarca. Una estació es mou,
+              canvia de sensor i li creixen cases al voltant, i qualsevol de les
+              tres coses mou una sèrie tant com una dècada.
+            </p>
+          </div>
         </section>
       )}
 

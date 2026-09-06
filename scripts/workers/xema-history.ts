@@ -30,7 +30,7 @@ import { throttledMap } from '../lib/http.ts';
 import {
   DAILY_LIMITS, QuotaGuard, publish, pullSnapshot, recordFreshness, syncState, writeSnapshot,
 } from '../lib/store.ts';
-import { historyShard } from '../../src/lib/shards.ts';
+import { CLIMATE_DIR, climateShard, historyShard } from '../../src/lib/shards.ts';
 import { windCardinal } from '../../src/lib/variables.ts';
 import type { Station } from '../04-fetch-stations.ts';
 
@@ -139,6 +139,44 @@ export interface WindRose {
   heightM: number;
 }
 
+/**
+ * Un registro por mes de toda la serie de una estación.
+ *
+ * ## Por qué mensual y no diario
+ *
+ * Porque la serie diaria de una estación son hasta **13.773 días** —la más larga
+ * arranca en septiembre de 1988— y guardar eso por 189 estaciones son millones
+ * de filas para contestar preguntas que son todas mensuales o anuales: si este
+ * septiembre ha sido más cálido que los diez anteriores, cómo va la tendencia,
+ * cuál fue el mes más lluvioso. Agregado por mes son 457 filas en la estación
+ * más antigua.
+ *
+ * `days` es cuántos días de ese mes tienen dato. Sin él, un mes con cuatro días
+ * medidos parecería un mes entero, y en una serie de treinta años esos meses
+ * existen: estaciones que se instalan a mitad de mes, averías, cambios de
+ * sensor. Quien lo pinte decide desde qué cobertura se puede comparar.
+ */
+export interface StationMonth {
+  /** `AAAA-MM`. */
+  ym: string;
+  /** Media de las medias diarias. */
+  tMean: number | null;
+  /** La máxima absoluta del mes y la mínima absoluta, no las medias. */
+  tMax: number | null;
+  tMin: number | null;
+  /** Suma del mes, mm. */
+  precip: number | null;
+  /** Racha máxima del mes, m/s. */
+  gustMax: number | null;
+  /** Días de ese mes con alguna medida. */
+  days: number;
+}
+
+export interface StationClimate {
+  station: string;
+  monthly: StationMonth[];
+}
+
 export interface StationHistory {
   station: string;
   /** Últimos 45 días, para la tabla y el gráfico. */
@@ -160,6 +198,7 @@ export interface StationHistory {
    * falta ninguna reanálisis externa.
    */
   normals: Array<{ month: number; tMean: number | null; precip: number | null; years: number }>;
+
   counters: {
     summerDays: { month: number; year: number };
     hotDays: { month: number; year: number };
@@ -320,6 +359,66 @@ function normalsOf(
     precip: a.years.size ? r1(a.pSum / a.years.size) : null,
     years: a.years.size,
   }));
+}
+
+/**
+ * La serie completa, agregada por mes.
+ *
+ * Se calcula aquí y no en la aplicación porque **aquí está la serie entera**:
+ * el fichero que se publica solo lleva los últimos 45 días de `daily`. Es la
+ * misma razón por la que las normales y los récords también salen de este
+ * worker.
+ *
+ * Y opera sobre `series` —las filas crudas de `fullSeries()`— y no sobre
+ * `daily`, que es la ventana reciente. Agregando `daily` el histórico de una
+ * estación con treinta y ocho años habría salido de cuarenta y cinco días, sin
+ * que nada diera error: solo un gráfico con un punto.
+ *
+ * Los extremos son **absolutos del mes**, no medias de extremos: «la máxima de
+ * julio de 2023» es el día más caluroso de aquel julio, que es lo que se
+ * pregunta. La media, en cambio, es la de las medias diarias.
+ */
+function monthlyOf(
+  series: Array<{ day: string; variable: string; value: number }>,
+): StationMonth[] {
+  const acc = new Map<string, {
+    tSum: number; tN: number;
+    tMax: number | null; tMin: number | null;
+    precip: number; precipN: number;
+    gust: number | null;
+    days: Set<string>;
+  }>();
+
+  for (const r of series) {
+    const ym = r.day.slice(0, 7);
+    let a = acc.get(ym);
+    if (!a) {
+      a = { tSum: 0, tN: 0, tMax: null, tMin: null, precip: 0, precipN: 0, gust: null, days: new Set() };
+      acc.set(ym, a);
+    }
+    a.days.add(r.day);
+    switch (r.variable) {
+      case V.tMean: a.tSum += r.value; a.tN++; break;
+      case V.tMax: a.tMax = a.tMax == null ? r.value : Math.max(a.tMax, r.value); break;
+      case V.tMin: a.tMin = a.tMin == null ? r.value : Math.min(a.tMin, r.value); break;
+      case V.precip: a.precip += r.value; a.precipN++; break;
+      case V.gust: a.gust = a.gust == null ? r.value : Math.max(a.gust, r.value); break;
+      default: break;
+    }
+  }
+
+  return [...acc]
+    .sort((x, y) => x[0].localeCompare(y[0]))
+    .map(([ym, a]) => ({
+      ym,
+      tMean: a.tN ? r1(a.tSum / a.tN) : null,
+      tMax: a.tMax != null ? r1(a.tMax) : null,
+      tMin: a.tMin != null ? r1(a.tMin) : null,
+      // Sin ningún día con dato de lluvia, la suma no es cero: es que no consta.
+      precip: a.precipN ? r1(a.precip) : null,
+      gustMax: a.gust != null ? r1(a.gust) : null,
+      days: a.days.size,
+    }));
 }
 
 function count(daily: DailyRecord[], from: string, pred: (d: DailyRecord) => boolean): number {
@@ -636,7 +735,7 @@ async function main() {
           return last ? { depthCm: last.snowDepth!, newCm: last.snowNew, day: last.day } : null;
         })(),
       };
-      return history;
+      return { history, climate: { station: s.codi, monthly: monthlyOf(series) } };
     },
     {
       concurrency: 3,
@@ -649,7 +748,9 @@ async function main() {
   process.stdout.write('\n');
   quota.spend('socrata', calls);
 
-  const fresh = results.filter((r): r is StationHistory => !!r);
+  const pairs = results.filter((r): r is { history: StationHistory; climate: StationClimate } => !!r);
+  const fresh = pairs.map((p) => p.history);
+  const climates = pairs.map((p) => p.climate);
   if (failed.length) {
     console.warn(`
 avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${failed.join(', ')}`);
@@ -728,6 +829,19 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
    */
   writeSnapshot('xema-history', source, valid, dataTs);
   for (const h of valid) writeSnapshot(historyShard(h.station), source, h, dataTs);
+
+  /*
+   * La sèrie mensual, al seu propi tros.
+   *
+   * Només s'escriuen les que s'han refrescat en aquesta volta: a diferència de
+   * l'històric, aquí no hi ha res a fusionar —el fitxer d'una estació és la
+   * seva sèrie sencera i prou— i reescriure les 189 cada vegada serien 189
+   * escriptures a l'emmagatzematge per a un fitxer que no ha canviat. R2 cobra
+   * per operació.
+   */
+  for (const c of climates) writeSnapshot(climateShard(c.station), source, c, dataTs);
+  console.log(`
+→ ${climates.length} sèries mensuals a data/cache/${CLIMATE_DIR}/`);
   console.log(`
 → ${valid.length} trossos a data/cache/history/`);
   recordFreshness({

@@ -128,6 +128,28 @@ export function historyShard(stationCodi: string): string {
   return `${HISTORY_DIR}/${stationCodi}`;
 }
 
+/** Y donde vive la serie mensual completa, que va a part. */
+export const CLIMATE_DIR = 'climate';
+
+/**
+ * La serie mensual de una estación, de tota la seva història.
+ *
+ * ## Per què no va dins del tros del històric
+ *
+ * Perquè són 457 mesos a l'estació més antiga —des del setembre del 1988— i
+ * afegir-los al tros feia passar el fitxer de 10 kB a 51. Aquell tros el
+ * llegeixen **les 4.293 fitxes de poble** per pintar el bloc de clima, i cap
+ * d'elles ensenya la sèrie mensual: només la fitxa de l'estació. Cinc vegades
+ * més bytes a 4.293 pàgines per una cosa que en surt a 189 és exactament la
+ * regla que aquest fitxer existeix per fer complir.
+ *
+ * La fitxa d'un poble no el necessita per res: l'anomalia del mes en curs ja
+ * la calcula el worker contra les normals, que sí que van al tros petit.
+ */
+export function climateShard(stationCodi: string): string {
+  return `${CLIMATE_DIR}/${stationCodi}`;
+}
+
 // ── Aire, por celda ───────────────────────────────────────────
 
 /** Subcarpeta de `data/cache/` donde viven las celdas de aire. */
