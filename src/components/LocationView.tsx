@@ -19,7 +19,7 @@ import { CameraBlock } from './CameraBlock';
 import { ResortBlock } from './ResortBlock';
 import { networkLabel, refApart, type Route } from '@/lib/routes';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { msToKmh, windCardinal } from '@/lib/variables';
+import { feelsCause, msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
 import {
   aName, ago, comarcaName, dateTiny, deComarca, deName, int, num, relativeDayTiny,
@@ -141,9 +141,28 @@ function Current({
               <span className="text-2xl" style={soft}>°C</span>
             </div>
             {code != null && <p className="mt-0.5 text-sm font-medium" style={soft}>{sky.caLong}</p>}
-            {current.apparent != null && Math.abs(current.apparent - (t ?? 0)) >= 1 && (
-              <p className="text-sm" style={soft}>Sensació de {current.apparent.toFixed(0)} °C</p>
-            )}
+            {/*
+              * La sensació, amb la causa quan es pot comprovar.
+              *
+              * «Sensació de 39 °C» sota un 32 no diu si és la humitat, el vent
+              * o el sol, i són tres coses diferents que es porten diferent: de
+              * la xafogor s'escapa a l'ombra i del vent no. La comprovació és a
+              * `feelsCause()`, i quan no en surt cap, es diu la xifra i prou.
+              */}
+            {current.apparent != null && t != null && (() => {
+              const cause = feelsCause(t, current.apparent, current.windSpeed ?? null);
+              if (!cause) return null;
+              const val = current.apparent.toFixed(0);
+              return (
+                <p className="text-sm" style={soft}>
+                  {cause === 'xafogor'
+                    ? `Xafogor: amb la humitat, se'n noten ${val} °C`
+                    : cause === 'vent'
+                      ? `Amb el vent, se'n noten ${val} °C`
+                      : `Sensació de ${val} °C`}
+                </p>
+              );
+            })()}
           </div>
         </div>
 

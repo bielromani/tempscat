@@ -336,3 +336,34 @@ export function apparentTemperature(tempC: number, windMs: number, humidity: num
   }
   return tempC;
 }
+
+/**
+ * Per què la sensació no és la temperatura, quan es pot dir.
+ *
+ * ## Per què la causa es comprova i no es dedueix del signe
+ *
+ * Perquè la sensació només se separa de la temperatura per dos mecanismes i
+ * cadascun té el seu rang. Deduint-ho del signe —«si és més alta, humitat»— un
+ * desajust de les dades escrivia «la humitat fa que els 0 °C es notin com 14»,
+ * que és una frase impossible. Ho va detectar la prova de les frases amb un
+ * perfil sintètic mal format, i és la mateixa comprovació que fa `narrative.ts`.
+ *
+ * ## I per què hi ha un tercer cas sense nom
+ *
+ * Perquè la sensació que publica Open-Meteo no surt d'aquesta funció: la seva
+ * hi posa la radiació, i per això a 20 °C amb sol de cara pot donar 23. És una
+ * diferència de veritat i s'ha d'ensenyar; el que no es pot fer és atribuir-la
+ * a la humitat quan no fa prou calor perquè la humitat hi tingui res a veure.
+ * En aquest cas es diu la xifra i prou.
+ */
+export type FeelsCause = 'xafogor' | 'vent' | 'altres' | null;
+
+export function feelsCause(
+  tempC: number, apparentC: number, windMs: number | null,
+): FeelsCause {
+  const gap = apparentC - tempC;
+  if (Math.abs(gap) < 1) return null;
+  if (gap > 0) return tempC >= 25 ? 'xafogor' : Math.abs(gap) >= 2 ? 'altres' : null;
+  if (tempC <= 12 || msToKmh(windMs ?? 0) >= 20) return 'vent';
+  return Math.abs(gap) >= 2 ? 'altres' : null;
+}
