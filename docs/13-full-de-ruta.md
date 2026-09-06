@@ -858,23 +858,38 @@ por el resto con el mismo criterio.
 Apuntado tal como salió, para no perderlo. Nada de esto es de datos: es de que
 lo que ya hay se entienda y se use.
 
-### El radar, con el pasado y el futuro
+### El radar · 🟡 barra arrossegable feta, el futur bloquejat por la fuente
 
-Hoy `/radar` enseña los últimos marcos y ya está. Lo que se pide —y es lo que
-hace [meteo.cat](https://www.meteo.cat/observacions/radar)— es **ver moverse la
-lluvia**: de dónde viene, hacia dónde va, y si va a llegar aquí o va a pasar de
-largo. Eso necesita tres cosas que hoy no hay:
+**Hecho el 6 de septiembre de 2026: la línea de tiempo se arrastra.** Con
+pastillas había que acertar una para ver el marco siguiente, y mirar cómo avanza
+una tormenta eran trece clics seguidos.
 
-- **El nowcast.** RainViewer publica marcos futuros además de los pasados, y el
-  worker ya los lee (`maps.radar.nowcast`); simplemente ese día venían vacíos.
-  Hay que guardarlos y distinguirlos de los observados, que no son lo mismo y
-  no se pueden pintar igual.
-- **Movimiento.** Una secuencia de marcos, no una foto. Sin JavaScript se puede
-  con animación CSS pura, o con el mismo truco de los radios de `NextHours`.
-- **Zoom y encuadre.** Hoy el tilecache público solo llega al zoom 7. Mirar una
-  comarca de cerca exige más, y del 8 en adelante devuelve un PNG que dice
-  «Zoom Level Not Supported» con código 200. Hay que ver si hay otra vía antes
-  de prometerlo.
+- Es un `<input type="range">` de verdad, no un `div` con `onPointerMove`: las
+  flechas, inicio y fin del teclado y el gesto táctil ya funcionan sin
+  escribirlos.
+- **No dibuja ni oculta ningún fotograma**: solo marca el radio que el CSS ya
+  miraba. Sin JavaScript el radar es exactamente el que era, con las pastillas
+  de cada instante, que siguen en el HTML y se ocultan con una clase que el
+  componente pone al montarse.
+- Arrastrar detiene la reproducción, porque mientras corre la animación el
+  fotograma lo manda el CSS y la barra se movería con la imagen quieta.
+- El tramo de futuro va sombreado y la marca de «ara» cae en la frontera entre
+  observación y nowcast.
+
+**El futuro no se puede hacer, y no por nosotros.** La API pública de RainViewer
+devuelve hoy `nowcast: []` — cero marcos. Comprobado contra
+`api.rainviewer.com/public/weather-maps.json`, no supuesto. El worker ya los
+fusiona con la observación en una sola serie con su etiqueta (`kind`) y la barra
+ya tiene el tramo preparado: el día que la fuente devuelva marcos, no hay que
+tocar nada.
+
+**El zoom de verdad tampoco, y por la misma razón.** El tilecache público se
+acaba en el zoom 7 —del 8 en adelante devuelve un PNG que dice «Zoom Level Not
+Supported» con código 200, trampa ya documentada en `AGENTS.md`— y eso da unos
+1,2 km por píxel. **Los nombres de pueblo ya están** sobre el mapa; lo que falta
+es resolución, y para eso hace falta otra fuente: el radar de 1 km del Meteocat,
+que pide clave. Es la decisión que queda pendiente, y tiene precio: una clave
+más que gestionar y otra licencia que respetar.
 
 ### El mapa no dice de quién es cada comarca
 
