@@ -970,11 +970,20 @@ que no está en ningún otro sitio.
 **Lo que sigue faltando frente a una ficha oficial como la del Anella Verda de
 Vic**, y por qué:
 
-- **Carreteras y ríos bajo el trazado.** Es lo que hace que su mapa de Google se
-  lea de un vistazo, y es lo único de su página que sí se podría replicar: está
-  en OSM. Pide bajar y simplificar la red viaria y la hidrografía por comarca, y
-  decidir a qué zoom se dibuja cada clase de vía. Es el siguiente paso natural
-  del mapa.
+- ✅ **Carreteras y ríos bajo el trazado**, hecho el 8 de septiembre de 2026, y
+  no bajando OSM sino usando **el mapa base del ICGC**, que es la cartografía
+  oficial del país y es CC BY. Trae carreteras con su código, ríos, cascos
+  urbanos, bosques y cotas con nombre. El primer intento —relieve calculado del
+  modelo de alturas— no servía: en la Plana de Vic un sombreado no dibuja nada,
+  que era exactamente la queja.
+  - Solo se bajan las teselas que se enseñan: **2.315** para las 683 rutas, con
+    la ventana y el zoom que la página calcula. Catalunya entera al zoom 13
+    serían veinte mil.
+  - Van en **WebP**: 754 MB de PNG → 90 MB, medido sobre el lote completo. Con
+    PNG, un mapa de doce teselas serían cuatro megas y medio.
+  - `fitBox()` y `tileWindow()` viven en `mercator.ts` porque el worker y la
+    página tienen que calcular la misma ventana. Con dos copias, el mapa sale
+    con agujeros y nada da error.
 - **Fotos.** No las tenemos y no se inventan.
 - **Los «eixos» para recortar la ruta.** En OSM las variantes existen como
   relaciones propias —las PR-C variantes ya están publicadas como itinerarios— y
