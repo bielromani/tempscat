@@ -3,7 +3,7 @@ name: Tessel·les de relleu
 # A mà i prou. L'altitud del terreny no canvia.
 #
 # Es corre quan es toca el càlcul de l'ombrejat o quan cal ampliar la piràmide
-# de zooms. Es baixa el terreny d'AWS, calcula les 1.949 tessel·les i les puja
+# de zooms. Es baixa el terreny d'AWS, calcula les 2.645 tessel·les i les puja
 # a l'emmagatzematge; les que ja hi són al disc de l'executor no es tornen a
 # calcular, però com que cada execució arrenca amb un contenidor net, a la
 # pràctica es calculen totes.
@@ -12,7 +12,7 @@ name: Tessel·les de relleu
 #
 # Perquè des de la màquina de desenvolupament **no s'hi pot publicar**. La
 # connexió a R2 passa per una intercepció TLS i Node rebutja el certificat:
-# `self-signed certificate`. La primera provatura va acabar amb les 1.949
+# `self-signed certificate`. La primera provatura va acabar amb totes les
 # pujades en `fetch failed` i zero fitxers publicats — i el missatge d'aquell
 # error no diu «certificat», així que va semblar una caiguda de xarxa fins que
 # es va provar la connexió a pèl.

@@ -26,7 +26,8 @@
  * Però un GR de quatre-cents quilòmetres al zoom 12 vol **tres mil** tessel·les
  * per a un dibuix de set-cents píxels: és pagar mil vegades el que es veu. Per
  * això n'hi ha del 9 al 12 i cada mapa tria el zoom on la seva finestra hi cap
- * amb poques. Tot plegat, unes mil nou-centes.
+ * amb poques. Tot plegat, 2.645 amb el marge de la frontera inclòs; dels 683
+ * itineraris, 654 fan servir el 12, 21 l'11 i 8 el 10.
  *
  * ## Per què és gris amb alfa i no una imatge de colors
  *
