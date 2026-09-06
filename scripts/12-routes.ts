@@ -64,8 +64,17 @@
  * de vint-i-cinc relacions per identificador, cadascun desat a `data/raw/`, i
  * per tant es pot reprendre.
  *
- * Sortida: data/build/routes.json — **es versiona**, i no porta geometria: la
- * necessitaria un mapa, i un mapa vol el seu propi fitxer partit.
+ * ## La geometria va a part, un fitxer per itinerari
+ *
+ * `routes.json` és l'índex —nom, codi, quilòmetres, cotes, comarques— i el
+ * llegeixen totes les pàgines. El traçat i el perfil només els llegeix la
+ * fitxa d'aquell itinerari, i per això van a `data/build/routes/<slug>.json`:
+ * és la regla de `shards.ts` aplicada aquí. Junts, el fitxer de l'índex
+ * passaria de 330 kB a uns quants megues i cada pàgina se'ls baixaria tots per
+ * ensenyar-ne un.
+ *
+ * Sortida: data/build/routes.json + data/build/routes/<slug>.json.
+ * **Es versionen** tots dos, com la resta de `data/build/`.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -203,6 +212,25 @@ function lengthM(lines: Array<Array<{ lat: number; lon: number }>>): number {
   return total;
 }
 
+/**
+ * Tolerància amb què es simplifica el traçat que es publica.
+ *
+ * Vint metres: a l'escala a la qual es dibuixa un itinerari sencer —vint-i-sis
+ * quilòmetres en uns sis-cents píxels, o sigui uns quaranta metres per píxel—
+ * no es veu, i estalvia la meitat llarga dels nodes d'OSM.
+ */
+const TRACE_TOL_M = 20;
+
+/**
+ * Quina part de la longitud ha d'entrar a la cadena per publicar-ne el perfil.
+ *
+ * Un perfil és l'altura contra la distància recorreguda. Si les vies no cusen
+ * —relacions amb branques, amb forats o amb trams repetits— la distància no
+ * vol dir res i el dibuix seria una serra inventada. Per sota d'això no n'hi
+ * ha, i la fitxa ho diu.
+ */
+const PROFILE_MIN_COVERED = 0.95;
+
 /** Un punt cada `SAMPLE_M` metres, per no demanar una cota per node. */
 function samples(lines: Array<Array<{ lat: number; lon: number }>>): Array<{ lat: number; lon: number }> {
   const out: Array<{ lat: number; lon: number }> = [];
@@ -220,6 +248,132 @@ function samples(lines: Array<Array<{ lat: number; lon: number }>>): Array<{ lat
     }
   }
   return out;
+}
+
+/**
+ * Les vies d'una relació, posades en fila.
+ *
+ * A OSM una relació d'itinerari és **un sac de vies sense ordre**: poden venir
+ * girades, repetides, partides o amb branques. Per a la longitud total dona
+ * igual —`lengthM()` només suma— però per a un perfil d'alçades no: un perfil
+ * és l'altura contra la distància **recorreguda**, i sense ordre aquesta
+ * distància no vol dir res.
+ *
+ * Es cusen pels extrems: es tria una via, es busca la que hi comença o hi
+ * acaba, i s'hi enganxa girant-la si cal. El que queda fora de la cadena més
+ * llarga no s'hi força.
+ *
+ * Torna la cadena i **quina part de la longitud total hi ha entrat**. Qui ho
+ * cridi decideix: per sota d'un llindar, aquell itinerari no té perfil, i
+ * val més no tenir-ne que tenir-ne un que salta d'un tros a l'altre.
+ */
+function stitch(lines: Array<Array<{ lat: number; lon: number }>>): {
+  chain: Array<{ lat: number; lon: number }>;
+  covered: number;
+} {
+  const total = lengthM(lines);
+  if (!lines.length || total === 0) return { chain: [], covered: 0 };
+
+  // Els extrems s'igualen amb una tolerància: OSM no repeteix el mateix node
+  // entre dues vies sempre, i quatre decimals són uns onze metres.
+  const key = (p: { lat: number; lon: number }) => `${p.lat.toFixed(4)},${p.lon.toFixed(4)}`;
+
+  const pending = lines.map((l) => l.slice());
+  const used = new Set<number>();
+
+  let best: Array<{ lat: number; lon: number }> = [];
+
+  for (let seed = 0; seed < pending.length; seed++) {
+    if (used.has(seed)) continue;
+
+    const taken = new Set<number>([seed]);
+    let chain = pending[seed].slice();
+
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (let i = 0; i < pending.length; i++) {
+        if (taken.has(i)) continue;
+        const w = pending[i];
+        const head = key(chain[0]);
+        const tail = key(chain[chain.length - 1]);
+        const a = key(w[0]);
+        const b = key(w[w.length - 1]);
+
+        if (tail === a) chain = chain.concat(w.slice(1));
+        else if (tail === b) chain = chain.concat(w.slice(0, -1).reverse());
+        else if (head === b) chain = w.slice(0, -1).concat(chain);
+        else if (head === a) chain = w.slice(1).reverse().concat(chain);
+        else continue;
+
+        taken.add(i);
+        grew = true;
+      }
+    }
+
+    if (lengthM([chain]) > lengthM([best])) {
+      best = chain;
+      for (const i of taken) used.add(i);
+    }
+  }
+
+  return { chain: best, covered: total > 0 ? lengthM([best]) / total : 0 };
+}
+
+/** Douglas-Peucker sobre metres, per no publicar cada node d'OSM. */
+function simplify(
+  line: Array<{ lat: number; lon: number }>, tolM: number,
+): Array<{ lat: number; lon: number }> {
+  if (line.length < 3) return line;
+
+  /*
+   * Es passa a un pla local en metres i s'hi fa la distància punt-recta.
+   *
+   * Barrejar graus i metres en la mateixa expressió és el camí curt a una
+   * tolerància que no vol dir res: un grau de longitud a Catalunya són uns 82
+   * km i un de latitud, 111. Amb l'origen a la primera parella i el cosinus de
+   * la seva latitud, la deformació dins d'un itinerari és irrellevant.
+   */
+  const lat0 = (line[0].lat * Math.PI) / 180;
+  const kx = 111_320 * Math.cos(lat0);
+  const ky = 110_540;
+  const X = (p: { lon: number }) => (p.lon - line[0].lon) * kx;
+  const Y = (p: { lat: number }) => (p.lat - line[0].lat) * ky;
+
+  const perp = (
+    p: { lat: number; lon: number },
+    a: { lat: number; lon: number },
+    b: { lat: number; lon: number },
+  ) => {
+    const [px, py] = [X(p), Y(p)];
+    const [ax, ay] = [X(a), Y(a)];
+    const [bx, by] = [X(b), Y(b)];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return Math.hypot(px - ax, py - ay);
+    return Math.abs(dy * px - dx * py + bx * ay - by * ax) / len;
+  };
+
+  const keep = new Array<boolean>(line.length).fill(false);
+  keep[0] = true;
+  keep[line.length - 1] = true;
+
+  const stack: Array<[number, number]> = [[0, line.length - 1]];
+  while (stack.length) {
+    const [i0, i1] = stack.pop() as [number, number];
+    let far = -1;
+    let maxD = tolM;
+    for (let i = i0 + 1; i < i1; i++) {
+      const d = perp(line[i], line[i0], line[i1]);
+      if (d > maxD) { maxD = d; far = i; }
+    }
+    if (far > 0) {
+      keep[far] = true;
+      stack.push([i0, far], [far, i1]);
+    }
+  }
+  return line.filter((_, i) => keep[i]);
 }
 
 async function main() {
@@ -308,6 +462,26 @@ out tags;`;
   const routes: Route[] = [];
   const dropped: string[] = [];
   const disagree: string[] = [];
+  /*
+   * La geometria va per `osmId`, **no pel slug**.
+   *
+   * El slug encara no és el definitiu quan es fa aquest bucle: dues relacions
+   * amb el mateix nom en produeixen un d'igual, i el desempat —afegir-hi
+   * l'identificador d'OSM— es fa al final, sobre `routes`. Calculant-lo aquí
+   * una segona vegada sortia el de sempre, i el fitxer del segon «Camí de Sant
+   * Jaume» —232,9 km— va sobreescriure el del primer, de 3,6. La fitxa curta
+   * ensenyava el traçat del llarg i l'altra es quedava sense fitxer, tot amb
+   * l'execució en verd.
+   *
+   * La regla que se'n treu: una clau derivada es calcula **un cop**; qui la
+   * necessiti, la busca, no la torna a derivar.
+   */
+  const geometry: Array<{
+    osmId: number;
+    trace: Array<Array<[number, number]>>;
+    profile: Array<[number, number]> | null;
+    profileCovered: number;
+  }> = [];
   let done = 0;
 
   for (const rel of wanted) {
@@ -351,6 +525,66 @@ out tags;`;
       );
       continue;
     }
+
+    /*
+     * El traçat i el perfil, que van al fitxer d'aquest itinerari.
+     *
+     * El traçat es dibuixa via a via i per tant no li cal cap ordre: cada una
+     * és un `M` del seu camí. El perfil sí que en necessita, i per això es
+     * cusen els extrems; el que no cus prou, no en té.
+     */
+    const trace = lines.map((l) => simplify(l, TRACE_TOL_M));
+    const { chain, covered } = stitch(lines);
+
+    /*
+     * La distància s'acumula sobre **tota** la cadena, no d'una mostra a
+     * l'altra.
+     *
+     * Sumant de mostra a mostra, cada revolt entre dues es queda pel camí: a
+     * l'Anella Verda de Vic, un itinerari de 26,2 km sortia amb un perfil que
+     * s'acabava als 23,5. Un eix que no arriba on diu el titular fa dubtar dels
+     * dos números.
+     */
+    let profile: Array<[number, number]> | null = null;
+    if (covered >= PROFILE_MIN_COVERED && chain.length > 1) {
+      const walked: Array<[number, number]> = [];
+      let run = 0;
+      let since = SAMPLE_M;
+      for (let i = 0; i < chain.length; i++) {
+        if (i > 0) {
+          const step = distanceM(chain[i - 1].lat, chain[i - 1].lon, chain[i].lat, chain[i].lon);
+          run += step;
+          since += step;
+        }
+        // L'últim punt hi entra sempre: és on s'acaba l'itinerari.
+        if (since >= SAMPLE_M || i === chain.length - 1) {
+          const h = await dem.elevationAt(chain[i].lat, chain[i].lon);
+          if (h != null) walked.push([Math.round(run), Math.max(0, Math.round(h))]);
+          since = 0;
+        }
+      }
+      if (walked.length > 3) profile = walked;
+    }
+
+    /*
+     * La cadena és un subconjunt de les vies, així que mai no pot ser més
+     * llarga que totes juntes. Si algun dia ho és, el cosit s'ha menjat la
+     * cua i el perfil seria una invenció: val més aturar-se.
+     */
+    if (covered > 1.02) {
+      throw new Error(
+        `${tags.name}: la cadena cosida fa un ${Math.round(covered * 100)} % de la longitud total`,
+      );
+    }
+
+    geometry.push({
+      osmId: rel.id,
+      trace: trace.map((l) => l.map((q) => [
+        Math.round(q.lat * 1e5) / 1e5, Math.round(q.lon * 1e5) / 1e5,
+      ] as [number, number])),
+      profile,
+      profileCovered: Math.round(covered * 100) / 100,
+    });
 
     const km = Math.round((metres / 1000) * 10) / 10;
     const tagged = tags.distance ? Number(tags.distance.replace(',', '.')) : null;
@@ -464,6 +698,32 @@ out tags;`;
     routes,
   }, null, 1), 'utf8');
   console.log(`\n→ data/build/routes.json (${(readFileSync(dest).length / 1024).toFixed(0)} kB)`);
+
+  // Un fitxer per itinerari: només el llegeix la seva fitxa. El nom surt de
+  // `routes`, que és on el slug ja està desempatat.
+  mkdirSync(build('routes'), { recursive: true });
+  const slugOfId = new Map(routes.map((r) => [r.osmId, r.slug]));
+  let bytes = 0;
+  let withProfile = 0;
+  const written = new Set<string>();
+  for (const g of geometry) {
+    const slug = slugOfId.get(g.osmId);
+    if (!slug) throw new Error(`geometria sense itinerari a l'índex: osm ${g.osmId}`);
+    if (written.has(slug)) throw new Error(`dues geometries per al mateix slug: ${slug}`);
+    written.add(slug);
+    const body = JSON.stringify({ slug, ...g });
+    writeFileSync(build('routes', `${slug}.json`), body, 'utf8');
+    bytes += body.length;
+    if (g.profile) withProfile++;
+  }
+  // Cap itinerari sense el seu fitxer: la fitxa el llegeix sense preguntar.
+  const orphan = routes.filter((r) => !written.has(r.slug));
+  if (orphan.length) {
+    throw new Error(`${orphan.length} itineraris sense geometria: ${orphan.slice(0, 3).map((r) => r.slug).join(', ')}`);
+  }
+  console.log(`→ data/build/routes/ · ${geometry.length} fitxers, ${(bytes / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`  amb perfil d'alçades: ${withProfile} de ${geometry.length}`
+    + ` (la resta, vies que no cusen prou)`);
 }
 
 main().catch((err) => {

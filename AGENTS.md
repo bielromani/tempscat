@@ -24,7 +24,8 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/cache/cameres/` | Fotogramas de las cámaras de FGC, ya reescalados. Igual: los sirve una route handler |
 | `src/lib/mountain.ts` | Las seis estaciones de esquí: qué hay abierto, cuánta nieve y la temperatura a cota |
 | `src/lib/routes.ts` | Los 683 itinerarios señalizados. **ODbL, no CC-BY: fuera del API** |
-| `data/build/routes.json` | Se construye con `npm run data:routes`. **Se versiona** |
+| `data/build/routes.json` | Índice de los 683: nombre, código, km, cotas, comarcas. **Se versiona** |
+| `data/build/routes/<slug>.json` | Trazado y perfil de alturas de uno. Solo lo lee su ficha |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
@@ -419,6 +420,24 @@ cuota para exactamente la misma información.
   exactament «15.0 km», i en 26 dels 683 la geometria i l'etiqueta es separen més d'un 25 %. Es
   publica la calculada del traçat. El **desnivell acumulat**, en canvi, no es calcula: amb un
   model de 57 m sortiria curt sense que es notés, i només surt quan OSM el porta.
+- **Una relació d'itinerari a OSM és un sac de vies sense ordre.** Per a la longitud dona
+  igual —`lengthM()` només suma— però un perfil d'alçades és l'altura contra la distància
+  **recorreguda**, i sense ordre aquella distància no vol dir res. `stitch()` les cus pels
+  extrems i el perfil només es publica quan hi entra el 95 % de la longitud: 662 dels 683. El
+  traçat, en canvi, es dibuixa via a via amb un `M` cadascuna, i per això no li cal cap ordre.
+- **Una clau derivada es calcula un cop; qui la necessiti, la busca.** El slug d'un itinerari es
+  desempata al final del worker —dues relacions amb el mateix nom hi porten l'`osmId`— i el bloc
+  de la geometria el tornava a derivar pel seu compte. Hi ha dos «Camí de Sant Jaume»: el fitxer
+  del de 232,9 km va sobreescriure el del de 3,6, la fitxa curta ensenyava el traçat del llarg i
+  l'altra es quedava sense fitxer. Tot en verd. Ara la geometria va per `osmId` i el worker
+  **llança** si algun itinerari es queda sense fitxer o si dos en comparteixen un.
+- **La distància d'un perfil s'acumula sobre tot el traçat, no de mostra a mostra.** Sumant
+  només entre punts de mostreig, cada revolt entremig es perd: l'Anella Verda de Vic, de 26,2
+  km, sortia amb un perfil que s'acabava als 23,5. Un eix que no arriba on diu el titular fa
+  dubtar dels dos números.
+- **Els enllaços que se'n van del web passen per `<External>`.** Porta `target="_blank"` i
+  `rel="nofollow noopener noreferrer"`, i ho diu amb un símbol. Escrivint-los a mà se'n va
+  oblidar un: la fitxa d'un itinerari obria la pàgina de l'ajuntament damunt del web.
 - **El filtre d'àrea d'Overpass agafa el que *passa* pel territori.** Entraven etapes de la
   Haute Randonnée Pyrénéenne amb un 3 % dins de Catalunya. Es demana la meitat com a mínim,
   mesurada amb els mateixos punts de mostreig que donen la cota.

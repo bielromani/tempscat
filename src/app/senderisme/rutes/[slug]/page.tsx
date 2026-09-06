@@ -1,12 +1,19 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { networkLabel, refApart, routeBySlug, routeSlugs, routesOfComarca } from '@/lib/routes';
-import { allComarques, locationById } from '@/lib/territory';
+import {
+  hoursText, networkLabel, refApart, routeBySlug, routeGeometry, routeSlugs,
+  routesOfComarca, walkingHours, NAISMITH_KMH, NAISMITH_ASCENT_M_PER_H,
+} from '@/lib/routes';
+import { allComarques, locationById, municipisOfComarca } from '@/lib/territory';
+import { mapOutline } from '@/lib/map';
+import { RouteMap } from '@/components/RouteMap';
+import { ElevationProfile } from '@/components/ElevationProfile';
 import { forecastFor, localToday, tempAtAltitude } from '@/lib/weather';
 import { shareAboveSnowLine } from '@/lib/mountain';
 import { comarcaName, dateShort, deComarca, int, num, relativeDayTiny, temp } from '@/lib/format';
 import { weatherCode } from '@/lib/weather-codes';
+import { External } from '@/components/External';
 
 /**
  * Un itinerari, amb la predicció a la seva altura.
@@ -70,6 +77,32 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
     ? routesOfComarca(route.comarques[0]).filter((r) => r.slug !== route.slug).slice(0, 6)
     : [];
 
+  /*
+   * El traçat, el perfil i els pobles que caben a la vista.
+   *
+   * La geometria és al fitxer d'aquest itinerari i no a l'índex: són 5,7 MB
+   * per als 683, i cada fitxa n'ensenya un. Els pobles surten de les comarques
+   * que travessa, ordenats per població — el mapa se'n queda els que hi cauen.
+   */
+  const geo = routeGeometry(route.slug);
+  const mapBase = mapOutline();
+  const towns = route.comarques
+    .flatMap((c) => municipisOfComarca(c))
+    .filter((m) => m.lat != null && m.lon != null)
+    .sort((a, b) => (b.poblacio ?? 0) - (a.poblacio ?? 0))
+    .slice(0, 14)
+    .map((m) => ({ nom: m.nom, path: m.path, lat: m.lat as number, lon: m.lon as number }));
+
+  /*
+   * El temps a peu, per la regla de Naismith.
+   *
+   * Amb desnivell publicat surt la xifra sencera; sense, només el pla, i
+   * llavors es diu que és un mínim. La pàgina oficial de l'Anella Verda de Vic
+   * en diu 6 h per als seus 24 km i 280 m: la regla en dona 5 h 48 min, que és
+   * a un 3 % — no és una casualitat, és la regla que fan servir les entitats.
+   */
+  const hours = walkingHours(route.km, route.ascentM);
+
   return (
     <article>
       <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
@@ -115,6 +148,15 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
               <dd className="tnum text-xl font-semibold text-[var(--ink)]">+{int(route.ascentM)} m</dd>
             </div>
           )}
+          <div>
+            <dt className="text-xs text-[var(--muted)]">A peu</dt>
+            <dd className="tnum text-xl font-semibold text-[var(--ink)]">
+              {route.ascentM == null && (
+                <span className="text-sm font-normal text-[var(--muted)]">des de </span>
+              )}
+              {hoursText(hours)}
+            </dd>
+          </div>
           {route.comarques.length > 0 && (
             <div>
               <dt className="text-xs text-[var(--muted)]">Comarques</dt>
@@ -134,7 +176,58 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
             {num(route.kmTagged, 1)}. Aquí es publica la del traçat.
           </p>
         )}
+
+        <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
+          El temps a peu surt de la regla de Naismith —{num(NAISMITH_KMH, 1)} km/h en pla
+          i una hora més per cada {int(NAISMITH_ASCENT_M_PER_H)} m de pujada—, que és
+          la que fan servir les entitats excursionistes. No és una predicció: és una
+          referència amb el ritme dit en veu alta, i qui camini a un altre ritme
+          ja ho sap.
+          {route.ascentM == null && (
+            <> Aquest itinerari no porta el desnivell publicat, així que el temps
+            només compta els quilòmetres i <strong className="font-medium text-[var(--ink-2)]">es
+            queda curt</strong> si hi ha pujades.</>
+          )}
+        </p>
       </section>
+
+      {/* ── Per on va ─────────────────────────────────────────────────── */}
+      {geo && geo.trace.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Per on va</h2>
+          <RouteMap
+            outline={mapBase.features}
+            projection={mapBase.projection}
+            trace={geo.trace}
+            start={route.start}
+            towns={towns}
+            name={route.name}
+          />
+          <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+            El punt verd és l&apos;inici que fa servir aquesta pàgina per calcular la
+            predicció i el poble més proper. Traçat d&apos;OpenStreetMap, simplificat
+            a 20 m.
+          </p>
+        </section>
+      )}
+
+      {/* ── El perfil ─────────────────────────────────────────────────── */}
+      {geo?.profile && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Com puja i com baixa</h2>
+          <ElevationProfile profile={geo.profile} km={route.km} />
+        </section>
+      )}
+
+      {geo && !geo.profile && (
+        <p className="mt-8 max-w-[65ch] text-sm leading-relaxed text-[var(--muted)]">
+          D&apos;aquest itinerari no se&apos;n publica el perfil d&apos;alçades. A
+          OpenStreetMap la relació és un conjunt de vies sense ordre, i les
+          d&apos;aquesta no s&apos;encadenen —hi ha branques o trams solts—, així que
+          «distància recorreguda» no vol dir res i el dibuix seria una serra
+          inventada. Les cotes mínima i màxima de dalt sí que són mesurades.
+        </p>
+      )}
 
       {/* ── El temps a l'altura de l'itinerari ────────────────────────── */}
       {days.length > 0 && route.maxM != null && base && (
@@ -235,9 +328,9 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
         {route.website && (
           <p>
             Fitxa oficial de l&apos;itinerari:{' '}
-            <a href={route.website} rel="noopener noreferrer" className="font-medium text-[var(--ink)]">
+            <External href={route.website} className="font-medium text-[var(--ink)]">
               {new URL(route.website).host.replace(/^www\./, '')}
-            </a>
+            </External>
             {/* «PR» o «GR» com a operador no diu res: el camp de vegades porta
                 el codi de la xarxa en comptes de l'entitat que la manté. */}
             {route.operator && route.operator.length > 4
@@ -246,13 +339,12 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
         )}
         <p>
           El traçat és a{' '}
-          <a
+          <External
             href={`https://www.openstreetmap.org/relation/${route.osmId}`}
-            rel="noopener noreferrer"
             className="font-medium text-[var(--ink)]"
           >
             OpenStreetMap
-          </a>
+          </External>
           . Les marques de pintura i el manteniment són de les entitats excursionistes,
           i el recorregut pot canviar sense que això ho sàpiga.
         </p>
@@ -287,9 +379,9 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
       <footer className="mt-8 border-t border-[var(--line-soft)] pt-4 text-xs leading-relaxed text-[var(--muted)]">
         <p>
           Traçat d&apos;
-          <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer" className="text-[var(--ink-2)]">
+          <External href="https://www.openstreetmap.org/copyright" className="text-[var(--ink-2)]">
             OpenStreetMap i els seus col·laboradors
-          </a>
+          </External>
           , amb llicència ODbL 1.0. Cotes calculades del model d&apos;elevació de
           Copernicus. Predicció d&apos;Open-Meteo.
         </p>

@@ -4,6 +4,7 @@ import { allRoutes, networkLabel, refApart } from '@/lib/routes';
 import { allComarques } from '@/lib/territory';
 import { ListFilter, groupsOf } from '@/components/ListFilter';
 import { comarcaName, int, num } from '@/lib/format';
+import { External } from '@/components/External';
 
 /**
  * Els itineraris de senderisme senyalitzats de Catalunya.
@@ -148,9 +149,9 @@ export default function RutesPage() {
       <footer className="mt-8 border-t border-[var(--line-soft)] pt-4 text-xs leading-relaxed text-[var(--muted)]">
         <p>
           Traçats de{' '}
-          <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer" className="text-[var(--ink-2)]">
+          <External href="https://www.openstreetmap.org/copyright" className="text-[var(--ink-2)]">
             {source} i els seus col·laboradors
-          </a>
+          </External>
           , amb llicència {license}. Les cotes són calculades per nosaltres del model
           d&apos;elevació de Copernicus al zoom {demZoom}.
         </p>

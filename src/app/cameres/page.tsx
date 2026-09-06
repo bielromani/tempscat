@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { allCameras, cameraImage, CAMERA_SHOW_HOURS } from '@/lib/cameras';
 import { ListFilter, groupsOf } from '@/components/ListFilter';
 import { ago, dateFull, int } from '@/lib/format';
+import { External } from '@/components/External';
 
 /**
  * Les càmeres de muntanya.
@@ -153,13 +154,12 @@ export default async function CameresPage() {
       <footer className="mt-8 border-t border-[var(--line-soft)] pt-4 text-xs leading-relaxed text-[var(--muted)]">
         <p>
           Imatges de {cams.attribution} ({cams.license}), del conjunt{' '}
-          <a
+          <External
             href="https://dadesobertes.fgc.cat/explore/dataset/webcams-actives-tim/"
-            rel="noopener noreferrer"
             className="text-[var(--ink-2)]"
           >
             «Webcams dels equipaments turístics»
-          </a>
+          </External>
           . Es desen un cop per hora i es retiren passades {CAMERA_SHOW_HOURS} hores
           sense fotograma nou.
         </p>

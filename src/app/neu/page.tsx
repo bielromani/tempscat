@@ -8,6 +8,7 @@ import { camerasByResort } from '@/lib/cameras';
 import { ResortBlock } from '@/components/ResortBlock';
 import { ResortMap, type ResortPin } from '@/components/ResortMap';
 import { mapOutline } from '@/lib/map';
+import { External } from '@/components/External';
 
 /**
  * La nieve del Pirineo: medida, no estimada.
@@ -164,13 +165,12 @@ export default async function NeuPage() {
             {mountain.attribution} ({mountain.license}). El comunicat el fa cada estació
             i el gruix de neu es retira quan passa de dos dies. El risc d&apos;allaus
             no surt d&apos;aquí: el butlletí oficial és el{' '}
-            <a
+            <External
               href="https://www.icgc.cat/ca/Ciutada/Explora-Catalunya/Allaus"
-              rel="noopener noreferrer"
               className="text-[var(--ink-2)]"
             >
               butlletí de perill d&apos;allaus
-            </a>{' '}
+            </External>{' '}
             de l&apos;ICGC amb el Meteocat.
           </p>
         </section>

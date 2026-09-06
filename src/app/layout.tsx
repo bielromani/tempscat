@@ -4,6 +4,7 @@ import { IS_PRODUCTION, SITE_URL } from '@/lib/site';
 import { PRIMARY, SECTIONS } from '@/lib/nav';
 import { SiteSearch } from '@/components/SiteSearch';
 import './globals.css';
+import { External } from '@/components/External';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -149,12 +150,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   Tot això es pot llegir en JSON i en CSV
                 </Link>
                 . El codi és a{' '}
-                <a
+                <External
                   href="https://github.com/bielromani/tempscat"
                   className="text-[var(--ink-2)] no-underline hover:underline"
                 >
                   GitHub
-                </a>
+                </External>
                 .
               </p>
 

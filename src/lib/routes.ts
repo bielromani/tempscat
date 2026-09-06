@@ -161,3 +161,72 @@ export function routesNear(
     .slice(0, limit)
     .map((x) => x.r);
 }
+
+/**
+ * El traçat i el perfil d'un itinerari.
+ *
+ * ## Per què no és a `routes.json`
+ *
+ * Perquè són 5,7 MB per als 683 i l'índex en pesa 442 kB. Tot junt, cada fitxa
+ * i cada llista es baixarien la geometria de tots per ensenyar-ne una: és la
+ * regla de `shards.ts`, i aquí és un fitxer per itinerari.
+ *
+ * ## El traçat va via a via i el perfil no
+ *
+ * A OSM una relació d'itinerari és un sac de vies sense ordre. Per dibuixar-la
+ * dona igual —cada via és un `M` del seu camí— però un perfil és l'altura
+ * contra la distància **recorreguda**, i això demana posar-les en fila. El
+ * worker les cus pels extrems i publica el perfil només quan hi entra el 95 %
+ * de la longitud: 662 dels 683. La resta són relacions amb branques o amb
+ * forats, i un perfil que salta d'un tros a l'altre és una serra inventada.
+ */
+export interface RouteGeometry {
+  slug: string;
+  /** Cada via, ja simplificada a 20 m. `[lat, lon]`. */
+  trace: Array<Array<[number, number]>>;
+  /** `[metres recorreguts, cota]`, o nul quan les vies no cusen. */
+  profile: Array<[number, number]> | null;
+  /** Quina part de la longitud va entrar a la cadena, de 0 a 1. */
+  profileCovered: number;
+}
+
+export function routeGeometry(slug: string): RouteGeometry | null {
+  try {
+    return JSON.parse(
+      readFileSync(join(BUILD, 'routes', `${slug}.json`), 'utf8'),
+    ) as RouteGeometry;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Quant s'hi triga a peu, per la regla de Naismith.
+ *
+ * Quatre quilòmetres i mig l'hora en pla, i una hora més per cada 600 m de
+ * pujada. És la regla que fan servir les federacions excursionistes des de
+ * 1892 i **no és una predicció**: és una referència amb un ritme dit en veu
+ * alta, que és el que la fa comprovable. Qui camina més de pressa, ho sap.
+ *
+ * No s'hi descompta la baixada. Naismith en la seva forma original tampoc, i
+ * les correccions que ho fan —Tranter, Langmuir— demanen saber la forma física
+ * de qui camina, que no sabem.
+ *
+ * Sense desnivell publicat torna el temps del pla, i qui ho ensenyi ha de dir
+ * que és un mínim: a muntanya, la pujada mana més que els quilòmetres.
+ */
+export const NAISMITH_KMH = 4.5;
+export const NAISMITH_ASCENT_M_PER_H = 600;
+
+export function walkingHours(km: number, ascentM: number | null): number {
+  return km / NAISMITH_KMH + (ascentM ?? 0) / NAISMITH_ASCENT_M_PER_H;
+}
+
+/** «6 h 15 min», «45 min». Mai «6,25 h», que ningú no llegeix així. */
+export function hoursText(h: number): string {
+  const mins = Math.round(h * 60);
+  if (mins < 60) return `${mins} min`;
+  const hh = Math.floor(mins / 60);
+  const mm = mins % 60;
+  return mm === 0 ? `${hh} h` : `${hh} h ${mm} min`;
+}
