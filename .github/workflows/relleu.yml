@@ -15,6 +15,14 @@ name: Tessel·les de relleu
 # en `fetch failed` i zero fitxers publicats. Des d'aquí surt bé i és el mateix
 # camí que fan la resta de workers.
 on:
+  # Quan canvia el calcul de l'ombrejat, les tessel·les publicades ja no son
+  # les que aquest codi faria. No es una drecera per llancar-ho: es la condicio
+  # exacta en que s'han de refer.
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/13-relief-tiles.ts'
+      - '.github/workflows/relleu.yml'
   workflow_dispatch:
 
 concurrency:
