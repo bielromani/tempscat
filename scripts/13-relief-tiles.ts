@@ -50,6 +50,22 @@ import { join } from 'node:path';
 
 /** Del més ample al més fi. Cada mapa tria el que li convé. */
 const ZOOMS = [9, 10, 11, 12];
+
+/**
+ * Tessel·les de més enllà de la frontera, per zoom.
+ *
+ * Un itinerari es publica si en cau **la meitat** dins de Catalunya, així que
+ * un de dos-cents vint quilòmetres pot sortir cent cap a l'Aragó — i llavors
+ * el seu mapa demana tessel·les que la caixa del país no cobreix. Mesurat
+ * sobre els 683: en faltaven **quinze**, totes al zoom 10 i totes a ponent,
+ * i un mapa amb un tros en blanc no sembla una tessel·la que falta, sembla el
+ * mapa.
+ *
+ * El marge és més gros als zooms amples perquè és allà on cauen els itineraris
+ * llargs, que són els únics que se'n van lluny. Al 12, on hi cauen els 654
+ * curts, amb una en fa prou i no se'n multipliquen mil.
+ */
+const MARGIN: Record<number, number> = { 9: 4, 10: 4, 11: 2, 12: 1 };
 const TILE = 256;
 const HOST = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium';
 
@@ -213,10 +229,11 @@ async function main() {
   let grandBytes = 0;
 
   for (const z of ZOOMS) {
-    const x0 = Math.floor(lonToTileX(CATALUNYA_BBOX.west, z));
-    const x1 = Math.floor(lonToTileX(CATALUNYA_BBOX.east, z));
-    const y0 = Math.floor(latToTileY(CATALUNYA_BBOX.north, z));
-    const y1 = Math.floor(latToTileY(CATALUNYA_BBOX.south, z));
+    const m = MARGIN[z] ?? 1;
+    const x0 = Math.floor(lonToTileX(CATALUNYA_BBOX.west, z)) - m;
+    const x1 = Math.floor(lonToTileX(CATALUNYA_BBOX.east, z)) + m;
+    const y0 = Math.floor(latToTileY(CATALUNYA_BBOX.north, z)) - m;
+    const y1 = Math.floor(latToTileY(CATALUNYA_BBOX.south, z)) + m;
 
     const wanted: Array<{ x: number; y: number }> = [];
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) wanted.push({ x, y });
