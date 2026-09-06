@@ -5,6 +5,7 @@ import { allComarques, comarquesGeoJson, municipisOfComarca, relief } from '@/li
 import { project, type TileGrid } from '@/lib/mercator';
 import { radarZones } from '@/lib/radar-zones';
 import { ago, hour, dateLong } from '@/lib/format';
+import { RadarScrubber } from '@/components/RadarScrubber';
 
 /**
  * Radar de precipitación.
@@ -383,7 +384,11 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
             <span className="rplay-off">Atura</span>
           </label>
 
-          <nav aria-label="Instants disponibles" className="scroll-x mt-2">
+          {/* La barra arrossegable. Substitueix les pastilles quan hi ha
+              JavaScript; sense, no es dibuixa i les pastilles es queden. */}
+          <RadarScrubber frames={frames} current={current} />
+
+          <nav aria-label="Instants disponibles" className="rf-chips scroll-x mt-2">
             <ol className="flex min-w-max gap-1.5">
               {frames.map((f) => (
                 <li key={f.time}>

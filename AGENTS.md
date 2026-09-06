@@ -224,12 +224,21 @@ páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado.
 **Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
 interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí.
 
-Hay **un** `'use client'` en el proyecto, y es el cuadro de búsqueda de la cabecera
-(`SiteSearch.tsx`). Va en todas las páginas, así que el coste se midió antes de ponerlo:
-**1.546 bytes en gzip**, la diferencia de sumar todos los fragmentos de `.next/static/chunks`
-con y sin él. Es tan poco porque el runtime ya estaba —ver la tabla de abajo—. Lo que **no** se
-hizo fue bajar el índice al navegador: los sugerimientos los contesta `/api/cerca`, que solo
-llama quien escribe.
+Hay **dos** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
+
+- `SiteSearch.tsx`, el cuadro de búsqueda de la cabecera. Va en todas las páginas, así que el
+  coste se midió antes de ponerlo: **1.546 bytes en gzip**, la diferencia de sumar todos los
+  fragmentos de `.next/static/chunks` con y sin él. Es tan poco porque el runtime ya estaba
+  —ver la tabla de abajo—. Lo que **no** se hizo fue bajar el índice al navegador: los
+  sugerimientos los contesta `/api/cerca`, que solo llama quien escribe.
+- `RadarScrubber.tsx`, la línea de tiempo del radar, y solo en `/radar`.
+
+Los dos son mejoras **encima** de algo que ya funcionaba sin JavaScript, y los dos lo dejan
+funcionando: el buscador sigue siendo un `<form method="get">` y el radar sigue siendo los
+radios ocultos con sus reglas de `:checked`. La barra del radar no dibuja ni oculta ningún
+fotograma — solo marca el radio que toca —, y las pastillas con la hora de cada instante siguen
+en el HTML: se ocultan con una clase que el componente pone **al montarse**, así que sin
+JavaScript no se ocultan nunca.
 
 Lo que hay que dejar de decir es la cifra que acompañaba a la regla.
 Medido con `next start` sobre `/maresme/malgrat-de-mar`:

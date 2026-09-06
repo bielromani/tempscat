@@ -472,3 +472,62 @@ button:focus-visible,
   max-width: 640px;
   margin-inline: auto;
 }
+
+/* La barra de temps del radar.
+   -------------------------------------------------------------------------
+   Les pastilles amb l'hora de cada marc segueixen al HTML i segueixen sent
+   etiquetes dels radios: son el que queda si el JavaScript no arriba. Quan
+   arriba, `RadarScrubber` posa `has-scrub` a `.radar` i les amaga, perque el
+   que fan ja ho fa la barra i millor. */
+.radar.has-scrub .rf-chips { display: none; }
+
+/* Un `range` sense estil es un control de formulari enmig d'un mapa. Amb el
+   carril prim i el poma gros, es llegeix com una linia de temps i s'agafa be
+   amb el dit: 24 px de costat son els que demana qualsevol guia tactil. */
+.rscrub {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 24px;
+  cursor: grab;
+}
+
+.rscrub:active { cursor: grabbing; }
+
+.rscrub::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.rscrub::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.rscrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -9px;
+  border-radius: 999px;
+  border: 2px solid var(--surface);
+  background: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.rscrub::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 2px solid var(--surface);
+  background: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.rscrub:focus-visible { outline: none; }
+
+.rscrub:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rscrub:focus-visible::-moz-range-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
