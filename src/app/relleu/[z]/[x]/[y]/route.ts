@@ -22,7 +22,14 @@ import { blob } from '@/lib/cache-store';
  * adreça. Amb `immutable`, un navegador que ja la tingui no torna a preguntar.
  */
 
-const Z_RE = /^12$/;
+/*
+ * Els zooms que existeixen, i només aquests.
+ *
+ * Va quedar-hi `/^12$/` de quan només se n'havia calculat un, i els 29
+ * itineraris prou grans per demanar el 10 o l'11 es quedaven sense relleu amb
+ * un 404 per tessel·la. No es veia com un error: es veia com un mapa buit.
+ */
+const Z_RE = /^(9|10|11|12)$/;
 const N_RE = /^\d{1,5}$/;
 const Y_RE = /^\d{1,5}\.png$/;
 
