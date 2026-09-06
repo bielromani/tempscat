@@ -73,3 +73,42 @@ export function project(grid: TileGrid, lon: number, lat: number): [number, numb
 
 /** Recuadro que cubre Catalunya con un margen para que no quede pegada al borde. */
 export const CATALUNYA_BBOX = { north: 42.92, south: 40.50, west: 0.14, east: 3.35 };
+
+/*
+ * ── El mapa de comarques ───────────────────────────────────────────────────
+ *
+ * `scripts/10-map-geometry.ts` projecta les 43 comarques i les deixa en unitats
+ * del `viewBox`. Aquestes dues funcions són com s'hi arriba, i viuen aquí
+ * perquè les necessiten **els dos costats**: el build per als polígons, i la
+ * pàgina per posar-hi punts a sobre.
+ *
+ * Perquè fins ara no hi eren: el build es guardava l'escala i el desplaçament
+ * en variables locals i el fitxer resultant només portava els camins. Amb això,
+ * dibuixar una platja o una estació d'esquí sobre el mapa era impossible sense
+ * repetir la projecció a ull —i una regla de tres sobre latitud i longitud, que
+ * és el que surt de fer-ho a ull, es desvia quilòmetres entre Amposta i la Val
+ * d'Aran. És l'error que ja explica la capçalera d'aquest fitxer.
+ */
+
+/** Mercator esfèrica en radiants. La y creix cap avall, com al SVG. */
+export function mercPoint(lon: number, lat: number): [number, number] {
+  return [
+    (lon * Math.PI) / 180,
+    -Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)),
+  ];
+}
+
+/** L'escala i el desplaçament que el build va fer servir. Va dins del JSON. */
+export interface MapProjection {
+  minX: number;
+  minY: number;
+  scale: number;
+}
+
+/** D'un punt en graus a les unitats del `viewBox` del mapa. */
+export function projectToMap(
+  lon: number, lat: number, p: MapProjection,
+): [number, number] {
+  const [x, y] = mercPoint(lon, lat);
+  return [(x - p.minX) * p.scale, (y - p.minY) * p.scale];
+}

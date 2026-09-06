@@ -32,6 +32,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { build } from './lib/paths.ts';
+import { mercPoint } from '../src/lib/mercator.ts';
 
 type Pt = [number, number];
 
@@ -46,14 +47,11 @@ interface Feature {
 }
 
 // ── Projecció ───────────────────────────────────────────────────────────────
-
-/** Mercator esfèrica. La y creix cap avall, com al SVG. */
-function merc(lon: number, lat: number): Pt {
-  return [
-    (lon * Math.PI) / 180,
-    -Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)),
-  ];
-}
+//
+// La fórmula viu a `src/lib/mercator.ts` i no aquí: l'escala i el
+// desplaçament que en surten es publiquen al JSON, i la pàgina els necessita
+// per posar platges i estacions d'esquí sobre aquests mateixos polígons. Amb
+// dues còpies de la projecció, un dia es desviarien.
 
 // ── Simplificació ───────────────────────────────────────────────────────────
 
@@ -225,7 +223,7 @@ const projected = geo.features.map((f) => {
     code: f.properties.code,
     name: f.properties.name,
     polys: polys.map((poly) => poly.map((ring) => ring.map(
-      ([lon, lat]) => merc(lon, lat),
+      ([lon, lat]) => mercPoint(lon, lat),
     ))),
   };
 });
@@ -322,7 +320,18 @@ for (const f of [...features].sort((a, b) => b.room - a.room)) {
   named++;
 }
 
-const out = { width: WIDTH, height: HEIGHT, features };
+/*
+ * La projecció va al fitxer.
+ *
+ * Sense això, el JSON només serveix per pintar les 43 comarques i res més s'hi
+ * pot col·locar a sobre: no hi ha manera de saber on cau un punt en graus.
+ */
+const out = {
+  width: WIDTH,
+  height: HEIGHT,
+  projection: { minX, minY, scale },
+  features,
+};
 writeFileSync(build('geo', 'comarques-map.json'), JSON.stringify(out), 'utf8');
 
 console.log(`Mapa de comarques: ${features.length} comarques`);
@@ -331,5 +340,6 @@ console.log(`  punts: ${before.toLocaleString('ca-ES')} → ${after.toLocaleStri
 if (dropped) console.log(`  ${dropped} illots massa petits per dibuixar-los a aquesta escala`);
 console.log(`  noms dibuixats: ${named} de ${features.length}`);
 console.log(`  viewBox: ${WIDTH} × ${HEIGHT}`);
+console.log(`  escala: ${scale.toFixed(1)} unitats per radiant`);
 console.log(`  → data/build/geo/comarques-map.json`
   + ` · ${(JSON.stringify(out).length / 1024).toFixed(0)} KB`);

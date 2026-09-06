@@ -337,6 +337,18 @@ cuota para exactamente la misma información.
   puntos, unos 154 KB de `path`. `scripts/10-map-geometry.ts` las proyecta, las simplifica con
   Douglas-Peucker a un píxel y las deja en enteros con órdenes relativas: 23 KB, y la aplicación
   solo pone el color. Si tocas la geometría, `npm run data:map`.
+- **La proyección del mapa se publica en el JSON, y antes no.** `10-map-geometry.ts` se
+  guardaba `minX`, `minY` y `scale` en variables locales, así que el fichero solo servía para
+  pintar las 43 comarcas: no había manera de saber dónde cae un punto en grados. Es lo que hacía
+  imposible poner playas o estaciones de esquí encima. La fórmula está en `mercator.ts`
+  (`mercPoint`, `projectToMap`) y la usan los dos lados — con dos copias, un día se separarían.
+- **Pintar de mar todo lo que queda fuera del contorno pinta Aragón y Francia de mar.** En un
+  mapa eso no es un detalle de estilo. `CoastMap` deriva el polígono del mar de los 20 puntos
+  del modelo: los desplaza 60 unidades tierra adentro —el exceso lo tapan los polígonos de las
+  comarcas, que se dibujan encima— y alarga los dos extremos por la tangente. La dirección de
+  «tierra adentro» es una referencia fija al noroeste y **no** el centroide: comparando con el
+  centroide, en el delta el producto escalar salía −27 sobre magnitudes de centenares, giraba la
+  normal hacia el mar y el punto de Alcanar quedaba dibujado sobre el papel.
 - **La tinta de la escala de temperatura sale de la luminosidad del color, no de los grados.**
   El umbral estaba puesto a ojo —«a partir de 30 °C, texto claro»— y a 30 °C el fondo tiene un
   72 % de luminosidad: el mapa salía con los treintaytantos en blanco sobre naranja claro. En

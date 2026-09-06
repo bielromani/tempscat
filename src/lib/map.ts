@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { allComarques, municipisOfComarca } from './territory';
 import { currentFor } from './weather';
+import type { MapProjection } from './mercator';
 
 /**
  * El mapa de comarques: geometria i temperatura.
@@ -45,6 +46,8 @@ export interface MapFeature {
 interface MapGeometry {
   width: number;
   height: number;
+  /** L'escala i el desplaçament amb què es van projectar els polígons. */
+  projection: MapProjection;
   features: MapFeature[];
 }
 
@@ -56,6 +59,24 @@ function loadGeometry(): MapGeometry {
     'utf8',
   )) as MapGeometry;
   return geometry;
+}
+
+/**
+ * El contorn de Catalunya i la seva projecció, sense cap dada a sobre.
+ *
+ * És el que necessita qualsevol mapa que no pinti comarques: la costa amb les
+ * platges, les sis estacions d'esquí. Els polígons serveixen de fons i la
+ * projecció és el que permet col·locar-hi un punt en graus, cosa que abans del
+ * 6 de setembre de 2026 era impossible perquè el build es guardava l'escala i
+ * no la publicava.
+ */
+export function mapOutline(): {
+  width: number; height: number; projection: MapProjection; features: MapFeature[];
+} {
+  const g = loadGeometry();
+  return {
+    width: g.width, height: g.height, projection: g.projection, features: g.features,
+  };
 }
 
 export interface MapComarca extends MapFeature {

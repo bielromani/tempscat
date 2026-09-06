@@ -6,6 +6,8 @@ import { stationByCodi } from '@/lib/territory';
 import { mountainView } from '@/lib/mountain';
 import { camerasByResort } from '@/lib/cameras';
 import { ResortBlock } from '@/components/ResortBlock';
+import { ResortMap, type ResortPin } from '@/components/ResortMap';
+import { mapOutline } from '@/lib/map';
 
 /**
  * La nieve del Pirineo: medida, no estimada.
@@ -55,6 +57,30 @@ export default async function NeuPage() {
    * la targeta de l'estació sortirien dos cops a la mateixa pàgina.
    */
   const camsByResort = await camerasByResort();
+
+  /*
+   * Els punts del mapa.
+   *
+   * La temperatura surt de l'estació meteorològica **més alta** del domini i
+   * només si la mesura és vigent: una xifra de fa cinc hores dins d'un cercle
+   * de colors es llegeix com si fos d'ara, i aquí no hi ha lloc per posar-hi
+   * l'hora al costat. El gruix de neu, igual, amb el rellotge del comunicat.
+   */
+  const geo = mapOutline();
+  const pins: ResortPin[] = (mountain?.resorts ?? []).map((r) => {
+    const highest = (mountain?.stations ?? [])
+      .filter((st) => st.bunitId === r.bunitId && st.current && st.temperature != null)
+      .sort((a, b) => (b.altitudM ?? 0) - (a.altitudM ?? 0))[0];
+    return {
+      slug: r.slug,
+      name: r.name,
+      lat: r.lat,
+      lon: r.lon,
+      open: r.open,
+      temperature: highest?.temperature ?? null,
+      snowCm: r.reportUsable ? r.snowMaxCm : null,
+    };
+  });
 
   const rows = (await allHistory())
     .map((h) => {
@@ -112,6 +138,12 @@ export default async function NeuPage() {
           surten — no amb un zero, que voldria dir una cosa que no sabem.
         </p>
       </header>
+
+      {pins.length > 0 && (
+        <section className="mb-8">
+          <ResortMap outline={geo.features} projection={geo.projection} pins={pins} />
+        </section>
+      )}
 
       {mountain && mountain.resorts.length > 0 && (
         <section className="mb-10">

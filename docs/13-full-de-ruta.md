@@ -715,8 +715,13 @@ Arreglado ya: el mapa ocupaba más de una pantalla de portátil y «Reprodueix l
 
 ### Platges i mar · **apuntado**
 
-- **Un mapa de la costa con las playas encima**, cada una con su bandera,
-  temperatura del agua, oleaje y medusas. Hoy es una lista.
+- ✅ **Un mapa de la costa**, hecho el 6 de septiembre de 2026. Lo dibujan los
+  **20 puntos del modelo** y no las 229 playas, por dos razones: las playas solo
+  tienen bandera cuando hay socorrista —fuera de temporada el mapa saldría
+  vacío— y dibujadas todas, la Costa Brava sería una mancha donde no se podría
+  clicar ninguna. Cada círculo lleva la temperatura del agua dentro y un anillo
+  con la bandera vigente del tramo, cuando la hay, y enlaza a su fila de la
+  tabla.
 - ✅ **Ordenar y filtrar por municipio**, hecho el 4 de septiembre de 2026: la
   tabla «Totes les platges, poble a poble» lleva las 229 con filtro por los 61
   municipios. Salió de un fallo del propio buscador: fuera de temporada `/mar`
@@ -742,7 +747,13 @@ Arreglado ya: el mapa ocupaba más de una pantalla de portátil y «Reprodueix l
     tiene nueve.
   - **No** van en la ficha de un pueblo: allí ya está el bloque de cámaras
     cercanas y saldría la misma fotografía dos veces en la misma página.
-- **Un mapa** con las seis estaciones, el gruix y lo que hay abierto.
+- ✅ **Un mapa** con las seis estaciones, hecho el 6 de septiembre de 2026.
+  Recortado al Pirineo —la ventana sale de los propios puntos, así que si FGC
+  abre una en la Val d'Aran se ensancha sola— con la temperatura medida dentro
+  del círculo, anillo verde si está abierta y el espesor debajo cuando el
+  comunicado aún vale. El número es la temperatura y no el espesor porque el
+  espesor es nulo ocho meses al año: un mapa que en septiembre sale con seis
+  ceros es un mapa apagado.
 - Comprobar si alguna cámara da **vídeo en directo** y no solo fotograma. Las de
   Roundshot tienen visor con movimiento; habría que ver si hay un flujo servible
   sin incrustar su reproductor.

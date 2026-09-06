@@ -7,6 +7,8 @@ import {
   FLAG_SHOW_HOURS,
 } from '@/lib/sea';
 import { FlagLegend, FlagMark, JellyfishMark } from '@/components/SeaMarks';
+import { CoastMap, type CoastPoint } from '@/components/CoastMap';
+import { mapOutline } from '@/lib/map';
 import { ListFilter, groupsOf } from '@/components/ListFilter';
 
 /**
@@ -78,6 +80,32 @@ export default async function MarPage() {
         dir: p.waveDirection[sea.index] ?? null,
       }))
     : [];
+
+  /*
+   * El mapa: cada punt del model amb la bandera de la platja que li dona nom.
+   *
+   * El creuament és pel nom perquè és l'únic que hi ha —`SeaPoint.near` surt
+   * del registre de platges quan es construeix el punt— i si algun dia no
+   * casa, el que passa és que el punt es dibuixa sense anell i sense enllaç.
+   * Cap anell no és el mateix que cap bandera, i cap bandera és el que passa
+   * fora de temporada: no s'inventa res en cap dels dos casos.
+   */
+  const byName = new Map(data.list.map((b) => [b.name, b]));
+  const geo = mapOutline();
+  const coast: CoastPoint[] = (sea?.points ?? []).map((p) => {
+    const beach = byName.get(p.near);
+    const fresh = beach && beach.ageHours <= FLAG_SHOW_HOURS ? beach : null;
+    return {
+      id: p.id,
+      lat: p.lat,
+      lon: p.lon,
+      near: p.near,
+      sst: p.sst[sea!.index] ?? null,
+      wave: p.waveHeight[sea!.index] ?? null,
+      flag: fresh?.flag ?? null,
+      beachCode: beach?.code ?? null,
+    };
+  });
 
   const temps = strip.map((s) => s.sst).filter((v): v is number => v != null);
   const waves = strip.map((s) => s.wave).filter((v): v is number => v != null);
@@ -166,6 +194,18 @@ export default async function MarPage() {
           ressaca.
         </p>
       </header>
+
+      {coast.length > 0 && (
+        <section className="mb-6">
+          <CoastMap
+            outline={geo.features}
+            projection={geo.projection}
+            width={geo.width}
+            height={geo.height}
+            points={coast}
+          />
+        </section>
+      )}
 
       {recent.length > 0 && (
         <section className="mb-6 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] px-4 py-3">

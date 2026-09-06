@@ -40,6 +40,17 @@
   --cap-red: oklch(55% 0.20 27);
 
   --shadow: 0 1px 2px oklch(24% 0.02 250 / 0.05), 0 8px 24px oklch(24% 0.02 250 / 0.05);
+
+  /* Els mapes que no pinten cap dada al terra.
+     -----------------------------------------------------------------------
+     El mapa de comarques tenyeix la terra amb la temperatura i no els
+     necessita. El de la costa i el de les estacions de muntanya sí: allà la
+     dada és als punts de sobre, i sense mar i terra diferenciats el dibuix es
+     llegeix com una taca i no com un mapa. El mar tira a blau i la terra queda
+     un to per damunt del paper, prou per veure el contorn sense competir amb
+     els punts. */
+  --sea: oklch(93% 0.033 232);
+  --land: oklch(95.5% 0.007 240);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -67,6 +78,9 @@
     --cap-orange: oklch(75% 0.15 55);
     --cap-red: oklch(66% 0.18 27);
 
+    --sea: oklch(30% 0.045 240);
+    --land: oklch(23% 0.014 250);
+
     --shadow: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.28);
   }
 }
@@ -89,6 +103,8 @@
   --cap-yellow: oklch(85% 0.15 95);
   --cap-orange: oklch(75% 0.15 55);
   --cap-red: oklch(66% 0.18 27);
+  --sea: oklch(30% 0.045 240);
+  --land: oklch(23% 0.014 250);
   --shadow: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.28);
 }
 
@@ -440,4 +456,19 @@ button:focus-visible,
 
 @media (prefers-reduced-motion: reduce) {
   :target { animation: none; box-shadow: 0 0 0 2px var(--accent); }
+}
+
+/* Els mapes de punts, acotats.
+   -------------------------------------------------------------------------
+   Un mapa de la costa catalana es quadrat i no hi ha res a fer: la costa va de
+   Portbou a Alcanar en diagonal, i la seva caixa es gairebé la del pais. A
+   l'ample de la columna sortia de 845 x 837 px, que es un mur — el mateix
+   problema que ja va tenir el radar.
+
+   S'acota per l'ample i es centra, en comptes d'acotar per l'alcada: acotant
+   l'alcada, els cercles de 18 unitats es quedaven a nou pixels i el numero de
+   dins no es llegia. A 640 px de costat, el cercle fa 23 px i la xifra 13. */
+.geomap {
+  max-width: 640px;
+  margin-inline: auto;
 }
