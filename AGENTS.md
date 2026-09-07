@@ -321,6 +321,13 @@ cuota para exactamente la misma información.
 - **Un mes incompleto no es un mes frío, y un año al que le falta enero sale más cálido.** Todo
   `src/lib/climate.ts` descarta en vez de promediar lo que hay: meses con menos de 25 días fuera,
   años con menos de 12 meses fuera. Sin eso, una avería de dos semanas se lee como clima.
+- **Un contador sin sensor no es un cero: es que no se mide.** Los cinco contadores del año se
+  daban siempre, así que la Tosa d'Alp publicaba «0 dies de pluja l'any» a 2.478 m y el Pantà de
+  Sau, «0 dies d'estiu». Se piden a `records`: `extremeOf` devuelve null cuando **no hay ni una
+  fila** de esa variable, mientras que una serie de ceros —una estación en un sitio muy seco— sí
+  devuelve extremo. Misma regla en la tabla diaria: las columnas salen de lo que esa estación
+  tiene, porque siete columnas fijas para una variable eran treinta filas de guiones. Y en esa
+  tabla, **0 mm medidos y ninguna medida se pintaban igual**: ahora el cero es un cero.
 - **Contar los años de la serie en un solo conjunto para todas las variables convierte la falta
   de un sensor en un cero medido.** `normalsOf` sumaba la lluvia y la dividía entre los años que
   le daba la temperatura, así que una estación con termómetro y sin pluviómetro publicaba

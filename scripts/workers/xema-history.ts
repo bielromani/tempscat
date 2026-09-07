@@ -706,7 +706,15 @@ async function main() {
           : best
       ), null);
 
-      const days = new Set(series.filter((r) => r.variable === V.tMean).map((r) => r.day));
+      /*
+       * Días con dato, de **cualquier** variable, no solo de temperatura media.
+       *
+       * El rótulo de la página dice «dies amb dada» y contaba días con media de
+       * temperatura, así que las cinco estaciones sin termómetro salían con cero
+       * días y sin fecha de inicio: el Pantà de Sau lleva 368 meses completos de
+       * pluviómetro y su ficha decía que no tenía serie.
+       */
+      const days = new Set(series.map((r) => r.day));
       const firstDay = [...days].sort()[0] ?? null;
 
       /*

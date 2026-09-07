@@ -221,6 +221,51 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
   const lastMonthDay = monthDays.at(-1)?.day ?? null;
   const monthCovered = monthDays.length > 0;
 
+  /*
+   * Què mesura aquest aparell, que no és tot a tot arreu.
+   *
+   * Cinc estacions no tenen termòmetre —i quatre alimenten 124 fitxes— i dues
+   * no tenen pluviòmetre. Amb els comptadors donats sempre, la Tosa d'Alp deia
+   * «0 dies de pluja l'any» a 2.478 m i el Pantà de Sau, «0 dies d'estiu»: el
+   * `?? 0` del comptador convertia la manca de sensor en una mesura. Un
+   * comptador sense sensor no es dona.
+   *
+   * El senyal és el rècord: `extremeOf` torna nul quan **no hi ha cap fila** de
+   * la variable, i una sèrie de zeros —una estació en un lloc molt sec— sí que
+   * en torna un.
+   */
+  const hasThermometer = records.tMaxAbs != null || records.tMinAbs != null;
+  const hasGauge = records.precipMaxDay != null;
+
+  /*
+   * Les columnes de la taula diària, les que aquesta estació té.
+   *
+   * Fixes, la fitxa del Pantà de Sau ensenyava trenta files de guions amb una
+   * xifra de pluja perduda enmig: set columnes per a una variable. Una taula
+   * amb sis columnes buides no diu que allí no es mesuri res —no diu res—, i
+   * per això cada columna es demana als dies que hi ha.
+   */
+  const recent = history.daily.slice(-30);
+  const columns = ([
+    { label: 'Màx.', cell: (d: typeof recent[0]) => (d.tMax != null ? `${num(d.tMax, 1)}°` : null) },
+    { label: 'Mín.', cell: (d: typeof recent[0]) => (d.tMin != null ? `${num(d.tMin, 1)}°` : null) },
+    { label: 'Mitj.', dim: true, cell: (d: typeof recent[0]) => (d.tMean != null ? `${num(d.tMean, 1)}°` : null) },
+    /*
+     * Zero mil·límetres mesurats i cap mesura no són el mateix, i aquí sortien
+     * tots dos com el mateix guio pal·lid. En una taula d'una estació que
+     * només mesura pluja, aquesta diferència és tota la columna.
+     */
+    { label: 'Pluja', cell: (d: typeof recent[0]) => (d.precip != null ? (d.precip ? `${num(d.precip, 1)} mm` : '0') : null) },
+    { label: 'Ratxa', dim: true, cell: (d: typeof recent[0]) => (d.gust != null ? `${msToKmh(d.gust).toFixed(0)}` : null) },
+    { label: 'HR', dim: true, cell: (d: typeof recent[0]) => (d.rhMean != null ? `${d.rhMean} %` : null) },
+  ] as Array<{ label: string; dim?: boolean; cell: (d: typeof recent[0]) => string | null }>)
+    // La pluja és el cas que ho demana: un dia de 0 mm és una mesura, i
+    // `d.precip ? ...` el pinta com un buit. Es mira la dada, no la cel·la.
+    .filter((c) => (c.label === 'Pluja'
+      ? recent.some((d) => d.precip != null)
+      : recent.some((d) => c.cell(d) != null)));
+  const hasChart = recent.filter((d) => d.tMax != null || d.tMin != null).length >= 5;
+
   const yearsOfSeries = records.since
     ? new Date().getFullYear() - Number(records.since.slice(0, 4))
     : null;
@@ -361,16 +406,23 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
       )}
 
       {/* ── Contadores ── */}
+      {(hasThermometer || hasGauge) && (
       <div>
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
           Comptadors de l&apos;any
         </h3>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          <Counter label="Dies d'estiu" month={counters.summerDays.month} year={counters.summerDays.year} hint="màxima ≥ 25 °C" monthCovered={monthCovered} />
-          <Counter label="Dies de calor" month={counters.hotDays.month} year={counters.hotDays.year} hint="màxima ≥ 30 °C" monthCovered={monthCovered} />
-          <Counter label="Nits tropicals" month={counters.tropicalNights.month} year={counters.tropicalNights.year} hint="mínima ≥ 20 °C" monthCovered={monthCovered} />
-          <Counter label="Dies de glaçada" month={counters.frostDays.month} year={counters.frostDays.year} hint="mínima < 0 °C" monthCovered={monthCovered} />
-          <Counter label="Dies de pluja" month={counters.rainDays.month} year={counters.rainDays.year} hint="≥ 0,2 mm" monthCovered={monthCovered} />
+          {hasThermometer && (
+            <>
+              <Counter label="Dies d'estiu" month={counters.summerDays.month} year={counters.summerDays.year} hint="màxima ≥ 25 °C" monthCovered={monthCovered} />
+              <Counter label="Dies de calor" month={counters.hotDays.month} year={counters.hotDays.year} hint="màxima ≥ 30 °C" monthCovered={monthCovered} />
+              <Counter label="Nits tropicals" month={counters.tropicalNights.month} year={counters.tropicalNights.year} hint="mínima ≥ 20 °C" monthCovered={monthCovered} />
+              <Counter label="Dies de glaçada" month={counters.frostDays.month} year={counters.frostDays.year} hint="mínima < 0 °C" monthCovered={monthCovered} />
+            </>
+          )}
+          {hasGauge && (
+            <Counter label="Dies de pluja" month={counters.rainDays.month} year={counters.rainDays.year} hint="≥ 0,2 mm" monthCovered={monthCovered} />
+          )}
         </div>
         {/* Una vegada per als cinc, i no cinc vegades. */}
         <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">
@@ -384,6 +436,7 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           </p>
         )}
       </div>
+      )}
 
       {/* ── Récords ── */}
       <div>
@@ -445,9 +498,17 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
             : <strong className="font-medium text-[var(--ink-2)]">{station.nom}</strong>},
           a {num(station.distKm, 1)} km
           {station.dAltM != null && Math.abs(station.dAltM) >= 25 && ` i ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivell`}.
-          {records.since && ` Sèrie des del ${fmtDate(records.since)}`}
-          {records.days > 0 && ` · ${records.days.toLocaleString('ca-ES')} dies amb dada`}
-          {yearsOfSeries != null && yearsOfSeries > 0 && ` (${yearsOfSeries} anys)`}.
+          {/*
+            El punt final anava sempre, també quan no hi havia sèrie a dir: les
+            fitxes de les estacions sense termòmetre acabaven la frase amb
+            «de desnivell . .». Ara la cua es munta d'una peça i el punt és seu.
+          */}
+          {records.since && (
+            ` Sèrie des del ${fmtDate(records.since)}`
+            + (records.days > 0 ? ` · ${records.days.toLocaleString('ca-ES')} dies amb dada` : '')
+            + (yearsOfSeries != null && yearsOfSeries > 0 ? ` (${yearsOfSeries} anys)` : '')
+            + '.'
+          )}
         </p>
       </div>
 
@@ -477,16 +538,20 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
       )}
 
       {/* ── Últimos 30 días ── */}
-      {history.daily.length >= 5 && (
+      {columns.length > 0 && (
         <div>
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
             Els últims 30 dies
           </h3>
-          <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
-            <RecentChart daily={history.daily} />
-          </div>
+          {/* La caixa només si hi ha dibuix: `RecentChart` torna nul sense cinc
+              dies de màxima i mínima, i quedava un requadre buit. */}
+          {hasChart && (
+            <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+              <RecentChart daily={history.daily} />
+            </div>
+          )}
 
-          <details className="mt-2">
+          <details className={hasChart ? 'mt-2' : ''} open={!hasChart}>
             <summary className="cursor-pointer text-sm text-[var(--muted)] hover:text-[var(--ink)]">
               Veure la taula diària
             </summary>
@@ -495,26 +560,24 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
                 <thead>
                   <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--muted)]">
                     <th scope="col" className="bg-[var(--surface-2)] px-3 py-2 font-semibold">Dia</th>
-                    <th scope="col" className="bg-[var(--surface-2)] px-3 py-2 font-semibold">Màx.</th>
-                    <th scope="col" className="bg-[var(--surface-2)] px-3 py-2 font-semibold">Mín.</th>
-                    <th scope="col" className="bg-[var(--surface-2)] px-3 py-2 font-semibold">Mitj.</th>
-                    <th scope="col" className="bg-[var(--surface-2)] px-3 py-2 font-semibold">Pluja</th>
-                    <th scope="col" className="bg-[var(--surface-2)] px-3 py-2 font-semibold">Ratxa</th>
-                    <th scope="col" className="bg-[var(--surface-2)] px-3 py-2 font-semibold">HR</th>
+                    {columns.map((c) => (
+                      <th key={c.label} scope="col" className="bg-[var(--surface-2)] px-3 py-2 font-semibold">
+                        {c.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {history.daily.slice(-30).reverse().map((d) => (
+                  {recent.slice().reverse().map((d) => (
                     <tr key={d.day} className="border-t border-[var(--line-soft)]">
                       <th scope="row" className="tnum px-3 py-1.5 text-left font-medium text-[var(--ink-2)]">
                         {d.day.slice(8, 10)}/{d.day.slice(5, 7)}
                       </th>
-                      <td className="tnum px-3 py-1.5">{d.tMax != null ? `${num(d.tMax, 1)}°` : '—'}</td>
-                      <td className="tnum px-3 py-1.5">{d.tMin != null ? `${num(d.tMin, 1)}°` : '—'}</td>
-                      <td className="tnum px-3 py-1.5 text-[var(--muted)]">{d.tMean != null ? `${num(d.tMean, 1)}°` : '—'}</td>
-                      <td className="tnum px-3 py-1.5">{d.precip ? `${num(d.precip, 1)} mm` : <span className="text-[var(--line)]">—</span>}</td>
-                      <td className="tnum px-3 py-1.5 text-[var(--muted)]">{d.gust != null ? `${msToKmh(d.gust).toFixed(0)}` : '—'}</td>
-                      <td className="tnum px-3 py-1.5 text-[var(--muted)]">{d.rhMean != null ? `${d.rhMean} %` : '—'}</td>
+                      {columns.map((c) => (
+                        <td key={c.label} className={`tnum px-3 py-1.5${c.dim ? ' text-[var(--muted)]' : ''}`}>
+                          {c.cell(d) ?? <span className="text-[var(--line)]">—</span>}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
