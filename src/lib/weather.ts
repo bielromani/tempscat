@@ -6,6 +6,7 @@ import {
 } from './variables';
 import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
 import { airCellKey } from './air-grid';
+import type { MonthProgress } from './climate-math';
 import {
   aggregateDaily, mergeHourly, type PointForecast, type StoredDaily,
 } from './forecast-merge';
@@ -509,6 +510,16 @@ export interface StationHistory {
     precip: { month: number; year: number };
   };
   monthAnomaly: number | null;
+  /**
+   * Dónde queda el mes en curso entre los mismos días de todos los años.
+   *
+   * Es lo que contesta «este septiembre es más cálido que los diez anteriores?»
+   * sin comparar cinco días contra treinta, que es lo que hace `monthAnomaly`.
+   * Null mientras el mes no llegue a cinco días medidos o la serie a diez años
+   * comparables. Lo calcula `monthProgressOf` en el worker, que es el único
+   * sitio donde está la serie entera.
+   */
+  monthProgress: MonthProgress | null;
   dryStreak: number;
   /** De dónde vienen las rachas. Null si la estación no mide viento. */
   rose: WindRose | null;

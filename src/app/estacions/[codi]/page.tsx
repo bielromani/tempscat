@@ -10,7 +10,7 @@ import {
 } from '@/lib/format';
 import { historyOfStation, localToday, observationOfStation } from '@/lib/weather';
 import {
-  climateOfStation, rankOf, sameMonthAcrossYears, trendOf, yearsOf,
+  climateOfStation, sameMonthAcrossYears, trendOf, yearsOf,
   MONTH_MIN_DAYS, TREND_MIN_YEARS,
 } from '@/lib/climate';
 import { ClimateTrend } from '@/components/ClimateTrend';
@@ -84,18 +84,6 @@ export default async function EstacioPage({ params }: { params: Params }) {
   const trend = trendOf(climateYears);
   const monthSeries = monthly ? sameMonthAcrossYears(monthly, month) : [];
   const monthNow = monthly?.find((m) => m.ym === today.slice(0, 7)) ?? null;
-
-  /*
-   * On queda el mes en curs entre tots els seus germans.
-   *
-   * Només si ja porta prou dies. Amb quatre, la mitjana d'un setembre encara és
-   * la de la primera setmana i dir-ne «el tercer més càlid de 38» seria una
-   * frase amb un número inventat a dins.
-   */
-  const monthRank = monthNow && monthNow.tMean != null && monthNow.days >= MONTH_MIN_DAYS
-    && monthSeries.length >= 5
-    ? rankOf(monthNow.tMean, monthSeries.map((m) => m.tMean as number))
-    : null;
 
   const t = obs?.values.temperature?.value ?? null;
   const wind = obs?.values.wind_speed?.value ?? null;
@@ -245,23 +233,21 @@ export default async function EstacioPage({ params }: { params: Params }) {
         </section>
       )}
 
+      {/*
+        L'àncora és la que fa servir el bloc de clima de les 4.293 fitxes de
+        poble: la frase de allí situa el mes en curs entre els seus germans i
+        aquesta secció és la continuació natural. On queda el mes no es repeteix
+        aquí —ho diu el mateix bloc, tres pantalles amunt d'aquesta— i el
+        gràfic del mes ja el marca amb la barra ressaltada.
+      */}
       {climateYears.length >= 5 && (
-        <section className="mt-8">
+        <section id="anys" className="mt-8 scroll-mt-20">
           <h2 className="mb-1 text-lg font-semibold tracking-tight">
             Com han anat els anys
           </h2>
           <p className="mb-4 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
             {climateYears.length} anys sencers mesurats aquí, de {climateYears[0].year} a{' '}
             {climateYears[climateYears.length - 1].year}.
-            {monthRank && (
-              <>
-                {' '}Aquest mes va, de moment, el{' '}
-                <strong className="font-medium text-[var(--ink)]">
-                  {monthRank.rank}è més càlid de {monthRank.total}
-                </strong>{' '}
-                de la sèrie.
-              </>
-            )}
           </p>
 
           <ClimateTrend

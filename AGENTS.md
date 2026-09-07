@@ -61,8 +61,8 @@ Comprueba ambos proyectos con `npm run typecheck`.
 
 ## Código compartido entre scripts y aplicación
 
-Hay nueve ficheros que importan los dos lados: los scripts los cargan con extensión `.ts` y la
-aplicación con el alias `@/`. Ocho **no importan nada**, y la condición para añadir uno es esa.
+Hay diez ficheros que importan los dos lados: los scripts los cargan con extensión `.ts` y la
+aplicación con el alias `@/`. Nueve **no importan nada**, y la condición para añadir uno es esa.
 
 El noveno, `forecast-merge.ts`, sí importa —y es la excepción que ya describe la sección de
 arriba: importa con extensión `.ts` y **toda su cadena acaba en ficheros que no importan nada**.
@@ -80,6 +80,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/shards.ts` | Dónde vive cada trozo de cada dato, y por qué está partido |
 | `src/lib/forecast-merge.ts` | De los modelos a una serie, y de la serie al resumen por días |
 | `src/lib/search-match.ts` | Cómo se parece lo que se escribe en el buscador al nombre de un sitio |
+| `src/lib/climate-math.ts` | Qué es un mes comparable, qué es un año entero y cómo se saca una tendencia |
 
 ## Dónde viven los datos vivos
 
@@ -179,6 +180,7 @@ Pruebas:
 ```bash
 npm run test              # topónimos, astronomía, hora cero de la predicción, buscador y frases
 npm run test:search       # lo que el buscador tiene que encontrar y lo que no
+npm run test:climate      # los meses y los años que el histórico tiene que descartar
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
@@ -319,6 +321,15 @@ cuota para exactamente la misma información.
 - **Un mes incompleto no es un mes frío, y un año al que le falta enero sale más cálido.** Todo
   `src/lib/climate.ts` descarta en vez de promediar lo que hay: meses con menos de 25 días fuera,
   años con menos de 12 meses fuera. Sin eso, una avería de dos semanas se lee como clima.
+- **Una anomalía del mes en curso medida contra la normal del mes entero mete dentro la deriva
+  del propio mes.** Los cinco días que la serie tenía de septiembre de 2026 en Raimat daban
+  **+6,9 °C** contra la normal de septiembre y **+4,8 °C** contra esos mismos cinco días de los
+  otros 37 años: 2,1 °C de aquella cifra no eran anomalía, era que la primera semana de
+  septiembre es más cálida que el septiembre medio. La cifra grande de la ficha sale ahora de
+  `monthProgressOf`, que compara el mismo tramo; `monthAnomaly` se queda de respaldo para las
+  series cortas y entonces la página dice contra qué se compara. Y la comparación de tramo
+  descarta el año pasado al que le falte más del 20 % de los días de la ventana: con cuatro de
+  cinco días ya no es la misma semana. Prueba: `npm run test:climate`.
 - **La tendencia se calcula por mínimos cuadrados y no restando el primer año al último.** Con
   dos puntos, un año excepcional en cualquiera de los dos extremos decide el resultado entero.
   Y no se dibuja por debajo de 15 años completos: con menos, el pendiente de una serie de
@@ -543,3 +554,13 @@ cuota para exactamente la misma información.
   —que en reporta tres— sortia la inofensiva i **quedava amagada la que pica**. `parseJellyfish()`
   retorna la llista sencera, i una espècie que no consti a la taula es tracta com si piqués.
 
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

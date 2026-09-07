@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { WindRose } from './WindRose';
 import { msToKmh } from '@/lib/variables';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { int, num, signed } from '@/lib/format';
+import { int, num, ordinal, signed } from '@/lib/format';
+import { MONTH_MIN_DAYS } from '@/lib/climate-math';
 import type { StationHistory } from '@/lib/weather';
 import type { StationRef } from '@/lib/territory';
 
@@ -179,9 +180,28 @@ interface Props {
 }
 
 export function ClimateBlock({ history, station, month, today, stationHref }: Props) {
-  const { records, counters, normals, monthAnomaly, dryStreak } = history;
+  const { records, counters, normals, monthAnomaly, monthProgress, dryStreak } = history;
   const normal = normals.find((n) => n.month === month);
   const monthName = MONTHS[month - 1];
+
+  /*
+   * Cuánto se desvía el mes en curso, y **contra qué**.
+   *
+   * `monthProgress` compara los días que la serie ya tiene de este mes con los
+   * mismos días de todos los años. `monthAnomaly` los compara con la media del
+   * mes entero, y eso mete dentro de la cifra la deriva del propio mes: en
+   * Raimat, el 7 de septiembre de 2026, los cinco primeros días daban **+6,9 °C**
+   * contra la normal de septiembre y **+4,8 °C** contra esos mismos cinco días
+   * de los otros 37 años. Los 2,1 °C de diferencia no eran anomalía: era que la
+   * primera semana de septiembre es más cálida que el septiembre medio.
+   *
+   * Así que el número grande sale de `monthProgress` cuando existe. `monthAnomaly`
+   * se queda como respaldo para las estaciones de serie corta, y entonces la
+   * frase dice contra qué se compara.
+   */
+  const gap = monthProgress
+    ? Math.round((monthProgress.tMean - monthProgress.normal) * 10) / 10
+    : monthAnomaly;
 
   // Hasta dónde llega de verdad el mes en curso dentro de la serie.
   const monthPrefix = today.slice(0, 7);
@@ -196,7 +216,7 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
   return (
     <section className="flex flex-col gap-5">
       {/* ── Anomalía del mes ── */}
-      {monthAnomaly != null && normal?.tMean != null && (
+      {gap != null && normal?.tMean != null && (
         <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
             Com va aquest {monthName}
@@ -204,16 +224,73 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           <p className="mt-2 flex flex-wrap items-baseline gap-x-3">
             <span
               className="tnum text-3xl font-semibold"
-              style={{ color: monthAnomaly > 0 ? 'var(--bad)' : monthAnomaly < 0 ? 'var(--accent)' : 'var(--ink)' }}
+              style={{ color: gap > 0 ? 'var(--bad)' : gap < 0 ? 'var(--accent)' : 'var(--ink)' }}
             >
-              {signed(monthAnomaly, 1, '°C')}
+              {signed(gap, 1, '°C')}
             </span>
+            {/* «per damunt» i «per sota» demanen «de», i amb l'article
+                «dels»: sense contreure surt «per damunt els mateixos dies». */}
             <span className="text-[var(--ink-2)]">
-              {monthAnomaly > 0 ? 'per damunt' : monthAnomaly < 0 ? 'per sota' : 'igual que'} la mitjana
+              {monthProgress
+                ? gap === 0
+                  ? 'igual que aquests mateixos dies els altres anys'
+                  : `per ${gap > 0 ? 'damunt' : 'sota'} dels mateixos dies dels altres anys`
+                : gap === 0
+                  ? 'igual que la mitjana'
+                  : `per ${gap > 0 ? 'damunt' : 'sota'} de la mitjana`}
             </span>
           </p>
+
+          {/*
+            Y el lugar que ocupa entre esos mismos años, que es la frase que
+            contesta «¿este septiembre es más cálido que los últimos diez?».
+            Solo aparece con diez años comparables o más: «el 3.º de 4» no
+            responde nada. El cálculo es del worker —la página solo tiene 45
+            días de serie— y está en `monthProgressOf`.
+          */}
+          {monthProgress && (
+            <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
+              Amb {monthProgress.days} {monthProgress.days === 1 ? 'dia' : 'dies'} de{' '}
+              {monthName} mesurats, a {station.nom} hi ha fet{' '}
+              <strong className="font-semibold text-[var(--ink)]">{num(monthProgress.tMean, 1)} °C</strong>{' '}
+              de mitjana, contra els {num(monthProgress.normal, 1)} °C que hi solen fer
+              aquests mateixos dies. És el{' '}
+              <strong className="font-semibold text-[var(--ink)]">
+                {monthProgress.rank === 1
+                  ? `${monthName} més càlid de ${monthProgress.total}`
+                  : monthProgress.rank === monthProgress.total
+                    ? `${monthName} més fred de ${monthProgress.total}`
+                    : `${ordinal(monthProgress.rank)} ${monthName} més càlid de ${monthProgress.total}`}
+              </strong>{' '}
+              en aquest tram del mes.
+              {/* «El rècord» no serveix aquí: en un mes que és el més fred de
+                  la sèrie, la paraula sembla contradir la frase d'abans. Es
+                  diu quin any va ser el més càlid i s'acaba. */}
+              {monthProgress.rank !== 1 && (
+                ` El més càlid va ser el ${monthProgress.warmest.year}, amb `
+                + `${num(monthProgress.warmest.tMean, 1)} °C.`
+              )}
+            </p>
+          )}
+
+          {/*
+            Y cuando no hay comparación de tramo, la cifra grande viene de
+            comparar los días que hay contra el mes entero, y **eso se dice**.
+            La primera semana de septiembre es más cálida que el septiembre
+            medio: en Raimat, 2,1 de los 6,9 grados que da esa cuenta eran la
+            deriva del calendario y no una anomalía. No se calla porque un
+            número grande sin decir contra qué se mide es el que se cita.
+          */}
+          {!monthProgress && monthCovered && monthDays.length < MONTH_MIN_DAYS && (
+            <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
+              Són {monthDays.length} {monthDays.length === 1 ? 'dia' : 'dies'} comparats amb la
+              mitjana de {monthName} sencer, i el {monthName} no comença com acaba:
+              una part d&apos;aquests graus és el pas del mes i no una desviació.
+            </p>
+          )}
+
           <p className="mt-1.5 text-sm leading-relaxed text-[var(--muted)]">
-            La mitjana de {monthName} a {station.nom} és de {num(normal.tMean, 1)} °C,
+            La mitjana de {monthName} sencer a {station.nom} és de {num(normal.tMean, 1)} °C,
             calculada sobre {normal.years} anys de sèrie de la mateixa estació.
             {/*
               El total del mes va amb els dies que cobreix, sempre.
@@ -235,6 +312,22 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
                   + 'la sèrie encara no en té cap dia.'
             )}
           </p>
+
+          {/*
+            Y la puerta al histórico entero, que es lo que sigue a la frase de
+            arriba: si este septiembre va el primero de 38, la pregunta
+            siguiente es cómo han ido esos 38. Los gráficos —media de cada año
+            con su recta, el mismo mes año a año, la lluvia— viven en la ficha
+            de la estación y no aquí: son 24 kB de serie mensual que ninguna de
+            las 4.293 fichas de lugar dibuja. `climateShard()` en `shards.ts`.
+          */}
+          {stationHref && (
+            <p className="mt-3 text-sm">
+              <Link href={`${stationHref}#anys`} className="font-medium text-[var(--accent)] no-underline hover:underline">
+                Com han anat els anys a {station.nom} ›
+              </Link>
+            </p>
+          )}
         </div>
       )}
 

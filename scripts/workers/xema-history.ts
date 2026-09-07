@@ -32,6 +32,8 @@ import {
 } from '../lib/store.ts';
 import { CLIMATE_DIR, climateShard, historyShard } from '../../src/lib/shards.ts';
 import { windCardinal } from '../../src/lib/variables.ts';
+import { PROGRESS_MIN_DAYS, monthProgressOf } from '../../src/lib/climate-math.ts';
+import type { MonthProgress, StationMonth } from '../../src/lib/climate-math.ts';
 import type { Station } from '../04-fetch-stations.ts';
 
 const DAILY = '7bvh-jvq2';
@@ -155,22 +157,11 @@ export interface WindRose {
  * medidos parecería un mes entero, y en una serie de treinta años esos meses
  * existen: estaciones que se instalan a mitad de mes, averías, cambios de
  * sensor. Quien lo pinte decide desde qué cobertura se puede comparar.
+ *
+ * La forma vive en `climate-math.ts`, con las funciones que la leen. Lo que se
+ * escribe aquí y lo que se promedia allí tienen que ser la misma cosa.
  */
-export interface StationMonth {
-  /** `AAAA-MM`. */
-  ym: string;
-  /** Media de las medias diarias. */
-  tMean: number | null;
-  /** La máxima absoluta del mes y la mínima absoluta, no las medias. */
-  tMax: number | null;
-  tMin: number | null;
-  /** Suma del mes, mm. */
-  precip: number | null;
-  /** Racha máxima del mes, m/s. */
-  gustMax: number | null;
-  /** Días de ese mes con alguna medida. */
-  days: number;
-}
+export type { StationMonth };
 
 export interface StationClimate {
   station: string;
@@ -209,6 +200,20 @@ export interface StationHistory {
   };
   /** Anomalía del mes en curso respecto a la normal de la estación, °C. */
   monthAnomaly: number | null;
+  /**
+   * Dónde queda el mes en curso entre los mismos días de todos los años.
+   *
+   * ## Por qué está en este trozo y la serie mensual no
+   *
+   * Porque son **ciento veinte bytes** y contestan la pregunta que se hace en
+   * la ficha de un pueblo: si este septiembre va más cálido de lo normal aquí.
+   * La serie mensual entera son 24 kB y ninguna de las 4.293 fichas la dibuja
+   * —eso es la ficha de la estación—, así que vive en `climateShard()`.
+   *
+   * El cálculo es de `monthProgressOf`, y no se hace en la página: la página
+   * solo tiene 45 días de serie y esto necesita los treinta y ocho años.
+   */
+  monthProgress: MonthProgress | null;
   /** Días consecutivos sin precipitación apreciable hasta hoy. */
   dryStreak: number;
   /** De dónde vienen las rachas. Null si la estación no mide viento. */
@@ -619,6 +624,7 @@ async function main() {
   const month = now.getUTCMonth() + 1;
   const yearStart = `${year}-01-01`;
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+  const today = now.toISOString().slice(0, 10);
   // 400 días cubren el año en curso completo y parte del anterior.
   const from = new Date(Date.now() - 400 * 86_400_000).toISOString().slice(0, 10);
 
@@ -706,6 +712,18 @@ async function main() {
         : null;
       const normal = norm.find((n) => n.month === month)?.tMean ?? null;
 
+      /*
+       * Y el mismo mes en curso comparado con su propio tramo en los demás
+       * años. Sale de `series` —la serie entera— y no de `daily`, que son 400
+       * días: con 400 días la comparación tendría un año contra el que medirse.
+       */
+      const progress = monthProgressOf(
+        series
+          .filter((r) => r.variable === V.tMean)
+          .map((r) => ({ day: r.day, tMean: r.value })),
+        today,
+      );
+
       const history: StationHistory = {
         station: s.codi,
         daily: daily.slice(-45),
@@ -724,6 +742,7 @@ async function main() {
           precip: { month: sumPrecip(monthStart), year: sumPrecip(yearStart) },
         },
         monthAnomaly: monthMean != null && normal != null ? r1(monthMean - normal) : null,
+        monthProgress: progress,
         dryStreak,
         rose: roseOf(series),
         // El último día **con lectura**, no el último día del calendario: en una
@@ -810,6 +829,25 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
     const warm = top(valid, (v) => v.monthAnomaly);
     console.log(`\nAnomalia del mes en curs: ${mean > 0 ? '+' : ''}${mean.toFixed(1)} °C de mitjana a la xarxa`);
     if (warm) console.log(`  màxima desviació: ${warm.monthAnomaly! > 0 ? '+' : ''}${warm.monthAnomaly} °C a ${nom.get(warm.station)}`);
+  }
+
+  /*
+   * Quantes estacions poden situar el mes en curs entre els seus germans.
+   *
+   * Es diu perquè és el número que delata un canvi de dataset o una finestra
+   * mal calculada sense donar cap error: la frase de la fitxa desapareix i la
+   * pàgina segueix sortint sencera. La primera volta van 132 de 189, i les que
+   * falten són les de sèrie curta.
+   */
+  const prog = valid.filter((v) => v.monthProgress);
+  if (prog.length) {
+    const warmest = top(prog, (v) => -v.monthProgress!.rank);
+    console.log(`\nMes en curs situat a la sèrie: ${prog.length} / ${valid.length} estacions`);
+    const w = warmest!.monthProgress!;
+    console.log(`  ${nom.get(warmest!.station)}: ${w.rank}r més càlid de ${w.total}`
+      + ` (${w.days} dies, ${w.tMean} °C contra ${w.normal} de mitjana)`);
+  } else {
+    console.log(`\nMes en curs situat a la sèrie: cap estació (calen ${PROGRESS_MIN_DAYS} dies del mes)`);
   }
 
   const dry = top(valid, (v) => v.dryStreak);
