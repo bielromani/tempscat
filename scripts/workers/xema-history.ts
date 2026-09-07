@@ -188,7 +188,15 @@ export interface StationHistory {
    * contra la que se mide la anomalía, y sale de la propia estación: no hace
    * falta ninguna reanálisis externa.
    */
-  normals: Array<{ month: number; tMean: number | null; precip: number | null; years: number }>;
+  normals: Array<{
+    month: number;
+    tMean: number | null;
+    precip: number | null;
+    /** Años con media de temperatura de ese mes. */
+    years: number;
+    /** Años con total de lluvia de ese mes, que no son los mismos. */
+    precipYears: number;
+  }>;
 
   counters: {
     summerDays: { month: number; year: number };
@@ -346,23 +354,41 @@ function extremeOf(
 function normalsOf(
   series: Array<{ day: string; variable: string; value: number }>,
 ): StationHistory['normals'] {
-  const acc = new Map<number, { tSum: number; tN: number; pSum: number; years: Set<number> }>();
-  for (let m = 1; m <= 12; m++) acc.set(m, { tSum: 0, tN: 0, pSum: 0, years: new Set() });
+  /*
+   * Los años van contados **por variable**, y aquí estaban en un solo conjunto.
+   *
+   * Con el conjunto compartido, una estación con termómetro y sin pluviómetro
+   * dividía una suma de lluvia de cero entre los años que le daba la temperatura,
+   * y publicaba **0 mm de normal en los doce meses**. La Tosa d'Alp, a 2.478 m,
+   * decía que allí no llueve nunca: 145 meses de serie, ni un solo registro de
+   * precipitación. Es el mismo error que el `?? 0` de la racha seca —un dato
+   * ausente no es un cero medido— y tampoco daba ningún error.
+   */
+  const acc = new Map<number, {
+    tSum: number; tN: number; tYears: Set<number>;
+    pSum: number; pYears: Set<number>;
+  }>();
+  for (let m = 1; m <= 12; m++) {
+    acc.set(m, { tSum: 0, tN: 0, tYears: new Set(), pSum: 0, pYears: new Set() });
+  }
 
   for (const r of series) {
     const month = Number(r.day.slice(5, 7));
     const year = Number(r.day.slice(0, 4));
     const a = acc.get(month);
     if (!a) continue;
-    if (r.variable === V.tMean) { a.tSum += r.value; a.tN++; a.years.add(year); }
-    if (r.variable === V.precip) { a.pSum += r.value; a.years.add(year); }
+    if (r.variable === V.tMean) { a.tSum += r.value; a.tN++; a.tYears.add(year); }
+    if (r.variable === V.precip) { a.pSum += r.value; a.pYears.add(year); }
   }
 
   return [...acc].map(([month, a]) => ({
     month,
     tMean: a.tN ? r1(a.tSum / a.tN) : null,
-    precip: a.years.size ? r1(a.pSum / a.years.size) : null,
-    years: a.years.size,
+    precip: a.pYears.size ? r1(a.pSum / a.pYears.size) : null,
+    // Los años de la media de temperatura, que es la cifra que la página
+    // atribuye a este número. Los de la lluvia van aparte por la misma razón.
+    years: a.tYears.size,
+    precipYears: a.pYears.size,
   }));
 }
 

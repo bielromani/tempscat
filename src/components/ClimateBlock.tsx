@@ -203,6 +203,18 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
     ? Math.round((monthProgress.tMean - monthProgress.normal) * 10) / 10
     : monthAnomaly;
 
+  /*
+   * Y si de esta estación hay temperatura, porque de cuatro no hay.
+   *
+   * El Pantà de Sau, Sant Joan de les Abadesses, la Roca del Vallès i Navès
+   * solo miden lluvia. Con la tarjeta condicionada a la temperatura, las **124
+   * fichas** que tienen una de esas cuatro como estación de referencia no
+   * enseñaban ni la comparación de lluvia del mes ni el enlace a los treinta
+   * años de pluviómetro que sí hay. La tarjeta se da ahora con cualquiera de
+   * las dos cosas.
+   */
+  const hasTemp = gap != null && normal?.tMean != null;
+
   // Hasta dónde llega de verdad el mes en curso dentro de la serie.
   const monthPrefix = today.slice(0, 7);
   const monthDays = history.daily.filter((d) => d.day.startsWith(monthPrefix));
@@ -216,11 +228,12 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
   return (
     <section className="flex flex-col gap-5">
       {/* ── Anomalía del mes ── */}
-      {gap != null && normal?.tMean != null && (
+      {normal && (hasTemp || normal.precip != null) && (
         <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
             Com va aquest {monthName}
           </h3>
+          {hasTemp && gap != null && (
           <p className="mt-2 flex flex-wrap items-baseline gap-x-3">
             <span
               className="tnum text-3xl font-semibold"
@@ -240,6 +253,7 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
                   : `per ${gap > 0 ? 'damunt' : 'sota'} de la mitjana`}
             </span>
           </p>
+          )}
 
           {/*
             Y el lugar que ocupa entre esos mismos años, que es la frase que
@@ -281,7 +295,7 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
             deriva del calendario y no una anomalía. No se calla porque un
             número grande sin decir contra qué se mide es el que se cita.
           */}
-          {!monthProgress && monthCovered && monthDays.length < MONTH_MIN_DAYS && (
+          {hasTemp && !monthProgress && monthCovered && monthDays.length < MONTH_MIN_DAYS && (
             <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
               Són {monthDays.length} {monthDays.length === 1 ? 'dia' : 'dies'} comparats amb la
               mitjana de {monthName} sencer, i el {monthName} no comença com acaba:
@@ -290,8 +304,11 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           )}
 
           <p className="mt-1.5 text-sm leading-relaxed text-[var(--muted)]">
-            La mitjana de {monthName} sencer a {station.nom} és de {num(normal.tMean, 1)} °C,
-            calculada sobre {normal.years} anys de sèrie de la mateixa estació.
+            {hasTemp && (
+              `La mitjana de ${monthName} sencer a ${station.nom} és de `
+              + `${num(normal.tMean, 1)} °C, calculada sobre ${normal.years} anys `
+              + 'de sèrie de la mateixa estació.'
+            )}
             {/*
               El total del mes va amb els dies que cobreix, sempre.
 
@@ -301,15 +318,27 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
               falsa: comparar dos dies contra la normal de trenta no és comparar
               res. Es va veure quan el bloc de pluja acumulada, just a sobre,
               va escriure 168,8 mm dels últims trenta dies a la mateixa pàgina.
+
+              El «Hi» va gran quan obre el paràgraf: a les quatre estacions que
+              només mesuren pluja no hi ha frase de temperatura al davant.
             */}
             {normal.precip != null && (
-              monthCovered
-                ? ` Hi sol ploure ${int(normal.precip)} mm en tot el mes, i dels `
+              (hasTemp ? ' Hi' : 'Hi')
+              + (monthCovered
+                ? ` sol ploure ${int(normal.precip)} mm en tot el mes, i dels `
                   + `${monthDays.length} ${monthDays.length === 1 ? 'dia' : 'dies'} `
                   + `de ${monthName} que la sèrie ja té, n'han caigut `
                   + `${int(counters.precip.month)} mm.`
-                : ` Hi sol ploure ${int(normal.precip)} mm en tot el mes; de ${monthName} `
-                  + 'la sèrie encara no en té cap dia.'
+                : ` sol ploure ${int(normal.precip)} mm en tot el mes; de ${monthName} `
+                  + 'la sèrie encara no en té cap dia.')
+            )}
+            {/*
+              I si l'estació no mesura temperatura, es diu: altrament aquesta
+              targeta és una que parla només de pluja sense que se sàpiga per què.
+            */}
+            {!hasTemp && (
+              (normal.precipYears ? ` És la mitjana de ${normal.precipYears} anys.` : '')
+              + ` A ${station.nom} no es mesura la temperatura: només hi ha pluviòmetre.`
             )}
           </p>
 

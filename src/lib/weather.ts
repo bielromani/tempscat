@@ -500,7 +500,22 @@ export interface StationHistory {
     since: string | null;
     days: number;
   };
-  normals: Array<{ month: number; tMean: number | null; precip: number | null; years: number }>;
+  normals: Array<{
+    month: number;
+    tMean: number | null;
+    precip: number | null;
+    /** Anys amb mitjana de temperatura d'aquell mes. */
+    years: number;
+    /**
+     * Anys amb total de pluja, que no són els mateixos.
+     *
+     * Van a part perquè comptant-los junts, una estació amb termòmetre i sense
+     * pluviòmetre dividia una suma de zero entre els anys de la temperatura i
+     * publicava «hi sol ploure 0 mm» els dotze mesos. Pot faltar en un fitxer
+     * publicat abans que el camp existís.
+     */
+    precipYears?: number;
+  }>;
   counters: {
     summerDays: { month: number; year: number };
     hotDays: { month: number; year: number };

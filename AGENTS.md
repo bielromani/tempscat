@@ -321,6 +321,13 @@ cuota para exactamente la misma información.
 - **Un mes incompleto no es un mes frío, y un año al que le falta enero sale más cálido.** Todo
   `src/lib/climate.ts` descarta en vez de promediar lo que hay: meses con menos de 25 días fuera,
   años con menos de 12 meses fuera. Sin eso, una avería de dos semanas se lee como clima.
+- **Contar los años de la serie en un solo conjunto para todas las variables convierte la falta
+  de un sensor en un cero medido.** `normalsOf` sumaba la lluvia y la dividía entre los años que
+  le daba la temperatura, así que una estación con termómetro y sin pluviómetro publicaba
+  **«hi sol ploure 0 mm» en los doce meses**: la Tosa d'Alp, a 2.478 m, con 145 meses de serie y
+  ni un registro de precipitación. Es el `?? 0` de la racha seca otra vez. Cada variable lleva su
+  propio conjunto de años —`years` y `precipYears`— y sin ninguno la normal es **null**, no cero.
+  Se vio contando por qué 24 estaciones no situaban el mes en curso, no mirando la página.
 - **Cuatro estaciones de la XEMA solo miden lluvia, y pedírselo todo las deja sin página.** El
   Pantà de Sau, Sant Joan de les Abadesses, la Roca del Vallès - ETAP Cardedeu y Navès no
   tienen termómetro: `tMean`, `tMax` y `tMin` son nulos en toda la serie. Sau lleva **368 meses
