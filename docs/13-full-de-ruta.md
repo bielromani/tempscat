@@ -503,6 +503,75 @@ trabajo en segundo plano no lo pagan.
 Se retoma si alguna vez el render pasa de ~300 ms o si `cacheComponents` deja de
 ser un interruptor global.
 
+### 12. Histórico climático de cada estación · ✅ hecho el 7 de septiembre de 2026
+
+Pedido así: saber si este septiembre es más cálido en un sitio concreto que los
+diez anteriores, cómo ha evolucionado la tendencia, la media de cada mes, cuándo
+fue el pico, y si las temperaturas suben año a año.
+
+La serie estaba **ya descargada** desde el primer día: el worker de récords se
+baja la serie diaria entera de cada estación —la más larga arranca en septiembre
+de 1988— y la usaba solo para sacar cuatro extremos y las normales. Lo que
+faltaba era agregarla y dibujarla.
+
+**Qué hay ahora**, en `/estacions/[codi]`, sección «Com han anat els anys»:
+
+- La **media de cada año** con la recta de mínimos cuadrados y el número que
+  contesta la pregunta: `+0,24 °C per dècada entre 1989 i 2025` en Raimat.
+- **El mismo mes año a año** —los 38 septiembres de la serie— con el año en
+  curso destacado y la media como línea.
+- **La lluvia de cada año**, con su media.
+- Los extremos: año más cálido, más frío, más lluvioso y más seco.
+
+**Y en las 4.293 fichas de lugar**, una frase: «Amb 5 dies de setembre mesurats,
+a Raimat hi ha fet 26,3 °C de mitjana, contra els 21,5 °C que hi solen fer
+aquests mateixos dies. És el setembre més càlid de 38 en aquest tram del mes»,
+con enlace a los gráficos de su estación.
+
+#### Las tres decisiones que lo sostienen
+
+**Una. La serie mensual va a su propio trozo.** Son 457 meses en la estación más
+antigua, y meterlos en el trozo del histórico lo llevaba de 10 kB a 51. Ese
+trozo lo leen las 4.293 fichas de pueblo y **ninguna dibuja la serie**: solo la
+ficha de la estación. `climateShard()`. Lo que sí baja a las fichas son los
+ciento veinte bytes de `monthProgress`, que es la frase.
+
+**Dos. Se descarta en vez de promediar lo que hay.** Meses con menos de 25 días
+fuera, años con menos de doce meses fuera, sin tendencia por debajo de quince
+años. Un año al que le falta enero sale más cálido que uno que lo tiene, y
+puesto en el mismo gráfico la diferencia parece clima y es una avería.
+
+**Tres. El mes en curso se compara con su propio tramo, no con el mes entero.**
+Es el fallo que se encontró al construir esto: la cifra grande de «Com va aquest
+setembre» decía **+6,9 °C** en Raimat el 7 de septiembre, comparando cinco días
+contra la normal de treinta. Contra esos mismos cinco días de los otros 37 años
+son **+4,8 °C**: los 2,1 °C de diferencia no eran anomalía, eran que la primera
+semana de septiembre es más cálida que el septiembre medio.
+
+#### Verificado, y no en una estación
+
+**134 de 135 estaciones con serie suficiente dan pendiente positiva, mediana
++0,45 °C por década**, que concuerda con las cifras publicadas para Catalunya. Y
+los tres casos de cobertura, comprobados uno a uno: VK y DP con tendencia, J5
+—10 años— con la sección y el motivo escrito de por qué no hay recta, YY sin
+sección.
+
+Los cálculos están en `src/lib/climate-math.ts`, que no importa nada porque los
+usan el worker y las páginas: con dos copias, el día que un umbral cambiara, la
+frase de una ficha y el gráfico de la otra dirían cosas distintas del mismo mes
+sin que nada fallara. Prueba: `npm run test:climate`.
+
+#### Lo que queda
+
+- **La misma sección para la lluvia y el viento**, con su propia pregunta: si
+  este otoño va seco, cuándo fue la sequía más larga. Hoy la lluvia sale en el
+  gráfico anual y en los extremos, pero no tiene la frase que sí tiene la
+  temperatura.
+- **Comparar dos estaciones** en el mismo gráfico. Cabe con lo que ya hay —son
+  dos trozos— pero necesita decidir qué pasa cuando las series no se solapan.
+
+---
+
 ---
 
 ## Tres cosas investigadas, con la respuesta ya medida
@@ -1102,13 +1171,13 @@ El transporte: un binario compacto (768 × 2 `Float32`, unos 6 KB) servido por u
 
 ## Fase 4 — verificación, tauler y push
 
-### 12. Verificación de modelos
+### 13. Verificación de modelos
 
 Ya planeada, y necesita 60 días de histórico acumulado. Es la que permite quitar
 la nota de «els models pesen igual» y empezar a ponderar por acierto. Sigue siendo
 la mejora de calidad más grande que le queda al proyecto.
 
-### 13. Tauler configurable · `/tauler`
+### 14. Tauler configurable · `/tauler`
 
 Widgets que el usuario ordena: temperatura, viento, UV, aire, mar, radar.
 
@@ -1120,7 +1189,7 @@ funciona el primer día. Consume los feeds del punto 1, no los ficheros de
 Solo cuando alguien pida «lo quiero en el móvil y en el portátil» hace falta una
 cuenta, y entonces ya se sabrá si merece la pena.
 
-### 14. Alertas push · la primera cosa que de verdad necesita la base de datos
+### 15. Alertas push · la primera cosa que de verdad necesita la base de datos
 
 Un aviso empujado al móvil necesita: almacén de suscripciones, claves VAPID,
 consentimiento explícito, política de privacidad, y un proceso que decida a quién
