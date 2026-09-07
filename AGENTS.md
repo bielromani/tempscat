@@ -321,6 +321,15 @@ cuota para exactamente la misma información.
 - **Un mes incompleto no es un mes frío, y un año al que le falta enero sale más cálido.** Todo
   `src/lib/climate.ts` descarta en vez de promediar lo que hay: meses con menos de 25 días fuera,
   años con menos de 12 meses fuera. Sin eso, una avería de dos semanas se lee como clima.
+- **Cuatro estaciones de la XEMA solo miden lluvia, y pedírselo todo las deja sin página.** El
+  Pantà de Sau, Sant Joan de les Abadesses, la Roca del Vallès - ETAP Cardedeu y Navès no
+  tienen termómetro: `tMean`, `tMax` y `tMin` son nulos en toda la serie. Sau lleva **368 meses
+  completos de pluviómetro** —treinta años— y, mientras los años se filtraban exigiendo media de
+  temperatura, la sección de histórico no les enseñaba **nada**: ni el gráfico de lluvia que sí
+  tenían. La regla es que **cada dibujo se gana con sus propios datos** —`rainYearsOf` aparte de
+  `yearsOf`, y `sameMonthAcrossYears` sin exigir temperatura— y que el pie diga por qué falta lo
+  que falta: «aquí no es mesura la temperatura», no «falten anys». La otra dirección también
+  existe: la Tosa d'Alp tiene once años de temperatura y **cero** de lluvia completa.
 - **Una anomalía del mes en curso medida contra la normal del mes entero mete dentro la deriva
   del propio mes.** Los cinco días que la serie tenía de septiembre de 2026 en Raimat daban
   **+6,9 °C** contra la normal de septiembre y **+4,8 °C** contra esos mismos cinco días de los

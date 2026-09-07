@@ -10,7 +10,7 @@ import {
 } from '@/lib/format';
 import { historyOfStation, localToday, observationOfStation } from '@/lib/weather';
 import {
-  climateOfStation, sameMonthAcrossYears, trendOf, yearsOf,
+  climateOfStation, rainYearsOf, sameMonthAcrossYears, trendOf, yearsOf,
   MONTH_MIN_DAYS, TREND_MIN_YEARS,
 } from '@/lib/climate';
 import { ClimateTrend } from '@/components/ClimateTrend';
@@ -81,6 +81,18 @@ export default async function EstacioPage({ params }: { params: Params }) {
    */
   const monthly = await climateOfStation(station.codi);
   const climateYears = monthly ? yearsOf(monthly) : [];
+  /*
+   * Els anys de pluja van a part dels de temperatura.
+   *
+   * Quatre estacions de la XEMA només mesuren pluja —el Pantà de Sau, Sant
+   * Joan de les Abadesses, la Roca del Vallès i Navès— i, demanant-los la
+   * mitjana de temperatura, aquesta secció no els ensenyava res: Sau en porta
+   * 368 mesos sencers, trenta anys de pluviòmetre, i la pàgina els callava per
+   * la manca d'una dada que allí no es mesura.
+   */
+  const rainYears = monthly ? rainYearsOf(monthly) : [];
+  /** Els anys que donen el rang de la sèrie: els de temperatura si n'hi ha. */
+  const span: Array<{ year: number }> = climateYears.length >= 5 ? climateYears : rainYears;
   const trend = trendOf(climateYears);
   const monthSeries = monthly ? sameMonthAcrossYears(monthly, month) : [];
   const monthNow = monthly?.find((m) => m.ym === today.slice(0, 7)) ?? null;
@@ -240,18 +252,20 @@ export default async function EstacioPage({ params }: { params: Params }) {
         aquí —ho diu el mateix bloc, tres pantalles amunt d'aquesta— i el
         gràfic del mes ja el marca amb la barra ressaltada.
       */}
-      {climateYears.length >= 5 && (
+      {(climateYears.length >= 5 || rainYears.length >= 5) && (
         <section id="anys" className="mt-8 scroll-mt-20">
           <h2 className="mb-1 text-lg font-semibold tracking-tight">
             Com han anat els anys
           </h2>
           <p className="mb-4 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
-            {climateYears.length} anys sencers mesurats aquí, de {climateYears[0].year} a{' '}
-            {climateYears[climateYears.length - 1].year}.
+            {span.length} anys sencers mesurats aquí, de {span[0].year} a{' '}
+            {span[span.length - 1].year}
+            {climateYears.length < 5 ? ', de pluja: aquí no es mesura la temperatura' : ''}.
           </p>
 
           <ClimateTrend
             years={climateYears}
+            rainYears={rainYears}
             trend={trend}
             month={month}
             monthSeries={monthSeries}
@@ -262,14 +276,17 @@ export default async function EstacioPage({ params }: { params: Params }) {
             <p>
               Hi entren els anys amb els dotze mesos mesurats, i els mesos amb{' '}
               {MONTH_MIN_DAYS} dies o més. Un mes amb quatre dies de dada no es pot
-              comparar amb un mes sencer, i un any al qual li falta el gener surt
-              més càlid que un que el té: descartar-los és el que fa que els punts
-              del gràfic vulguin dir el mateix entre ells.
+              comparar amb un mes sencer, i un any al qual li falti un mes surt{' '}
+              {climateYears.length >= 5 ? 'més càlid si el que li falta és el gener' : 'més sec'}{' '}
+              que un de sencer: descartar-los és el que fa que els punts del gràfic
+              vulguin dir el mateix entre ells.
             </p>
             <p>
               {trend
                 ? `La recta és la de mínims quadrats sobre aquests ${trend.years} anys. Es fa servir la recta i no la diferència entre el primer i l'últim perquè, amb dos punts, un any excepcional a qualsevol dels dos extrems decideix el resultat sencer.`
-                : `No es dibuixa cap tendència: en calen ${TREND_MIN_YEARS} anys sencers i aquí n'hi ha ${climateYears.length}. Amb menys, el pendent d'una sèrie de temperatures és soroll amb un signe.`}
+                : climateYears.length < 5
+                  ? "No hi ha cap tendència de temperatura perquè aquesta estació no en mesura: només hi ha pluviòmetre. Els mil·límetres no en porten, de recta: la pluja d'un any no marca la del següent com ho fa la temperatura, i una línia sobre aquestes barres seria un dibuix sense significat."
+                  : `No es dibuixa cap tendència: en calen ${TREND_MIN_YEARS} anys sencers i aquí n'hi ha ${climateYears.length}. Amb menys, el pendent d'una sèrie de temperatures és soroll amb un signe.`}
             </p>
             <p>
               <strong className="font-medium text-[var(--ink-2)]">Això és el que ha mesurat

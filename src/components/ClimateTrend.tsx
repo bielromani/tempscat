@@ -1,6 +1,6 @@
 import { int, num } from '@/lib/format';
 import { temperatureColor } from '@/lib/scales';
-import type { ClimateYear, StationMonth, Trend } from '@/lib/climate';
+import type { ClimateYear, RainYear, StationMonth, Trend } from '@/lib/climate';
 
 /**
  * La sèrie llarga d'una estació: com han anat els anys i com va aquest mes.
@@ -38,9 +38,18 @@ const MONTHS = [
 ];
 
 export function ClimateTrend({
-  years, trend, month, monthSeries, monthNow,
+  years, rainYears, trend, month, monthSeries, monthNow,
 }: {
   years: ClimateYear[];
+  /**
+   * Els anys sencers de pluja, que **no són els mateixos**.
+   *
+   * Van a part perquè quatre estacions de la XEMA només mesuren pluja —el
+   * Pantà de Sau en porta trenta anys— i, demanant-los la temperatura,
+   * aquesta secció no els ensenyava res. Cada dibuix es dona per les seves
+   * pròpies dades.
+   */
+  rainYears: RainYear[];
   trend: Trend | null;
   /** El mes en curs, d'1 a 12. */
   month: number;
@@ -49,70 +58,141 @@ export function ClimateTrend({
   /** El mes en curs d'enguany, encara que no estigui complet. */
   monthNow: StationMonth | null;
 }) {
-  if (years.length < 5) return null;
+  const hasTemp = years.length >= 5;
+  const hasRain = rainYears.length >= 5;
+  /*
+   * Els mesos amb mitjana són els que el dibuix pot pintar; els extrems del mes,
+   * en canvi, surten de tots —`best()` es salta el que no consta— i per això
+   * una estació que només mesura pluja pot dir quin va ser el seu setembre més
+   * plujós sense tenir cap termòmetre.
+   */
+  const monthTemp = monthSeries.filter((m) => m.tMean != null);
+  const hasMonth = monthTemp.length >= 5;
+  if (!hasTemp && !hasRain) return null;
 
-  const hottest = years.reduce((a, b) => (b.tMean > a.tMean ? b : a));
-  const coldest = years.reduce((a, b) => (b.tMean < a.tMean ? b : a));
-  const wet = years.filter((y) => y.precip != null);
-  const wettest = wet.length ? wet.reduce((a, b) => (b.precip! > a.precip! ? b : a)) : null;
-  const driest = wet.length ? wet.reduce((a, b) => (b.precip! < a.precip! ? b : a)) : null;
+  const hottest = hasTemp ? years.reduce((a, b) => (b.tMean > a.tMean ? b : a)) : null;
+  const coldest = hasTemp ? years.reduce((a, b) => (b.tMean < a.tMean ? b : a)) : null;
+  const wettest = hasRain ? rainYears.reduce((a, b) => (b.precip > a.precip ? b : a)) : null;
+  const driest = hasRain ? rainYears.reduce((a, b) => (b.precip < a.precip ? b : a)) : null;
+
+  /**
+   * Fins on ha arribat aquest mes al llarg de la sèrie.
+   *
+   * Són extrems **absoluts del mes** —el dia més calorós d'aquell setembre, no
+   * la mitjana de màximes— i només dels mesos sencers, que són els que la
+   * gràfica del costat dibuixa. Es descarta el que no consta en comptes
+   * d'ensenyar un zero: un setembre sense dada de pluja no és un setembre sec.
+   */
+  const best = <T,>(xs: T[], key: (x: T) => number | null, desc: boolean) => {
+    const v = xs.filter((x) => key(x) != null);
+    return v.length
+      ? v.reduce((a, b) => ((desc ? key(b)! > key(a)! : key(b)! < key(a)!) ? b : a))
+      : null;
+  };
+  const mName = MONTHS[month - 1];
+  const monthExtremes = [
+    { label: `${mName} més calorós`, m: best(monthSeries, (m) => m.tMax, true), unit: '°C', of: 'tMax' },
+    { label: `nit més freda d'un ${mName}`, m: best(monthSeries, (m) => m.tMin, false), unit: '°C', of: 'tMin' },
+    { label: `${mName} més plujós`, m: best(monthSeries, (m) => m.precip, true), unit: 'mm', of: 'precip' },
+    { label: `${mName} més sec`, m: best(monthSeries, (m) => m.precip, false), unit: 'mm', of: 'precip' },
+  ]
+    .filter((e): e is typeof e & { m: StationMonth & { year: number } } => e.m != null)
+    .map((e) => ({
+      // El nom del mes va en minúscula en català, però un ròtul comença gran.
+      label: e.label[0].toUpperCase() + e.label.slice(1),
+      year: e.m.year,
+      value: e.of === 'precip'
+        ? `${int(e.m.precip)} ${e.unit}`
+        : `${num(e.of === 'tMax' ? e.m.tMax : e.m.tMin, 1)} ${e.unit}`,
+    }));
 
   return (
     <div className="space-y-8">
       {/* ── La temperatura, any rere any ── */}
-      <figure className="m-0">
-        <figcaption className="mb-2 text-sm text-[var(--ink-2)]">
-          <strong className="font-medium text-[var(--ink)]">Temperatura mitjana de cada any</strong>
-          {trend && (
-            <>
-              {' · '}
-              <span className="tnum">
-                {trend.perDecade > 0 ? '+' : '−'}{num(Math.abs(trend.perDecade), 2)} °C
-              </span>{' '}
-              per dècada entre {trend.from} i {trend.to}
-            </>
-          )}
-        </figcaption>
-        <YearChart years={years} trend={trend} />
-      </figure>
-
-      {/* ── Aquest mes, contra tots els altres ── */}
-      {monthSeries.length >= 5 && (
+      {hasTemp && (
         <figure className="m-0">
           <figcaption className="mb-2 text-sm text-[var(--ink-2)]">
-            <strong className="font-medium text-[var(--ink)]">
-              Els {MONTHS[month - 1]}s de la sèrie
-            </strong>
-            {' · '}mitjana de cada un, {monthSeries.length} anys
+            <strong className="font-medium text-[var(--ink)]">Temperatura mitjana de cada any</strong>
+            {trend && (
+              <>
+                {' · '}
+                <span className="tnum">
+                  {trend.perDecade > 0 ? '+' : '−'}{num(Math.abs(trend.perDecade), 2)} °C
+                </span>{' '}
+                per dècada entre {trend.from} i {trend.to}
+              </>
+            )}
           </figcaption>
-          <MonthChart series={monthSeries} now={monthNow} />
+          <YearChart years={years} trend={trend} />
+        </figure>
+      )}
+
+      {/* ── Aquest mes, contra tots els altres ── */}
+      {(hasMonth || monthExtremes.length > 0) && (
+        <figure className="m-0">
+          {hasMonth && (
+            <>
+              <figcaption className="mb-2 text-sm text-[var(--ink-2)]">
+                <strong className="font-medium text-[var(--ink)]">
+                  Els {MONTHS[month - 1]}s de la sèrie
+                </strong>
+                {' · '}mitjana de cada un, {monthTemp.length} anys
+              </figcaption>
+              <MonthChart series={monthTemp} now={monthNow} />
+            </>
+          )}
+
+          {/*
+            Y los extremos de **ese mes**, que no son los de la serie entera.
+            «La máxima absoluta de la estación» casi siempre es de julio o de
+            agosto y no dice nada de septiembre; lo que contesta la pregunta de
+            quién mira un septiembre es hasta dónde ha llegado un septiembre.
+
+            Salen de los meses completos, los mismos que dibuja la gráfica: un
+            mes con cuatro días puede tener la lectura más alta de la serie y
+            no ser «el septiembre más caluroso» de nada.
+          */}
+          <dl className={`grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4${hasMonth ? ' mt-3' : ''}`}>
+            {monthExtremes.map((e) => (
+              <div key={e.label}>
+                <dt className="text-xs text-[var(--muted)]">{e.label}</dt>
+                <dd className="tnum font-medium text-[var(--ink)]">
+                  {e.year} <span className="text-[var(--ink-2)]">{e.value}</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
         </figure>
       )}
 
       {/* ── La pluja ── */}
-      {wet.length >= 5 && (
+      {hasRain && (
         <figure className="m-0">
           <figcaption className="mb-2 text-sm text-[var(--ink-2)]">
             <strong className="font-medium text-[var(--ink)]">Pluja de cada any</strong>
-            {' · '}en mil·límetres, només els anys sencers
+            {' · '}en mil·límetres, {rainYears.length} anys sencers
           </figcaption>
-          <RainChart years={wet} />
+          <RainChart years={rainYears} />
         </figure>
       )}
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
-        <div>
-          <dt className="text-xs text-[var(--muted)]">Any més càlid</dt>
-          <dd className="tnum font-medium text-[var(--ink)]">
-            {hottest.year} <span className="text-[var(--ink-2)]">{num(hottest.tMean, 1)} °C</span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-[var(--muted)]">Any més fred</dt>
-          <dd className="tnum font-medium text-[var(--ink)]">
-            {coldest.year} <span className="text-[var(--ink-2)]">{num(coldest.tMean, 1)} °C</span>
-          </dd>
-        </div>
+        {hottest && (
+          <div>
+            <dt className="text-xs text-[var(--muted)]">Any més càlid</dt>
+            <dd className="tnum font-medium text-[var(--ink)]">
+              {hottest.year} <span className="text-[var(--ink-2)]">{num(hottest.tMean, 1)} °C</span>
+            </dd>
+          </div>
+        )}
+        {coldest && (
+          <div>
+            <dt className="text-xs text-[var(--muted)]">Any més fred</dt>
+            <dd className="tnum font-medium text-[var(--ink)]">
+              {coldest.year} <span className="text-[var(--ink-2)]">{num(coldest.tMean, 1)} °C</span>
+            </dd>
+          </div>
+        )}
         {wettest && (
           <div>
             <dt className="text-xs text-[var(--muted)]">Any més plujós</dt>
@@ -296,8 +376,8 @@ function MonthChart({
   );
 }
 
-function RainChart({ years }: { years: ClimateYear[] }) {
-  const values = years.map((y) => y.precip as number);
+function RainChart({ years }: { years: RainYear[] }) {
+  const values = years.map((y) => y.precip);
   const hi = Math.max(...values);
   const n = years.length;
   const bw = Math.min(26, (W - PAD_L - 12) / n - 3);
@@ -326,7 +406,7 @@ function RainChart({ years }: { years: ClimateYear[] }) {
       </text>
 
       {years.map((y, i) => {
-        const top = Y(y.precip as number);
+        const top = Y(y.precip);
         return (
           <rect
             key={y.year}

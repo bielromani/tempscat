@@ -1,6 +1,6 @@
 import {
   MONTH_MIN_DAYS, PROGRESS_MIN_DAYS, PROGRESS_MIN_YEARS, TREND_MIN_YEARS,
-  monthProgressOf, rankOf, sameMonthAcrossYears, trendOf, yearsOf,
+  monthProgressOf, rainYearsOf, rankOf, sameMonthAcrossYears, trendOf, yearsOf,
 } from '../src/lib/climate-math.ts';
 import type { StationMonth } from '../src/lib/climate-math.ts';
 
@@ -67,6 +67,28 @@ check('la pluja de l\'any és la suma dels dotze mesos', mixed[1].precip, 600);
 const holed = yearOf(2002, 14).map((x, i) => (i === 5 ? { ...x, precip: null } : x));
 check('un mes sense pluja deixa l\'any sense total', yearsOf(holed)[0].precip, null);
 
+// ── rainYearsOf: la pluja no demana termòmetre ──────────────────────
+console.log('\n── rainYearsOf ──');
+
+/*
+ * El cas de veritat: el Pantà de Sau i tres més només mesuren pluja. Sau en
+ * porta 368 mesos sencers —trenta anys— i amb la condició de `yearsOf`, que
+ * demana mitjana de temperatura, la seva pàgina no ensenyava cap gràfic.
+ */
+const rainOnly = Array.from({ length: 30 }, (_, i) =>
+  Array.from({ length: 12 }, (_, k) =>
+    m(`${1996 + i}-${String(k + 1).padStart(2, '0')}`, null, 30, 60))).flat();
+check('trenta anys de pluviòmetre sense termòmetre són trenta anys',
+  rainYearsOf(rainOnly).length, 30);
+check('i sumen els dotze mesos', rainYearsOf(rainOnly)[0].precip, 720);
+check('però no són cap any de temperatura', yearsOf(rainOnly).length, 0);
+
+const rainHole = yearOf(2001, 14).map((x, i) => (i === 9 ? { ...x, precip: null } : x));
+check('un any al qual li falta l\'octubre de pluja no hi entra',
+  rainYearsOf(rainHole).length, 0);
+check('i el mes curt tampoc no compta',
+  rainYearsOf(yearOf(2002, 14, 10)).length, 0);
+
 // ── sameMonthAcrossYears ────────────────────────────────────────────────────
 console.log('\n── sameMonthAcrossYears ──');
 
@@ -76,6 +98,15 @@ const septembers = [
 ];
 check('només el mes demanat', sameMonthAcrossYears(septembers, 9).map((x) => x.year), [2020, 2021, 2023]);
 check('i el setembre de 10 dies queda fora', sameMonthAcrossYears(septembers, 9).length, 3);
+
+/*
+ * No demana temperatura, a posta: si la demanava, una estació que només mesura
+ * pluja no podia dir quin va ser el seu setembre més plujós. Qui dibuixi una
+ * mitjana ha de filtrar `tMean` ell mateix.
+ */
+const rainSepts = [m('2020-09', null, 30, 90), m('2021-09', null, 30, 40)];
+check('un mes sencer sense temperatura hi és igual',
+  sameMonthAcrossYears(rainSepts, 9).map((x) => x.precip), [90, 40]);
 
 // ── trendOf ─────────────────────────────────────────────────────────────────
 console.log('\n── trendOf ──');

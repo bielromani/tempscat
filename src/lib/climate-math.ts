@@ -101,13 +101,62 @@ export function yearsOf(monthly: StationMonth[]): ClimateYear[] {
     .sort((a, b) => a.year - b.year);
 }
 
-/** Un mes concret al llarg de tots els anys. Gener rere gener, posem. */
+export interface RainYear {
+  year: number;
+  /** Suma de l'any, mm. */
+  precip: number;
+  months: number;
+}
+
+/**
+ * Els anys sencers de pluja, sense demanar-hi cap termòmetre.
+ *
+ * ## Per què no ho fa `yearsOf`
+ *
+ * Perquè aquella funció descarta els mesos sense mitjana de temperatura, i a la
+ * XEMA hi ha estacions que **només mesuren pluja**: el Pantà de Sau, Sant Joan
+ * de les Abadesses, la Roca del Vallès i Navès. Sau en porta 368 mesos sencers
+ * —trenta anys de pluviòmetre— i amb la mateixa condició que la temperatura es
+ * quedaven totes quatre sense cap gràfic: la pàgina no ensenyava trenta anys de
+ * dada bona per la manca d'una altra que allí no es mesura.
+ *
+ * La condició de «sencer» és la mateixa: dotze mesos amb prou dies cadascun i
+ * amb total de pluja. Un any al qual li falti l'octubre surt més sec que un que
+ * el té, i posats al mateix gràfic la diferència sembla sequera.
+ */
+export function rainYearsOf(monthly: StationMonth[]): RainYear[] {
+  const byYear = new Map<number, StationMonth[]>();
+  for (const m of monthly) {
+    if (m.days < MONTH_MIN_DAYS || m.precip == null) continue;
+    const y = Number(m.ym.slice(0, 4));
+    byYear.set(y, [...(byYear.get(y) ?? []), m]);
+  }
+
+  return [...byYear]
+    .filter(([, ms]) => ms.length >= YEAR_MIN_MONTHS)
+    .map(([year, ms]) => ({
+      year,
+      precip: Math.round(ms.reduce((a, m) => a + (m.precip as number), 0)),
+      months: ms.length,
+    }))
+    .sort((a, b) => a.year - b.year);
+}
+
+/**
+ * Un mes concret al llarg de tots els anys. Gener rere gener, posem.
+ *
+ * Només demana que el mes sigui **sencer**, no que tingui temperatura: així les
+ * quatre estacions que només mesuren pluja poden dir quin va ser el seu
+ * setembre més plujós. Qui dibuixi una mitjana de temperatures ha de filtrar
+ * `tMean != null` ell mateix, que és una línia, i qui vulgui els extrems del
+ * mes els té tots.
+ */
 export function sameMonthAcrossYears(
   monthly: StationMonth[], month: number,
 ): Array<StationMonth & { year: number }> {
   const mm = String(month).padStart(2, '0');
   return monthly
-    .filter((m) => m.ym.endsWith(`-${mm}`) && m.days >= MONTH_MIN_DAYS && m.tMean != null)
+    .filter((m) => m.ym.endsWith(`-${mm}`) && m.days >= MONTH_MIN_DAYS)
     .map((m) => ({ ...m, year: Number(m.ym.slice(0, 4)) }))
     .sort((a, b) => a.year - b.year);
 }

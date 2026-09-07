@@ -836,8 +836,9 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
    *
    * Es diu perquè és el número que delata un canvi de dataset o una finestra
    * mal calculada sense donar cap error: la frase de la fitxa desapareix i la
-   * pàgina segueix sortint sencera. La primera volta van 132 de 189, i les que
-   * falten són les de sèrie curta.
+   * pàgina segueix sortint sencera. Van 165 de 189: les que falten
+   * són vint de sèrie curta i quatre —Panta de Sau, Sant Joan de les
+   * Abadesses, la Roca del Vallès i Navès— que només mesuren pluja.
    */
   const prog = valid.filter((v) => v.monthProgress);
   if (prog.length) {
