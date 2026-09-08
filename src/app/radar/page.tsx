@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { radar } from '@/lib/weather';
+import { precipField, radar, type RadarFrame } from '@/lib/weather';
 import { allComarques, comarquesGeoJson, municipisOfComarca, relief } from '@/lib/territory';
 import { project, type TileGrid } from '@/lib/mercator';
 import { radarZones } from '@/lib/radar-zones';
-import { ago, hour, dateLong } from '@/lib/format';
+import { ago, hour, dateLong, int } from '@/lib/format';
 import { RadarScrubber } from '@/components/RadarScrubber';
 
 /**
@@ -152,9 +152,44 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
     );
   }
 
-  const { grid, frames, tiles } = data;
+  const { grid, tiles } = data;
+
+  /*
+   * Passat i futur, en una sola línia de temps.
+   *
+   * Els marcs del radar són observació i s'acaben ara. El futur no el pot
+   * donar el radar —la font pública torna `nowcast: []` i la del Meteocat no
+   * es pot servir en un web públic—, però la pregunta de qui obre aquesta
+   * pàgina no és «on plou» sinó «plourà aquí», i això sí que ho tenim: la
+   * predicció a 3.190 punts, hora a hora, pintada com un camp pel worker
+   * `forecast-field.ts`.
+   *
+   * Es concatenen i prou. Tota la maquinària de la pàgina compta grups, així
+   * que el futur hereta l'animació, el rètol de l'hora, la barra i els
+   * enllaços sense una sola línia més. El que **no** hereta és el nom: cada
+   * marc de futur porta la seva marca i la pàgina diu que és un model.
+   */
+  const fieldData = await precipField();
+  const fieldBox = fieldData?.box ?? { x: 0, y: 0, w: 0, h: 0 };
+  const frames: Array<RadarFrame & { field?: string }> = [
+    ...data.frames,
+    ...(fieldData?.hours ?? []).map((h) => ({
+      time: h.time,
+      local: `${h.iso}:00`,
+      kind: 'forecast' as const,
+      field: h.name,
+    })),
+  ];
+
+  const hasField = (fieldData?.hours.length ?? 0) > 0;
   const asked = t ? frames.findIndex((f) => String(f.time) === t) : -1;
-  const current = asked >= 0 ? asked : frames.length - 1;
+  /*
+   * Sense `?t=`, el marc que s'ensenya és **l'última observació**, no l'últim
+   * de la llista. Qui obre el radar ve a veure on plou ara; obrir-lo dotze
+   * hores endavant seria contestar una pregunta que no ha fet.
+   */
+  const lastPast = frames.map((f) => f.kind).lastIndexOf('past');
+  const current = asked >= 0 ? asked : Math.max(lastPast, 0);
   const frame = frames[current];
 
   // Recorte: el mosaico de teselas cubre más de lo que interesa —llega hasta
@@ -304,7 +339,11 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
             viewBox={`${view.x.toFixed(1)} ${view.y.toFixed(1)} ${view.w.toFixed(1)} ${view.h.toFixed(1)}`}
             width="100%"
             role="img"
-            aria-label={`Radar de precipitació sobre ${view.label} a ${hour(frame.local)}`}
+            aria-label={
+              frame.kind === 'past'
+                ? `Radar de precipitació sobre ${view.label} a ${hour(frame.local)}`
+                : `Predicció de pluja sobre ${view.label} a ${hour(frame.local)}`
+            }
             style={{ display: 'block' }}
           >
             {/*
@@ -329,7 +368,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
             />
 
             {/*
-              * Els tretze marcs, un grup cadascun i tots amagats.
+              * Els marcs, un grup cadascun i tots amagats.
               *
               * El grup embolcall importa: `nth-of-type` compta per etiqueta, i
               * si les fronteres fossin germanes dels marcs tots els índexs
@@ -349,20 +388,40 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
                    */
                   style={{ animationDelay: `${(i * SLOT_S).toFixed(2)}s` }}
                 >
-                  {tiles.map((tile) => (
+                  {/*
+                    Un marc de futur és una imatge, i un de passat, tessel·les.
+
+                    Van tots dos dins del mateix `<g>` i de la mateixa llista
+                    perquè tota la maquinària de la pàgina compta grups: els
+                    retards de l'animació, el `nth-of-type` que encén el marc
+                    triat, el rètol de l'hora i la barra. Barrejant-los aquí,
+                    el passat i el futur són una sola línia de temps i no hi ha
+                    cap segon mecanisme que es pugui desincronitzar del primer.
+                  */}
+                  {f.field ? (
                     <image
-                      key={`${tile.x}_${tile.y}`}
-                      href={`/radar/t/${f.time}/${grid.z}_${tile.x}_${tile.y}.png`}
-                      x={(tile.x - grid.x0) * grid.size}
-                      y={(tile.y - grid.y0) * grid.size}
-                      width={grid.size}
-                      height={grid.size}
-                      // Sense això el navegador suavitza les tessel·les i l'eco
-                      // —que ja ve interpolat per RainViewer— perd la poca vora
-                      // que li queda.
-                      style={{ imageRendering: 'auto' }}
+                      href={`/camp/${f.field}.webp`}
+                      x={fieldBox.x}
+                      y={fieldBox.y}
+                      width={fieldBox.w}
+                      height={fieldBox.h}
                     />
-                  ))}
+                  ) : (
+                    tiles.map((tile) => (
+                      <image
+                        key={`${tile.x}_${tile.y}`}
+                        href={`/radar/t/${f.time}/${grid.z}_${tile.x}_${tile.y}.png`}
+                        x={(tile.x - grid.x0) * grid.size}
+                        y={(tile.y - grid.y0) * grid.size}
+                        width={grid.size}
+                        height={grid.size}
+                        // Sense això el navegador suavitza les tessel·les i l'eco
+                        // —que ja ve interpolat per RainViewer— perd la poca vora
+                        // que li queda.
+                        style={{ imageRendering: 'auto' }}
+                      />
+                    ))
+                  )}
                 </g>
               ))}
             </g>
@@ -439,7 +498,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
                 <li key={f.time}>
                   <label htmlFor={`rf-${f.time}`} className="rf-chip tnum">
                     {hour(f.local)}
-                    {f.kind === 'nowcast' && <span className="ml-1">•</span>}
+                    {f.kind !== 'past' && <span className="ml-1">•</span>}
                   </label>
                 </li>
               ))}
@@ -473,26 +532,41 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         </nav>
 
         <figcaption className="mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+          {/*
+            La frontera entre les dues meitats es diu al davant de tot.
+
+            A partir d'aquí la línia de temps porta dues coses que no són la
+            mateixa: darrere, gotes mesurades per un radar; davant, el que diu
+            un model. Es veuen seguides i s'assemblen, i per això la primera
+            frase de la llegenda és quina és quina — no una nota al peu.
+          */}
+          {hasField && (
+            <>
+              <strong className="font-medium text-[var(--ink-2)]">
+                Fins a {hour(frames[lastPast].local)} és radar; a partir
+                de {hour(frames[lastPast + 1].local)} és predicció.
+              </strong>{' '}
+              El radar mesura gotes que hi ha ara; la predicció és un model, i
+              a partir d’unes hores encerta millor si plourà que quant. Surt
+              dels {int(fieldData?.points ?? 0)} punts de predicció, un cada
+              3,2 km, i per això
+              s’acaba a la frontera: del mar, de França i de l’Aragó no en
+              tenim.{' '}
+            </>
+          )}
           {frames.some((f) => f.kind === 'nowcast') && (
             <>Els instants marcats amb un punt són previsió immediata, no observació. </>
           )}
           {/*
-            * Dues coses que es veuen de seguida i decebrien sense avisar.
-            *
-            * La primera: aquí no hi ha minuts futurs. L'API pública de
-            * RainViewer només publica marcs observats — dues hores enrere en
-            * passos de deu minuts — i dir «ara mateix no hi ha previsió
-            * immediata», com deia abans, prometia una cosa que no ha d'arribar.
-            *
-            * La segona: ampliar una zona no afina la imatge. El tilecache
-            * públic s'acaba al zoom 7, on un píxel són uns 460 metres, i les
-            * zones només la fan més gran. El que sí guanya definició és el que
-            * hi va a sobre: les fronteres i els noms són vectors.
+            * Una cosa que es veu de seguida i decebria sense avisar: ampliar
+            * una zona no afina la imatge. El tilecache públic s'acaba al zoom
+            * 7, on un píxel són uns 460 metres, i les zones només la fan més
+            * gran. El que sí guanya definició és el que hi va a sobre: les
+            * fronteres i els noms són vectors.
             */}
-          Les dues hores són totes observades: aquest radar no porta minuts
-          futurs. Les zones amplien la mateixa imatge — un píxel de radar són
-          uns 460 metres i ampliant-la no n’apareixen més —, però les fronteres
-          i els noms que hi van a sobre sí que s’afinen.
+          Les zones amplien la mateixa imatge — un píxel de radar són uns 460
+          metres i ampliant-la no n’apareixen més —, però les fronteres i els
+          noms que hi van a sobre sí que s’afinen.
         </figcaption>
       </figure>
 

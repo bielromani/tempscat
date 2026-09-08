@@ -93,3 +93,16 @@ jobs:
       - name: Recuperar el que hagi caigut
         if: success()
         run: npm run worker:forecast -- --tiers=${{ steps.pla.outputs.tiers }} --fill
+
+      # El camp de pluja del radar, que surt d'aquesta mateixa predicció.
+      #
+      # Va aquí i no en un workflow propi perquè no té rellotge propi: les
+      # imatges només canvien quan canvia la predicció. Amb un cron a part
+      # es tornarien a pintar dotze imatges idèntiques cada hora, i R2 cobra
+      # per operació.
+      #
+      # I va **després** del recobriment: pintant abans, un lot perdut sortiria
+      # al mapa com una comarca sense pluja, que és pitjor que sortir tard.
+      - name: Pintar el camp de pluja
+        if: success()
+        run: npm run worker:field

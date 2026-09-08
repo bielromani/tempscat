@@ -217,6 +217,7 @@ export const FRESHNESS_SOURCES = [
   'air-stations',
   'water',
   'xema-history',
+  'forecast-field',
   'cameras',
   'fgc-mountain',
 ] as const;

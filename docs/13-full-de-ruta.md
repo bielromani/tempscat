@@ -782,7 +782,7 @@ las comarcas.
 Todo lo que salió de una pasada por el sitio, con lo que ya está medido de cada
 cosa. Ordenado por lo que cuesta arreglarlo, no por lo que molesta.
 
-### El radar · **hecho a medias**
+### El radar · ✅ fet — el detall, més avall a «Pendiente de diseño y de producto»
 
 Arreglado ya: el mapa ocupaba más de una pantalla de portátil y «Reprodueix les
 2 hores» hacía saltar la página arriba. Los dos, con su porqué, en el commit.
@@ -953,38 +953,65 @@ por el resto con el mismo criterio.
 Apuntado tal como salió, para no perderlo. Nada de esto es de datos: es de que
 lo que ya hay se entienda y se use.
 
-### El radar · 🟡 barra arrossegable feta, el futur bloquejat por la fuente
+### El radar · ✅ passat, present i futur, el 8 de setembre de 2026
 
-**Hecho el 6 de septiembre de 2026: la línea de tiempo se arrastra.** Con
-pastillas había que acertar una para ver el marco siguiente, y mirar cómo avanza
-una tormenta eran trece clics seguidos.
+**La línia de temps ja va d'una punta a l'altra.** Tretze marcs de radar
+—dues hores enrere en passos de deu minuts— i dotze hores de predicció al
+davant, en una sola seqüència que es reprodueix i s'arrossega sencera.
 
-- Es un `<input type="range">` de verdad, no un `div` con `onPointerMove`: las
-  flechas, inicio y fin del teclado y el gesto táctil ya funcionan sin
-  escribirlos.
-- **No dibuja ni oculta ningún fotograma**: solo marca el radio que el CSS ya
-  miraba. Sin JavaScript el radar es exactamente el que era, con las pastillas
-  de cada instante, que siguen en el HTML y se ocultan con una clase que el
-  componente pone al montarse.
-- Arrastrar detiene la reproducción, porque mientras corre la animación el
-  fotograma lo manda el CSS y la barra se movería con la imagen quieta.
-- El tramo de futuro va sombreado y la marca de «ara» cae en la frontera entre
-  observación y nowcast.
+**I diu de quina hora és cada imatge.** Reproduint no es deia, i era la meitat
+del que un radar explica: es veia passar la pluja sense saber si allò era de
+fa dues hores o de fa deu minuts. Sense gens de JavaScript —les hores estan
+apilades a la mateixa cel·la d'una graella i cada una porta el mateix
+`@keyframes` i el mateix retard que el seu marc del mapa—.
 
-**El futuro no se puede hacer, y no por nosotros.** La API pública de RainViewer
-devuelve hoy `nowcast: []` — cero marcos. Comprobado contra
-`api.rainviewer.com/public/weather-maps.json`, no supuesto. El worker ya los
-fusiona con la observación en una sola serie con su etiqueta (`kind`) y la barra
-ya tiene el tramo preparado: el día que la fuente devuelva marcos, no hay que
-tocar nada.
+Pel camí, un error que no donava cap error: `--rcycle` es posava a `.rmap` i
+el rètol viu a `.rbar`, una branca germana que no l'hereta. Amb la variable
+buida, `animation: rframe var(--rcycle) linear infinite` no és una drecera amb
+un valor dolent: és una drecera **invàlida sencera**, i el navegador la llença
+en silenci.
 
-**El zoom de verdad tampoco, y por la misma razón.** El tilecache público se
-acaba en el zoom 7 —del 8 en adelante devuelve un PNG que dice «Zoom Level Not
-Supported» con código 200, trampa ya documentada en `AGENTS.md`— y eso da unos
-1,2 km por píxel. **Los nombres de pueblo ya están** sobre el mapa; lo que falta
-es resolución, y para eso hace falta otra fuente: el radar de 1 km del Meteocat,
-que pide clave. Es la decisión que queda pendiente, y tiene precio: una clave
-más que gestionar y otra licencia que respetar.
+#### El futur no és radar, i la pàgina ho diu al davant de tot
+
+No pot ser-ho. Es va comprovar contra la documentació del Meteocat el 8 de
+setembre de 2026 i el resultat va tancar la porta:
+
+- **El radar no és a la seva API.** Les famílies són XEMA, XDDE, Predicció i
+  Referència; la paraula «radar» surt **zero vegades** a tota la documentació.
+- **El nowcast existeix** —advecció pySTEPS sobre el compost d'1 km, horitzó
+  +60 min en passos de 6, refrescat cada 6— però es ven per contracte
+  bilateral d'enviament automàtic, no per cap punt final de l'API.
+- **I publicar-lo en un web públic és tarifa de difusió**: 803,35 €/mes el
+  camp de reflectivitat de 6 minuts, més 178,06 € d'activació. Els productes
+  d'advecció només tenen preu base publicat (573,19 € i 716,53 €).
+- **I la clau gratuïta tampoc no valdria**: les seves condicions diuen «no
+  difondre a tercers, total ni parcialment, la informació rebuda de l'SMC».
+
+Així que el futur surt de la **nostra** predicció, que ja tenim baixada i
+pagada de quota: 3.190 punts, un cada 3,2 km, hora a hora.
+`scripts/workers/forecast-field.ts` la pinta com un camp en imatges del mateix
+mosaic que el radar, i la pàgina les col·loca igual que el relleu.
+
+Es concatena als marcs del radar i prou. Tota la maquinària de la pàgina
+compta grups, així que el futur hereta l'animació, el rètol de l'hora, la
+barra i els enllaços sense una sola línia més. El que **no** hereta és el nom:
+la llegenda obre dient on s'acaba una cosa i comença l'altra —«Fins a 14:30 és
+radar; a partir de 15:00 és predicció»— i on no hi ha punt no es pinta res: el
+mar, França i l'Aragó surten buits perquè allà no en tenim.
+
+#### El que segueix bloquejat
+
+**El zoom.** El tilecache públic s'acaba al zoom 7 —uns 460 m per píxel— i les
+zones només amplien la mateixa imatge. Els noms de poble ja hi són; el que
+falta és resolució de radar, i per això cal una altra font. Amb el que s'ha
+mesurat del Meteocat, aquella font té un preu de quatre xifres l'any i una
+clàusula que no permet redistribuir. Descartat mentre no canviï una de les
+dues coses.
+
+**Els minuts de futur.** De 0 a 2 hores és on un nowcast guanya i on un model
+amb hores d'antiguitat va fluix. Aquella franja segueix sense cobrir-se bé, i
+ho seguirà estant fins que RainViewer torni marcs —el worker ja els fusiona i
+la barra ja té el tram preparat— o fins que hi hagi una altra font.
 
 ### El mapa no dice de quién es cada comarca
 

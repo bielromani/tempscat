@@ -27,6 +27,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/build/routes.json` | Índice de los 683: nombre, código, km, cotas, comarcas. **Se versiona** |
 | `data/build/routes/<slug>.json` | Trazado y perfil de alturas de uno. Solo lo lee su ficha |
 | `data/cache/base/` | Teselas del mapa base del ICGC, ya en WebP. Las sirve una route handler |
+| `data/cache/field/` | El campo de lluvia de la predicción, una imagen por hora. Es el **futuro** del radar |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
@@ -61,8 +62,8 @@ Comprueba ambos proyectos con `npm run typecheck`.
 
 ## Código compartido entre scripts y aplicación
 
-Hay diez ficheros que importan los dos lados: los scripts los cargan con extensión `.ts` y la
-aplicación con el alias `@/`. Nueve **no importan nada**, y la condición para añadir uno es esa.
+Hay once ficheros que importan los dos lados: los scripts los cargan con extensión `.ts` y la
+aplicación con el alias `@/`. Diez **no importan nada**, y la condición para añadir uno es esa.
 
 El noveno, `forecast-merge.ts`, sí importa —y es la excepción que ya describe la sección de
 arriba: importa con extensión `.ts` y **toda su cadena acaba en ficheros que no importan nada**.
@@ -81,6 +82,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/forecast-merge.ts` | De los modelos a una serie, y de la serie al resumen por días |
 | `src/lib/search-match.ts` | Cómo se parece lo que se escribe en el buscador al nombre de un sitio |
 | `src/lib/climate-math.ts` | Qué es un mes comparable, qué es un año entero y cómo se saca una tendencia |
+| `src/lib/field.ts` | El recuadro del campo de lluvia, en píxeles del mosaico del radar |
 
 ## Dónde viven los datos vivos
 
@@ -173,6 +175,7 @@ npm run worker:forecast   # predicció · accepta --tiers=A,B,C i --fill
 npm run worker:history    # rècords i normals, un cop al dia
 npm run worker:cameres    # cameres de muntanya de FGC, cada hora
 npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
+npm run worker:field      # el camp de pluja del radar · el crida `prediccio.yml` al final
 ```
 
 Pruebas:
@@ -295,6 +298,25 @@ cuota para exactamente la misma información.
   fuera de ahora mismo.
 - **El Nomenclàtor es de 2021 y dice 42 comarcas. Son 43** desde que se creó el Lluçanès.
 - **El dataset de centroides `9aju-tpwc` trae dos filas basura** (`999998`, `999999`).
+- **El futuro del radar no sale de un radar, y no puede salir de uno.** La API pública de
+  RainViewer devuelve `nowcast: []`, y el Meteocat sí tiene nowcast —advección pySTEPS, +60 min
+  en pasos de 6— pero **no está en su API**: se vende por contrato bilateral, y sus condiciones
+  de uso prohiben expresamente «difondre a tercers», así que un web público entra en tarifa de
+  difusión. Comprobado contra su documentación en septiembre de 2026; el detalle y los precios
+  están en el hoja de ruta. Lo que sí tenemos es **nuestra propia predicción**: 3.190 puntos, uno
+  cada 3,2 km, hora a hora, que `forecast-field.ts` pinta como un campo sobre el mismo mosaico.
+  Se concatena a los marcos del radar y hereda la animación, el rótulo de la hora y la barra sin
+  una línea más —toda la página cuenta grupos—, pero **no hereda el nombre**: la leyenda dice
+  dónde acaba el radar y empieza el modelo, antes que ninguna otra cosa.
+- **Donde no hay punto no se pinta nada.** Los 3.190 son de Catalunya, así que el mar, Francia y
+  Aragón salen transparentes en el campo de lluvia, y es correcto que salgan así: allí no hay
+  predicción. Estirar el valor del punto más cercano hasta llenar el recuadro daría un mapa más
+  bonito diciendo algo que no sabemos. El radio de búsqueda es de 12 km.
+- **Una variable CSS solo la heredan los descendientes, y una `var()` vacía invalida la
+  declaración entera.** `--rcycle` estaba en `.rmap` y el rótulo de la hora vive en `.rbar`, una
+  rama hermana: `animation: rframe var(--rcycle) linear infinite` no era una abreviatura con un
+  valor malo, era una abreviatura **inválida**, y el navegador la tiró en silencio. En el
+  inspector solo se veía `animation-name: none`. Va en la figura, que es el padre de las dos.
 - **El tilecache público de RainViewer solo llega al zoom 7.** Del 8 en adelante devuelve un PNG
   que dice «Zoom Level Not Supported» **con código 200 y tipo `image/png`**: se descarga, se
   guarda y se pinta sin que nada falle. Se detecta porque dos teselas contiguas salen byte a byte

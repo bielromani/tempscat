@@ -7,6 +7,7 @@ import {
 import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
 import { airCellKey } from './air-grid';
 import type { MonthProgress, RainProgress } from './climate-math';
+import { fieldShard, type FieldIndex } from './field';
 import {
   aggregateDaily, mergeHourly, type PointForecast, type StoredDaily,
 } from './forecast-merge';
@@ -784,7 +785,14 @@ export async function airQualityFor(loc: Location): Promise<AirQuality | null> {
 export interface RadarFrame {
   time: number;
   local: string;
-  kind: 'past' | 'nowcast';
+  /**
+   * D'on surt aquest marc.
+   *
+   * `past` i `nowcast` són del radar —observació i, si algun dia la font en
+   * torna, extrapolació—. `forecast` és **nostre**: el camp de pluja de la
+   * predicció, que no és radar i que la pàgina no fa passar per radar.
+   */
+  kind: 'past' | 'nowcast' | 'forecast';
 }
 
 export interface RadarData {
@@ -818,6 +826,22 @@ export async function radar(): Promise<(RadarData & {
     lastObserved,
     ageMin: lastObserved ? Math.round((Date.now() - lastObserved.time * 1000) / 60_000) : null,
   };
+}
+
+/**
+ * El camp de pluja de la predicció: una imatge per hora, en píxels del mosaic
+ * del radar. Null mentre el worker no hagi corregut mai.
+ *
+ * Només en torna les hores **que encara no han passat**. El worker en pinta
+ * dotze quan corre, i entre una volta i la següent el rellotge avança: sense
+ * aquest filtre, el mapa oferiria com a futur una hora que ja s'ha viscut.
+ */
+export async function precipField(): Promise<FieldIndex | null> {
+  const snap = await snapshot<FieldIndex>(fieldShard());
+  if (!snap?.data?.hours?.length) return null;
+  const now = localNowHour();
+  const hours = snap.data.hours.filter((h) => h.iso.slice(0, 13) > now);
+  return hours.length ? { ...snap.data, hours } : null;
 }
 
 // ── Frescura de las fuentes ─────────────────────────────────────────────────

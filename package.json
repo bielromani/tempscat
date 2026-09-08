@@ -28,6 +28,7 @@
     "workers": "npm run worker:xema && npm run worker:warnings && npm run worker:radar && npm run worker:forecast",
     "worker:warnings": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/aemet-warnings.ts",
     "worker:history": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/xema-history.ts",
+    "worker:field": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/forecast-field.ts",
     "workers:daily": "npm run worker:history && npm run worker:air && npm run worker:air-stations && npm run worker:water",
     "test:astronomy": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-astronomy.ts",
     "worker:air": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-quality.ts",

@@ -47,7 +47,7 @@ export interface ScrubFrame {
   time: number;
   /** Hora local, ja sense la `Z`. */
   local: string;
-  kind: 'past' | 'nowcast';
+  kind: 'past' | 'nowcast' | 'forecast';
 }
 
 const hhmm = (local: string) => local.slice(11, 16);
@@ -97,9 +97,11 @@ export function RadarScrubber({
       <div className="mb-1.5 flex items-baseline justify-between gap-3">
         <span className="tnum text-xl font-semibold text-[var(--ink)]">{hhmm(frame.local)}</span>
         <span className="text-xs text-[var(--muted)]">
-          {frame.kind === 'nowcast'
-            ? 'predicció immediata'
-            : i === lastPast ? 'l’última imatge' : 'observació'}
+          {frame.kind === 'forecast'
+            ? 'predicció, no radar'
+            : frame.kind === 'nowcast'
+              ? 'predicció immediata'
+              : i === lastPast ? 'l’última imatge' : 'observació'}
         </span>
       </div>
 
@@ -119,7 +121,7 @@ export function RadarScrubber({
           step={1}
           value={i}
           aria-label="Instant del radar"
-          aria-valuetext={`${hhmm(frame.local)}, ${frame.kind === 'nowcast' ? 'predicció immediata' : 'observació'}`}
+          aria-valuetext={`${hhmm(frame.local)}, ${frame.kind === 'past' ? 'observació' : 'predicció'}`}
           onChange={(e) => { stopPlaying(); setI(Number(e.target.value)); }}
           className="rscrub relative w-full"
         />
