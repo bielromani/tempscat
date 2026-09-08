@@ -21,6 +21,7 @@ import { build } from '../lib/paths.ts';
 import { readTar } from '../lib/tar.ts';
 import { parseCap, type CapAlert, type CapLevel } from '../lib/cap.ts';
 import { pointInRing, ringBbox } from '../lib/geo.ts';
+import { isDate } from '../lib/credentials.ts';
 import {
   DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncState, writeSnapshot,
 } from '../lib/store.ts';
@@ -47,7 +48,32 @@ const LEVEL_ORDER: Record<CapLevel, number> = { verd: 0, groc: 1, taronja: 2, ve
 
 async function main() {
   const key = process.env.AEMET_API_KEY;
+  /*
+   * La data de caducitat viatja amb la clau fins al panell.
+   *
+   * Fins ara els noranta dies d'AEMET només eren un comentari en aquest
+   * fitxer, i un comentari no avisa ningú: el dia que la clau s'acabés, la
+   * targeta d'avisos desapareixeria de les 4.293 fitxes i el web sortiria
+   * sencer. Qui avisa a temps és `credencials.yml`, un cop per setmana; això
+   * només fa que /estat ho pugui dir.
+   */
+  const expires = isDate(process.env.AEMET_API_KEY_EXPIRES)
+    ? process.env.AEMET_API_KEY_EXPIRES
+    : null;
+
   if (!key) {
+    /*
+     * I sense clau també es deixa rastre. Abans no: `process.exit(1)` aquí
+     * mateix, sense escriure res, i /estat es quedava amb l'entrada de
+     * l'execució bona anterior. La font sortia envellint a poc a poc, com si
+     * AEMET no publicés, quan el que passava és que no teníem clau.
+     */
+    recordFreshness({
+      source: 'aemet-warnings', lastSuccessAt: '', lastDataTs: null,
+      stalenessLimitMin: 30 * 60, rows: 0, apiCalls: 0,
+      error: "Falta AEMET_API_KEY: la font no s'ha pogut consultar.",
+      credentialExpiresAt: expires,
+    });
     console.error('Falta AEMET_API_KEY. Copia .env.example a .env.local y pon la clave.');
     console.error('Se consigue gratis y al instante en opendata.aemet.es; caduca a los 90 días.');
     process.exit(1);
@@ -180,6 +206,7 @@ async function main() {
     stalenessLimitMin: 30 * 60,
     rows: alerts.length,
     apiCalls: 2,
+    credentialExpiresAt: expires,
   });
 
   console.log(`\n${quota.report()}`);
@@ -195,6 +222,8 @@ main().catch((err) => {
   recordFreshness({
     source: 'aemet-warnings', lastSuccessAt: '', lastDataTs: null,
     stalenessLimitMin: 30 * 60, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
+    credentialExpiresAt: isDate(process.env.AEMET_API_KEY_EXPIRES)
+      ? process.env.AEMET_API_KEY_EXPIRES : null,
   });
   console.error(err);
   process.exit(1);

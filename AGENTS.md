@@ -181,6 +181,7 @@ Pruebas:
 npm run test              # topónimos, astronomía, hora cero de la predicción, buscador y frases
 npm run test:search       # lo que el buscador tiene que encontrar y lo que no
 npm run test:climate      # los meses y los años que el histórico tiene que descartar
+npm run check:credentials # a qué clave le queda poco. Lo corre `credencials.yml` cada lunes
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
@@ -277,6 +278,15 @@ cuota para exactamente la misma información.
 
 ## Rarezas de las fuentes, ya descubiertas a base de golpes
 
+- **Una clave que caduca no avisa, y la fecha vivía en un comentario.** La de AEMET dura
+  **90 días**. El día que muera, el worker de avisos fallará, la tarjeta de avisos desaparecerá
+  de las 4.293 fichas y el web seguirá saliendo entero: ni una página en blanco, ni un error
+  visible, solo un bloque que ya no está. La fecha va ahora en `AEMET_API_KEY_EXPIRES`, y hay un
+  workflow **aparte** —`credencials.yml`, semanal— que falla con 45 días de margen. Aparte a
+  propósito: si fuera un paso del worker de avisos, el día que fallara dejaría el web sin avisos,
+  que es justo lo que intenta evitar, y un run en rojo querría decir dos cosas distintas. Una
+  clave **sin fecha registrada cuenta como caducada**: «no sé cuándo caduca» es el estado que
+  llevó hasta aquí. Y `/estat` lo enseña en cada fuente que tenga clave.
 - **Open-Meteo devuelve `nan` sin comillas** cuando un punto cae fuera del dominio de un modelo.
   No es JSON válido. Hay que sanear el texto antes de parsear.
 - **La XEMA no rellena `codi_estat` en los datos recientes.** Filtrar por `'V'` deja la web sin

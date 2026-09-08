@@ -1,0 +1,31 @@
+name: Claus que caduquen
+
+# Un cop per setmana, i no toca cap dada.
+#
+# Va en un workflow a part a posta. Si aquesta comprovació fos un pas del
+# worker d'avisos, el dia que fallés deixaria el web sense avisos —que és
+# exactament el que intenta evitar—, i a més un run en vermell voldria dir dues
+# coses distintes: «no s'han pogut baixar els avisos» i «cal renovar una clau».
+# Aquí en vol dir una sola.
+#
+# Dilluns al matí perquè el correu arribi quan es pot fer alguna cosa, i amb
+# quaranta-cinc dies de marge perquè n'arribin sis abans que la clau mori. La
+# d'AEMET es demana en un minut, però cal ser davant de l'ordinador.
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+jobs:
+  claus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
+      # La data va al costat de la clau, i és una variable i no un secret: una
+      # data de caducitat no és cap secret i així es pot llegir sense obrir res.
+      AEMET_API_KEY_EXPIRES: ${{ vars.AEMET_API_KEY_EXPIRES || secrets.AEMET_API_KEY_EXPIRES }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: npm run check:credentials

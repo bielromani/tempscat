@@ -267,6 +267,15 @@ export interface FreshnessEntry {
    */
   lastError?: string;
   lastErrorAt?: string;
+  /**
+   * Quan caduca la clau d'aquesta font, si en té una que caduqui.
+   *
+   * Es registra aquí perquè el panell públic ho pugui dir sense que la data
+   * hagi d'estar també a l'entorn de l'aplicació: qui posa la clau posa la
+   * data, i el worker la porta fins aquí. Qui avisa a temps és el workflow
+   * `credencials.yml`; això només ho ensenya.
+   */
+  credentialExpiresAt?: string | null;
 }
 
 /**

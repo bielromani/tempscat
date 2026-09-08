@@ -35,6 +35,7 @@
     "workers:frequent": "npm run worker:xema && npm run worker:radar && npm run worker:sea",
     "test:search": "node scripts/test-search.ts",
     "test:climate": "node scripts/test-climate.ts",
+    "check:credentials": "node --env-file-if-exists=.env.local scripts/check-credentials.ts",
     "test:narrative": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-narrative.ts",
     "test:align": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-forecast-align.ts",
     "test": "npm run test:catalan && npm run test:astronomy && npm run test:align && npm run test:search && npm run test:climate && npm run test:narrative",

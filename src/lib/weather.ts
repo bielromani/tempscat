@@ -839,6 +839,8 @@ export interface FreshnessEntry {
    */
   lastError?: string;
   lastErrorAt?: string;
+  /** Quan caduca la clau d'aquesta font, si en té una que caduqui. */
+  credentialExpiresAt?: string | null;
 }
 
 /**
@@ -853,7 +855,17 @@ export interface FreshnessEntry {
  * ha publicado es una cosa que este panel tiene que decir, no callar.
  */
 export async function freshness(): Promise<Array<
-  FreshnessEntry & { stale: boolean; ageMin: number | null; missing?: true }
+  FreshnessEntry & {
+    stale: boolean; ageMin: number | null; missing?: true;
+    /**
+     * Dies que li queden a la clau d'aquesta font, si en té una que caduqui.
+     *
+     * Es calcula aquí i no a la pàgina per la mateixa raó que `ageMin`: un
+     * `Date.now()` dins d'un component fa saltar `react-hooks/purity`, i el
+     * lint és un error. L'hora del rellotge és una dada i arriba per props.
+     */
+    keyDaysLeft: number | null;
+  }
 >> {
   const entries = await Promise.all(
     FRESHNESS_SOURCES.map(async (source) => ({
@@ -862,6 +874,7 @@ export async function freshness(): Promise<Array<
     })),
   );
 
+  const now = new Date();
   return entries.map(({ source, entry }) => {
     if (!entry) {
       return {
@@ -873,13 +886,23 @@ export async function freshness(): Promise<Array<
         apiCalls: 0,
         ageMin: null,
         stale: true,
+        keyDaysLeft: null,
         missing: true as const,
       };
     }
     const ageMin = entry.lastDataTs
       ? Math.round((Date.now() - Date.parse(entry.lastDataTs)) / 60_000)
       : null;
-    return { ...entry, ageMin, stale: ageMin != null && ageMin > entry.stalenessLimitMin };
+    const exp = entry.credentialExpiresAt;
+    const keyDaysLeft = exp
+      ? Math.round((Date.UTC(
+        Number(exp.slice(0, 4)), Number(exp.slice(5, 7)) - 1, Number(exp.slice(8, 10)),
+      ) - Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())) / 86_400_000)
+      : null;
+    return {
+      ...entry, ageMin, keyDaysLeft,
+      stale: ageMin != null && ageMin > entry.stalenessLimitMin,
+    };
   });
 }
 

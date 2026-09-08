@@ -87,6 +87,24 @@ export default async function EstatPage() {
                         {s.lastError.slice(0, 90)}
                       </span>
                     )}
+                    {/*
+                      I quan caduca la clau, si en té una que caduqui.
+                      Una font que depèn d'una clau de noranta dies no està
+                      «al dia» del tot si li'n queden quatre: el dia que mori,
+                      el bloc desapareix de les fitxes i el web surt sencer.
+                      Qui avisa a temps és el workflow setmanal; això només
+                      posa la data on es pot veure sense entrar enlloc.
+                    */}
+                    {s.credentialExpiresAt && s.keyDaysLeft != null && (
+                      <span
+                        className="mt-0.5 block text-[11px]"
+                        style={{ color: s.keyDaysLeft <= 45 ? 'var(--warn)' : 'var(--muted)' }}
+                      >
+                        {s.keyDaysLeft < 0
+                          ? `clau caducada el ${s.credentialExpiresAt}`
+                          : `clau vàlida fins al ${s.credentialExpiresAt} · ${s.keyDaysLeft} dies`}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
