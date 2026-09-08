@@ -83,6 +83,33 @@ export function temperatureInk(c: number): string {
 }
 
 /** Nivel de aviso CAP → variable de color. Nunca se inventan colores propios. */
+/**
+ * Escala seqüencial per a una concentració, del zero al pitjor valor del dia.
+ *
+ * Relativa i no absoluta a posta. Les bandes europees d'`air-variables.ts`
+ * són d'un **índex horàri** i el que la XVPCA publica és una **mitjana
+ * diària**: pintar-hi els colors de l'índex donaria un mapa amb els noms de
+ * les bandes oficials i uns valors que no són els que aquelles bandes
+ * classifiquen. Això ordena el que hi ha —on n'hi ha més i on menys— i el
+ * peu diu que és això i no una qualificació.
+ */
+export function concentrationColor(value: number, worst: number): string {
+  const k = worst > 0 ? Math.max(0, Math.min(1, value / worst)) : 0;
+  return `oklch(${(88 - k * 40).toFixed(0)}% ${(0.03 + k * 0.14).toFixed(3)} ${(95 - k * 75).toFixed(0)})`;
+}
+
+/**
+ * De la cota al color: verd de plana, ocre de serra, blanc de cim.
+ *
+ * Per al mapa de la xarxa, on la pregunta és **on** hi ha termòmetres i a
+ * quina alçada. El pas de 1.500 m és on la coberta canvia de bosc a prat, i
+ * per això el color hi gira i no puja de manera plana.
+ */
+export function altitudeColor(m: number): string {
+  const k = Math.max(0, Math.min(1, m / 2600));
+  return `oklch(${(62 + k * 32).toFixed(0)}% ${(0.11 - k * 0.09).toFixed(3)} ${(145 - k * 65).toFixed(0)})`;
+}
+
 export function capColor(severity: string): string {
   switch (severity.toLowerCase()) {
     case 'extreme': return 'var(--cap-red)';

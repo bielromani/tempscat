@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { comarcaName, dateLong, num } from '@/lib/format';
 import { airStations, stationKind } from '@/lib/air-stations';
+import { PointsMap } from '@/components/PointsMap';
+import { mapOutline } from '@/lib/map';
+import { concentrationColor } from '@/lib/scales';
 
 /**
  * La calidad del aire medida, estación por estación.
@@ -55,6 +58,18 @@ export default async function AirePage() {
 
   const rows = [...data.list].sort((a, b) => (value(b, 'no2') ?? -1) - (value(a, 'no2') ?? -1));
 
+  const outline = mapOutline();
+  /*
+   * Les estacions amb NO₂ i el pitjor valor del dia, que és el que dóna
+   * l'escala. Es calcula un cop: dins del `map` es tornaria a recalcular a
+   * cada punt, i el dia que una acabi tenint un valor diferent del que ha
+   * fixat l'escala, el mapa sortiria amb un color que no vol dir res.
+   */
+  const mapped = data.list
+    .map((st) => ({ s: st, v: value(st, 'no2') }))
+    .filter((x): x is { s: typeof x.s; v: number } => x.v != null);
+  const worstNo2 = mapped.reduce((a, x) => Math.max(a, x.v), 0);
+
   const worstPm10 = rows
     .map((s) => ({ s, v: value(s, 'pm10') }))
     .filter((x) => x.v != null)
@@ -90,6 +105,48 @@ export default async function AirePage() {
           mateixa.
         </p>
       </header>
+
+      {/*
+        On són les estacions i quant hi van mesurar.
+
+        La pàgina era una taula de 76 files ordenada per NO₂, i una taula no
+        diu que el diòxid de nitrogen és una cosa de trànsit i que per tant es
+        concentra a l'àrea de Barcelona. El mapa ho diu sense una frase.
+
+        El color és **relatiu al pitjor del dia** i no una banda oficial: les
+        bandes europees són d'un índex horari i això és una mitjana diària. El
+        peu ho diu, perquè un mapa amb els colors de l'índex i uns valors que
+        no són els que l'índex classifica seria una etiqueta manllevada.
+      */}
+      {mapped.length > 0 && (
+        <section className="mb-8">
+          <PointsMap
+            outline={outline.features}
+            projection={outline.projection}
+            width={outline.width}
+            height={outline.height}
+            ariaLabel={`Mapa de Catalunya amb el diòxid de nitrogen mesurat a ${mapped.length} estacions`}
+            points={mapped.map((m) => ({
+              key: m.s.code,
+              lat: m.s.lat,
+              lon: m.s.lon,
+              r: 6,
+              fill: concentrationColor(m.v, worstNo2),
+              tip: `${m.s.name}: ${num(m.v, 1)} µg/m³ de NO₂`,
+            }))}
+            footer={(
+              <>
+                Cada punt és una estació de la XVPCA i el color és el
+                <strong className="font-medium text-[var(--ink-2)]"> diòxid de nitrogen</strong>,
+                de clar a fosc segons el pitjor valor del dia. No és una
+                qualificació: és una mitjana diària, i les bandes oficials són
+                d&apos;un índex horari. El NO₂ ve del trànsit, i per això
+                s&apos;acumula on n&apos;hi ha.
+              </>
+            )}
+          />
+        </section>
+      )}
 
       <div className="scroll-x">
         <table className="w-full border-collapse text-sm">

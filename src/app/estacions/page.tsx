@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { temperatureColor, temperatureInk } from '@/lib/scales';
+import { altitudeColor, temperatureColor, temperatureInk } from '@/lib/scales';
 import { comarcaName, int, num } from '@/lib/format';
 import { allObservations } from '@/lib/weather';
 import { allComarques, operativeStations } from '@/lib/territory';
+import { PointsMap } from '@/components/PointsMap';
+import { mapOutline } from '@/lib/map';
 
 /**
  * Índice de estaciones, agrupado por comarca.
@@ -52,6 +54,7 @@ export default async function EstacionsPage() {
   const without = comarques.filter((c) => (byComarca.get(c.codi)?.length ?? 0) === 0);
 
   const alts = stations.map((s) => s.altitud).filter((v): v is number => v != null);
+  const outline = mapOutline();
 
   return (
     <article>
@@ -83,6 +86,47 @@ export default async function EstacionsPage() {
           )}
         </p>
       </header>
+
+      {/*
+        La xarxa, abans de la llista per comarques.
+
+        La pàgina deia «189 estacions entre 1 i 2.537 m» i llistava els noms
+        agrupats per comarca. Amb el mapa es veu el que aquella frase no diu:
+        que n'hi ha moltes al litoral i poques a l'interior del Pirineu, i per
+        què una comarca es queda sense.
+
+        El color és la cota i no la temperatura d'ara: aquesta última ja és el
+        mapa de /rànquings, i repetir-la aquí seria la mateixa pàgina dues
+        vegades. Aquí la pregunta és on hi ha termòmetres i a quina alçada.
+      */}
+      <section className="mb-8">
+        <PointsMap
+          outline={outline.features}
+          projection={outline.projection}
+          width={outline.width}
+          height={outline.height}
+          ariaLabel={`Mapa de Catalunya amb les ${stations.length} estacions de la XEMA en servei`}
+          points={stations.map((s) => ({
+            key: s.codi,
+            lat: s.lat,
+            lon: s.lon,
+            r: 5,
+            fill: altitudeColor(s.altitud ?? 0),
+            // Vint-i-quatre estacions ja porten la cota al nom —«Boí (2.537 m)»—
+            // i afegint-la sortia dues vegades a la mateixa línia.
+            tip: s.altitud != null && !/\(\s*[\d.]+\s*m\s*\)/.test(s.nom)
+              ? `${s.nom} · ${int(s.altitud)} m`
+              : s.nom,
+          }))}
+          footer={(
+            <>
+              Les {stations.length} estacions en servei, del verd de la plana al
+              blanc del cim. Passant per sobre de cada punt en surt el nom i la
+              cota.
+            </>
+          )}
+        />
+      </section>
 
       {withStation.map((c) => {
         const list = (byComarca.get(c.codi) ?? [])
