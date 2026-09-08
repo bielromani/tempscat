@@ -215,6 +215,20 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
       .map((f) => `#rf-${f.time}:checked~.rbar label[for="rf-${f.time}"]`)
       .join(',')
       + '{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}',
+    /*
+     * El rètol de l'hora, amb l'animació dels marcs.
+     *
+     * Són exactament les mateixes regles que el mapa, amb el mateix
+     * `@keyframes` i el mateix retard per posició: així el rètol i la imatge
+     * no es poden desincronitzar, perquè no hi ha dos càlculs sinó un.
+     */
+    '#rplay:checked~.rbar .rtime>span{animation:rframe var(--rcycle) linear infinite}',
+    '#rplay:checked~.rbar .rtime>span:last-of-type{animation-name:rframe-last}',
+    frames
+      .map((f, i) => (
+        `#rplay:not(:checked)~#rf-${f.time}:checked~.rbar .rtime>span:nth-of-type(${i + 1})`
+      ))
+      .join(',') + '{opacity:1}',
   ].join('');
 
   const paths = comarcaPaths(grid);
@@ -249,7 +263,15 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         </p>
       </header>
 
-      <figure className="m-0 radar">
+      {/*
+        La durada del cicle va a la figura i no al mapa.
+        L'animen dues coses —les imatges i el rètol de l'hora— i viuen en
+        branques diferents. Amb `--rcycle` només a `.rmap`, la barra no la
+        heretava, `animation: rframe var(--rcycle)…` es quedava sense valor i
+        **tota la drecera** era invàlida: el rètol no s'animava i no hi havia
+        cap error enlloc, només un `animation-name: none` a l'inspector.
+      */}
+      <figure className="m-0 radar" style={{ ['--rcycle' as string]: `${cycleS}s` }}>
         {/*
           * Els controls van primer i germans del mapa: `~` no surt del pare.
           *
@@ -273,7 +295,6 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
           className="rmap overflow-hidden rounded-lg border border-[var(--line-soft)]"
           style={{
             background: 'var(--surface-2)',
-            ['--rcycle' as string]: `${cycleS}s`,
             // La relació d'aspecte de la zona, perquè el CSS pugui limitar
             // l'alçada sense retallar. El perquè, a `globals.css`.
             ['--raspect' as string]: (view.w / view.h).toFixed(4),
@@ -383,6 +404,30 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
             <span className="rplay-on">Reprodueix les 2 hores</span>
             <span className="rplay-off">Atura</span>
           </label>
+
+          {/*
+            L'hora del marc que s'està veient.
+
+            Reproduint, la seqüència no deia de quan era cada imatge: es veia
+            passar la pluja sense saber si allò era de fa dues hores o de fa
+            deu minuts, que és la meitat del que un radar explica.
+
+            No cal gens de JavaScript. Els instants són N i les etiquetes són
+            N, apilades a la mateixa cel·la d'una graella, i cada una porta
+            **la mateixa animació i el mateix retard** que el seu marc del
+            mapa: quan s'encén la imatge s'encén el seu rètol. Parat, mana el
+            radio triat, com a tot arreu d'aquesta pàgina.
+
+            Apilades i no en fila perquè totes ocupen la cel·la 1/1: l'amplada
+            la posa la més ampla i el rètol no balla en canviar d'hora.
+          */}
+          <span className="rtime tnum" aria-live="off">
+            {frames.map((f, i) => (
+              <span key={f.time} style={{ animationDelay: `${(i * SLOT_S).toFixed(2)}s` }}>
+                {hour(f.local)}
+              </span>
+            ))}
+          </span>
 
           {/* La barra arrossegable. Substitueix les pastilles quan hi ha
               JavaScript; sense, no es dibuixa i les pastilles es queden. */}

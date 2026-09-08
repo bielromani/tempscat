@@ -427,6 +427,30 @@ button:focus-visible,
    manda és l'animació. Es baixen de to per dir-ho sense treure'ls. */
 .radar > #rplay:checked ~ .rbar nav { opacity: 0.45; }
 
+/* L'hora del marc que es veu.
+
+   Totes les hores a la mateixa cel·la de la graella, apagades, i cada una
+   s'encen amb l'animacio del seu marc -les regles les escriu la pagina, amb
+   el mateix keyframes i el mateix retard-. Apilades i no en fila perque
+   l'amplada la posi la mes ampla: aixi el rotol no balla cada mig segon.
+
+   La cel·la buida amb `content` reserva l'amplada de quatre xifres i dos
+   punts encara que cap etiqueta no estigui encesa, que passa el mig segon que
+   va del final del cicle al principi. */
+.rtime {
+  display: inline-grid;
+  margin-left: 0.6rem;
+  vertical-align: middle;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rtime > span {
+  grid-area: 1 / 1;
+  opacity: 0;
+}
+
 /* El relleu sota el radar. Prou per endevinar les serralades i no tant que
    competeixi amb els ecos, que son la dada. */
 .relief { opacity: 0.42; }
