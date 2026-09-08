@@ -340,10 +340,24 @@ cuota para exactamente la misma información.
   rama hermana: `animation: rframe var(--rcycle) linear infinite` no era una abreviatura con un
   valor malo, era una abreviatura **inválida**, y el navegador la tiró en silencio. En el
   inspector solo se veía `animation-name: none`. Va en la figura, que es el padre de las dos.
+- **Un `id` del DOM no se puede derivar de un número que puede no serlo.** Los doce marcos de
+  futuro del radar salían del índice del campo con `"time": null` —`Math.floor(NaN / 1000)` es
+  `NaN` y `JSON.stringify` lo escribe como `null`— así que compartían `id="rf-null"`: medido en
+  la página publicada, **diez radios con el mismo id y sesenta reglas de CSS apuntando al
+  mismo**. Al llegar a la predicción se encendían todas las horas a la vez, superpuestas, y la
+  barra dejaba de mover nada. Ni un error, ni una ejecución en rojo, y las doce imágenes eran
+  correctas. El defecto era `${t}:00:00Z` sobre una cadena que ya acaba en `:00`; y escrito bien
+  tampoco habría valido, porque esas horas son de Madrid y no UTC —para eso está `madridToUtc`—.
+  Ahora `epochOf` lanza si no puede fechar, el worker lanza si dos horas comparten instante, y la
+  página descarta las horas sin instante y las que chocan con un marco de radar.
 - **El tilecache público de RainViewer solo llega al zoom 7.** Del 8 en adelante devuelve un PNG
   que dice «Zoom Level Not Supported» **con código 200 y tipo `image/png`**: se descarga, se
   guarda y se pinta sin que nada falle. Se detecta porque dos teselas contiguas salen byte a byte
-  idénticas. El worker comprueba el tamaño y aborta.
+  idénticas. El worker comprueba el tamaño y aborta. **Vuelto a medir el 9 de septiembre de
+  2026**, porque es la pregunta que se hace todo el mundo al comparar con meteo.cat: z7 son
+  63.364 bytes de imagen buena y z8 y z9 son 3.269 bytes idénticos del cartel. Por eso las
+  zonas de `/radar` amplían la misma imagen y no aparece más detalle: el que sí tiene zoom de
+  verdad es el Meteocat, con su propio compuesto, y sus condiciones prohiben redistribuirlo.
 - **En catalán el artículo forma parte del topónimo y se contrae.** «de el Prat» y «a el Prat» son
   faltas visibles; usa `deName()` y `aName()` de `src/lib/format.ts`, nunca concatenes la
   preposición a mano. Lo mismo con los meses: `monthOf()`, porque es «d'agost» y «de setembre».
@@ -527,6 +541,24 @@ cuota para exactamente la misma información.
   sirve **corrida un día**, y al siguiente dos. No da ningún error —los números son plausibles,
   solo son de otro día—. Lo cuadra `scripts/lib/forecast-align.ts`, y el desplazamiento se busca
   con `indexOf` y no restándole fechas, porque el domingo del cambio horario tiene 23 o 25 horas.
+- **En Open-Meteo, la lluvia de la hora `T` es la que cayó entre `T-1` y `T`, y aquí se
+  presenta como si fuera de `T` a `T+1`.** Su tabla de variables lo dice palabra por palabra:
+  `precipitation` → «Preceding hour sum», `precipitation_probability` → «Preceding hour
+  probability», `wind_gusts_10m` → «Preceding hour max». En cambio `temperature_2m`,
+  `weather_code` y `wind_direction` son «Instant». O sea que **en una misma fila conviven dos
+  convenios**, y el sitio los trata a los dos como «lo que pasa a partir de esta hora».
+  Consecuencia: `rangePhrase()` escribe «de les 15 a les 18 h» para una ventana que el modelo
+  sitúa de 14 a 17, la columna de mm y la de ratxa de la tabla horaria van una hora tarde
+  respecto de su propia fila, los marcos de futuro del radar llevan la etiqueta de una hora más
+  que la que pintan, y el resumen diario suma de las 23 h del día anterior a las 23 h. Ningún
+  número es falso: están todos corridos una hora, que es peor porque no se nota.
+  **Sin arreglar** — se descubrió el 9 de septiembre de 2026. El arreglo es un solo
+  desplazamiento en `forecast-merge.ts`, que es donde se casa `times` con los valores: si allí
+  la acumulación de `T` se cuelga de la hora `T-1`, todo lo de aguas abajo —frases, tablas,
+  campo del radar, agregado diario— pasa a ser correcto sin tocar nada más, y la última hora
+  de la serie se cae porque ya no se sabe qué cubre. Hay que rehacer `npm run test:narrative`
+  con el convenio nuevo y comprobarlo contra la lluvia medida de la XEMA, no solo contra la
+  documentación.
 - **La ventana horaria de la predicción son 120 horas, pero el horizonte son 14 días.** El resumen
   diario lo calcula el worker. Cualquier frase que hable del horizonte tiene que salir de
   `forecast.daily`: sacándola de `forecast.hourly` se afirma sobre catorce días habiendo mirado

@@ -956,6 +956,45 @@ nosotros».
 Apuntado tal como salió, para no perderlo. Nada de esto es de datos: es de que
 lo que ya hay se entienda y se use.
 
+### La predicció va una hora tard, i no es nota · **pendent, i és el més important**
+
+Descobert el 9 de setembre de 2026 mirant per què el futur del radar no
+enllaçaba amb el present. La taula de variables d'Open-Meteo ho diu literalment:
+
+| variable | quan |
+|---|---|
+| `precipitation` | **Preceding hour sum** |
+| `precipitation_probability` | **Preceding hour probability** |
+| `wind_gusts_10m` | **Preceding hour max** |
+| `temperature_2m`, `weather_code`, `wind_direction` | Instant |
+
+O sea que la pluja de la fila de les 17 h **és la que ha caigut de 16 a 17**,
+i la temperatura de la mateixa fila sí que és la de les 17. Dos convenis a la
+mateixa fila, i el web tracta els dos com «el que passa a partir d'aquesta
+hora».
+
+Què surt malament, tot alhora i sense que res falli:
+
+- Les frases: `rangePhrase()` escriu «de les 15 a les 18 h» per a una finestra
+  que el model situa **de 14 a 17**.
+- La taula horària: la columna de mil·límetres i la de ratxa van una hora tard
+  respecte de la seva pròpia fila.
+- Els marcs de futur del radar: el que porta l'etiqueta de les 05:00 pinta la
+  pluja de 04:00 a 05:00.
+- El resum diari: suma de les 23 h del dia anterior a les 23 h.
+
+**L'arreglo és un sol desplaçament**, i va a `forecast-merge.ts`, que és on es
+casen `times` amb els valors: si allà l'acumulat de `T` es penja de l'hora
+`T-1`, tot el que hi ha aigües avall passa a ser correcte sense tocar-ho —
+frases, taules, camp del radar i agregat diari—, i l'última hora de la sèrie
+cau perquè ja no se sap què cobreix. És la mateixa forma que
+`forecast-align.ts`: una correcció en un sol lloc en comptes de quatre.
+
+No s'ha fet la mateixa nit que es va trobar, i a posta: canvia el significat de
+l'hora a les 4.293 fitxes, i s'ha de tornar a escriure `npm run test:narrative`
+amb el conveni nou i comprovar-ho **contra la pluja mesurada de la XEMA** i no
+només contra la documentació.
+
 ### El radar · ✅ passat, present i futur, el 8 de setembre de 2026
 
 **La línia de temps ja va d'una punta a l'altra.** Tretze marcs de radar
