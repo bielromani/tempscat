@@ -110,11 +110,23 @@ export function TemperatureMap({
            */
           const named = !compact && c.showName;
           const ink = temperatureInk(c.temperature);
+          // A una variable: dins del `map` de les línies, TypeScript ja no
+          // recorda que `c.nameAt` s'ha comprovat.
+          const at = c.nameAt;
 
           return (
             <g key={`t${c.code}`} style={{ pointerEvents: 'none' }}>
               <text
                 x={c.label[0]}
+                /*
+                 * Amunt quan porta nom, i és el que el build dóna per fet.
+                 *
+                 * La capsa que reserva per a la xifra va de −22 a +4 respecte
+                 * del punt, que és exactament el que ocupa un cos 26 centrat a
+                 * −9. Dibuixant-la a zero, la xifra baixa fins a +13 i es
+                 * menja el seu propi nom —mesurat: quaranta encavalcaments—
+                 * sense que la col·locació del build s'assabenti de res.
+                 */
                 y={c.label[1] - (named ? 9 : 0)}
                 textAnchor="middle"
                 dominantBaseline="central"
@@ -124,19 +136,45 @@ export function TemperatureMap({
               >
                 {num(c.temperature, 0)}°
               </text>
-              {named && (
-                <text
-                  x={c.label[0]}
-                  y={c.label[1] + 13}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize={NAME_SIZE}
-                  fontWeight={on ? 600 : 400}
-                  fill={ink}
-                  opacity={0.82}
-                >
-                  {c.name}
-                </text>
+              {named && at && (
+                <>
+                  {/*
+                    La línia que lliga el rètol amb el seu territori.
+
+                    Només per a les cinc que no hi caben de cap manera —la
+                    franja costanera de l'àrea metropolitana té zero unitats
+                    d'amplada lliure— i abans no en portaven cap: eren les
+                    úniques del mapa que no es podien identificar, i són on viu
+                    més gent. El punt de sortida marca de quina comarca és.
+                  */}
+                  {c.leader && (
+                    <>
+                      <line
+                        x1={c.label[0]} y1={c.label[1] + 6}
+                        x2={at[0]} y2={at[1] - 6}
+                        stroke={ink} strokeWidth={1} opacity={0.5}
+                      />
+                      <circle cx={c.label[0]} cy={c.label[1] + 6} r={2} fill={ink} opacity={0.6} />
+                    </>
+                  )}
+                  {(c.nameLines ?? [c.name]).map((line, i, all) => (
+                    <text
+                      key={line}
+                      x={at[0]}
+                      /* Centrades sobre el punt: amb dues línies, la primera
+                         puja i la segona baixa. */
+                      y={at[1] + (i - (all.length - 1) / 2) * NAME_SIZE}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={NAME_SIZE}
+                      fontWeight={on ? 600 : 400}
+                      fill={ink}
+                      opacity={0.82}
+                    >
+                      {line}
+                    </text>
+                  ))}
+                </>
               )}
             </g>
           );

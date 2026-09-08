@@ -1,8 +1,8 @@
 import 'server-only';
-import { allHistory, historyOfStation, localToday, type StationHistory } from './weather';
+import { historyOfStation, localToday, type StationHistory } from './weather';
 
 /**
- * Condiciones acumuladas para actividades: de momento, los bolets.
+ * L'aigua acumulada d'una estació, per al bloc de pluja d'una fitxa.
  *
  * ## La regla que manda aquí
  *
@@ -123,13 +123,6 @@ export async function rainConditionsFor(stationCodi: string): Promise<RainCondit
   return h ? rainConditionsOf(h, localToday()) : null;
 }
 
-/** Todas las estaciones, para la página de conjunto. */
-export async function allRainConditions(): Promise<RainConditions[]> {
-  const today = localToday();
-  return (await allHistory())
-    .map((h) => rainConditionsOf(h, today))
-    .filter((c): c is RainConditions => c != null);
-}
 
 /**
  * Qué se puede decir de la lluvia acumulada, en catalán y sin puntuar.

@@ -41,6 +41,21 @@ export interface MapFeature {
   room: number;
   /** Si el nom hi cap sense trepitjar cap altre rètol. Ho decideix el build. */
   showName: boolean;
+  /**
+   * On va el nom, que no sempre és sota la xifra.
+   *
+   * El build prova unes quantes posicions al voltant abans de rendir-se, i per
+   * a les cinc que no hi caben de cap manera —la franja costanera de l'àrea
+   * metropolitana, amb zero unitats lliures— el posa fora amb una línia. Es
+   * publica el punt trobat en comptes de recalcular-lo aquí: si es tornava a
+   * calcular, el rectangle que el build va reservar i el text que es dibuixa
+   * acabarien a llocs diferents.
+   */
+  nameAt: [number, number] | null;
+  /** El nom ja partit en línies. Una de sola quan hi cap sencer. */
+  nameLines: string[] | null;
+  /** Si el rètol és fora del territori i cal lligar-l'hi amb una línia. */
+  leader: boolean;
 }
 
 interface MapGeometry {

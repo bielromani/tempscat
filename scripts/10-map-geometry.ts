@@ -271,22 +271,48 @@ const features = projected.map((f) => {
     label,
     // Quant text hi cap al costat de la xifra, en unitats del viewBox.
     room: widthAt(outer, label),
-    // El decideix la passada de col·locació de més avall.
+    // Els decideix la passada de col·locació de més avall.
     showName: false,
+    /**
+     * On va el nom, si es dibuixa.
+     *
+     * No sempre és sota la xifra: quan allà xoca amb un veí, es prova al
+     * voltant. Es publica el punt trobat en comptes de recalcular-lo a la
+     * pàgina, que és el que faria que un dia el rectangle que es va reservar
+     * i el text que es dibuixa fossin a llocs diferents.
+     */
+    nameAt: null as [number, number] | null,
+    /** El nom ja partit en línies. Una de sola quan hi cap sencer. */
+    nameLines: null as string[] | null,
+    /**
+     * Si el rètol va fora del territori i cal lligar-l'hi amb una línia.
+     *
+     * Només per a les que no hi caben de cap manera: la franja costanera de
+     * l'àrea metropolitana, que té zero unitats d'amplada lliure.
+     */
+    leader: false,
   };
 });
 
 /*
- * ── Quins noms es dibuixen ──────────────────────────────────────────────────
+ * ── Quins noms es dibuixen, i on ────────────────────────────────────────────
  *
  * El criteri no és «que càpiga dins de la comarca». Als atles els rètols
  * sobresurten contínuament i ningú s'hi fixa; el que no es perdona és que **dos
  * rètols es trepitgin**. Amb la regla de cabre-hi dins només en sortien 15 de
  * 43, i un mapa amb quinze noms i vint-i-vuit sense sembla que hi hagi un error.
  *
- * Així que es col·loquen per ordre de comarca gran a petita —les grosses tenen
- * més dret al seu nom— i es descarta qualsevol que xoqui amb un de ja posat o
- * que se surti massa del seu propi polígon.
+ * ## Provar més d'un lloc, que és el que faltava
+ *
+ * Amb un sol candidat —just sota la xifra— en quedaven 17 sense nom, i entre
+ * elles el Barcelonès, el Maresme, el Baix Llobregat i els dos Vallès: la part
+ * del país on viu més gent era la que no es podia identificar. La meitat no
+ * fallaven per falta de lloc sinó per xocar amb un rètol ja posat —el Vallès
+ * Oriental té 83 unitats d'amplada lliure i no en cabia el nom—, i n'hi ha
+ * prou de provar unes quantes posicions al voltant abans de rendir-se.
+ *
+ * Es col·loquen de gran a petita: les grosses tenen més dret al seu lloc
+ * natural, i les petites es busquen la vida al voltant.
  */
 const NAME_SIZE = 15;
 const CHAR = NAME_SIZE * 0.55;
@@ -306,17 +332,118 @@ for (const f of features) {
   });
 }
 
+/**
+ * On es prova de posar el nom, en ordre de preferència.
+ *
+ * Sota la xifra primer, que és on es llegeix millor. Després amunt, i després
+ * escapant-se cap als costats: una comarca estreta i llarga com el Maresme no
+ * té lloc a sota però en té a banda i banda.
+ *
+ * El desplaçament vertical és de 26 unitats i no de 16 perquè ha de salvar la
+ * capsa de la xifra del veí, que fa 26 d'alt.
+ */
+const SPOTS: Array<[number, number]> = [
+  [0, 13], [0, -20], [0, 34], [0, -40],
+  [34, 13], [-34, 13], [46, -6], [-46, -6],
+];
+
+/**
+ * Un nom llarg, partit per l'espai més proper al mig.
+ *
+ * «Conca de Barberà» fa 132 unitats en una línia i la comarca en té 79 de
+ * lliures: en una sola línia no hi cabia de cap manera, i el mapa es quedava
+ * sense set noms per aquest motiu i no per falta de lloc —les comarques hi
+ * tenen espai, però amunt i avall, no de costat—. És el que fa qualsevol
+ * atles.
+ *
+ * No es parteix el que ja hi cap: dues línies on n'hi hauria prou amb una
+ * criden l'atenció sobre el rètol en comptes de sobre el mapa.
+ */
+function wrap(name: string, allowed: number): string[] {
+  if (name.length * CHAR <= allowed) return [name];
+  const spaces = [...name.matchAll(/ /g)].map((m) => m.index);
+  if (!spaces.length) return [name];
+  const mid = name.length / 2;
+  const cut = spaces.reduce((a, b) => (Math.abs(b - mid) < Math.abs(a - mid) ? b : a));
+  return [name.slice(0, cut), name.slice(cut + 1)];
+}
+
+/** Alçada d'una línia de nom, per apilar-les i per reservar la capsa. */
+const LINE = 16;
+
 let named = 0;
 for (const f of [...features].sort((a, b) => b.room - a.room)) {
+  const allowed = f.room * (1 + OVERHANG);
+  const lines = wrap(f.name, allowed);
+  const w = Math.max(...lines.map((l) => l.length * CHAR));
+  if (w > allowed) continue;   // sobresortiria massa fins i tot partit
+
+  const h = lines.length * LINE;
+  for (const [dx, dy] of SPOTS) {
+    const cx = f.label[0] + dx;
+    const cy = f.label[1] + dy;
+    const box: Box = {
+      x0: cx - w / 2 - 3, x1: cx + w / 2 + 3,
+      y0: cy - 8, y1: cy - 8 + h,
+    };
+    if (placed.some((b) => overlaps(box, b))) continue;
+    placed.push(box);
+    f.showName = true;
+    f.nameAt = [cx, cy];
+    f.nameLines = lines;
+    named++;
+    break;
+  }
+}
+
+/*
+ * ── Les que no hi caben de cap manera: rètol a fora i una línia ─────────────
+ *
+ * Cinc comarques tenen **zero** unitats d'amplada lliure al seu punt interior
+ * —el Barcelonès, el Baix Llobregat, el Maresme, el Garraf i el Tarragonès—:
+ * són la franja costanera de l'àrea metropolitana, estretes i llargues, i cap
+ * text no hi cap a dins per petit que sigui. És justament on viu més gent, i
+ * eren les que quedaven sense poder-se identificar.
+ *
+ * Els atles ho resolen des de sempre: el nom va a fora, en un lloc lliure, i
+ * una línia fina el lliga amb el seu territori. El lloc lliure el busca aquest
+ * bucle sortint del punt interior cap enfora, i com que el mar no té cap altre
+ * rètol, els de la costa hi van a parar sols.
+ */
+const AWAY: Array<[number, number]> = [
+  [1, 0.35], [1, -0.2], [0.85, 0.75], [1, 0.9],
+  [0.3, 1], [-1, 0.35], [-1, -0.2], [0, -1],
+];
+const STEPS = [46, 74, 104, 138, 176];
+
+let led = 0;
+for (const f of [...features].sort((a, b) => b.room - a.room)) {
+  if (f.showName) continue;
+  const lines = [f.name];
   const w = f.name.length * CHAR;
-  if (w > f.room * (1 + OVERHANG)) continue;   // sobresortiria massa
-  const box: Box = {
-    x0: f.label[0] - w / 2 - 3, x1: f.label[0] + w / 2 + 3,
-    y0: f.label[1] + 5, y1: f.label[1] + 21,
-  };
-  if (placed.some((b) => overlaps(box, b))) continue;
-  placed.push(box);
+
+  const spot = STEPS.flatMap((d) => AWAY.map(([ux, uy]) => (
+    [f.label[0] + ux * d, f.label[1] + uy * d] as [number, number]
+  ))).find(([cx, cy]) => {
+    // Dins del llenç, i amb el rètol sencer a dins.
+    if (cx - w / 2 < 4 || cx + w / 2 > WIDTH - 4 || cy < 12 || cy > HEIGHT - 6) return false;
+    /*
+     * Onze i no vuit d'alçada. Un rètol reservat a ±8 passava per sota d'una
+     * xifra veïna: mesurat a la pàgina, «Baix Llobregat» es menjava cinc
+     * píxels del 29° del costat. La capsa ha de ser la que ocupa el text de
+     * debo, no la que es voldria.
+     */
+    const box: Box = { x0: cx - w / 2 - 4, x1: cx + w / 2 + 4, y0: cy - 11, y1: cy + 11 };
+    return !placed.some((b) => overlaps(box, b));
+  });
+
+  if (!spot) continue;
+  placed.push({ x0: spot[0] - w / 2 - 4, x1: spot[0] + w / 2 + 4, y0: spot[1] - 11, y1: spot[1] + 11 });
   f.showName = true;
+  f.nameAt = spot;
+  f.nameLines = lines;
+  f.leader = true;
+  led++;
   named++;
 }
 
@@ -338,7 +465,7 @@ console.log(`Mapa de comarques: ${features.length} comarques`);
 console.log(`  punts: ${before.toLocaleString('ca-ES')} → ${after.toLocaleString('ca-ES')}`
   + ` (${(100 - (after / before) * 100).toFixed(0)} % menys)`);
 if (dropped) console.log(`  ${dropped} illots massa petits per dibuixar-los a aquesta escala`);
-console.log(`  noms dibuixats: ${named} de ${features.length}`);
+console.log(`  noms dibuixats: ${named} de ${features.length}` + (led ? ` (${led} amb línia guia, fora del seu territori)` : ''));
 console.log(`  viewBox: ${WIDTH} × ${HEIGHT}`);
 console.log(`  escala: ${scale.toFixed(1)} unitats per radiant`);
 console.log(`  → data/build/geo/comarques-map.json`

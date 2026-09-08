@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { beaufort, nauticalConditions, periodMeaning } from '@/lib/activities';
 import { douglas, FLAG_SHOW_HOURS, flagStyle } from '@/lib/sea';
 import { windCardinal } from '@/lib/variables';
+import { PointsMap } from '@/components/PointsMap';
+import { mapOutline } from '@/lib/map';
+import { waveColor } from '@/lib/scales';
 import { ago, hour, num } from '@/lib/format';
 
 /**
@@ -45,6 +48,9 @@ export default async function NauticaPage() {
     .map((s) => s.waveHeight)
     .filter((v): v is number => v != null);
   const maxGust = winds.length ? Math.max(...winds) : null;
+
+  const geo = mapOutline();
+  const mapped = stretches.filter((s) => s.waveHeight != null);
   const maxWave = waves.length ? Math.max(...waves) : null;
 
   const flags = (data?.beaches ?? []).filter((b) => b.ageHours <= FLAG_SHOW_HOURS);
@@ -90,6 +96,51 @@ export default async function NauticaPage() {
           </p>
         )}
       </header>
+
+      {/*
+        Els vint trams del model, amb l'onada de cada un.
+
+        La pàgina era una llista ordenada de nord a sud, i una llista ordenada
+        no diu que a la Costa Brava i al delta hi sol haver mars diferents el
+        mateix dia. En un país amb la costa en diagonal, el nom del tram no
+        situa: el punt sí.
+
+        El número de dins és l'alçada de l'onada en metres perquè és el que
+        decideix si es surt, i el color va de la calma al mar gruixut. La
+        temperatura de l'aigua ja té el seu mapa a /mar; aquí la pregunta és
+        una altra.
+      */}
+      {mapped.length > 0 && (
+        <section className="mb-8">
+          <PointsMap
+            outline={geo.features}
+            projection={geo.projection}
+            width={geo.width}
+            height={geo.height}
+            labels
+            maxHeight={520}
+            ariaLabel={`Mapa de la costa amb l'alçada de l'onada als ${mapped.length} trams`}
+            points={mapped.map((s) => ({
+              key: s.near,
+              lat: s.lat,
+              lon: s.lon,
+              fill: waveColor(s.waveHeight as number),
+              ink: (s.waveHeight as number) >= 1.5 ? 'oklch(100% 0 0)' : 'oklch(20% 0.02 250)',
+              value: num(s.waveHeight, 1),
+              label: s.near,
+              tip: `${s.near}: ${num(s.waveHeight, 1)} m d'onada${
+                s.wind?.gustKmh != null ? ` · ratxa ${Math.round(s.wind.gustKmh)} km/h` : ''}`,
+            }))}
+            footer={(
+              <>
+                El número és l&apos;alçada de l&apos;onada en metres, i el color va
+                del mar pla al gruixut. Són els vint punts del model, no mesures
+                de boia: descriuen el tram de mar obert, no una cala arrecerada.
+              </>
+            )}
+          />
+        </section>
+      )}
 
       {stretches.length > 0 && (
         <section>

@@ -38,6 +38,15 @@ export interface MountainStation {
   codi: string;
   nom: string;
   altitud: number;
+  /**
+   * On és, per al mapa.
+   *
+   * Es podria tornar a buscar per `codi` a la pàgina, i seria una segona
+   * derivació de la mateixa clau: aquesta funció ja té l'estació a la mà
+   * quan la construeix.
+   */
+  lat: number;
+  lon: number;
   comarcaNom: string | null;
   path?: string;
   temperature: number | null;
@@ -172,6 +181,8 @@ export async function hikingConditions(): Promise<HikingConditions | null> {
       codi: s.codi,
       nom: s.nom,
       altitud: s.altitud,
+      lat: s.lat,
+      lon: s.lon,
       comarcaNom: s.comarcaNom ?? null,
       path: s.nearestLocation?.path,
       temperature: t,
@@ -197,6 +208,14 @@ export async function hikingConditions(): Promise<HikingConditions | null> {
 export interface SeaStretch {
   near: string;
   lat: number;
+  /**
+   * La longítud del punt del model.
+   *
+   * Hi és per al mapa. Només amb la latitud es podia ordenar el tram de nord
+   * a sud —que és el que la llista feia— però no col·locar-lo enlloc: la
+   * costa catalana va en diagonal i un punt sense longítud no és un punt.
+   */
+  lon: number;
   sst: number | null;
   waveHeight: number | null;
   wavePeriod: number | null;
@@ -275,6 +294,7 @@ export async function nauticalConditions(): Promise<NauticalConditions | null> {
       return {
         near: p.near,
         lat: p.lat,
+        lon: p.lon,
         sst: p.sst[i] ?? null,
         waveHeight: p.waveHeight[i] ?? null,
         wavePeriod: p.wavePeriod[i] ?? null,

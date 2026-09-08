@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { beaufort, hikingConditions, MOUNTAIN_M } from '@/lib/activities';
 import { windCardinal } from '@/lib/variables';
+import { PointsMap } from '@/components/PointsMap';
+import { mapOutline } from '@/lib/map';
+import { gustColor } from '@/lib/scales';
 import { ago, int, num } from '@/lib/format';
 import { allRoutes } from '@/lib/routes';
 
@@ -54,6 +57,9 @@ export default async function SenderismePage() {
   const anyChill = stations.some((s) => s.windChill != null);
   const anySnow = stations.some((s) => s.snowCm != null && s.snowCm > 0);
 
+  const geo = mapOutline();
+  const gusty = stations.filter((s) => s.gustKmh != null);
+
   return (
     <article>
       <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
@@ -94,6 +100,54 @@ export default async function SenderismePage() {
           </p>
         )}
       </header>
+
+      {/*
+        Les estacions de muntanya, amb la ratxa de cada una.
+
+        La pàgina era una taula ordenada per ratxa, i el que un excursionista
+        decideix amb ella és **on** no anar avui. Una llista de noms de cims
+        no ho diu si no te'ls saps: si el vent és a l'Aran o al Cadí és la
+        resposta, i era la que faltava.
+
+        El número de dins és la ratxa en km/h. Es podria haver pintat la
+        temperatura, però a dos mil metres el que fa girar cua és el vent —i
+        la temperatura ja té el mapa de /rànquings—.
+
+        Els noms només quan n'hi ha pocs: setze cims escampats pel Pirineu
+        porten bé el número a dins i malament el nom a sota.
+      */}
+      {gusty.length > 0 && (
+        <section className="mb-8">
+          <PointsMap
+            outline={geo.features}
+            projection={geo.projection}
+            width={geo.width}
+            height={geo.height}
+            values
+            labels={gusty.length <= 10}
+            ariaLabel={`Mapa amb la ratxa de vent a ${gusty.length} estacions de muntanya`}
+            points={gusty.map((s) => ({
+              key: s.codi,
+              lat: s.lat,
+              lon: s.lon,
+              fill: gustColor(s.gustKmh as number),
+              ink: (s.gustKmh as number) >= 61 ? 'oklch(100% 0 0)' : 'oklch(20% 0.02 250)',
+              value: String(Math.round(s.gustKmh as number)),
+              label: s.nom.replace(/\s*\([^)]*\)\s*$/, ''),
+              tip: `${s.nom}: ratxa de ${Math.round(s.gustKmh as number)} km/h${
+                s.temperature != null ? ` · ${num(s.temperature, 1)} °C` : ''}`,
+            }))}
+            footer={(
+              <>
+                El número és la ratxa màxima en km/h a les estacions per damunt
+                dels {MOUNTAIN_M} m. A partir de{' '}
+                <strong className="font-medium text-[var(--ink-2)]">61 km/h</strong> costa
+                caminar dret en una carena, i el color hi gira.
+              </>
+            )}
+          />
+        </section>
+      )}
 
       {/*
         L'enllaç als itineraris va aquí dalt i no al peu: qui entra a mirar com

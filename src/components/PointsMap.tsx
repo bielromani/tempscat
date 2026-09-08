@@ -54,8 +54,8 @@ export interface MapPoint {
 const APART = 95;
 
 export function PointsMap({
-  outline, projection, points, width, height, labels = false, ariaLabel, footer,
-  maxHeight = 460,
+  outline, projection, points, width, height,
+  labels = false, values = labels, ariaLabel, footer, maxHeight = 460,
 }: {
   outline: MapFeature[];
   projection: MapProjection;
@@ -65,6 +65,16 @@ export function PointsMap({
   height: number;
   /** Escriure el nom sota cada punt. Amb més de vint es trepitgen. */
   labels?: boolean;
+  /**
+   * Escriure el valor dins del cercle.
+   *
+   * A part dels noms perquè no aguanten el mateix. Setze estacions de muntanya
+   * escampades pel Pirineu porten bé el número a dins i malament el nom a
+   * sota, i amb un sol interruptor calia triar entre un mapa de colors sense
+   * xifres i un de xifres amb els noms encavalcats. Per defecte segueix
+   * `labels`, que és el que volen els mapes de pocs punts.
+   */
+  values?: boolean;
   ariaLabel: string;
   footer?: React.ReactNode;
   /**
@@ -87,7 +97,7 @@ export function PointsMap({
     })
     .sort((a, b) => a.x - b.x);
 
-  const r = labels ? 17 : 5;
+  const r = values ? 17 : 5;
 
   /*
    * A dalt o a baix, segons el veí de l'esquerra.
@@ -129,9 +139,9 @@ export function PointsMap({
               cx={p.x} cy={p.y} r={p.r ?? r}
               fill={p.fill}
               stroke="oklch(100% 0 0 / 0.85)"
-              strokeWidth={labels ? 1.5 : 1}
+              strokeWidth={values ? 1.5 : 1}
             />
-            {labels && p.value && (
+            {values && p.value && (
               <text
                 x={p.x} y={p.y + 5}
                 textAnchor="middle"

@@ -110,6 +110,38 @@ export function altitudeColor(m: number): string {
   return `oklch(${(62 + k * 32).toFixed(0)}% ${(0.11 - k * 0.09).toFixed(3)} ${(145 - k * 65).toFixed(0)})`;
 }
 
+/**
+ * De l'alçada de l'onada al color: del mar pla al gruixut.
+ *
+ * El sostre són quatre metres i no el màxim del dia, a diferència de
+ * `concentrationColor`. Aquí hi ha una referència externa que tothom
+ * comparteix —l'escala Douglas, que `sea.ts` ja fa servir per posar-hi nom— i
+ * amb una escala relativa un dia de calma sortiria vermell perquè en algun
+ * tram hi hauria mig metre.
+ */
+export function waveColor(m: number): string {
+  const k = Math.max(0, Math.min(1, m / 4));
+  return `oklch(${(84 - k * 34).toFixed(0)}% ${(0.04 + k * 0.13).toFixed(3)} ${(215 - k * 190).toFixed(0)})`;
+}
+
+/**
+ * De la ratxa al color, amb el gir als 61 km/h.
+ *
+ * El llindar no és decoratiu: és el vuit de l'escala de Beaufort, on el vent
+ * deixa de molestar i comença a decidir si es camina dret en una carena. Per
+ * sota, l'escala puja de mica en mica; a partir d'allà se'n va cap al roig de
+ * pressa, perquè la diferència entre 65 i 95 km/h importa molt més que la
+ * que hi ha entre 15 i 45.
+ */
+export function gustColor(kmh: number): string {
+  const k = Math.max(0, Math.min(1, kmh / 61));
+  if (kmh <= 61) {
+    return `oklch(${(90 - k * 22).toFixed(0)}% ${(0.02 + k * 0.09).toFixed(3)} ${(230 - k * 130).toFixed(0)})`;
+  }
+  const j = Math.max(0, Math.min(1, (kmh - 61) / 59));
+  return `oklch(${(68 - j * 16).toFixed(0)}% ${(0.11 + j * 0.07).toFixed(3)} ${(100 - j * 75).toFixed(0)})`;
+}
+
 export function capColor(severity: string): string {
   switch (severity.toLowerCase()) {
     case 'extreme': return 'var(--cap-red)';

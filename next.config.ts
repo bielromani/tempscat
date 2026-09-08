@@ -28,6 +28,28 @@ const nextConfig: NextConfig = {
    * validacio cada vegada. Amb la versio al nom del fitxer es pot dir
    * `immutable` sense mentir: si algun dia es recalcula, sera `relleu-v2.png`.
    */
+  /*
+   * `/bolets` se retiró, y una URL publicada no se deja caer en un 404.
+   *
+   * La página ordenó durante meses las 189 estaciones por lluvia acumulada
+   * bajo un título que prometía setas, y eso era ordenar **aparatos** para
+   * contestar una pregunta sobre **bosques**: decía dónde hay pluviómetro y
+   * dónde descargó la última tormenta. Se corregiría con una capa de usos del
+   * suelo, que no tenemos, así que no se corrige: se quita.
+   *
+   * Lo que sí seguía siendo cierto —cuánta agua ha caído y dónde— vive en dos
+   * sitios mejores: la lista de lluvia de `/ranquings`, que es adonde apunta
+   * esto, y el bloque de cada ficha, que contesta la pregunta donde se hace,
+   * con la estación que la mide y su distancia.
+   *
+   * Permanente y no temporal: no va a volver.
+   */
+  async redirects() {
+    return [
+      { source: '/bolets', destination: '/ranquings', permanent: true },
+    ];
+  },
+
   async headers() {
     return [
       {
