@@ -145,8 +145,8 @@ export function RouteMap({
           Institut Cartogràfic i Geològic de Catalunya
         </External>{' '}
         (CC BY). Fora de Catalunya, ©OpenMapTiles i ©OpenStreetMap (ODbL). El
-        traçat és d&apos;OpenStreetMap i el punt verd és l&apos;inici que aquesta
-        pàgina fa servir per calcular la predicció.
+        traçat és d&apos;OpenStreetMap i el punt verd és l&apos;inici, que és el punt
+        d&apos;on surt la predicció.
       </figcaption>
     </figure>
   );

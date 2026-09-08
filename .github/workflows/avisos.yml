@@ -31,6 +31,12 @@ jobs:
     timeout-minutes: 10
     env:
       AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
+      # La data de caducitat viatja amb la clau perquè /estat la pugui dir.
+      # Qui avisa a temps és `credencials.yml`; això només fa que la pàgina
+      # d'estat ho ensenyi. Sense aquesta línia el worker la publica buida i
+      # /estat es queda sense el rètol, encara que la variable existeixi al
+      # repositori: va passar, i la variable ja hi era.
+      AEMET_API_KEY_EXPIRES: ${{ vars.AEMET_API_KEY_EXPIRES || secrets.AEMET_API_KEY_EXPIRES }}
       # Secret o variable, indiferent. Els dos calaixos de GitHub s'assemblen
       # prou perque un valor acabi al que no toca, i llavors l'expressio surt
       # buida: el worker es planta a l'arrencada i no diu per que. Va passar.

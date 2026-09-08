@@ -229,8 +229,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
           El temps a peu surt de la regla de Naismith —{num(NAISMITH_KMH, 1)} km/h en pla
           i una hora més per cada {int(NAISMITH_ASCENT_M_PER_H)} m de pujada—, que és
           la que fan servir les entitats excursionistes. No és una predicció: és una
-          referència amb el ritme dit en veu alta, i qui camini a un altre ritme
-          ja ho sap.
+          referència amb el ritme dit en veu alta.
           {route.ascentM == null && (
             <> Aquest itinerari no porta el desnivell publicat, així que el temps
             només compta els quilòmetres i <strong className="font-medium text-[var(--ink-2)]">es
@@ -379,8 +378,8 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
             La ratxa és la del punt de predicció, a {int(base.altitud ?? 0)} m, i{' '}
             <strong className="font-medium text-[var(--ink-2)]">no</strong> està
             pujada a la cota de l&apos;itinerari: en una carena el vent s&apos;accelera per la
-            forma del terreny i multiplicar-lo per un número inventat seria pitjor que
-            dir d&apos;on surt. La cota de neu diu per damunt de quina altura la
+            forma del terreny, i quant s&apos;hi accelera no ho diu la predicció de
+            la vall. La cota de neu diu per damunt de quina altura la
             precipitació arriba en forma de neu, no quanta se n&apos;acumula.
           </p>
         </section>
@@ -412,8 +411,8 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
           D&apos;aquest itinerari no se&apos;n publica el perfil d&apos;alçades. A
           OpenStreetMap la relació és un conjunt de vies sense ordre, i les
           d&apos;aquesta no s&apos;encadenen —hi ha branques o trams solts—, així que
-          «distància recorreguda» no vol dir res i el dibuix seria una serra
-          inventada. Les cotes mínima i màxima de dalt sí que són mesurades.
+          «distància recorreguda» no vol dir res i el perfil no es pot dibuixar.
+          Les cotes mínima i màxima de dalt sí que són mesurades.
         </p>
       )}
 

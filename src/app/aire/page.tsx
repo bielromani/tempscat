@@ -196,15 +196,14 @@ export default async function AirePage() {
         <p>
           Totes les xifres són <strong className="font-medium text-[var(--ink)]">mitjanes de les
           24 hores</strong> del dia, en µg/m³, i només surten quan el dia està
-          sencer: una mitjana de mitja jornada no és una mitjana diària i dir-ne
-          així seria enganyar.
+          sencer: una mitjana de mitja jornada no és una mitjana diària.
         </p>
         <p>
           <strong className="font-medium text-[var(--ink)]">El tipus d&apos;estació canvia el
           que mesura més que la distància.</strong> Una de trànsit al costat d&apos;una
           via amb pendent i una de fons en un parc, a un quilòmetre l&apos;una de
-          l&apos;altra, donen NO₂ que no s&apos;assemblen — i les dues estan bé. Per això
-          la columna hi és.
+          l&apos;altra, donen NO₂ que no s&apos;assemblen — i les dues estan bé. La
+          columna de la dreta diu de quina mena és cadascuna.
         </p>
         <p>
           L&apos;ozó fa el camí contrari que el trànsit: puja on hi ha menys cotxes i

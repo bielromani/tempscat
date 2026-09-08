@@ -125,7 +125,7 @@ export function ElevationProfile({
         Cota mesurada cada 150 m del model d&apos;elevació de Copernicus, que té un
         píxel de 57 m. Diu bé <strong className="font-medium text-[var(--ink-2)]">on
         es puja</strong>; el desnivell acumulat no se&apos;n calcula, perquè a
-        aquesta resolució sortiria curt sense que es notés.
+        aquesta resolució sortiria curt.
       </figcaption>
     </figure>
   );

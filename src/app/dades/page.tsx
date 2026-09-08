@@ -65,8 +65,7 @@ export default function DadesPage() {
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
           Tot el que es veu en aquest web es pot llegir en JSON o en CSV, per a
           qualsevol dels 4.293 llocs. No cal clau, no cal registre i no hi ha
-          límit de peticions — el feed llegeix exactament els mateixos fitxers que
-          la pàgina, així que servir-lo no ens costa cap consulta a cap API.
+          límit de peticions: el feed llegeix els mateixos fitxers que la pàgina.
         </p>
       </header>
 
@@ -142,14 +141,14 @@ export default function DadesPage() {
           <strong className="font-medium text-[var(--ink)]">El desacord entre models.</strong>{' '}
           El camp <code className="font-mono text-sm">spread</code> és la desviació
           entre els models que entren al consens. Quan val <code className="font-mono text-sm">null</code>,
-          és que en aquell punt només hi ha un model — i que no ho diguem seria
-          amagar la incertesa.
+          és que en aquell punt només hi ha un model, i amb un de sol no hi ha
+          desacord.
         </p>
         <p>
           <strong className="font-medium text-[var(--ink)]">Les frases.</strong>{' '}
           El bloc <code className="font-mono text-sm">summary</code> porta el resum
-          en català generat amb plantilles deterministes. Qualsevol pot calcular
-          una mitjana; això és el que costa de refer.
+          en català. El generen plantilles deterministes i no un model de
+          llenguatge: amb les mateixes dades en surt sempre la mateixa frase.
         </p>
       </div>
 

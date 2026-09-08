@@ -261,7 +261,7 @@ export default async function NeuPage() {
         </p>
         <p>
           <strong className="font-medium text-[var(--ink)]">No és l&apos;estat de les pistes.</strong>{' '}
-          Les estacions d&apos;esquí innaven, compacten i acumulen, i el gruix d&apos;una
+          Les estacions d&apos;esquí fabriquen neu, la compacten i l&apos;acumulen, i el gruix d&apos;una
           pista no té gaire a veure amb el d&apos;un prat a la mateixa cota. Per a
           això, la font són les mateixes estacions d&apos;esquí.
         </p>

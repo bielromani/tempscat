@@ -290,6 +290,13 @@ cuota para exactamente la misma información.
   que es justo lo que intenta evitar, y un run en rojo querría decir dos cosas distintas. Una
   clave **sin fecha registrada cuenta como caducada**: «no sé cuándo caduca» es el estado que
   llevó hasta aquí. Y `/estat` lo enseña en cada fuente que tenga clave.
+- **Una variable que existe en el repositorio pero no está en el `env:` del workflow no existe
+  para el worker.** `AEMET_API_KEY_EXPIRES` se puso como variable del repositorio y `/estat`
+  siguió sin decir nada: `credencials.yml` sí la pasaba y `avisos.yml` no, así que el worker de
+  avisos publicaba `credentialExpiresAt: null` en el registro de frescura y la página lo leía
+  como «esta fuente no tiene clave». Ni un error, ni un run en rojo, y la variable estaba bien
+  puesta. Si un worker lee una variable, **el workflow que lo lanza tiene que pasársela**, y la
+  comprobación es mirar la página que la enseña, no el ajuste de GitHub.
 - **Open-Meteo devuelve `nan` sin comillas** cuando un punto cae fuera del dominio de un modelo.
   No es JSON válido. Hay que sanear el texto antes de parsear.
 - **La XEMA no rellena `codi_estat` en los datos recientes.** Filtrar por `'V'` deja la web sin

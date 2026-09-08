@@ -939,12 +939,15 @@ XEMA va dos días atrás y el 4 de septiembre solo tenía el día 1 y el 2. Pero
 comparar dos días contra la normal de treinta no es comparar nada. Ahora dice
 cuántos días cubre la cifra.
 
-### Los textos · **regla ya escrita, aplicarla a todo**
+### Los textos · ✅ hecho el 8 de septiembre de 2026
 
-Está en `AGENTS.md`: la página no habla de sí misma, registro neutro, sin
-pullas. Se aplicó a las cámaras después de que el usuario señalara «De nit les
-imatges surten fosques. No és una errada: és el que hi ha…». Falta una pasada
-por el resto con el mismo criterio.
+La regla está en `AGENTS.md`: la página no habla de sí misma, registro neutro,
+sin pullas, y de vós. Se aplicó primero a las cámaras —después de que el
+usuario señalara «De nit les imatges surten fosques. No és una errada: és el que
+hi ha…»— y el resto quedó pendiente hasta la pasada de ese mismo día: 176
+bloques editoriales, 21 marcas, cero al acabar. El detalle y la tabla de antes y
+después están más abajo, en «Los textos, escritos para el usuario y no para
+nosotros».
 
 ---
 
@@ -1062,9 +1065,11 @@ cifra va de −22 a +4 respecto del punto, que es lo que ocupa un cuerpo 26
 centrado en −9. Dibujándola en cero se comía su propio nombre —cuarenta
 solapamientos— y el build no se enteraba de nada.
 
-Lo que **sigue** pendiente de este mapa: en una ficha de comarca ocupa más de una
-pantalla. `PointsMap` ya limita el contenedor en vez de recortar el SVG; falta
-aplicar lo mismo aquí.
+Y en una ficha de comarca el mapa ya no ocupa una pantalla: la variante
+`compact` va dentro de un contenedor de 340 px, así que el SVG —que es cuadrado,
+1000 × 990— sale a **340 × 337**, menos de la mitad de la altura de un portátil.
+Medido en la página, no supuesto. Se limita el contenedor en vez de recortar el
+SVG, que es lo mismo que hacen `PointsMap` y el mapa del radar.
 
 ### El diseño general
 
@@ -1084,11 +1089,12 @@ aplicar lo mismo aquí.
 
   Y las tres listas salen ahora de un solo sitio, `src/lib/nav.ts`: antes cada
   una iba a mano y añadir una página significaba acordarse de tres ficheros.
-- **El mapa de comarcas ocupa más de una pantalla de ordenador.** Nació para
-  `/mapa`, donde es el contenido; en una ficha de comarca tiene que ser mucho
-  más pequeño.
+- ~~**El mapa de comarcas ocupa más de una pantalla de ordenador**~~ · ✅ hecho.
+  Nació para `/mapa`, donde es el contenido. En una ficha de comarca es ahora la
+  variante `compact`, de 340 × 337 px medidos: sitúa la comarca y no empuja nada
+  por debajo del primer golpe de vista.
 
-### Los textos, escritos para el usuario y no para nosotros · ✅ hecho
+### Los textos, escritos para el usuario y no para nosotros · ✅ hecho el 8 de septiembre de 2026
 
 Hay frases que son notas internas disfrazadas de texto público. El ejemplo que
 lo dejó claro, en `/mar`:
@@ -1098,8 +1104,60 @@ lo dejó claro, en `/mar`:
 
 Eso explica **nuestra decisión de diseño**, no le dice nada al lector. Lo que él
 necesita saber es que la bandera tiene una hora y que fuera de servicio no se
-actualiza. Hay que repasar el sitio entero con ese criterio: el razonamiento va
-en el código, no en la página.
+actualiza. El razonamiento va en el código; en la página, lo que hay que saber.
+
+#### Cómo se buscó
+
+No leyendo los ficheros: **el criterio es lo que se renderiza**, y en este
+repositorio la mayor parte de la prosa está en comentarios, donde explicar una
+decisión es justo lo que toca. Así que se levantaron los **176 bloques
+editoriales** —`<p>` y `<figcaption>` de más de 70 caracteres, con las
+expresiones sustituidas— y se pasaron por las cuatro reglas.
+
+El tuteo salió a **cero**: el «de vós» estaba bien puesto en todo el sitio. Las
+otras tres dejaron **21 marcas**, y quedaron en **0**.
+
+#### Lo que se quitó, y por qué
+
+| dónde | decía | dice |
+|---|---|---|
+| portada | «els nuclis… **que la resta de webs ignoren**» | «els nuclis i les entitats de població» |
+| `/dades` | «servir-lo **no ens costa** cap consulta a cap API» | «el feed llegeix els mateixos fitxers que la pàgina» |
+| `/dades` | «Qualsevol pot calcular una mitjana; **això és el que costa de refer**» | «El generen plantilles deterministes i no un model de llenguatge» |
+| `/dades` | «que no ho diguem **seria amagar la incertesa**» | «amb un de sol no hi ha desacord» |
+| `/aire` | «dir-ne així **seria enganyar**» | (fuera; la frase anterior ya lo dice) |
+| `/aire` | «**Per això la columna hi és**» | «La columna de la dreta diu de quina mena és cadascuna» |
+| `/avisos` | «l'assignació **la fem** per geometria… un fals positiu costa tant com un fals negatiu» | «Els avisos s'assignen per geometria i no pel nom de la zona» |
+| `/estat` | «**No és un problema nostre**… en comptes de **fer veure** que és d'ara mateix» | «És el temps que triga la lectura a arribar al portal» |
+| `/radar` | «les descarrega **el nostre worker**» | «es descarreguen cada deu minuts» |
+| `/rànquings` | «un **artefacte aritmètic presentat com un titular**» | «ja no descriu la diferència real entre el poble i la seva estació» |
+| ficha | «fins llavors **seria deshonest** prometre-la» | «cap no compta més que un altre pel que hagi encertat abans» |
+| tabla horaria | «són dues coses diferents **i la primera és millor**» | «són dues coses diferents» |
+| itinerarios | «multiplicar-lo per un número inventat **seria pitjor que dir d'on surt**» | «quant s'hi accelera no ho diu la predicció de la vall» |
+| itinerarios | «el dibuix **seria una serra inventada**» | «el perfil no es pot dibuixar» |
+| itinerarios | «Les cotes són calculades **per nosaltres**» | «Les cotes es calculen» |
+
+Y una que no era una regla sino una falta: `/neu` decía «les estacions d'esquí
+**innaven**», que no es ninguna palabra —el verbo es *innivar*, y aun bien
+conjugado casi nadie lo usa—. Ahora dice «fabriquen neu, la compacten i
+l'acumulen».
+
+#### Dónde se decidió no tocar
+
+La regla es que la página no se justifique, **no** que la página no explique de
+dónde sale lo que enseña. Se quedan:
+
+- «Hi ha lectures **que descartem**» en `/neu`, con el caso de Das entero. Un
+  filtro que borra datos hay que declararlo: el lector tiene que poder saber que
+  esa serie está tocada y por qué.
+- «La bandera la posa un socorrista… **per això** cada una porta l'hora del seu
+  parte, i les de més de 12 hores no surten». Dice qué se verá y qué no.
+- «El desnivell acumulat no se'n calcula: a aquesta resolució sortiria curt».
+  Explica una ausencia, que si no se lee como un fallo.
+
+La diferencia entre las dos listas es a quién le sirve la frase. «Sortiria curt»
+le dice al lector por qué falta un número; «sense que es notés» le contaba lo
+que nos preocupaba a nosotros.
 
 ### Un buscador de verdad · ✅ hecho
 

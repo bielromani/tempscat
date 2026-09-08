@@ -165,7 +165,7 @@ export function HourlyTable({ hourly, hours = 48, today }: Props) {
       <p className="border-t border-[var(--line-soft)] px-4 py-2 text-xs leading-relaxed text-[var(--muted)]">
         Les unitats van als encapçalaments. La probabilitat és la que dona el
         model, no el percentatge de models que preveuen pluja: són dues coses
-        diferents i la primera és millor.
+        diferents.
       </p>
     </div>
   );

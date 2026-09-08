@@ -24,8 +24,8 @@ export default function Home() {
           <strong className="font-semibold text-[var(--ink)]">
             {summary.published.toLocaleString('ca-ES')} llocs
           </strong>{' '}
-          — no només els 947 municipis, sinó també els nuclis i les entitats de
-          població que la resta de webs ignoren. Cada punt amb la seva altitud
+          — no només els 947 municipis, sinó també els nuclis i les entitats
+          de població. Cada punt amb la seva altitud
           real i l&apos;estació automàtica que li correspon.
         </p>
       </header>

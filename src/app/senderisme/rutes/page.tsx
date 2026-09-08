@@ -136,8 +136,8 @@ export default function RutesPage() {
           metres per sota del que és.
         </p>
         <p>
-          El desnivell acumulat només surt quan OSM el porta. Calcular-lo amb un model
-          de 57 m donaria un número curt sense que es notés.
+          El desnivell acumulat només surt quan OSM el porta: calculat amb un model
+          de 57 m sortiria curt.
         </p>
         <p>
           Les marques de pintura i el manteniment són de les entitats excursionistes,
@@ -152,7 +152,7 @@ export default function RutesPage() {
           <External href="https://www.openstreetmap.org/copyright" className="text-[var(--ink-2)]">
             {source} i els seus col·laboradors
           </External>
-          , amb llicència {license}. Les cotes són calculades per nosaltres del model
+          , amb llicència {license}. Les cotes es calculen del model
           d&apos;elevació de Copernicus al zoom {demZoom}.
         </p>
       </footer>

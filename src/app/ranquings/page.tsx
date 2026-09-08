@@ -265,7 +265,7 @@ export default async function RanquingsPage() {
         s&apos;obté corregint la lectura de l&apos;estació de referència pel desnivell
         de cada municipi, així que és una{' '}
         <strong className="font-medium text-[var(--ink-2)]">estimació</strong> i no una
-        mesura. Per això va en una llista a part.
+        mesura.
       </p>
       <div className="grid gap-3 lg:grid-cols-2">
         <Block title="Els municipis més frescos ara">
@@ -289,8 +289,8 @@ export default async function RanquingsPage() {
             <>
               S&apos;han deixat fora {int(r.places.excluded)} punts que tenen més de
               300 m de desnivell respecte de la seva estació: per damunt d&apos;aquest
-              llindar el gradient tèrmic estàndard deixa de ser defensable, i el
-              resultat seria un artefacte aritmètic presentat com un titular.
+              llindar el gradient tèrmic estàndard ja no descriu la diferència
+              real entre el poble i la seva estació.
             </>
           )}
         </p>

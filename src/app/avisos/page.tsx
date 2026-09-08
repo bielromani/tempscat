@@ -167,10 +167,9 @@ export default async function AvisosPage() {
       </section>
 
       <p className="mt-8 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
-        L&apos;assignació d&apos;avisos a comarques la fem per geometria, no per nom
-        de zona: els polígons de l&apos;AEMET no segueixen els límits comarcals, i
-        emparellar-los pel nom donaria avisos a municipis que no en tenen. En un
-        avís de seguretat, un fals positiu costa tant com un fals negatiu.
+        Els avisos s&apos;assignen a les comarques per geometria i no pel nom de
+        la zona: els polígons de l&apos;AEMET no segueixen els límits comarcals, i
+        emparellar-los pel nom donaria avisos a municipis que no en tenen.
       </p>
     </article>
   );

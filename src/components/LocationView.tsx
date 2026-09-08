@@ -327,8 +327,8 @@ function DailyStrip({ daily, today }: { daily: LocationForecast['daily']; today:
         <p className="mt-3 max-w-[68ch] text-xs leading-relaxed text-[var(--muted)]">
           Els dies que queden després de la ratlla són <strong className="font-medium text-[var(--ink-2)]">tendència,
           no predicció</strong>. Un model encerta força la setmana que ve i molt
-          menys la següent, així que allà no hi posem els mil·límetres —a dotze
-          dies vista la quantitat és soroll— i sí la probabilitat, que encara diu
+          menys la següent, així que allà no hi ha mil·límetres —a dotze dies
+          vista la quantitat és soroll— i sí la probabilitat, que encara diu
           alguna cosa. Serveixen per veure cap on va, no per fer plans.
         </p>
       )}
@@ -807,10 +807,8 @@ export function LocationView({
 
       {forecast && !forecast.skillWeighted && (
         <p className="mt-10 rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-4 py-3 text-xs leading-relaxed text-[var(--muted)]">
-          Els models pesen igual en aquest consens. La ponderació per encert
-          verificat contra les estacions de la XEMA encara no està activa: cal
-          acumular històric per calcular-la, i fins llavors seria deshonest
-          prometre-la.
+          Els models pesen igual en aquest consens: cap no compta més que un
+          altre pel que hagi encertat abans.
         </p>
       )}
     </article>

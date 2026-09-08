@@ -118,9 +118,8 @@ export default async function EstatPage() {
         Les estacions de la XEMA prenen lectura cada mitja hora, i el portal de
         dades obertes de la Generalitat les publica amb un decalatge que hem
         mesurat entre <strong className="font-medium text-[var(--ink)]">45 i 65 minuts</strong>.
-        No és un problema nostre ni el podem escurçar: és el temps que triga la
-        dada a arribar-hi. Per això cada pàgina diu l&apos;hora exacta de la
-        lectura en comptes de fer veure que és d&apos;ara mateix.
+        És el temps que triga la lectura a arribar al portal. Per això cada
+        pàgina porta l&apos;hora exacta de la lectura que ensenya.
       </p>
 
       <h2 className="mt-8 text-lg font-semibold tracking-tight">Validació</h2>

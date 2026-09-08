@@ -554,9 +554,9 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         </p>
         <p className="text-[var(--muted)]">
           Imatges de {data.source}. Límits comarcals de l&apos;Institut Cartogràfic
-          i Geològic de Catalunya. Les tessel·les les descarrega el nostre worker
-          cada deu minuts i les serveix aquest domini: així la vostra visita no
-          arriba mai a un tercer.
+          i Geològic de Catalunya. Les tessel·les es descarreguen cada deu minuts
+          i les serveix aquest mateix domini: la vostra visita no arriba a cap
+          tercer.
         </p>
         {/*
           * L'atribució que demana la font del relleu, tal com la demana.
