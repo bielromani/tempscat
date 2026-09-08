@@ -1,7 +1,11 @@
 import type { Metadata } from 'next';
+import { PointsMap } from '@/components/PointsMap';
+import { mapOutline } from '@/lib/map';
 import Link from 'next/link';
 import { dateFull, hour, int, num, signed } from '@/lib/format';
-import { droughtLevel, droughtSummary, gaugeName, reservoirColor, reservoirs, riverGauges } from '@/lib/water';
+import {
+  droughtLevel, droughtSummary, gaugeName, reservoirColor, reservoirName, reservoirs, riverGauges,
+} from '@/lib/water';
 
 /**
  * Los embalses, los ríos y la sequía.
@@ -31,6 +35,7 @@ export default async function AiguaPage() {
   const res = await reservoirs();
   const rivers = (await riverGauges()).filter((r) => r.flow != null);
   const drought = await droughtSummary();
+  const outline = mapOutline();
 
   if (!res?.list.length) {
     return (
@@ -92,6 +97,44 @@ export default async function AiguaPage() {
           Confederació Hidrogràfica de l&apos;Ebre i no surten aquí.
         </p>
       </header>
+
+      {/*
+        On són, abans de la llista.
+
+        Nou embassaments amb el seu percentatge eren nou barres i cap idea de
+        geografia: qui no se sap el mapa de memòria no sap si Sau i Susqueda són
+        veïns —ho són, al mateix riu— ni per què la Baells i la Llosa del Cavall
+        es comporten diferent. Amb el mapa, la llista de sota es llegeix com el
+        que és: una conca i no nou dipòsits solts.
+      */}
+      <section className="mt-6">
+        <PointsMap
+          outline={outline.features}
+          projection={outline.projection}
+          width={outline.width}
+          height={outline.height}
+          labels
+          ariaLabel={`Mapa dels ${res.list.length} embassaments de les conques internes, amb el seu percentatge de volum`}
+          points={res.list
+            .filter((r) => r.pct != null)
+            .map((r) => ({
+              key: r.code,
+              lat: r.lat,
+              lon: r.lon,
+              fill: reservoirColor(r.pct as number),
+              ink: (r.pct as number) >= 55 ? 'oklch(100% 0 0)' : 'oklch(20% 0.02 250)',
+              value: `${Math.round(r.pct as number)}`,
+              label: reservoirName(r.name),
+              tip: `${reservoirName(r.name)}: ${num(r.pct, 1)} % · ${num(r.volumeHm3, 1)} hm³`,
+            }))}
+          footer={(
+            <>
+              El número de dins és el percentatge de volum. El color va de l&apos;ocre
+              sec al blau ple, i és el mateix de les barres de sota.
+            </>
+          )}
+        />
+      </section>
 
       <ul className="space-y-2">
         {res.list.map((r) => {

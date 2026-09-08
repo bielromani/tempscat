@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { rankings, type PlaceRow, type StationRow } from '@/lib/rankings';
+import { PointsMap } from '@/components/PointsMap';
+import { mapOutline } from '@/lib/map';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { aName, ago, dateLong, deName, int, num, signed } from '@/lib/format';
 
@@ -128,6 +130,7 @@ export default async function RanquingsPage() {
     );
   }
 
+  const outline = mapOutline();
   const cold = r.stations.nowColdest[0];
   const warm = r.stations.nowWarmest[0];
 
@@ -149,6 +152,45 @@ export default async function RanquingsPage() {
           amb dada recent — {dateLong(r.day)}.
         </p>
       </header>
+
+      {/*
+        On fa fred i on fa calor, abans dels dos titulars.
+
+        La pàgina ensenyava els deu extrems de cada llista, i amb deu números
+        no es veu **on**: que el fred sigui al Pirineu i la calor a Ponent és
+        la meitat de la resposta d'aquesta pàgina, i era la meitat que no hi
+        era. Hi van les 187 amb dada, no els extrems, perquè el que un mapa
+        contesta és el repartiment.
+
+        Sense rètols: 187 noms superposats amaguen exactament el que el mapa
+        hauria d'ensenyar. Cada punt porta el seu al `title`.
+      */}
+      {r.now.length > 0 && (
+        <section className="mb-8">
+          <PointsMap
+            outline={outline.features}
+            projection={outline.projection}
+            width={outline.width}
+            height={outline.height}
+            ariaLabel={`Mapa de Catalunya amb la temperatura de les ${r.now.length} estacions ara mateix`}
+            points={r.now.map((s) => ({
+              key: s.codi,
+              lat: s.lat,
+              lon: s.lon,
+              fill: temperatureColor(s.t),
+              tip: `${s.nom}: ${num(s.t, 1)} °C`,
+            }))}
+            footer={(
+              <>
+                Cada punt és una estació de la XEMA amb la seva temperatura
+                d&apos;ara, sense corregir per desnivell: és la lectura del
+                termòmetre a la seva cota. Les de muntanya surten fredes perquè
+                hi són.
+              </>
+            )}
+          />
+        </section>
+      )}
 
       {/* Los dos titulares, con el color de la propia temperatura. */}
       {cold && warm && (

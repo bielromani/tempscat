@@ -68,6 +68,18 @@ export interface Rankings {
   source: string;
   /** Día natural al que se refieren los extremos. */
   day: string;
+  /**
+   * Totes les estacions amb temperatura ara, per al mapa.
+   *
+   * La pàgina ensenyava els deu extrems de cada llista i prou, i amb deu
+   * números no es veu **on**: que el fred sigui al Pirineu i la calor a Ponent
+   * és la meitat de la resposta, i era la meitat que no hi era. Van totes i no
+   * només els extrems perquè el que un mapa contesta és el repartiment.
+   *
+   * Surten d'aquí i no d'una segona lectura: aquesta funció ja s'ha baixat
+   * l'observació sencera per triar-ne els extrems.
+   */
+  now: Array<{ codi: string; nom: string; lat: number; lon: number; t: number }>;
   stations: {
     nowColdest: StationRow[];
     nowWarmest: StationRow[];
@@ -192,6 +204,9 @@ export async function rankings(): Promise<Rankings | null> {
     ageMin: newest ? Math.round((Date.now() - Date.parse(newest)) / 60_000) : null,
     source: snap.source,
     day: localToday(),
+    now: nowTemp.map((x) => ({
+      codi: x.r.s.codi, nom: x.r.s.nom, lat: x.r.s.lat, lon: x.r.s.lon, t: x.t,
+    })),
     stations: {
       nowColdest: top(nowTemp, (x) => x.t, 'asc').map((x) => describe(x.r.s, x.t)),
       nowWarmest: top(nowTemp, (x) => x.t, 'desc').map((x) => describe(x.r.s, x.t)),
