@@ -18,11 +18,12 @@ import { SeaBlock } from './SeaBlock';
 import { CameraBlock } from './CameraBlock';
 import { ResortBlock } from './ResortBlock';
 import { networkLabel, refApart, type Route } from '@/lib/routes';
+import { radarZoneOf } from '@/lib/radar-zones';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { feelsCause, msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
 import {
-  aName, ago, comarcaName, dateTiny, deComarca, deName, int, num, relativeDayTiny,
+  aComarca, aName, ago, comarcaName, dateTiny, deComarca, deName, int, num, relativeDayTiny,
   signed, tempTiny,
 } from '@/lib/format';
 import { localNowHour, localToday } from '@/lib/weather';
@@ -429,6 +430,7 @@ export function LocationView({
   const rain = history ? rainConditionsOf(history, today) : null;
   // La comarca se nombra con su artículo: és «l'Alt Camp», no «Alt Camp».
   const comarcaLabel = comarcaName(comarca.nom);
+  const zone = radarZoneOf(comarca.codi);
   const nowHour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
 
   return (
@@ -502,6 +504,29 @@ export function LocationView({
             models={forecast.nModels}
             id={loc.id}
           />
+          {/*
+            La porta al radar del seu tros, que no existia.
+
+            Des d'una fitxa l'única manera d'arribar-hi era el menú, que obre
+            Catalunya sencera; des d'allà calia endevinar en quina de les sis
+            zones cau el teu poble. I la pregunta que porta algú al radar des
+            d'aquí no és «on plou» en general: és si allò que ve li tocarà.
+
+            No hi ha zoom més enllà d'aquestes zones i no n'hi pot haver: la
+            imatge de radar té un píxel cada 457 m, que ja és més fi que la
+            pròpia mesura, i una comarca sencera hi són seixanta-sis píxels.
+            El que canvia és **on** es mira, no com de prop.
+          */}
+          {zone && (
+            <p className="mt-2 text-sm">
+              <Link
+                href={`/radar?zona=${zone.key}`}
+                className="font-medium text-[var(--accent)] no-underline hover:underline"
+              >
+                Veure el radar {aComarca(comarca.nom)} i rodalia ›
+              </Link>
+            </p>
+          )}
         </section>
       )}
 

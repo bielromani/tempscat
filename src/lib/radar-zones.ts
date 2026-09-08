@@ -68,6 +68,23 @@ const ZONES: RadarZone[] = [
   },
 ];
 
+/**
+ * A quina zona del radar cau una comarca.
+ *
+ * Existeix perquè des d'una fitxa de poble no hi havia manera d'arribar al
+ * radar del seu tros: la única porta era el menú, que obre Catalunya sencera,
+ * i des d'allà calia endevinar en quina de les sis zones és el teu poble. Ara
+ * la fitxa hi enllaça directament.
+ *
+ * No projecta res ni llegeix cap geometria: només mira la taula de dalt, que
+ * és la mateixa que fa servir `radarZones()`. Amb una segona llista, un dia una
+ * comarca hauria acabat enllaçant a la zona del costat.
+ */
+export function radarZoneOf(comarcaCodi: string): { key: string; label: string } | null {
+  const z = ZONES.find((zone) => zone.comarques.includes(comarcaCodi));
+  return z ? { key: z.key, label: z.label } : null;
+}
+
 export interface ZoneView {
   key: string;
   label: string;
