@@ -357,10 +357,13 @@ cuota para exactamente la misma información.
   només tenia l'1 i el 2— i es llegia com que no hi havia plogut. Comparar dos dies contra la
   normal de trenta no és comparar res. Es va veure perquè el bloc de pluja acumulada, a la
   mateixa pàgina i just a sobre, deia 168,8 mm en trenta dies.
-- **Ordenar aparells no contesta una pregunta sobre boscos.** `/bolets` obria amb «on més ha
-  plogut és a Torredembarra», que és on hi ha un pluviòmetre i on va descarregar la tempesta.
-  La pàgina ara diu el que és —pluja acumulada per estació— i la pregunta, que es fa d'un lloc
-  concret, es contesta a la fitxa d'aquell lloc amb `RainBlock`. Es corregiria de debò amb una
+- **Ordenar aparells no contesta una pregunta sobre boscos, i canviar-ne el títol tampoc.**
+  `/bolets` obria amb «on més ha plogut és a Torredembarra», que és on hi ha un pluviòmetre i on
+  va descarregar la tempesta. Es va retitular —«pluja acumulada per estació»— i seguia sent una
+  llista d'aparells ordenada; el 8 de setembre de 2026 **es va retirar**. La pregunta es fa d'un
+  lloc concret i es contesta a la fitxa d'aquell lloc amb `RainBlock`, i l'acumulat de la xarxa
+  és a la llista de pluja de `/ranquings`. L'adreça redirigeix permanentment des de
+  `next.config.ts`: una URL publicada no es deixa caure en un 404. Es corregiria de debò amb una
   capa d'usos del sòl, que no tenim.
 - **La serie mensual va a su propio trozo, y no al del histórico.** Son 457 meses en la estación
   más antigua —desde septiembre de 1988— y meterlos en el trozo del histórico lo llevaba de 10 kB
@@ -467,6 +470,19 @@ cuota para exactamente la misma información.
   texto: discrepancia de hidratación, y React vuelve a renderizar el árbol entero en el
   navegador. No da ningún error visible. Estuvo así en las rosas de los vientos de las 4.293
   páginas. Compón la cadena antes y pásala de una pieza.
+- **Un rótulo que no cabe no se descarta a la primera.** El mapa de comarcas nombraba **26 de
+  43**, y las que faltaban eran el Barcelonès, el Maresme, el Baix Llobregat y los dos Vallès: la
+  parte del país donde vive más gente. La mitad no fallaban por falta de sitio sino por chocar
+  con un rótulo ya puesto —el Vallès Oriental tiene 83 unidades libres—, así que se prueban ocho
+  posiciones alrededor; los nombres largos se parten en dos líneas —«Conca de Barberà» mide 132
+  unidades y la comarca tiene 79—; y las cinco con **cero** anchura libre llevan el rótulo fuera
+  con una línea guía, que es lo que hace cualquier atlas. Con eso, 43 de 43, y medido en la
+  página: cero solapamientos entre comarcas distintas.
+- **La caja que el build reserva tiene que ser la que el navegador dibuja.** Para la cifra va de
+  −22 a +4 respecto del punto, que es exactamente lo que ocupa un cuerpo 26 centrado en −9.
+  Dibujarla en cero —quitando ese desplazamiento— la baja hasta +13 y se come su propio nombre:
+  cuarenta solapamientos, y la colocación del build sin enterarse de nada, porque ella sigue
+  creyendo que reservó bien.
 - **La geometría del mapa no se simplifica en cada render.** Las 43 comarcas del ICGC son 14.347
   puntos, unos 154 KB de `path`. `scripts/10-map-geometry.ts` las proyecta, las simplifica con
   Douglas-Peucker a un píxel y las deja en enteros con órdenes relativas: 23 KB, y la aplicación

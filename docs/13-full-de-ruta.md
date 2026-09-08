@@ -1033,11 +1033,38 @@ amb hores d'antiguitat va fluix. Aquella franja segueix sense cobrir-se bé, i
 ho seguirà estant fins que RainViewer torni marcs —el worker ja els fusiona i
 la barra ja té el tram preparat— o fins que hi hagi una altra font.
 
-### El mapa no dice de quién es cada comarca
+### El mapa de comarcas ya las dice todas · ✅ 43 de 43, el 8 de septiembre de 2026
 
-Solo sale la cifra grande. Quien no se sepa el mapa de memoria no sabe qué está
-mirando, y el `<title>` del `hover` no existe en un móvil. Hay que poner el
-nombre —al menos en las que quepa— o resolverlo de otra manera.
+Salían **26**, y las que faltaban eran el Barcelonès, el Maresme, el Baix
+Llobregat y los dos Vallès: la parte del país donde vive más gente era la que no
+se podía identificar. El `<title>` del `hover` no existe en un móvil, así que
+para media Catalunya el mapa era una mancha de colores.
+
+Tres cambios, en este orden y cada uno midiendo:
+
+1. **Probar más de un sitio.** La mitad no fallaban por falta de espacio sino
+   por chocar con un rótulo ya puesto —el Vallès Oriental tiene 83 unidades
+   libres y no le cabía el nombre—. Con ocho posiciones alrededor: **30**.
+2. **Partir los nombres largos.** «Conca de Barberà» mide 132 unidades en una
+   línea y la comarca tiene 79: no cabía de ninguna manera, pero arriba y abajo
+   sí. Con dos líneas: **33**.
+3. **Una línea guía para las que no caben de ninguna manera.** Cinco tienen
+   **cero** unidades de anchura libre —la franja costera, estrecha y larga— y no
+   hay texto que quepa por pequeño que sea. El rótulo va fuera, en un sitio
+   libre, y una línea fina lo ata a su territorio; como el mar no tiene ningún
+   otro rótulo, los de la costa van a parar ahí solos. Con eso: **43**.
+
+Medido en la página y no a ojo: **cero solapamientos** entre rótulos de comarcas
+distintas y ninguna etiqueta fuera del lienzo.
+
+Y un fallo que la colocación no podía ver: la caja que el build reserva para la
+cifra va de −22 a +4 respecto del punto, que es lo que ocupa un cuerpo 26
+centrado en −9. Dibujándola en cero se comía su propio nombre —cuarenta
+solapamientos— y el build no se enteraba de nada.
+
+Lo que **sigue** pendiente de este mapa: en una ficha de comarca ocupa más de una
+pantalla. `PointsMap` ya limita el contenedor en vez de recortar el SVG; falta
+aplicar lo mismo aquí.
 
 ### El diseño general
 
@@ -1095,12 +1122,60 @@ municipios manda la población.
 Queda pendiente el filtro **dentro** de las páginas temáticas, que es otra cosa:
 ahí no se busca, se acota una lista larga.
 
-### Que las temáticas expliquen más y sean más visuales · 🟡 `/mar` hecho
+### Que las temáticas expliquen más y sean más visuales · ✅ hecho el 8 de septiembre de 2026
 
-`/bolets`, `/senderisme` y `/nàutica` son tablas correctas y áridas. En `/mar`,
-en concreto: **una bandera dibujada de su color** en vez de una etiqueta de
-texto, un símbolo para las medusas, y decir **si la especie pica o no** — que es
-lo que quiere saber quien lo mira y hoy tiene que buscarlo fuera.
+Eran siete listas sin **un solo gráfico**. Medido antes de tocar nada: `/mar`
+—la única rehecha hasta entonces— tenía 428 SVG, y `/aire`, `/bolets`,
+`/aigua`, `/estacions`, `/rànquings`, `/nàutica` y `/senderisme` tenían **cero**
+entre las siete.
+
+Y había un patrón: todas hacían la misma pregunta —*dónde está cada cosa y
+cuánto tiene*— y ninguna la contestaba. Eso es un mapa esperando a que lo
+dibujen.
+
+| página | ahora |
+|---|---|
+| `/aigua` | los 9 embalses, con el % dentro y el color de las barras |
+| `/rànquings` | las 182 estaciones con dada, por temperatura de ahora |
+| `/aire` | las 56 estaciones de la XVPCA, por NO₂ |
+| `/estacions` | los 189 puntos de la red, por cota |
+| `/senderisme` | las 16 estaciones sobre 1.500 m, por racha |
+| `/nàutica` | los 20 tramos del modelo, por altura de ola |
+
+**Un componente y no seis.** `PointsMap` tiene dos interruptores —el número
+dentro y el nombre debajo— y la frontera es el número de puntos: con nueve cabe
+todo, con 182 los nombres se pisan y van al `title`. `CoastMap` y `ResortMap` se
+quedan aparte a propósito: cada uno hace algo que éste no debe hacer nunca —el
+polígono del mar, el recorte al Pirineu— y doblarlo lo habría convertido en un
+interruptor de cuatro posiciones.
+
+**Verificado que la geografía no miente**, que es lo único que un mapa puede
+hacer mal en silencio: los tres puntos más fríos de `/rànquings` son Ulldeter,
+Espot y Certascan —todos sobre 2.400 m— y caen en el cuarto norte; la estación
+más alta de `/estacions` es Boí con 2.537 m, el mismo número que ya decía la
+cabecera; las 16 de `/senderisme` están en la mitad norte; y en `/nàutica` el
+tramo más al norte es Grifeu y el más al sur el del delta, con la diagonal que
+toca.
+
+Dos decisiones que merecen quedar escritas:
+
+- **El color de `/aire` no es una banda oficial.** Las bandas europeas son de un
+  índice **horario** y la XVPCA publica una media **diaria**: pintar los colores
+  del índice habría puesto una etiqueta prestada sobre unos valores que esa
+  etiqueta no clasifica. Es una escala relativa al peor del día, y el pie lo dice.
+- **El color de `/estacions` es la cota y no la temperatura**, que ya es el mapa
+  de `/rànquings`. Repetirla sería la misma página dos veces.
+
+#### `/bolets` se retiró
+
+Ordenó durante meses las 189 estaciones por lluvia acumulada bajo un título que
+prometía setas, y eso es ordenar **aparatos** para contestar una pregunta sobre
+**bosques**: decía dónde hay pluviómetro y dónde descargó la última tormenta. Se
+corregiría con una capa de usos del suelo, que no tenemos, así que no se corrige.
+
+Lo que sí seguía siendo cierto vive en dos sitios mejores: la lista de lluvia de
+`/rànquings` y el bloque de cada ficha, que contesta la pregunta donde se hace.
+La URL redirige permanente: una dirección publicada no se deja caer en un 404.
 
 ### Rutas de senderismo · ✅ 683 publicadas, con mapa y perfil
 
