@@ -126,14 +126,25 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
    */
   const fieldData = await precipField();
   const fieldBox = fieldData?.box ?? { x: 0, y: 0, w: 0, h: 0 };
+  /*
+   * `time` és l'`id` del radio de cada marc, i dos marcs no en poden compartir
+   * cap. El radar arriba fins a l'hora en curs i el camp comença a la següent,
+   * així que no s'haurien de trepitjar mai — però el dia que es trepitgin, el
+   * navegador es quedaria amb el primer radio i les regles de l'altre marc
+   * l'apuntarien a ell, sense que res fallés. Va passar amb els dotze marcs de
+   * futur compartint `rf-null`.
+   */
+  const taken = new Set(data.frames.map((f) => f.time));
   const frames: Array<RadarFrame & { field?: string }> = [
     ...data.frames,
-    ...(fieldData?.hours ?? []).map((h) => ({
-      time: h.time,
-      local: `${h.iso}:00`,
-      kind: 'forecast' as const,
-      field: h.name,
-    })),
+    ...(fieldData?.hours ?? [])
+      .filter((h) => !taken.has(h.time))
+      .map((h) => ({
+        time: h.time,
+        local: `${h.iso}:00`,
+        kind: 'forecast' as const,
+        field: h.name,
+      })),
   ];
 
   const hasField = (fieldData?.hours.length ?? 0) > 0;

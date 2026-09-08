@@ -835,12 +835,21 @@ export async function radar(): Promise<(RadarData & {
  * Només en torna les hores **que encara no han passat**. El worker en pinta
  * dotze quan corre, i entre una volta i la següent el rellotge avança: sense
  * aquest filtre, el mapa oferiria com a futur una hora que ja s'ha viscut.
+ *
+ * I les que porten un instant que no és un número es queden fora, encara que
+ * tinguin la imatge feta. `time` és l'`id` del radio de cada marc a la pàgina
+ * del radar: amb un índex on totes valguin `null` —hi va ser—, els dotze marcs
+ * de futur comparteixen `id` i el navegador els encén tots alhora. Val més
+ * ensenyar només el radar que una predicció que no es pot recórrer, i així un
+ * índex dolent que ja estigui publicat no arriba a la pàgina.
  */
 export async function precipField(): Promise<FieldIndex | null> {
   const snap = await snapshot<FieldIndex>(fieldShard());
   if (!snap?.data?.hours?.length) return null;
   const now = localNowHour();
-  const hours = snap.data.hours.filter((h) => h.iso.slice(0, 13) > now);
+  const hours = snap.data.hours.filter(
+    (h) => Number.isFinite(h.time) && h.iso.slice(0, 13) > now,
+  );
   return hours.length ? { ...snap.data, hours } : null;
 }
 

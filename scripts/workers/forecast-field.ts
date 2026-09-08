@@ -38,6 +38,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { build } from '../lib/paths.ts';
+import { madridToUtc } from '../lib/madrid.ts';
 import {
   CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, pullSnapshot, recordFreshness,
   syncState, writeSnapshot,
@@ -99,6 +100,37 @@ function colorOf(mm: number): [number, number, number, number] {
   let band = SCALE[0];
   for (const s of SCALE) if (mm >= s.mm) band = s;
   return [band.rgb[0], band.rgb[1], band.rgb[2], band.a];
+}
+
+/**
+ * `2026-09-08T22:00`, hora de rellotge de Madrid → segons des de l'epoch.
+ *
+ * ## Aquest número és una clau, no un adorn
+ *
+ * La pàgina del radar el fa servir per a l'`id` del radio de cada marc
+ * (`rf-<time>`) i per al paràmetre `?t=`. Amb `Math.floor(NaN / 1000)` sortia
+ * `NaN`, `JSON.stringify` el va escriure com a **`null`**, i els dotze marcs de
+ * futur van compartir `id="rf-null"`: seixanta regles de CSS apuntant al mateix
+ * radio. El resultat era que en arribar a la predicció s'encenien **les dotze
+ * hores alhora, superposades**, i la barra ja no movia res — que és exactament
+ * el que es veia: un dibuix que no continua el radar i que es queda clavat.
+ *
+ * Cap error, cap execució en vermell, i les dotze imatges eren correctes.
+ *
+ * El defecte era d'escriptura: `${t}:00:00Z` sobre una cadena que ja acaba en
+ * `:00` dona `2026-09-08T22:00:00:00Z`, que no és cap data. I si s'hagués
+ * escrit bé tampoc no hauria estat correcte, perquè aquestes hores són de
+ * **Madrid** i no UTC: a l'estiu haurien anat dues hores desplaçades respecte
+ * dels marcs del radar, dins del mateix array. `madridToUtc` ja existia per a
+ * això.
+ */
+function epochOf(local: string): number {
+  const m = local.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) throw new Error(`hora de predicció amb un format que no s'entén: ${local}`);
+  const at = madridToUtc(+m[1], +m[2], +m[3], +m[4], +m[5]);
+  const s = Math.floor(at.getTime() / 1000);
+  if (!Number.isFinite(s)) throw new Error(`no s'ha pogut datar ${local}`);
+  return s;
 }
 
 async function main() {
@@ -274,7 +306,7 @@ async function main() {
     const name = t.slice(0, 13).replace(/[-T]/g, '');
     writeFileSync(join(dir, `${name}.webp`), webp);
     markForPublish(`${FIELD_DIR}/${name}.webp`);
-    written.push({ time: Math.floor(Date.parse(`${t}:00:00Z`) / 1000), iso: t, name });
+    written.push({ time: epochOf(t), iso: t, name });
 
     /*
      * El màxim, i no només el percentatge de caselles mullades.
@@ -290,6 +322,23 @@ async function main() {
       + ` · ${wet} caselles amb pluja`
       + ` · màxim ${peak.toFixed(1)} mm/h`,
     );
+  }
+
+  /*
+   * Dues hores no poden compartir instant, i cap no pot quedar sense.
+   *
+   * És la comprovació que hauria estalviat el `rf-null`: aquell número és
+   * l'`id` d'un element del DOM, i dos elements amb el mateix `id` no donen
+   * cap error —el navegador es queda amb el primer i les regles de CSS de tots
+   * els altres l'apunten a ell—. Un índex amb una clau repetida no s'ha de
+   * publicar; val més quedar-se amb el de la volta anterior.
+   */
+  const seen = new Set<number>();
+  for (const h of written) {
+    if (seen.has(h.time)) {
+      throw new Error(`dues hores amb el mateix instant (${h.time}, ${h.iso}): l'índex no es publica`);
+    }
+    seen.add(h.time);
   }
 
   const fieldIndex: FieldIndex = {
