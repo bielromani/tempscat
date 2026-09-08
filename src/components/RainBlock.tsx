@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { num } from '@/lib/format';
+import { int, num, ordinal } from '@/lib/format';
 import type { RainConditions } from '@/lib/conditions';
+import type { RainProgress } from '@/lib/climate-math';
 import type { StationRef } from '@/lib/territory';
 
 /**
@@ -31,19 +32,37 @@ import type { StationRef } from '@/lib/territory';
  * de sumar un zero.
  */
 export function RainBlock({
-  conditions, station, stationHref,
+  conditions, station, stationHref, ytd,
 }: {
   conditions: RainConditions;
   station: StationRef;
   stationHref?: string;
+  /**
+   * L'acumulat de l'any contra el dels altres anys a la mateixa data.
+   *
+   * Nul quan la sèrie no arriba a deu anys comparables o quan a l'any en curs
+   * li falta més d'un 10 % dels dies: una suma a la qual li falten dies surt
+   * curta, sempre cap avall, i «va sec» seria una conclusió de l'avería.
+   */
+  ytd?: RainProgress | null;
 }) {
   const c = conditions;
 
-  const lastShower = c.daysSinceRain == null
-    ? 'no consta'
-    : c.daysSinceRain === 0
-      ? 'avui'
-      : `fa ${c.daysSinceRain} ${c.daysSinceRain === 1 ? 'dia' : 'dies'}`;
+  /*
+   * «No consta» no serveix per a les dues coses.
+   *
+   * Deia «no consta» tant quan un dia sense dada tallava el compte com quan
+   * s'havia pogut mirar tota la finestra i no hi havia cap dia de més de 5 mm.
+   * A Tàrrega, amb 8,1 mm en trenta dies escampats en plugim, la resposta bona
+   * no era «no ho sabem»: era «fa més de quaranta dies», que és exactament el
+   * que vol saber qui ho mira. Es distingeixen amb `dryDaysChecked`, que diu
+   * fins on s'ha pogut mirar enrere.
+   */
+  const lastShower = c.daysSinceRain != null
+    ? (c.daysSinceRain === 0 ? 'avui' : `fa ${c.daysSinceRain} ${c.daysSinceRain === 1 ? 'dia' : 'dies'}`)
+    : c.dryDaysChecked >= 15
+      ? `fa més de ${c.dryDaysChecked} dies`
+      : 'no consta';
 
   return (
     <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
@@ -95,6 +114,36 @@ export function RainBlock({
           L&apos;estació té dada de {c.days15} dels últims quinze dies, així que
           l&apos;acumulat es queda curt: els dies que falten no compten com a secs.
         </p>
+      )}
+
+      {/*
+        L'any, que és l'única finestra on la pluja diu alguna cosa.
+
+        Quinze i trenta dies contesten «puc anar a buscar bolets»; no contesten
+        «va sec, això?». Per a això calen els mil·límetres que porta l'any
+        comparats amb els que en portaven els altres **a la mateixa data**, que
+        no és el mateix que la mitjana anual: dir el setembre que hi solen caure
+        480 mm i en portem 312 convida a llegir-hi un dèficit de 168 que no
+        existeix, perquè encara falten l'octubre i el novembre. El càlcul és de
+        `rainProgressOf`, al worker, que és on hi ha la sèrie sencera.
+      */}
+      {ytd && (
+        <div className="mt-4 border-t border-[var(--line-soft)] pt-3">
+          <p className="text-sm leading-relaxed text-[var(--ink-2)]">
+            De l&apos;1 de gener n&apos;han caigut{' '}
+            <strong className="tnum font-semibold text-[var(--ink)]">{int(ytd.precip)} mm</strong>,
+            quan a aquestes altures de l&apos;any se&apos;n solen portar {int(ytd.normal)}.{' '}
+            {ytd.rank === 1
+              ? `És l'any més plujós dels ${ytd.total} de la sèrie.`
+              : ytd.rank === ytd.total
+                ? `És l'any més sec dels ${ytd.total} de la sèrie.`
+                : `És el ${ordinal(ytd.rank)} més plujós de ${ytd.total}.`}
+            {ytd.rank !== 1 && ytd.rank !== ytd.total && (
+              ` De més a menys, la sèrie va dels ${int(ytd.wettest.precip)} mm del `
+              + `${ytd.wettest.year} als ${int(ytd.driest.precip)} del ${ytd.driest.year}.`
+            )}
+          </p>
+        </div>
       )}
 
       <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">

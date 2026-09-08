@@ -561,12 +561,38 @@ usan el worker y las páginas: con dos copias, el día que un umbral cambiara, l
 frase de una ficha y el gráfico de la otra dirían cosas distintas del mismo mes
 sin que nada fallara. Prueba: `npm run test:climate`.
 
+#### La lluvia, hecha el 8 de septiembre de 2026
+
+Con su propia pregunta, que **no es la de la temperatura**. Cinco días dicen
+algo de la temperatura de un septiembre y no dicen nada de su lluvia, que la
+pone una tormenta de dos horas: lo que tiene respuesta es el acumulado del año.
+
+En las **4.293 fichas**, dentro de «L'aigua que ha caigut»: «De l'1 de gener
+n'han caigut 282 mm, quan a aquestes altures de l'any se'n solen portar 253.
+És el 9è més plujós de 30. De més a menys, la sèrie va dels 460 mm del 2020
+als 78 del 2006.» Contra el mismo tramo del calendario y no contra la media
+anual, por lo mismo que en temperatura.
+
+En la tabla de récords, **la racha seca más larga** con sus dos fechas. Y en la
+ficha de la estación, **el mes más lluvioso de la serie**, que no es ni el día
+ni el año: son tres preguntas distintas y la del mes es la que hace quien
+recuerda un temporal.
+
+Tres cosas que costaron más que el resto, las tres medidas y no supuestas:
+
+- **A una suma le duelen los huecos mucho más que a una media.** Cobertura del
+  90 %, y si el hueco está en el año en curso no se publica nada.
+- **La racha seca no se puede buscar sobre la serie entera**: los años
+  agujereados son los viejos y el récord se iría siempre a los recientes. Se
+  busca en los años completos y se dice cuántos son.
+- **Solo cuentan las rachas cerradas por lluvia a los dos lados.** Una cortada
+  por el final de los datos es una cota inferior, no un récord.
+
 #### Lo que queda
 
-- **La misma sección para la lluvia y el viento**, con su propia pregunta: si
-  este otoño va seco, cuándo fue la sequía más larga. Hoy la lluvia sale en el
-  gráfico anual y en los extremos, pero no tiene la frase que sí tiene la
-  temperatura.
+- **El viento** — descartado por el usuario el 8 de septiembre de 2026. La rosa
+  de los vientos ya contesta de dónde viene, y una serie histórica de rachas no
+  añade una pregunta que alguien se haga.
 - **Comparar dos estaciones** en el mismo gráfico. Cabe con lo que ya hay —son
   dos trozos— pero necesita decidir qué pasa cuando las series no se solapan.
 

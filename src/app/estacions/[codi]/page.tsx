@@ -270,6 +270,7 @@ export default async function EstacioPage({ params }: { params: Params }) {
             month={month}
             monthSeries={monthSeries}
             monthNow={monthNow}
+            monthly={monthly ?? []}
           />
 
           <div className="mt-4 max-w-[65ch] space-y-2 text-xs leading-relaxed text-[var(--muted)]">

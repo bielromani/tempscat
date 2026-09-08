@@ -326,6 +326,126 @@ export function monthProgressOf(
   };
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * L'any en curs de pluja, comparat amb el mateix tros dels altres anys
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** Dies de finestra per dir res d'un any de pluja. Amb tres setmanes, no. */
+export const RAIN_YTD_MIN_DAYS = 45;
+
+/** Anys per posar-hi un número d'ordre. */
+export const RAIN_YTD_MIN_YEARS = 10;
+
+/**
+ * Cobertura que se li demana a un any —el d'ara i els passats— sobre els dies
+ * de calendari de la finestra.
+ *
+ * És més exigent que la de la temperatura, i per una raó que no és de prudència:
+ * una mitjana no es mou gaire si li falten dies, però **una suma sí**. Cada dia
+ * que falta és aigua que no es compta, sempre cap avall, i un any amb tres
+ * setmanes de pluviòmetre espatllat sortiria com un any sec.
+ */
+const RAIN_YTD_MIN_COVER = 0.9;
+
+export interface RainProgress {
+  /** L'últim dia mesurat que hi entra, `AAAA-MM-DD`. */
+  lastDay: string;
+  /** Dies de calendari de l'1 de gener fins aquell dia. */
+  span: number;
+  /** Mil·límetres d'aquest any dins de la finestra. */
+  precip: number;
+  /** El que se'n sol portar a aquestes alçades: mitjana dels anys comparables. */
+  normal: number;
+  /** 1 és el més plujós. */
+  rank: number;
+  total: number;
+  wettest: { year: number; precip: number };
+  driest: { year: number; precip: number };
+}
+
+/**
+ * Quanta aigua porta l'any, comparada amb el que en portaven els altres a la
+ * mateixa data.
+ *
+ * ## Per què de l'any i no del mes
+ *
+ * Perquè la pluja no es reparteix com la temperatura. Cinc dies de setembre
+ * diuen alguna cosa de la temperatura d'aquell setembre —les mitjanes diàries
+ * s'assemblen entre elles— i no diuen res de la pluja: una tempesta de dues
+ * hores hi posa el mes sencer i quinze dies de sol no en treuen res. La pregunta
+ * que té resposta amb pluja és la de l'acumulat: **va sec, aquest any?**
+ *
+ * ## I per què no contra la mitjana anual
+ *
+ * Pel mateix motiu que la temperatura del mes en curs no es compara amb el mes
+ * sencer. Dir el 8 de setembre que «hi solen caure 480 mm l'any i en portem
+ * 312» convida a llegir-hi un dèficit de 168 que no existeix: encara falten
+ * l'octubre i el novembre, que en aquest país són els que més en porten. El
+ * que es compara és el mateix tros: de l'1 de gener al 5 de setembre, contra
+ * l'1 de gener al 5 de setembre de cada any de la sèrie.
+ *
+ * Els dies han d'arribar amb la pluja mesurada; un dia sense dada **no és un
+ * dia sec** i per això la cobertura es demana contra els dies de calendari, no
+ * contra els que hi ha.
+ */
+export function rainProgressOf(
+  days: Array<{ day: string; precip: number }>, today: string,
+): RainProgress | null {
+  const year = today.slice(0, 4);
+
+  const mine = days
+    .filter((d) => d.day.startsWith(`${year}-`) && d.day <= today)
+    .sort((a, b) => a.day.localeCompare(b.day));
+  if (!mine.length) return null;
+
+  const lastDay = mine[mine.length - 1].day;
+  /** Fins on arriba la finestra dins de qualsevol any: `MM-DD`. */
+  const md = lastDay.slice(5);
+  const span = dayNumber(lastDay) - dayNumber(`${year}-01-01`) + 1;
+  if (span < RAIN_YTD_MIN_DAYS) return null;
+
+  const need = Math.ceil(span * RAIN_YTD_MIN_COVER);
+
+  const acc = new Map<number, { sum: number; n: number }>();
+  for (const d of days) {
+    if (d.day.slice(5) > md) continue;
+    const y = Number(d.day.slice(0, 4));
+    const a = acc.get(y) ?? { sum: 0, n: 0 };
+    a.sum += d.precip;
+    a.n++;
+    acc.set(y, a);
+  }
+
+  const totals = [...acc]
+    .filter(([, a]) => a.n >= need)
+    .map(([y, a]) => ({ year: y, precip: Math.round(a.sum) }))
+    .sort((a, b) => a.year - b.year);
+
+  const ours = totals.find((t) => t.year === Number(year));
+  if (!ours || totals.length < RAIN_YTD_MIN_YEARS) return null;
+
+  const wet = [...totals].sort((a, b) => b.precip - a.precip);
+  const { rank, total } = rankOf(ours.precip, totals.map((t) => t.precip));
+
+  return {
+    lastDay,
+    span,
+    precip: ours.precip,
+    normal: Math.round(totals.reduce((a, t) => a + t.precip, 0) / totals.length),
+    rank,
+    total,
+    wettest: wet[0],
+    driest: wet[wet.length - 1],
+  };
+}
+
+/** Dies des de l'origen, per restar dues dates sense passar per cap zona horària. */
+function dayNumber(iso: string) {
+  return Math.round(
+    Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))) / 86_400_000,
+  );
+}
+
 function round1(v: number) { return Math.round(v * 10) / 10; }
 function round2(v: number) { return Math.round(v * 100) / 100; }
 function max(xs: Array<number | null>) {

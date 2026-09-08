@@ -1,5 +1,6 @@
 import { int, num } from '@/lib/format';
 import { temperatureColor } from '@/lib/scales';
+import { MONTH_MIN_DAYS } from '@/lib/climate';
 import type { ClimateYear, RainYear, StationMonth, Trend } from '@/lib/climate';
 
 /**
@@ -38,7 +39,7 @@ const MONTHS = [
 ];
 
 export function ClimateTrend({
-  years, rainYears, trend, month, monthSeries, monthNow,
+  years, rainYears, trend, month, monthSeries, monthNow, monthly,
 }: {
   years: ClimateYear[];
   /**
@@ -57,6 +58,8 @@ export function ClimateTrend({
   monthSeries: Array<StationMonth & { year: number }>;
   /** El mes en curs d'enguany, encara que no estigui complet. */
   monthNow: StationMonth | null;
+  /** La sèrie mensual sencera, per als extrems que no són d'un any ni d'un mes. */
+  monthly: StationMonth[];
 }) {
   const hasTemp = years.length >= 5;
   const hasRain = rainYears.length >= 5;
@@ -74,6 +77,18 @@ export function ClimateTrend({
   const coldest = hasTemp ? years.reduce((a, b) => (b.tMean < a.tMean ? b : a)) : null;
   const wettest = hasRain ? rainYears.reduce((a, b) => (b.precip > a.precip ? b : a)) : null;
   const driest = hasRain ? rainYears.reduce((a, b) => (b.precip < a.precip ? b : a)) : null;
+
+  /*
+   * El mes més plujós de tota la sèrie, que no és ni el dia més plujós ni l'any.
+   *
+   * Són tres preguntes diferents i la del mes és la que fa qui recorda un
+   * temporal: el dia diu quant va caure d'una tirada i l'any dilueix un mes de
+   * 300 mm dins de dotze. Només de mesos sencers: el mes que li falten deu dies
+   * no pot ser el més plujós de res.
+   */
+  const wetMonth = monthly
+    .filter((m) => m.days >= MONTH_MIN_DAYS && m.precip != null)
+    .reduce<StationMonth | null>((a, b) => (a == null || (b.precip as number) > (a.precip as number) ? b : a), null);
 
   /**
    * Fins on ha arribat aquest mes al llarg de la sèrie.
@@ -198,6 +213,15 @@ export function ClimateTrend({
             <dt className="text-xs text-[var(--muted)]">Any més plujós</dt>
             <dd className="tnum font-medium text-[var(--ink)]">
               {wettest.year} <span className="text-[var(--ink-2)]">{int(wettest.precip)} mm</span>
+            </dd>
+          </div>
+        )}
+        {wetMonth && (
+          <div>
+            <dt className="text-xs text-[var(--muted)]">Mes més plujós</dt>
+            <dd className="tnum font-medium text-[var(--ink)]">
+              {MONTHS[Number(wetMonth.ym.slice(5, 7)) - 1]} del {wetMonth.ym.slice(0, 4)}{' '}
+              <span className="text-[var(--ink-2)]">{int(wetMonth.precip)} mm</span>
             </dd>
           </div>
         )}

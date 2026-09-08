@@ -1,6 +1,7 @@
 import {
   MONTH_MIN_DAYS, PROGRESS_MIN_DAYS, PROGRESS_MIN_YEARS, TREND_MIN_YEARS,
-  monthProgressOf, rainYearsOf, rankOf, sameMonthAcrossYears, trendOf, yearsOf,
+  monthProgressOf, rainProgressOf, rainYearsOf, rankOf, sameMonthAcrossYears, trendOf, yearsOf,
+  RAIN_YTD_MIN_DAYS, RAIN_YTD_MIN_YEARS,
 } from '../src/lib/climate-math.ts';
 import type { StationMonth } from '../src/lib/climate-math.ts';
 
@@ -225,6 +226,81 @@ check('quatre dies amb un forat al mig tampoc no arriben',
 const future = monthProgressOf(septs(twelve, 20), '2025-09-07');
 check('la finestra s\'atura al dia demanat', future?.days, 7);
 check('i l\'últim dia és aquell', future?.lastDay, '2025-09-07');
+
+// ── rainProgressOf: l'any de pluja contra el mateix tros ────────────────────
+console.log('\n── rainProgressOf ──');
+
+/** Tots els dies de l'1 de gener al `md` de cada any, amb `mm` de pluja al dia. */
+function ytd(
+  years: Array<[number, number]>, md: string,
+  skip?: (day: string, year: number) => boolean,
+) {
+  const out: Array<{ day: string; precip: number }> = [];
+  const lastMonth = Number(md.slice(0, 2));
+  for (const [year, mm] of years) {
+    for (let month = 1; month <= lastMonth; month++) {
+      const last = month === lastMonth
+        ? Number(md.slice(3))
+        : new Date(Date.UTC(year, month, 0)).getUTCDate();
+      for (let d = 1; d <= last; d++) {
+        const day = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        if (skip?.(day, year)) continue;
+        out.push({ day, precip: mm });
+      }
+    }
+  }
+  return out;
+}
+
+/** Dotze anys a 2 mm/dia i l'any en curs a 1: la meitat del que hi sol caure. */
+const wetYears: Array<[number, number]> = [
+  ...Array.from({ length: 12 }, (_, i) => [2014 + i, 2] as [number, number]),
+  [2026, 1],
+];
+const rp = rainProgressOf(ytd(wetYears, '09-05'), '2026-09-07');
+
+check('tretze anys amb la finestra sencera donen comparació', rp != null, true);
+check("la finestra acaba a l'últim dia mesurat, no al d'avui", rp?.lastDay, '2026-09-05');
+check('i són 248 dies de calendari', rp?.span, 248);
+check('aquest any en porta la meitat', rp?.precip, 248);
+// 498 i no 496: del 2014 al 2026 hi ha anys de traspàs, i el més plujós és un
+// d'ells. Un dia més de febrer, un dia més de pluja.
+check('contra els 498 dels altres', rp?.wettest.precip, 498);
+check("és l'any més sec de la sèrie", [rp?.rank, rp?.total], [13, 13]);
+
+// Prou anys, però encara no prou dies del gener.
+check(`amb ${RAIN_YTD_MIN_DAYS - 1} dies de finestra no es diu res`,
+  rainProgressOf(ytd(wetYears, '02-13'), '2026-02-15'), null);
+check(`amb ${RAIN_YTD_MIN_YEARS - 1} anys tampoc`,
+  rainProgressOf(
+    ytd([...wetYears.slice(0, RAIN_YTD_MIN_YEARS - 2), [2026, 1]], '09-05'),
+    '2026-09-07',
+  ), null);
+
+/*
+ * El cas que fa que la cobertura sigui del 90 % i no del 80.
+ *
+ * Un dia sense dada **no és un dia sec**: cada dia que falta és aigua que no es
+ * compta, i sempre cap avall. Un any al qual li falti el maig sencer surt un
+ * 12 % curt i semblaria un any sec. Ha de quedar fora de la comparació.
+ */
+const brokenMay = ytd(wetYears, '09-05', (day, year) => year === 2019 && day.slice(5, 7) === '05');
+const bm = rainProgressOf(brokenMay, '2026-09-07');
+check("un any amb el maig espatllat surt de la comparació", bm?.total, 12);
+check('i el més plujós segueix sent un de sencer', bm?.wettest.precip, 498);
+
+/*
+ * I si qui va perdre dies és l'any en curs, no es diu res de res: la xifra que
+ * es publicaria seria la seva, i seria curta.
+ */
+const brokenNow = ytd(wetYears, '09-05', (day, year) => year === 2026 && day.slice(5, 7) === '05');
+check("si el forat és d'aquest any, no hi ha comparació",
+  rainProgressOf(brokenNow, '2026-09-07'), null);
+
+// Un forat petit sí que passa: dos dies de 248 són menys del 10 %.
+const tinyHole = ytd(wetYears, '09-05',
+  (day, year) => year === 2026 && (day === '2026-05-04' || day === '2026-05-05'));
+check("dos dies perduts no invaliden l'any", rainProgressOf(tinyHole, '2026-09-07')?.precip, 246);
 
 console.log(fails ? `\n${fails} comprovacions han fallat` : '\nTot correcte');
 process.exit(fails ? 1 : 0);

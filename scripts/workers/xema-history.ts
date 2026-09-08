@@ -32,8 +32,8 @@ import {
 } from '../lib/store.ts';
 import { CLIMATE_DIR, climateShard, historyShard } from '../../src/lib/shards.ts';
 import { windCardinal } from '../../src/lib/variables.ts';
-import { PROGRESS_MIN_DAYS, monthProgressOf } from '../../src/lib/climate-math.ts';
-import type { MonthProgress, StationMonth } from '../../src/lib/climate-math.ts';
+import { PROGRESS_MIN_DAYS, monthProgressOf, rainProgressOf } from '../../src/lib/climate-math.ts';
+import type { MonthProgress, RainProgress, StationMonth } from '../../src/lib/climate-math.ts';
 import type { Station } from '../04-fetch-stations.ts';
 
 const DAILY = '7bvh-jvq2';
@@ -180,6 +180,13 @@ export interface StationHistory {
     gustMax: Extreme | null;
     /** Espesor de nieve más alto de la serie. Solo en las 24 estaciones que lo miden. */
     snowMax: Extreme | null;
+    /**
+     * La racha seca más larga de toda la serie, con sus fechas.
+     *
+     * Un día **sin dato la corta**, igual que a la racha en curso: si el
+     * pluviómetro estuvo tres semanas parado, esas tres semanas no son sequía.
+     */
+    drySpell: { days: number; from: string; to: string; years: number; ofYears: number } | null;
     since: string | null;
     days: number;
   };
@@ -222,6 +229,14 @@ export interface StationHistory {
    * solo tiene 45 días de serie y esto necesita los treinta y ocho años.
    */
   monthProgress: MonthProgress | null;
+  /**
+   * Cuánta agua lleva el año, contra lo que llevaban los otros a la misma fecha.
+   *
+   * Anual y no mensual porque la lluvia no se reparte como la temperatura: cinco
+   * días dicen algo de la temperatura de un mes y no dicen nada de su lluvia. Ver
+   * `rainProgressOf`.
+   */
+  rainProgress: RainProgress | null;
   /** Días consecutivos sin precipitación apreciable hasta hoy. */
   dryStreak: number;
   /** De dónde vienen las rachas. Null si la estación no mide viento. */
@@ -326,6 +341,126 @@ async function fullSeries(station: string): Promise<Array<{ day: string; variabl
       hour: r.hora_tu || undefined,
     }))
     .filter((r) => Number.isFinite(r.value));
+}
+
+/**
+ * La racha seca más larga de la serie, medida solo donde se puede medir.
+ *
+ * ## Lo que la corta
+ *
+ * Un día de lluvia y **un día sin dato**, y la segunda importa tanto como la
+ * primera: los días que faltan pudieron ser de agua. Es la regla que ya dio 398
+ * días secos en el Port de Barcelona, que no tiene pluviómetro.
+ *
+ * ## Y por qué no se mide sobre la serie entera
+ *
+ * Porque entonces el récord se va a los años recientes sin que sea verdad. La
+ * mediana de días perdidos por año en la XEMA es **cero** —la mayoría de años
+ * están completos— pero cada estación tiene un puñado que no: Tàrrega tiene 12
+ * años agujereados de 32, y en un año al que le faltan 22 días repartidos, una
+ * sequía de 60 días tiene dos tercios de probabilidades de toparse con uno y
+ * salir partida en dos de 30. Los años completos ganan siempre, y los completos
+ * son los modernos.
+ *
+ * Así que la racha se busca **solo dentro de los años completos**, y se publica
+ * cuántos son. «La más larga de los 33 años completos de la serie» es una frase
+ * cierta; «la más larga de la serie» no lo era.
+ *
+ * Un año cuenta como completo si no le falta ningún día entre su principio y su
+ * final **útiles**: el primer año de una serie empieza cuando se instaló la
+ * estación, y el año en curso acaba en el último día publicado —el conjunto
+ * diario va dos días por detrás—. Ninguna de las dos cosas es un agujero.
+ */
+function longestDrySpell(
+  series: Array<{ day: string; variable: string; value: number }>,
+): { days: number; from: string; to: string; years: number; ofYears: number } | null {
+  const byDay = new Map<string, number>();
+  for (const r of series) {
+    if (r.variable !== V.precip) continue;
+    byDay.set(r.day, Math.max(byDay.get(r.day) ?? 0, r.value));
+  }
+  const days = [...byDay].sort((a, b) => a[0].localeCompare(b[0]));
+  if (days.length < 365) return null;
+
+  const dayNum = (iso: string) => Math.round(
+    Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))) / 86_400_000,
+  );
+
+  const first = days[0][0];
+  const last = days[days.length - 1][0];
+
+  // Cuántos días tiene cada año dentro de la serie, y cuántos hay de verdad.
+  const present = new Map<number, number>();
+  for (const [day] of days) {
+    const y = Number(day.slice(0, 4));
+    present.set(y, (present.get(y) ?? 0) + 1);
+  }
+
+  const whole = new Set<number>();
+  for (const [y, n] of present) {
+    const from = y === Number(first.slice(0, 4)) ? first : `${y}-01-01`;
+    const to = y === Number(last.slice(0, 4)) ? last : `${y}-12-31`;
+    // Se tolera un día: un año con 364 de 365 no mueve un récord de sesenta.
+    if (n >= dayNum(to) - dayNum(from) + 1 - 1) whole.add(y);
+  }
+  if (whole.size < 5) return null;
+
+  /*
+   * Solo cuentan las rachas **cerradas por lluvia a los dos lados**.
+   *
+   * Una racha que se corta porque se acaba el año medible, porque hay un hueco
+   * en el calendario o porque la serie llega hasta hoy no es un récord: es una
+   * cota inferior. Fogars de la Selva publicaba «103 dies, del 20 de setembre
+   * al 31 de desembre», y el 31 de diciembre no lo eligió el tiempo: lo eligió
+   * que 2009 no era un año completo. Y en un verano de sequía, la racha **en
+   * curso** ganaría a todas sin haber terminado. Esa ya se publica aparte,
+   * como lo que es.
+   */
+  let best: { days: number; from: string; to: string } | null = null;
+  let from: string | null = null;
+  let prev: string | null = null;
+  let n = 0;
+  /** Si desde la última discontinuidad ya ha llovido: sin eso no hay borde izquierdo. */
+  let bounded = false;
+
+  const drop = () => { from = null; n = 0; };
+  const closeWithRain = () => {
+    if (from && bounded && (!best || n > best.days)) best = { days: n, from, to: prev as string };
+    drop();
+  };
+
+  for (const [day, mm] of days) {
+    const usable = whole.has(Number(day.slice(0, 4)));
+    const jump = prev != null && dayNum(day) - dayNum(prev) > 1;
+    if (!usable || jump) {
+      drop();
+      bounded = false;
+      prev = usable ? day : null;
+      if (!usable) continue;
+    }
+    if (mm >= 0.2) {
+      closeWithRain();
+      bounded = true;
+    } else {
+      if (!from) from = day;
+      n++;
+    }
+    prev = day;
+  }
+  // La última no se cierra: o sigue abierta o la corta el final de los datos.
+
+  /*
+   * Se publican los dos números y no uno.
+   *
+   * `years` son los años donde se ha podido buscar y `ofYears` los que la serie
+   * tiene. Con solo el primero, la página no sabía si eran todos: en Raimat
+   * daban 38 y 38 —uno es el conteo de años completos y el otro la diferencia
+   * entre el primero y el último— y la nota que avisa de que faltan años no
+   * salía, con 1989 fuera por tener medio año de pluviómetro.
+   */
+  return best
+    ? { ...(best as { days: number; from: string; to: string }), years: whole.size, ofYears: present.size }
+    : null;
 }
 
 /** Extremo de una variable en la serie ya descargada. */
@@ -758,11 +893,26 @@ async function main() {
         today,
       );
 
+      /*
+       * Y lo mismo con la lluvia, pero del año entero.
+       *
+       * No del mes: cinco días dicen algo de la temperatura de un septiembre y
+       * no dicen nada de su lluvia, que la pone una tormenta de dos horas. La
+       * pregunta que la lluvia contesta es la del acumulado. Ver `rainProgressOf`.
+       */
+      const rain = rainProgressOf(
+        series
+          .filter((r) => r.variable === V.precip)
+          .map((r) => ({ day: r.day, precip: r.value })),
+        today,
+      );
+
       const history: StationHistory = {
         station: s.codi,
         daily: daily.slice(-45),
         records: {
           tMaxAbs, tMinAbs, precipMaxDay, precipMax1h, gustMax, snowMax,
+          drySpell: longestDrySpell(series),
           since: firstDay,
           days: days.size,
         },
@@ -777,6 +927,7 @@ async function main() {
         },
         monthAnomaly: monthMean != null && normal != null ? r1(monthMean - normal) : null,
         monthProgress: progress,
+        rainProgress: rain,
         dryStreak,
         rose: roseOf(series),
         // El último día **con lectura**, no el último día del calendario: en una

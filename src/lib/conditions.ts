@@ -42,6 +42,17 @@ export interface RainConditions {
    * es «no consta».
    */
   daysSinceRain: number | null;
+  /**
+   * Cuántos días seguidos se han podido mirar hacia atrás sin encontrar lluvia.
+   *
+   * Distingue las dos razones por las que `daysSinceRain` es null, que la página
+   * confundía en un solo «no consta»: en Tàrrega, con 8,1 mm en treinta días
+   * repartidos en llovizna, la respuesta no era «no lo sabemos— era «hace más
+   * de 45 días que no cae un chaparrón de verdad», que es justo lo que quiere
+   * saber quien lo mira. Si un día sin dato corta la cuenta antes, este número
+   * es menor y entonces sí que no se sabe.
+   */
+  dryDaysChecked: number;
   /** Media de las mínimas de los últimos diez días. */
   tMinAvg10: number | null;
   /** Media de las máximas de los últimos diez días. */
@@ -80,6 +91,7 @@ export function rainConditionsOf(history: StationHistory, today: string): RainCo
   // Días desde la última lluvia apreciable, contando hacia atrás. Un día sin dato
   // no cuenta como día seco — la misma regla que la racha seca.
   let daysSinceRain: number | null = null;
+  let dryDaysChecked = 0;
   for (let i = daily.length - 1; i >= 0; i--) {
     const mm = daily[i].precip;
     if (mm == null) break;
@@ -87,6 +99,7 @@ export function rainConditionsOf(history: StationHistory, today: string): RainCo
       daysSinceRain = daily.length - 1 - i;
       break;
     }
+    dryDaysChecked++;
   }
 
   const last10 = lastN(10);
@@ -97,6 +110,7 @@ export function rainConditionsOf(history: StationHistory, today: string): RainCo
     rain30: sum(lastN(30)),
     days15: withPrecip(lastN(15)),
     daysSinceRain,
+    dryDaysChecked,
     tMinAvg10: avg(last10, (d) => d.tMin),
     tMaxAvg10: avg(last10, (d) => d.tMax),
     frostRecently: last10.some((d) => d.tMin != null && d.tMin < 0),

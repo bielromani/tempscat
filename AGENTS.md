@@ -344,6 +344,34 @@ cuota para exactamente la misma información.
   `yearsOf`, y `sameMonthAcrossYears` sin exigir temperatura— y que el pie diga por qué falta lo
   que falta: «aquí no es mesura la temperatura», no «falten anys». La otra dirección también
   existe: la Tosa d'Alp tiene once años de temperatura y **cero** de lluvia completa.
+- **La lluvia no se compara por meses: se compara por años.** Cinco días dicen algo de la
+  temperatura de un septiembre —las medias diarias se parecen entre ellas— y no dicen **nada** de
+  su lluvia, que la pone una tormenta de dos horas. Lo que tiene respuesta es el acumulado, y
+  contra el mismo tramo: del 1 de enero al 5 de septiembre frente al 1 de enero al 5 de
+  septiembre de cada año. Contra la media anual no, por lo mismo que en temperatura: decir en
+  septiembre «hi solen caure 480 mm i en portem 312» sugiere un déficit de 168 que no existe,
+  porque faltan octubre y noviembre, que son los que más traen. `rainProgressOf`.
+- **A una suma le duelen los huecos mucho más que a una media**, y por eso la cobertura que se
+  le exige es del 90 % y no del 80. Cada día que falta es agua que no se cuenta, **siempre hacia
+  abajo**, así que un año con tres semanas de pluviómetro parado sale seco. Si el hueco está en
+  el año en curso no se publica nada: la cifra que se enseñaría sería la corta.
+- **La racha seca más larga no se puede buscar sobre la serie entera.** La mediana de días
+  perdidos por año en la XEMA es **cero** —casi todos los años están completos— pero cada
+  estación tiene un puñado que no: Tàrrega tiene 12 agujereados de 32. En un año al que le
+  faltan 22 días repartidos, una sequía de 60 tiene dos tercios de probabilidades de toparse con
+  uno y salir partida en dos de 30, y como los años agujereados son los viejos, **el récord se
+  iría siempre a los recientes**. Se busca solo dentro de los años completos y se publican los
+  dos números: sobre cuántos se ha buscado y cuántos tiene la serie. Y solo cuentan las rachas
+  **cerradas por lluvia a los dos lados**: una que se corta porque se acaba el año medible o
+  porque la serie llega hasta hoy es una cota inferior, no un récord —Fogars de la Selva
+  publicaba «103 dies, del 20 de setembre al 31 de desembre», y ese 31 de diciembre no lo
+  eligió el tiempo—. Comprobado después: 41 de 179 récords caen en 2026 y 34 en 2011, que son
+  las dos sequías reales, y el más largo de todos es de **1998**.
+- **«No consta» tapaba dos cosas distintas en el último chaparrón.** Salía tanto cuando un día
+  sin dato cortaba la cuenta como cuando se había podido mirar la ventana entera sin encontrar
+  un solo día de más de 5 mm. En Tàrrega, con 8,1 mm en treinta días repartidos en llovizna, la
+  respuesta buena era «fa més de 45 dies», que es justo lo que quiere saber quien lo mira.
+  `dryDaysChecked` dice hasta dónde se ha podido mirar hacia atrás.
 - **Una anomalía del mes en curso medida contra la normal del mes entero mete dentro la deriva
   del propio mes.** Los cinco días que la serie tenía de septiembre de 2026 en Raimat daban
   **+6,9 °C** contra la normal de septiembre y **+4,8 °C** contra esos mismos cinco días de los

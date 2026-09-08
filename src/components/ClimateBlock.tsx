@@ -49,6 +49,19 @@ const MONTHS = [
 const fmtDate = (iso: string) =>
   new Date(`${iso}T12:00:00`).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 
+/**
+ * Dues dates d'un mateix tram, sense repetir l'any.
+ *
+ * «16 de maig del 2026 – 2 d'ag. del 2026» escriu el 2026 dues vegades en una
+ * cel·la estreta; l'any va un cop, al final, que és on el català el posa.
+ */
+function spellDates(from: string, to: string) {
+  if (from.slice(0, 4) !== to.slice(0, 4)) return `${fmtDate(from)} – ${fmtDate(to)}`;
+  const dayMonth = (iso: string) =>
+    new Date(`${iso}T12:00:00`).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
+  return `${dayMonth(from)} – ${fmtDate(to)}`;
+}
+
 function Counter(
   { label, month, year, hint, monthCovered }:
   { label: string; month: number; year: number; hint?: string; monthCovered: boolean },
@@ -484,6 +497,20 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
                   <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">{fmtDate(records.gustMax.date)}</td>
                 </tr>
               )}
+              {/*
+                La ratxa seca més llarga porta les dues dates i no una: «noranta
+                dies» sol és un número, i «del novembre al febrer» diu quin hivern
+                va ser. Un dia sense dada la talla, com talla la d'ara.
+              */}
+              {records.drySpell && records.drySpell.days >= 20 && (
+                <tr className="border-b border-[var(--line-soft)] last:border-0">
+                  <th scope="row" className="px-4 py-2.5 text-left font-normal text-[var(--muted)]">Ratxa seca més llarga</th>
+                  <td className="tnum px-4 py-2.5 text-right font-semibold text-[var(--ink)]">{int(records.drySpell.days)} dies</td>
+                  <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">
+                    {spellDates(records.drySpell.from, records.drySpell.to)}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -508,6 +535,20 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
             + (records.days > 0 ? ` · ${records.days.toLocaleString('ca-ES')} dies amb dada` : '')
             + (yearsOfSeries != null && yearsOfSeries > 0 ? ` (${yearsOfSeries} anys)` : '')
             + '.'
+          )}
+          {/*
+            I sobre quants anys s'ha buscat la ratxa seca, que no són els de la
+            sèrie. Sense dir-ho, el lector compta els que acaba de llegir a la
+            frase de dalt —a Tàrrega, 31— i el rècord s'ha mirat en 21: en un any
+            amb dies perduts, una ratxa surt partida i sembla més curta, i com
+            que els anys perduts són els vells, deixar-los dins faria guanyar
+            sempre els recents.
+          */}
+          {records.drySpell && records.drySpell.days >= 20
+            && records.drySpell.years < records.drySpell.ofYears && (
+            ` La ratxa seca es busca als ${records.drySpell.years} anys sencers dels `
+            + `${records.drySpell.ofYears}: `
+            + 'a un any amb dies perduts, una ratxa surt partida i sembla més curta.'
           )}
         </p>
       </div>

@@ -6,7 +6,7 @@ import {
 } from './variables';
 import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
 import { airCellKey } from './air-grid';
-import type { MonthProgress } from './climate-math';
+import type { MonthProgress, RainProgress } from './climate-math';
 import {
   aggregateDaily, mergeHourly, type PointForecast, type StoredDaily,
 } from './forecast-merge';
@@ -497,6 +497,18 @@ export interface StationHistory {
     gustMax: { value: number; date: string; hour?: string } | null;
     /** Espesor de nieve más alto de la serie. Solo en las 24 estaciones que lo miden. */
     snowMax: { value: number; date: string; hour?: string } | null;
+    /**
+     * La ratxa seca més llarga, i **sobre quants anys sencers** s'ha buscat.
+     *
+     * No sobre la sèrie entera a posta: un any amb dies perduts en surt amb les
+     * ratxes partides, i com que els anys perduts són els vells, el rècord se
+     * n'aniria sempre als recents. Ver `longestDrySpell` al worker.
+     */
+    drySpell?: {
+      days: number; from: string; to: string;
+      /** Anys sencers on s'ha pogut buscar, i anys que la sèrie té. */
+      years: number; ofYears: number;
+    } | null;
     since: string | null;
     days: number;
   };
@@ -535,6 +547,12 @@ export interface StationHistory {
    * sitio donde está la serie entera.
    */
   monthProgress: MonthProgress | null;
+  /**
+   * Quanta aigua porta l'any, contra la que en portaven els altres a la mateixa
+   * data. Anual i no mensual: ver `rainProgressOf`. Pot faltar en un fitxer
+   * publicat abans que el camp existís.
+   */
+  rainProgress?: RainProgress | null;
   dryStreak: number;
   /** De dónde vienen las rachas. Null si la estación no mide viento. */
   rose: WindRose | null;

@@ -707,6 +707,7 @@ export function LocationView({
             conditions={rain}
             station={current.station}
             stationHref={`/estacions/${current.station.codi}`}
+            ytd={history?.rainProgress}
           />
         </section>
       )}
