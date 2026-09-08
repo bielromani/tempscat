@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { precipField, radar, type RadarFrame } from '@/lib/weather';
-import { allComarques, comarquesGeoJson, municipisOfComarca, relief } from '@/lib/territory';
-import { project, type TileGrid } from '@/lib/mercator';
+import { allComarques, comarcaPathsOn, municipisOfComarca, relief } from '@/lib/territory';
+import { project } from '@/lib/mercator';
 import { radarZones } from '@/lib/radar-zones';
 import { ago, hour, dateLong, int } from '@/lib/format';
 import { RadarScrubber } from '@/components/RadarScrubber';
@@ -88,51 +88,6 @@ function referenceCities(limit = 9): Array<{ nom: string; lat: number; lon: numb
     });
     if (far) out.push({ nom: m.nom, lat: m.lat!, lon: m.lon!, path: m.path });
   }
-  return out;
-}
-
-/**
- * Contornos comarcales proyectados y decimados.
- *
- * La decimación no es un lujo: el GeoJSON son 276 KB de coordenadas, y volcarlo
- * entero en el marcado haría una página de radar más pesada que las 4.293 fichas
- * juntas. Se descartan los puntos que caen a menos de un píxel y medio del
- * anterior, que a esta escala es invisible, y se redondea a un decimal.
- */
-/*
- * Se memoriza por proceso. La página es dinámica —el marco va en la URL— así que
- * sin caché cada visita reproyecta y decima quince mil coordenadas para dibujar
- * exactamente las mismas fronteras: la rejilla no cambia nunca.
- */
-let pathsMemo: { key: string; paths: string[] } | null = null;
-
-function comarcaPaths(grid: TileGrid): string[] {
-  const key = `${grid.z}:${grid.x0}:${grid.y0}:${grid.size}`;
-  if (pathsMemo?.key === key) return pathsMemo.paths;
-
-  const geo = comarquesGeoJson();
-  const out: string[] = [];
-
-  for (const f of geo.features) {
-    for (const polygon of f.geometry.coordinates) {
-      for (const ring of polygon) {
-        let d = '';
-        let lastX = -1e9;
-        let lastY = -1e9;
-        let kept = 0;
-        for (let i = 0; i < ring.length; i++) {
-          const [lon, lat] = ring[i];
-          const [x, y] = project(grid, lon, lat);
-          const last = i === ring.length - 1;
-          if (!last && kept > 0 && Math.hypot(x - lastX, y - lastY) < 1.5) continue;
-          d += `${kept === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-          lastX = x; lastY = y; kept++;
-        }
-        if (kept > 3) out.push(`${d}Z`);
-      }
-    }
-  }
-  pathsMemo = { key, paths: out };
   return out;
 }
 
@@ -266,7 +221,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
       .join(',') + '{opacity:1}',
   ].join('');
 
-  const paths = comarcaPaths(grid);
+  const paths = comarcaPathsOn(grid);
   const terrain = relief();
   const cities = referenceCities();
   const { ageMin, lastObserved } = data;

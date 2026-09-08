@@ -18,6 +18,7 @@ import { resortNear } from '@/lib/mountain';
 import { routesNear } from '@/lib/routes';
 import { aName, deName } from '@/lib/format';
 import { narrativeFor } from '@/lib/narrative';
+import { localRainFor } from '@/lib/local-rain';
 
 /**
  * Página de entidad singular o núcleo. ~3.300 rutas.
@@ -83,6 +84,7 @@ export default async function EntitatPage({ params }: { params: Params }) {
         cameras={await camerasNear(loc)}
         resort={await resortNear(loc)}
         routes={routesNear(loc)}
+        localRain={await localRainFor(forecast, loc.lat, loc.lon)}
         siblings={siblings}
         siblingsLabel={municipiLoc ? `Altres nuclis ${deName(municipiLoc.nom)}` : 'Altres nuclis del municipi'}
         neighbours={[]}

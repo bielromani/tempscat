@@ -19,6 +19,7 @@ import { resortNear } from '@/lib/mountain';
 import { routesNear } from '@/lib/routes';
 import { aName, deName } from '@/lib/format';
 import { narrativeFor } from '@/lib/narrative';
+import { localRainFor } from '@/lib/local-rain';
 
 /**
  * Página de municipio. 947 rutas.
@@ -108,6 +109,7 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         cameras={await camerasNear(loc)}
         resort={await resortNear(loc)}
         routes={routesNear(loc)}
+        localRain={await localRainFor(forecast, loc.lat, loc.lon)}
         siblings={entitats}
         siblingsLabel={`Nuclis i entitats ${deName(loc.nom)}`}
         neighbours={adjacent}

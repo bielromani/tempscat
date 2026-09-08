@@ -999,6 +999,26 @@ la llegenda obre dient on s'acaba una cosa i comença l'altra —«Fins a 14:30 
 radar; a partir de 15:00 és predicció»— i on no hi ha punt no es pinta res: el
 mar, França i l'Aragó surten buits perquè allà no en tenim.
 
+#### I a la fitxa de cada poble, cap on va
+
+Zoom no n'hi ha ni n'hi pot haver —la imatge té un píxel cada 457 m i una
+comarca hi són seixanta-sis—, però la pregunta de qui volia zoom no era de
+resolució: era **«em tocarà a mi?»**. Això sí que té resposta, i no és
+ampliant: és centrant.
+
+Des de cada fitxa hi ha ara un enllaç al radar de la seva zona —abans l'única
+porta era el menú, que obre Catalunya sencera— i, quan la predicció d'aquell
+punt dona pluja a les pròximes hores, un bloc de **quatre mapes de 100 km
+centrats al poble**: l'últim radar i les tres hores següents, amb el punt
+marcat.
+
+Quatre quadres estàtics i no un d'animat: seguits es comparen d'un cop d'ull, i
+no costen ni un radi amagat ni una regla de `:checked`.
+
+Les xifres de la fitxa segueixen sent millors per saber **quanta** pluja i **a
+quina hora** —surten del punt de predicció d'aquell poble i no d'una malla de
+3,2 km—. El mapa només ensenya el que les xifres no poden: el moviment.
+
 #### El que segueix bloquejat
 
 **El zoom.** El tilecache públic s'acaba al zoom 7 —uns 460 m per píxel— i les

@@ -312,6 +312,22 @@ cuota para exactamente la misma información.
   Aragón salen transparentes en el campo de lluvia, y es correcto que salgan así: allí no hay
   predicción. Estirar el valor del punto más cercano hasta llenar el recuadro daría un mapa más
   bonito diciendo algo que no sabemos. El radio de búsqueda es de 12 km.
+- **Un mapa pequeño no puede llevar el país entero dentro.** El bloque «Cap on va la pluja» de
+  la ficha son cuatro cuadros de 100 km —el último radar y las tres horas siguientes— y la
+  primera versión volcaba las 43 comarcas en cada uno: **320 kB de coordenadas, cuatro veces**,
+  247 kB en gzip añadidos a una página que pesa 72. Dos arreglos, y los dos hacen falta:
+  `comarcaPathsNear()` se queda con los trazos cuya caja toca la ventana —6 de 130 en el
+  Portús— y van una sola vez en un `<defs>` que los cuatro cuadros referencian con `<use>`.
+  Quedan **19 kB**. La ventana la calcula `windowOf()` una vez y la usan los dos lados: quien
+  elige qué fronteras se envían y quien recorta el dibujo. Con dos cálculos, un día se enviarían
+  las de un trozo y se recortaría otro.
+- **El bloque de la ficha solo sale cuando la predicción de ese punto da lluvia**, y la puerta la
+  mira la predicción y no el radar: un eco a cien kilómetros que se va hacia Francia no hace que
+  la ficha de un pueblo de Ponent tenga que enseñar un mapa. Un mapa de lluvia sin lluvia no es
+  información, es ruido en 4.293 páginas. Y el primer cuadro **siempre tiene más color que los
+  otros** —medido en el Portús: 17 % de la ventana con eco de radar y 1,8 % con lluvia prevista, a
+  la misma hora— porque un radar ve gotas en el aire y el campo pinta milímetros en el suelo. No
+  se contradicen, pero quien lo mira leería que la lluvia se está acabando: el pie lo dice.
 - **Una variable CSS solo la heredan los descendientes, y una `var()` vacía invalida la
   declaración entera.** `--rcycle` estaba en `.rmap` y el rótulo de la hora vive en `.rbar`, una
   rama hermana: `animation: rframe var(--rcycle) linear infinite` no era una abreviatura con un

@@ -8,6 +8,7 @@ import { HourlyTable } from './HourlyTable';
 import { SunMoon } from './SunMoon';
 import { ClimateBlock } from './ClimateBlock';
 import { RainBlock } from './RainBlock';
+import { LocalRain } from './LocalRain';
 import { rainConditionsOf } from '@/lib/conditions';
 import { AirQuality } from './AirQuality';
 import { ComarcaCompare } from './ComarcaCompare';
@@ -19,6 +20,7 @@ import { CameraBlock } from './CameraBlock';
 import { ResortBlock } from './ResortBlock';
 import { networkLabel, refApart, type Route } from '@/lib/routes';
 import { radarZoneOf } from '@/lib/radar-zones';
+import type { LocalRainData } from '@/lib/local-rain';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { feelsCause, msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
@@ -403,10 +405,18 @@ interface Props {
    * distància» a un poble, hi passa o no hi passa.
    */
   routes: Route[];
+  /**
+   * Cap on va la pluja, quan n'hi ha.
+   *
+   * Nul la immensa majoria dels dies, i és el cas normal: la porta la mira
+   * `localRainFor()` contra la predicció d'aquest punt, i un mapa de pluja
+   * sense pluja no és informació.
+   */
+  localRain: LocalRainData | null;
 }
 
 export function LocationView({
-  loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
+  localRain, loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
   air, comparison, narrative, water, airStation, sea, cameras, resort, routes,
 }: Props) {
@@ -527,6 +537,33 @@ export function LocationView({
               </Link>
             </p>
           )}
+        </section>
+      )}
+
+      {/*
+        Cap on va la pluja, i només quan n'hi ha.
+
+        Va aquí, just després de les hores i abans dels dies: la pregunta que
+        contesta —«això que ve, em tocarà?»— es fa mirant les pròximes hores,
+        no la setmana. I la porta és la predicció d'aquest punt, no el radar:
+        un eco a cent quilòmetres que se'n va cap a França no fa que aquesta
+        fitxa hagi d'ensenyar cap mapa. Ver `localRainFor()`.
+      */}
+      {localRain && loc.lat != null && loc.lon != null && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">Cap on va la pluja</h2>
+          <LocalRain
+            frames={localRain.frames}
+            grid={localRain.grid}
+            tiles={localRain.tiles}
+            fieldBox={localRain.fieldBox}
+            terrain={localRain.terrain}
+            paths={localRain.paths}
+            lat={loc.lat}
+            lon={loc.lon}
+            nom={loc.nom}
+            zoneKey={zone?.key ?? null}
+          />
         </section>
       )}
 

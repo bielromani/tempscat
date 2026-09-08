@@ -1,6 +1,7 @@
 import 'server-only';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { project, type TileGrid } from './mercator';
 
 /**
  * Acceso al territorio construido por el pipeline de `scripts/`.
@@ -286,6 +287,92 @@ export interface Relief {
  */
 export function relief(): Relief {
   return load<Relief>('geo/relleu.json');
+}
+
+/**
+ * Les fronteres de les comarques, projectades al mosaic del radar.
+ *
+ * Viu aquí i no a la pàgina del radar perquè la fitxa de cada poble també les
+ * dibuixa, al mapa del que ve. Amb dues còpies, el dia que una decimés d'una
+ * altra manera, les fronteres del mapa petit i les del gran no encaixarien.
+ *
+ * Es memoritza per procés amb la seva capsa: la pàgina del radar és dinàmica
+ * —el marc va a l'URL— així que sense memòria cada visita reprojecta i delma
+ * quinze mil coordenades per dibuixar exactament les mateixes fronteres.
+ *
+ * ## Per què cada traç porta la seva capsa
+ *
+ * Perquè no tothom les vol totes. Les 43 comarques són **320 kB de
+ * coordenades** al marcatge, i el mapa d'una fitxa n'ensenya cent quilòmetres:
+ * abocar-les senceres allà —i quatre vegades, una per quadre— afegia 247 kB en
+ * gzip a una pàgina que en pesa 72. Amb la capsa, `comarcaPathsNear()` es queda
+ * les que toquen la finestra i prou. És la regla de sempre: una pàgina es
+ * baixa bytes en proporció al que ensenya.
+ */
+export interface ComarcaPath {
+  d: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+let pathsMemo: { key: string; paths: ComarcaPath[] } | null = null;
+
+function comarcaShapes(grid: TileGrid): ComarcaPath[] {
+  const key = `${grid.z}:${grid.x0}:${grid.y0}:${grid.size}`;
+  if (pathsMemo?.key === key) return pathsMemo.paths;
+
+  const geo = comarquesGeoJson();
+  const out: ComarcaPath[] = [];
+
+  for (const f of geo.features) {
+    for (const polygon of f.geometry.coordinates) {
+      for (const ring of polygon) {
+        let d = '';
+        let lastX = -1e9;
+        let lastY = -1e9;
+        let kept = 0;
+        let x0 = Infinity; let y0 = Infinity;
+        let x1 = -Infinity; let y1 = -Infinity;
+        for (let i = 0; i < ring.length; i++) {
+          const [lon, lat] = ring[i];
+          const [x, y] = project(grid, lon, lat);
+          const last = i === ring.length - 1;
+          if (!last && kept > 0 && Math.hypot(x - lastX, y - lastY) < 1.5) continue;
+          d += `${kept === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+          lastX = x; lastY = y; kept++;
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+        if (kept > 3) out.push({ d: `${d}Z`, x0, y0, x1, y1 });
+      }
+    }
+  }
+  pathsMemo = { key, paths: out };
+  return out;
+}
+
+/** Totes les fronteres. Les vol el mapa de país, que les ensenya totes. */
+export function comarcaPathsOn(grid: TileGrid): string[] {
+  return comarcaShapes(grid).map((p) => p.d);
+}
+
+/**
+ * Només les que toquen una finestra.
+ *
+ * Per als mapes petits d'una fitxa. Es compara la capsa i no el traç: un traç
+ * que passa pel costat sense entrar-hi es dibuixa igualment i el `viewBox` el
+ * retalla, que costa menys que retallar-lo de veritat i es veu igual.
+ */
+export function comarcaPathsNear(
+  grid: TileGrid, box: { x: number; y: number; w: number; h: number },
+): string[] {
+  return comarcaShapes(grid)
+    .filter((p) => p.x0 < box.x + box.w && p.x1 > box.x && p.y0 < box.y + box.h && p.y1 > box.y)
+    .map((p) => p.d);
 }
 
 export function stationByCodi(codi: string): Station | undefined {
