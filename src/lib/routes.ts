@@ -43,6 +43,30 @@ export interface Route {
   comarques: string[];
   /** Quina part del traçat cau dins de Catalunya, de 0 a 1. */
   insideShare: number;
+  /**
+   * El codi de l'eix del qual aquest itinerari és una etapa.
+   *
+   * A OSM un GR llarg no és una relació sinó una per etapa, totes amb el
+   * mateix `ref`: el GR 92 en són 33 i el GR 3, 51. Són 209 dels 683, i sense
+   * això cada etapa era una fitxa que no sabia que en tenia trenta-dues
+   * germanes. Null quan el codi és d'un itinerari sol.
+   */
+  axis?: string | null;
+  /** La seva posició dins de l'eix, en ordre de caminar-lo. */
+  leg?: number | null;
+  /** Quantes etapes té l'eix. */
+  legs?: number | null;
+  /**
+   * Si l'etapa següent comença **on acaba aquesta**.
+   *
+   * A set dels onze eixos la sèrie d'OSM es parteix en trossos —al GR 92 li
+   * falta un enllaç, i el GR 177 és circular—, i llavors el salt d'una etapa a
+   * la següent no és un salt de caminar. Dir-ho és el que evita que la fitxa
+   * prometi una continuïtat que no hi és.
+   */
+  linked?: boolean;
+  /** El codi de la ruta mare, quan aquesta n'és una variant: `GR 11.18` → `GR 11`. */
+  variantOf?: string | null;
   start: { lat: number; lon: number };
   nearest: { id: string; nom: string; path: string; distKm: number } | null;
 }
@@ -115,6 +139,94 @@ export function routeBySlug(slug: string): Route | null {
 
 export function routeSlugs(): string[] {
   return load().routes.map((r) => r.slug);
+}
+
+// ── Els eixos: un codi, moltes etapes ───────────────────────────────────────
+//
+// A OpenStreetMap un GR llarg no és una relació sinó una per etapa, totes amb
+// el mateix `ref`. Són 209 dels 683, i fins ara cada etapa era una fitxa que no
+// sabia que en tenia trenta-dues germanes: qui buscava «GR 92» es trobava
+// trenta-tres pàgines soltes, sense saber quina va abans ni quants
+// quilòmetres fa el conjunt.
+//
+// L'ordre el calcula el build encadenant el `to` d'una amb el `from` de la
+// següent —vegeu `orderLegs` a `scripts/12-routes.ts`—, i aquí només es
+// llegeix. Una clau derivada es calcula un cop.
+
+export interface Axis {
+  ref: string;
+  slug: string;
+  legs: Route[];
+  /** La suma dels trams, que és el que fa l'eix. */
+  km: number;
+  minM: number | null;
+  maxM: number | null;
+  /** Els codis de comarca per on passa, sense repetir i en l'ordre del camí. */
+  comarques: string[];
+  /** Quantes vegades la sèrie d'OSM es trenca entre una etapa i la següent. */
+  breaks: number;
+}
+
+/** El tros d'adreça d'un eix: `GR 92` → `gr-92`. */
+export function axisSlug(ref: string): string {
+  return ref.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function axisFrom(ref: string, legs: Route[]): Axis {
+  const ordered = [...legs].sort((a, b) => (a.leg ?? 0) - (b.leg ?? 0));
+  const comarques: string[] = [];
+  for (const r of ordered) {
+    for (const c of r.comarques) if (!comarques.includes(c)) comarques.push(c);
+  }
+  const mins = ordered.map((r) => r.minM).filter((v): v is number => v != null);
+  const maxs = ordered.map((r) => r.maxM).filter((v): v is number => v != null);
+  return {
+    ref,
+    slug: axisSlug(ref),
+    legs: ordered,
+    km: Math.round(ordered.reduce((s, r) => s + r.km, 0) * 10) / 10,
+    minM: mins.length ? Math.min(...mins) : null,
+    maxM: maxs.length ? Math.max(...maxs) : null,
+    comarques,
+    breaks: ordered.slice(0, -1).filter((r) => !r.linked).length,
+  };
+}
+
+/** Tots els eixos, del més llarg al més curt. */
+export function allAxes(): Axis[] {
+  const by = new Map<string, Route[]>();
+  for (const r of load().routes) {
+    if (!r.axis) continue;
+    if (!by.has(r.axis)) by.set(r.axis, []);
+    by.get(r.axis)!.push(r);
+  }
+  return [...by].map(([ref, legs]) => axisFrom(ref, legs)).sort((a, b) => b.km - a.km);
+}
+
+export function axisBySlug(slug: string): Axis | null {
+  return allAxes().find((a) => a.slug === slug) ?? null;
+}
+
+/** L'eix del qual un itinerari és etapa, amb les germanes en ordre. */
+export function axisOfRoute(route: Route): Axis | null {
+  if (!route.axis) return null;
+  const legs = load().routes.filter((r) => r.axis === route.axis);
+  return legs.length > 1 ? axisFrom(route.axis, legs) : null;
+}
+
+/**
+ * Les variants que pengen d'un codi.
+ *
+ * `GR 11.18` penja de `GR 11`: al senyalitzar-les, el número de després del
+ * punt vol dir «variant d'aquell». Només s'enllacen les que el build ha pogut
+ * lligar a una mare que existeix al nostre índex.
+ */
+export function variantsOf(ref: string | null): Route[] {
+  if (!ref) return [];
+  return load().routes
+    .filter((r) => r.variantOf === ref)
+    .sort((a, b) => a.ref!.localeCompare(b.ref!, 'ca', { numeric: true }));
 }
 
 /**

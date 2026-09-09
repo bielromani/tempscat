@@ -137,6 +137,16 @@ export interface Route {
   start: { lat: number; lon: number };
   /** El municipi publicat més proper a l'inici. */
   nearest: { id: string; nom: string; path: string; distKm: number } | null;
+
+  /*
+   * L'eix, i el que en penja. El perquè de cada camp és a `src/lib/routes.ts`,
+   * que és qui els llegeix; aquí només es calculen —vegeu `orderLegs`—.
+   */
+  axis?: string | null;
+  leg?: number | null;
+  legs?: number | null;
+  linked?: boolean;
+  variantOf?: string | null;
 }
 
 interface BuildLocation {
@@ -185,6 +195,148 @@ function slugOf(ref: string | null, name: string): string {
   const fold = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '');
   if (!ref || fold(name).includes(fold(ref))) return slugify(name);
   return slugify(`${ref} ${name}`);
+}
+
+/**
+ * ── Els eixos: quan un codi és més d'un itinerari ───────────────────────────
+ *
+ * A OSM un GR llarg no és una relació: són trenta-tres, una per etapa, i totes
+ * amb el mateix `ref`. Fins ara cada una era una fitxa solta, i qui buscava
+ * «GR 92» es trobava trenta-tres pàgines que no es coneixien entre elles: ni
+ * quina va abans, ni quantes n'hi ha, ni quants quilòmetres fa el conjunt. Són
+ * **209 dels 683 itineraris**, així que no és un cas de vora.
+ *
+ * L'ordre no se'l inventa ningú: les etapes porten `from` i `to`, i encadenar
+ * el `to` d'una amb el `from` de la següent dona la seqüència de debò. Quatre
+ * eixos —el GR 3 amb 51 etapes, el GR 99, el GR 270 i l'HRP— encadenen sencers.
+ *
+ * ## Els que no encadenen sencers no es descarten
+ *
+ * El GR 92 té dos inicis i dos finals: a OSM li falta l'enllaç entre dos trams
+ * i la sèrie es parteix en dos. El GR 177 no té ni inici ni final, perquè és
+ * **circular**. Exigint una sola cadena, set dels onze eixos es quedarien sense
+ * ordre i les seves etapes tornarien a ser una llista alfabètica — que és
+ * exactament el que hi havia.
+ *
+ * Es recorre cada tros per separat i es posen un darrere l'altre. Dins d'un
+ * tros l'ordre és el de caminar; entre trossos, l'ordre és arbitrari i la
+ * fitxa no promet el contrari: `linked` diu, etapa a etapa, si la següent
+ * comença on acaba aquesta. Sense això, un salt entre trossos es llegiria com
+ * una etapa que continua i no continua.
+ *
+ * ## Les variants
+ *
+ * `GR 11.18` penja de `GR 11`, i això sí que és una regla del codi i no de la
+ * geometria: al senyalitzar-les, el número de després del punt vol dir
+ * «variant d'aquell». Només s'enllacen si la mare **existeix** al nostre
+ * índex; si no, el codi és una referència a una cosa que no tenim i val més no
+ * dir res. N'hi ha 67 amb punt.
+ */
+
+/** `GR 11.18` → `GR 11`. Null si el codi no és el d'una variant. */
+function parentRefOf(ref: string | null): string | null {
+  if (!ref) return null;
+  const m = ref.match(/^(.+?)\.\d+$/);
+  return m ? m[1].trim() : null;
+}
+
+/**
+ * Per comparar dos noms de lloc que ha teclejat gent diferent.
+ *
+ * Els extrems d'una etapa i de la següent són el mateix lloc escrit dos cops, i
+ * prou sovint no s'escriuen igual. Al GR 92, l'etapa E16 acaba a **«Coll de la
+ * Font de Cera»** i l'E17 surt de **«Coll de Font de Cera»**: el mateix coll amb
+ * un article de diferència. Comparant les cadenes senceres, la sèrie es partia
+ * en dos i el GR sortia començant per l'E17, a mig camí, en comptes de per
+ * Portbou.
+ *
+ * Es comparen les **paraules que diuen alguna cosa**: fora els articles i les
+ * preposicions, que en català van i venen dins d'un topònim. És la mateixa
+ * decisió que ja va caldre al cercador —«cala fosca» ha de trobar Cala la
+ * Fosca— i viu en dos llocs perquè aquí es fa en temps de construcció.
+ */
+const PLACE_STOP = new Set([
+  'el', 'la', 'els', 'les', 'l', 'de', 'del', 'dels', 'd', 'sa', 'es', 'ses',
+]);
+
+function foldPlace(s: string | null): string {
+  return (s ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter((w) => w && !PLACE_STOP.has(w))
+    .join(' ');
+}
+
+/**
+ * Posa en ordre de caminar les etapes que comparteixen codi.
+ *
+ * Torna la llista sencera —cap etapa es perd— amb les que encadenen seguides.
+ */
+function orderLegs<T extends { osmId: number; name: string; from: string | null; to: string | null }>(
+  list: T[],
+): T[] {
+  const byName = (a: T, b: T) => a.name.localeCompare(b.name, 'ca', { numeric: true });
+  const chainable = list.filter((r) => r.from && r.to);
+  const loose = list.filter((r) => !r.from || !r.to).sort(byName);
+  if (chainable.length < 2) return [...list].sort(byName);
+
+  const from = new Map<string, T[]>();
+  const arrivals = new Set<string>();
+  for (const r of chainable) {
+    const k = foldPlace(r.from);
+    if (!from.has(k)) from.set(k, []);
+    from.get(k)!.push(r);
+    arrivals.add(foldPlace(r.to));
+  }
+  for (const v of from.values()) v.sort(byName);
+
+  const left = new Set(chainable.map((r) => r.osmId));
+  const out: T[] = [];
+
+  const walk = (start: string) => {
+    let at = start;
+    for (;;) {
+      const next = (from.get(at) ?? []).find((r) => left.has(r.osmId));
+      if (!next) return;
+      left.delete(next.osmId);
+      out.push(next);
+      at = foldPlace(next.to);
+    }
+  };
+
+  /*
+   * Primer els trossos que tenen un principi de veritat: un lloc d'on surt una
+   * etapa i on no n'arriba cap.
+   *
+   * I entre trossos, mana **el nom de la primera etapa** i no el del lloc.
+   * Quan la sèrie es parteix, els noms solen portar el número —«Catalunya E01»,
+   * «E02»…— i és l'única pista de quin tros va primer; ordenant pel topònim,
+   * el GR 172 començava per la lletra que toqués.
+   */
+  const starts = [...from.keys()]
+    .filter((k) => !arrivals.has(k))
+    .sort((a, b) => {
+      const fa = (from.get(a) ?? [])[0];
+      const fb = (from.get(b) ?? [])[0];
+      return (fa && fb) ? byName(fa, fb) : a.localeCompare(b);
+    });
+  for (const s of starts) walk(s);
+
+  // I després el que quedi, que són els circulars: es comença per l'etapa amb
+  // el nom més baix, que és arbitrari però estable entre construccions.
+  while (left.size) {
+    const next = chainable.filter((r) => left.has(r.osmId)).sort(byName)[0];
+    walk(foldPlace(next.from));
+    // Si el recorregut no l'ha agafada —pot passar si dos trossos surten del
+    // mateix lloc— es posa ella sola i s'hi segueix.
+    if (left.has(next.osmId)) { left.delete(next.osmId); out.push(next); }
+  }
+
+  return [...out, ...loose];
 }
 
 /** Els trossos de línia d'una relació, cada un amb els seus punts. */
@@ -649,6 +801,55 @@ out tags;`;
     if (prev != null) r.slug = `${r.slug}-${r.osmId}`;
     else seen.set(r.slug, r.osmId);
   }
+
+  /*
+   * Els eixos, un cop el slug ja està desempatat.
+   *
+   * Es fa aquí i no a la pàgina perquè és una clau derivada: qui la necessiti
+   * la busca. Calculant-la a cada renderitzat, les 683 fitxes tornarien a
+   * recórrer les 683 rutes, i el dia que l'ordre canviés de criteri hi hauria
+   * dues respostes segons qui fes la pregunta.
+   */
+  const family = new Map<string, typeof routes>();
+  for (const r of routes) {
+    if (!r.ref) continue;
+    if (!family.has(r.ref)) family.set(r.ref, []);
+    family.get(r.ref)!.push(r);
+  }
+
+  let axes = 0;
+  let broken = 0;
+  for (const [ref, list] of family) {
+    if (list.length < 2) continue;
+    axes++;
+    const ordered = orderLegs(list);
+    if (ordered.length !== list.length) {
+      throw new Error(`l'eix ${ref} ha perdut etapes en ordenar: ${ordered.length} de ${list.length}`);
+    }
+    ordered.forEach((r, i) => {
+      r.axis = ref;
+      r.leg = i + 1;
+      r.legs = ordered.length;
+      const next = ordered[i + 1];
+      r.linked = next != null && !!r.to && foldPlace(r.to) === foldPlace(next.from);
+      if (next && !r.linked) broken++;
+    });
+  }
+
+  // Les variants, i només quan la mare hi és.
+  let variants = 0;
+  for (const r of routes) {
+    const parent = parentRefOf(r.ref);
+    if (parent && family.has(parent)) { r.variantOf = parent; variants++; }
+  }
+
+  console.log(
+    `
+Eixos: ${axes} codis amb més d'una etapa`
+    + ` · ${routes.filter((r) => r.axis).length} itineraris`
+    + ` · ${broken} salts entre trossos`
+    + ` · ${variants} variants penjades de la seva mare`,
+  );
 
   /*
    * Primer els que porten codi senyalitzat, que són els que la gent busca pel

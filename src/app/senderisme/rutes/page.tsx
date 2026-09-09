@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { allRoutes, networkLabel, refApart } from '@/lib/routes';
+import { allAxes, allRoutes, networkLabel, refApart } from '@/lib/routes';
 import { allComarques } from '@/lib/territory';
 import { ListFilter, groupsOf } from '@/components/ListFilter';
 import { comarcaName, int, num } from '@/lib/format';
@@ -37,6 +37,7 @@ export const metadata: Metadata = {
 
 export default function RutesPage() {
   const { routes, source, license, demZoom } = allRoutes();
+  const axes = allAxes();
   const comarques = new Map(allComarques().map((c) => [c.codi, c.nom]));
 
   const long = routes.filter((r) => r.network === 'nwn').length;
@@ -67,6 +68,44 @@ export default function RutesPage() {
           decideix si hi ha neu o pluja.
         </p>
       </header>
+
+      {/*
+        Els eixos, abans de la llista de 683.
+
+        Un GR llarg a OSM són moltes relacions amb el mateix codi —el GR 92 en
+        són 33— i a la taula de sota surten com trenta-tres files seguides que
+        no diuen que siguin la mateixa cosa. Qui busca «GR 92» busca l'eix, no
+        l'etapa 17.
+      */}
+      {axes.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-1 text-lg font-semibold tracking-tight">Per codi, de punta a punta</h2>
+          <p className="mb-3 max-w-[62ch] text-sm text-[var(--muted)]">
+            {int(axes.reduce((n, a) => n + a.legs.length, 0))} dels itineraris són{' '}
+            <strong className="font-medium text-[var(--ink-2)]">etapes</strong> d’un
+            recorregut més llarg. Aquí van seguides i en ordre de caminar-les.
+          </p>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {axes.map((a) => (
+              <li key={a.slug}>
+                <Link
+                  href={`/senderisme/rutes/eix/${a.slug}`}
+                  className="flex items-baseline justify-between gap-3 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] px-4 py-3 no-underline hover:border-[var(--line)]"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-medium text-[var(--ink)]">{a.ref}</span>
+                    <span className="block text-xs text-[var(--muted)]">
+                      {a.legs.length} etapes
+                      {a.legs[0].from && ` · des ${a.legs[0].from}`}
+                    </span>
+                  </span>
+                  <span className="tnum shrink-0 text-sm text-[var(--ink-2)]">{num(a.km, 0)} km</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <ListFilter id="fr" groups={groups} legend="Filtra per comarca d’inici" allLabel="Totes les comarques">
         <div className="scroll-x">

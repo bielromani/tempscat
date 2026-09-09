@@ -1,5 +1,5 @@
 {
- "builtAt": "2026-09-06T16:11:17.872Z",
+ "builtAt": "2026-09-09T08:42:32.888Z",
  "source": "OpenStreetMap",
  "license": "ODbL 1.0",
  "demZoom": 11,
@@ -131,7 +131,11 @@
     "nom": "la Vajol",
     "path": "/alt-emporda/la-vajol",
     "distKm": 1.9
-   }
+   },
+   "axis": "CC-C",
+   "leg": 1,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18664163,
@@ -163,7 +167,11 @@
     "nom": "Mieres",
     "path": "/garrotxa/mieres",
     "distKm": 0.1
-   }
+   },
+   "axis": "CC-C",
+   "leg": 2,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18664164,
@@ -196,7 +204,11 @@
     "nom": "Gombrèn",
     "path": "/ripolles/gombren",
     "distKm": 2
-   }
+   },
+   "axis": "CC-C",
+   "leg": 3,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18664166,
@@ -230,7 +242,11 @@
     "nom": "la Seu d'Urgell",
     "path": "/alt-urgell/la-seu-d-urgell",
     "distKm": 0.6
-   }
+   },
+   "axis": "CC-C",
+   "leg": 4,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18664167,
@@ -262,7 +278,11 @@
     "nom": "Sant Esteve de la Sarga",
     "path": "/pallars-jussa/sant-esteve-de-la-sarga",
     "distKm": 9.8
-   }
+   },
+   "axis": "CC-C",
+   "leg": 5,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18664683,
@@ -297,7 +317,11 @@
     "nom": "Lleida",
     "path": "/segria/lleida",
     "distKm": 0.6
-   }
+   },
+   "axis": "CC-C",
+   "leg": 6,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18664988,
@@ -330,7 +354,11 @@
     "nom": "Cervera",
     "path": "/segarra/cervera",
     "distKm": 0.7
-   }
+   },
+   "axis": "CC-C",
+   "leg": 7,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18697861,
@@ -363,7 +391,11 @@
     "nom": "Monistrol de Montserrat",
     "path": "/bages/monistrol-de-montserrat",
     "distKm": 2
-   }
+   },
+   "axis": "CC-C",
+   "leg": 8,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18705602,
@@ -396,7 +428,11 @@
     "nom": "Terrassa",
     "path": "/valles-occidental/terrassa",
     "distKm": 0.2
-   }
+   },
+   "axis": "CC-C",
+   "leg": 9,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18721826,
@@ -430,7 +466,11 @@
     "nom": "Tortosa",
     "path": "/baix-ebre/tortosa",
     "distKm": 0.4
-   }
+   },
+   "axis": "CC-C",
+   "leg": 10,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18722182,
@@ -465,7 +505,11 @@
     "nom": "Falset",
     "path": "/priorat/falset",
     "distKm": 0
-   }
+   },
+   "axis": "CC-C",
+   "leg": 11,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18731282,
@@ -500,7 +544,11 @@
     "nom": "Tarragona",
     "path": "/tarragones/tarragona",
     "distKm": 2.1
-   }
+   },
+   "axis": "CC-C",
+   "leg": 12,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18731962,
@@ -532,7 +580,11 @@
     "nom": "Igualada",
     "path": "/anoia/igualada",
     "distKm": 1.4
-   }
+   },
+   "axis": "CC-C",
+   "leg": 13,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18665490,
@@ -567,7 +619,11 @@
     "nom": "Monistrol de Montserrat",
     "path": "/bages/monistrol-de-montserrat",
     "distKm": 2
-   }
+   },
+   "axis": "CC-C",
+   "leg": 14,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18678450,
@@ -599,7 +655,11 @@
     "nom": "la Garriga",
     "path": "/valles-oriental/la-garriga",
     "distKm": 0.2
-   }
+   },
+   "axis": "CC-C",
+   "leg": 15,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18680615,
@@ -632,7 +692,11 @@
     "nom": "Sant Celoni",
     "path": "/valles-oriental/sant-celoni",
     "distKm": 0.2
-   }
+   },
+   "axis": "CC-C",
+   "leg": 16,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18681602,
@@ -665,7 +729,11 @@
     "nom": "Vic",
     "path": "/osona/vic",
     "distKm": 0.1
-   }
+   },
+   "axis": "CC-C",
+   "leg": 17,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 18681826,
@@ -698,7 +766,11 @@
     "nom": "Salt",
     "path": "/girones/salt",
     "distKm": 0.6
-   }
+   },
+   "axis": "CC-C",
+   "leg": 18,
+   "legs": 18,
+   "linked": false
   },
   {
    "osmId": 4235665,
@@ -1189,7 +1261,11 @@
     "nom": "la Pobla de Segur",
     "path": "/pallars-jussa/la-pobla-de-segur",
     "distKm": 0.3
-   }
+   },
+   "axis": "El Cinquè Llac",
+   "leg": 1,
+   "legs": 5,
+   "linked": false
   },
   {
    "osmId": 8214223,
@@ -1221,7 +1297,11 @@
     "nom": "Baix Pallars",
     "path": "/pallars-sobira/baix-pallars",
     "distKm": 1.5
-   }
+   },
+   "axis": "El Cinquè Llac",
+   "leg": 2,
+   "legs": 5,
+   "linked": false
   },
   {
    "osmId": 8214289,
@@ -1252,7 +1332,11 @@
     "nom": "la Torre de Cabdella",
     "path": "/pallars-jussa/la-torre-de-cabdella",
     "distKm": 5.4
-   }
+   },
+   "axis": "El Cinquè Llac",
+   "leg": 3,
+   "legs": 5,
+   "linked": false
   },
   {
    "osmId": 8214980,
@@ -1284,7 +1368,11 @@
     "nom": "Sarroca de Bellera",
     "path": "/pallars-jussa/sarroca-de-bellera",
     "distKm": 3.3
-   }
+   },
+   "axis": "El Cinquè Llac",
+   "leg": 4,
+   "legs": 5,
+   "linked": false
   },
   {
    "osmId": 8215056,
@@ -1316,7 +1404,11 @@
     "nom": "Senterada",
     "path": "/pallars-jussa/senterada",
     "distKm": 0.1
-   }
+   },
+   "axis": "El Cinquè Llac",
+   "leg": 5,
+   "legs": 5,
+   "linked": false
   },
   {
    "osmId": 9560937,
@@ -1453,7 +1545,8 @@
     "nom": "Vilanova de Meià",
     "path": "/noguera/vilanova-de-meia",
     "distKm": 5.4
-   }
+   },
+   "variantOf": "GR 1"
   },
   {
    "osmId": 554530,
@@ -1521,7 +1614,8 @@
     "nom": "Rupit i Pruit",
     "path": "/osona/rupit-i-pruit",
     "distKm": 0.6
-   }
+   },
+   "variantOf": "GR 2"
   },
   {
    "osmId": 18928938,
@@ -1553,7 +1647,11 @@
     "nom": "Lleida",
     "path": "/segria/lleida",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 24,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18928978,
@@ -1584,7 +1682,11 @@
     "nom": "Menàrguens",
     "path": "/noguera/menarguens",
     "distKm": 0
-   }
+   },
+   "axis": "GR 3",
+   "leg": 25,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18928977,
@@ -1615,7 +1717,11 @@
     "nom": "Balaguer",
     "path": "/noguera/balaguer",
     "distKm": 0
-   }
+   },
+   "axis": "GR 3",
+   "leg": 26,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929003,
@@ -1646,7 +1752,11 @@
     "nom": "les Avellanes i Santa Linya",
     "path": "/noguera/les-avellanes-i-santa-linya",
     "distKm": 3.9
-   }
+   },
+   "axis": "GR 3",
+   "leg": 27,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929006,
@@ -1678,7 +1788,11 @@
     "nom": "Àger",
     "path": "/noguera/ager",
     "distKm": 0
-   }
+   },
+   "axis": "GR 3",
+   "leg": 28,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929032,
@@ -1709,7 +1823,11 @@
     "nom": "Sant Esteve de la Sarga",
     "path": "/pallars-jussa/sant-esteve-de-la-sarga",
     "distKm": 0.4
-   }
+   },
+   "axis": "GR 3",
+   "leg": 29,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929031,
@@ -1740,7 +1858,11 @@
     "nom": "Sant Esteve de la Sarga",
     "path": "/pallars-jussa/sant-esteve-de-la-sarga",
     "distKm": 11.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 30,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929029,
@@ -1771,7 +1893,11 @@
     "nom": "Talarn",
     "path": "/pallars-jussa/talarn",
     "distKm": 15.5
-   }
+   },
+   "axis": "GR 3",
+   "leg": 31,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929058,
@@ -1803,7 +1929,11 @@
     "nom": "Sarroca de Bellera",
     "path": "/pallars-jussa/sarroca-de-bellera",
     "distKm": 10.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 32,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929057,
@@ -1835,7 +1965,11 @@
     "nom": "Sarroca de Bellera",
     "path": "/pallars-jussa/sarroca-de-bellera",
     "distKm": 7.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 33,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929065,
@@ -1866,7 +2000,11 @@
     "nom": "Sarroca de Bellera",
     "path": "/pallars-jussa/sarroca-de-bellera",
     "distKm": 6.1
-   }
+   },
+   "axis": "GR 3",
+   "leg": 34,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929081,
@@ -1898,7 +2036,11 @@
     "nom": "el Pont de Suert",
     "path": "/alta-ribagorca/el-pont-de-suert",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 35,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929080,
@@ -1929,7 +2071,11 @@
     "nom": "Sarroca de Bellera",
     "path": "/pallars-jussa/sarroca-de-bellera",
     "distKm": 3.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 36,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929112,
@@ -1961,7 +2107,11 @@
     "nom": "Senterada",
     "path": "/pallars-jussa/senterada",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 37,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929111,
@@ -1992,7 +2142,11 @@
     "nom": "Baix Pallars",
     "path": "/pallars-sobira/baix-pallars",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 3",
+   "leg": 38,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929110,
@@ -2023,7 +2177,11 @@
     "nom": "Sort",
     "path": "/pallars-sobira/sort",
     "distKm": 0.4
-   }
+   },
+   "axis": "GR 3",
+   "leg": 39,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929109,
@@ -2055,7 +2213,11 @@
     "nom": "Soriguera",
     "path": "/pallars-sobira/soriguera",
     "distKm": 4.8
-   }
+   },
+   "axis": "GR 3",
+   "leg": 40,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929116,
@@ -2086,7 +2248,11 @@
     "nom": "Farrera",
     "path": "/pallars-sobira/farrera",
     "distKm": 9.7
-   }
+   },
+   "axis": "GR 3",
+   "leg": 41,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929150,
@@ -2117,7 +2283,11 @@
     "nom": "Montferrer i Castellbò",
     "path": "/alt-urgell/montferrer-i-castellbo",
     "distKm": 7
-   }
+   },
+   "axis": "GR 3",
+   "leg": 42,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929149,
@@ -2148,7 +2318,11 @@
     "nom": "la Seu d'Urgell",
     "path": "/alt-urgell/la-seu-d-urgell",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 3",
+   "leg": 43,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929153,
@@ -2180,7 +2354,11 @@
     "nom": "Cava",
     "path": "/alt-urgell/cava",
     "distKm": 0
-   }
+   },
+   "axis": "GR 3",
+   "leg": 44,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929336,
@@ -2211,7 +2389,11 @@
     "nom": "Montellà i Martinet",
     "path": "/cerdanya/montella-i-martinet",
     "distKm": 5.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 45,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929335,
@@ -2242,7 +2424,11 @@
     "nom": "Bellver de Cerdanya",
     "path": "/cerdanya/bellver-de-cerdanya",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 3",
+   "leg": 46,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929359,
@@ -2274,7 +2460,11 @@
     "nom": "Alp",
     "path": "/cerdanya/alp",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 3",
+   "leg": 47,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929397,
@@ -2305,7 +2495,11 @@
     "nom": "Bagà",
     "path": "/bergueda/baga",
     "distKm": 7.5
-   }
+   },
+   "axis": "GR 3",
+   "leg": 48,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929396,
@@ -2337,7 +2531,11 @@
     "nom": "Castellar de n'Hug",
     "path": "/bergueda/castellar-de-n-hug",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 3",
+   "leg": 49,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929395,
@@ -2368,7 +2566,11 @@
     "nom": "Gombrèn",
     "path": "/ripolles/gombren",
     "distKm": 1.9
-   }
+   },
+   "axis": "GR 3",
+   "leg": 50,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929407,
@@ -2399,7 +2601,11 @@
     "nom": "Campdevànol",
     "path": "/ripolles/campdevanol",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 3",
+   "leg": 51,
+   "legs": 51,
+   "linked": false
   },
   {
    "osmId": 18929409,
@@ -2430,7 +2636,11 @@
     "nom": "Sant Joan de les Abadesses",
     "path": "/ripolles/sant-joan-de-les-abadesses",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 3",
+   "leg": 1,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929412,
@@ -2462,7 +2672,11 @@
     "nom": "Vallfogona de Ripollès",
     "path": "/ripolles/vallfogona-de-ripolles",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 2,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929449,
@@ -2493,7 +2707,11 @@
     "nom": "Vidrà",
     "path": "/osona/vidra",
     "distKm": 0
-   }
+   },
+   "axis": "GR 3",
+   "leg": 3,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929567,
@@ -2524,7 +2742,11 @@
     "nom": "Sant Quirze de Besora",
     "path": "/osona/sant-quirze-de-besora",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 4,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929586,
@@ -2556,7 +2778,11 @@
     "nom": "Sobremunt",
     "path": "/llucanes/sobremunt",
     "distKm": 1.5
-   }
+   },
+   "axis": "GR 3",
+   "leg": 5,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929585,
@@ -2589,7 +2815,11 @@
     "nom": "Sant Bartomeu del Grau",
     "path": "/osona/sant-bartomeu-del-grau",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 3",
+   "leg": 6,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929591,
@@ -2620,7 +2850,11 @@
     "nom": "l'Estany",
     "path": "/moianes/l-estany",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 3",
+   "leg": 7,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18929590,
@@ -2651,7 +2885,11 @@
     "nom": "Moià",
     "path": "/moianes/moia",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 8,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18930369,
@@ -2683,7 +2921,11 @@
     "nom": "Monistrol de Calders",
     "path": "/moianes/monistrol-de-calders",
     "distKm": 0
-   }
+   },
+   "axis": "GR 3",
+   "leg": 9,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931127,
@@ -2714,7 +2956,11 @@
     "nom": "Navarcles",
     "path": "/bages/navarcles",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 3",
+   "leg": 10,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931126,
@@ -2745,7 +2991,11 @@
     "nom": "Sant Joan de Vilatorrada",
     "path": "/bages/sant-joan-de-vilatorrada",
     "distKm": 1.9
-   }
+   },
+   "axis": "GR 3",
+   "leg": 11,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931125,
@@ -2776,7 +3026,11 @@
     "nom": "Fonollosa",
     "path": "/bages/fonollosa",
     "distKm": 2.1
-   }
+   },
+   "axis": "GR 3",
+   "leg": 12,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931282,
@@ -2807,7 +3061,11 @@
     "nom": "Cardona",
     "path": "/bages/cardona",
     "distKm": 8.3
-   }
+   },
+   "axis": "GR 3",
+   "leg": 13,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931281,
@@ -2839,7 +3097,11 @@
     "nom": "Cardona",
     "path": "/bages/cardona",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 3",
+   "leg": 14,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931280,
@@ -2870,7 +3132,11 @@
     "nom": "Solsona",
     "path": "/solsones/solsona",
     "distKm": 0
-   }
+   },
+   "axis": "GR 3",
+   "leg": 15,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931279,
@@ -2902,7 +3168,11 @@
     "nom": "Pinell de Solsonès",
     "path": "/solsones/pinell-de-solsones",
     "distKm": 6.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 16,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931278,
@@ -2934,7 +3204,11 @@
     "nom": "Ponts",
     "path": "/noguera/ponts",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 17,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931277,
@@ -2965,7 +3239,11 @@
     "nom": "Agramunt",
     "path": "/urgell/agramunt",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 18,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931276,
@@ -2996,7 +3274,11 @@
     "nom": "Tàrrega",
     "path": "/urgell/tarrega",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 3",
+   "leg": 19,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931274,
@@ -3029,7 +3311,11 @@
     "nom": "Vallbona de les Monges",
     "path": "/urgell/vallbona-de-les-monges",
     "distKm": 0
-   }
+   },
+   "axis": "GR 3",
+   "leg": 20,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931273,
@@ -3060,7 +3346,11 @@
     "nom": "Fulleda",
     "path": "/garrigues/fulleda",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 3",
+   "leg": 21,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931293,
@@ -3092,7 +3382,11 @@
     "nom": "les Borges Blanques",
     "path": "/garrigues/les-borges-blanques",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 3",
+   "leg": 22,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 18931292,
@@ -3123,7 +3417,11 @@
     "nom": "Aspa",
     "path": "/segria/aspa",
     "distKm": 0
-   }
+   },
+   "axis": "GR 3",
+   "leg": 23,
+   "legs": 51,
+   "linked": true
   },
   {
    "osmId": 1453949,
@@ -3187,7 +3485,8 @@
     "nom": "Bagà",
     "path": "/bergueda/baga",
     "distKm": 7
-   }
+   },
+   "variantOf": "GR 4"
   },
   {
    "osmId": 13500027,
@@ -3218,7 +3517,8 @@
     "nom": "Sallent",
     "path": "/bages/sallent",
     "distKm": 2.8
-   }
+   },
+   "variantOf": "GR 4"
   },
   {
    "osmId": 379910,
@@ -3323,7 +3623,11 @@
     "nom": "les Valls de Valira",
     "path": "/alt-urgell/les-valls-de-valira",
     "distKm": 6.4
-   }
+   },
+   "axis": "GR 7",
+   "leg": 1,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718702,
@@ -3354,7 +3658,11 @@
     "nom": "la Seu d'Urgell",
     "path": "/alt-urgell/la-seu-d-urgell",
     "distKm": 0.7
-   }
+   },
+   "axis": "GR 7",
+   "leg": 2,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718701,
@@ -3385,7 +3693,11 @@
     "nom": "la Vansa i Fórnols",
     "path": "/alt-urgell/la-vansa-i-fornols",
     "distKm": 2.4
-   }
+   },
+   "axis": "GR 7",
+   "leg": 3,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718700,
@@ -3417,7 +3729,11 @@
     "nom": "Josa i Tuixén",
     "path": "/alt-urgell/josa-i-tuixen",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 7",
+   "leg": 4,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718699,
@@ -3448,7 +3764,11 @@
     "nom": "Sant Llorenç de Morunys",
     "path": "/solsones/sant-llorenc-de-morunys",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 7",
+   "leg": 5,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718698,
@@ -3479,7 +3799,11 @@
     "nom": "Lladurs",
     "path": "/solsones/lladurs",
     "distKm": 5.1
-   }
+   },
+   "axis": "GR 7",
+   "leg": 6,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718697,
@@ -3510,7 +3834,11 @@
     "nom": "Solsona",
     "path": "/solsones/solsona",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 7",
+   "leg": 7,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718696,
@@ -3541,7 +3869,11 @@
     "nom": "Riner",
     "path": "/solsones/riner",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 7",
+   "leg": 8,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718721,
@@ -3573,7 +3905,11 @@
     "nom": "Pinós",
     "path": "/solsones/pinos",
     "distKm": 0
-   }
+   },
+   "axis": "GR 7",
+   "leg": 9,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718720,
@@ -3605,7 +3941,11 @@
     "nom": "Sant Pere Sallavinera",
     "path": "/anoia/sant-pere-sallavinera",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 7",
+   "leg": 10,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718752,
@@ -3636,7 +3976,11 @@
     "nom": "Rubió",
     "path": "/anoia/rubio",
     "distKm": 4.8
-   }
+   },
+   "axis": "GR 7",
+   "leg": 11,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718789,
@@ -3667,7 +4011,11 @@
     "nom": "Jorba",
     "path": "/anoia/jorba",
     "distKm": 1.5
-   }
+   },
+   "axis": "GR 7",
+   "leg": 12,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718788,
@@ -3700,7 +4048,11 @@
     "nom": "Bellprat",
     "path": "/anoia/bellprat",
     "distKm": 0
-   }
+   },
+   "axis": "GR 7",
+   "leg": 13,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718787,
@@ -3732,7 +4084,11 @@
     "nom": "Cabra del Camp",
     "path": "/alt-camp/cabra-del-camp",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 7",
+   "leg": 14,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718786,
@@ -3763,7 +4119,11 @@
     "nom": "la Riba",
     "path": "/alt-camp/la-riba",
     "distKm": 0
-   }
+   },
+   "axis": "GR 7",
+   "leg": 15,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718816,
@@ -3795,7 +4155,11 @@
     "nom": "Mont-ral",
     "path": "/alt-camp/mont-ral",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 7",
+   "leg": 16,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718815,
@@ -3827,7 +4191,11 @@
     "nom": "Arbolí",
     "path": "/baix-camp/arboli",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 7",
+   "leg": 17,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718814,
@@ -3859,7 +4227,11 @@
     "nom": "Pradell de la Teixeta",
     "path": "/priorat/pradell-de-la-teixeta",
     "distKm": 2.8
-   }
+   },
+   "axis": "GR 7",
+   "leg": 18,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718813,
@@ -3892,7 +4264,11 @@
     "nom": "Colldejou",
     "path": "/baix-camp/colldejou",
     "distKm": 0
-   }
+   },
+   "axis": "GR 7",
+   "leg": 19,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718812,
@@ -3923,7 +4299,11 @@
     "nom": "Tivissa",
     "path": "/ribera-d-ebre/tivissa",
     "distKm": 0.4
-   }
+   },
+   "axis": "GR 7",
+   "leg": 20,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718826,
@@ -3955,7 +4335,11 @@
     "nom": "Rasquera",
     "path": "/ribera-d-ebre/rasquera",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 7",
+   "leg": 21,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718825,
@@ -3986,7 +4370,11 @@
     "nom": "Benifallet",
     "path": "/baix-ebre/benifallet",
     "distKm": 0.9
-   }
+   },
+   "axis": "GR 7",
+   "leg": 22,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718824,
@@ -4018,7 +4406,11 @@
     "nom": "Paüls",
     "path": "/baix-ebre/pauls",
     "distKm": 1.1
-   }
+   },
+   "axis": "GR 7",
+   "leg": 23,
+   "legs": 24,
+   "linked": true
   },
   {
    "osmId": 18718823,
@@ -4050,7 +4442,11 @@
     "nom": "Alfara de Carles",
     "path": "/baix-ebre/alfara-de-carles",
     "distKm": 8.8
-   }
+   },
+   "axis": "GR 7",
+   "leg": 24,
+   "legs": 24,
+   "linked": false
   },
   {
    "osmId": 3579711,
@@ -4081,7 +4477,8 @@
     "nom": "Colldejou",
     "path": "/baix-camp/colldejou",
     "distKm": 1.6
-   }
+   },
+   "variantOf": "GR 7"
   },
   {
    "osmId": 13500128,
@@ -4112,7 +4509,8 @@
     "nom": "Lladurs",
     "path": "/solsones/lladurs",
     "distKm": 2.1
-   }
+   },
+   "variantOf": "GR 7"
   },
   {
    "osmId": 7615396,
@@ -4144,7 +4542,8 @@
     "nom": "Vilaverd",
     "path": "/conca-de-barbera/vilaverd",
     "distKm": 3.5
-   }
+   },
+   "variantOf": "GR 7"
   },
   {
    "osmId": 20690000,
@@ -4207,7 +4606,11 @@
     "nom": "Cadaqués",
     "path": "/alt-emporda/cadaques",
     "distKm": 5.1
-   }
+   },
+   "axis": "GR 11",
+   "leg": 1,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603081,
@@ -4238,7 +4641,11 @@
     "nom": "el Port de la Selva",
     "path": "/alt-emporda/el-port-de-la-selva",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 11",
+   "leg": 2,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603080,
@@ -4269,7 +4676,11 @@
     "nom": "Vilamaniscle",
     "path": "/alt-emporda/vilamaniscle",
     "distKm": 4.6
-   }
+   },
+   "axis": "GR 11",
+   "leg": 3,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603079,
@@ -4300,7 +4711,11 @@
     "nom": "Cantallops",
     "path": "/alt-emporda/cantallops",
     "distKm": 3.4
-   }
+   },
+   "axis": "GR 11",
+   "leg": 4,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603078,
@@ -4331,7 +4746,11 @@
     "nom": "la Vajol",
     "path": "/alt-emporda/la-vajol",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 11",
+   "leg": 5,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603077,
@@ -4363,7 +4782,11 @@
     "nom": "Albanyà",
     "path": "/alt-emporda/albanya",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 11",
+   "leg": 6,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603076,
@@ -4395,7 +4818,11 @@
     "nom": "Montagut i Oix",
     "path": "/garrotxa/montagut-i-oix",
     "distKm": 9.6
-   }
+   },
+   "axis": "GR 11",
+   "leg": 7,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603074,
@@ -4426,7 +4853,11 @@
     "nom": "Setcases",
     "path": "/ripolles/setcases",
     "distKm": 6.1
-   }
+   },
+   "axis": "GR 11",
+   "leg": 9,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603073,
@@ -4457,7 +4888,11 @@
     "nom": "Queralbs",
     "path": "/ripolles/queralbs",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 11",
+   "leg": 10,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603164,
@@ -4489,7 +4924,11 @@
     "nom": "Planoles",
     "path": "/ripolles/planoles",
     "distKm": 0.7
-   }
+   },
+   "axis": "GR 11",
+   "leg": 11,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603163,
@@ -4520,7 +4959,11 @@
     "nom": "Guils de Cerdanya",
     "path": "/cerdanya/guils-de-cerdanya",
     "distKm": 1.9
-   }
+   },
+   "axis": "GR 11",
+   "leg": 12,
+   "legs": 16,
+   "linked": false
   },
   {
    "osmId": 10603858,
@@ -4551,7 +4994,11 @@
     "nom": "Alins",
     "path": "/pallars-sobira/alins",
     "distKm": 10.6
-   }
+   },
+   "axis": "GR 11",
+   "leg": 13,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603857,
@@ -4582,7 +5029,11 @@
     "nom": "Lladorre",
     "path": "/pallars-sobira/lladorre",
     "distKm": 2.7
-   }
+   },
+   "axis": "GR 11",
+   "leg": 14,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603856,
@@ -4614,7 +5065,11 @@
     "nom": "la Guingueta d'Àneu",
     "path": "/pallars-sobira/la-guingueta-d-aneu",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 11",
+   "leg": 15,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 10603855,
@@ -4645,7 +5100,11 @@
     "nom": "Naut Aran",
     "path": "/val-d-aran/naut-aran",
     "distKm": 9.1
-   }
+   },
+   "axis": "GR 11",
+   "leg": 16,
+   "legs": 16,
+   "linked": false
   },
   {
    "osmId": 10603075,
@@ -4676,7 +5135,11 @@
     "nom": "Molló",
     "path": "/ripolles/mollo",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 11",
+   "leg": 8,
+   "legs": 16,
+   "linked": true
   },
   {
    "osmId": 13500275,
@@ -4707,7 +5170,8 @@
     "nom": "Molló",
     "path": "/ripolles/mollo",
     "distKm": 0.2
-   }
+   },
+   "variantOf": "GR 11"
   },
   {
    "osmId": 18902800,
@@ -4738,7 +5202,8 @@
     "nom": "Setcases",
     "path": "/ripolles/setcases",
     "distKm": 7
-   }
+   },
+   "variantOf": "GR 11"
   },
   {
    "osmId": 18902849,
@@ -4769,7 +5234,8 @@
     "nom": "Queralbs",
     "path": "/ripolles/queralbs",
     "distKm": 2.2
-   }
+   },
+   "variantOf": "GR 11"
   },
   {
    "osmId": 6955560,
@@ -4800,7 +5266,8 @@
     "nom": "el Pont de Bar",
     "path": "/alt-urgell/el-pont-de-bar",
     "distKm": 9.9
-   }
+   },
+   "variantOf": "GR 11"
   },
   {
    "osmId": 13518066,
@@ -4832,7 +5299,8 @@
     "nom": "Naut Aran",
     "path": "/val-d-aran/naut-aran",
     "distKm": 8.9
-   }
+   },
+   "variantOf": "GR 11"
   },
   {
    "osmId": 6955604,
@@ -4863,7 +5331,8 @@
     "nom": "la Guingueta d'Àneu",
     "path": "/pallars-sobira/la-guingueta-d-aneu",
     "distKm": 1.5
-   }
+   },
+   "variantOf": "GR 11"
   },
   {
    "osmId": 4474642,
@@ -4896,7 +5365,8 @@
     "nom": "el Pont de Suert",
     "path": "/alta-ribagorca/el-pont-de-suert",
     "distKm": 0.6
-   }
+   },
+   "variantOf": "GR 11"
   },
   {
    "osmId": 1733633,
@@ -4962,7 +5432,11 @@
     "nom": "Portbou",
     "path": "/alt-emporda/portbou",
     "distKm": 1
-   }
+   },
+   "axis": "GR 92",
+   "leg": 1,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727791,
@@ -4993,7 +5467,11 @@
     "nom": "Llançà",
     "path": "/alt-emporda/llanca",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 92",
+   "leg": 2,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727790,
@@ -5024,7 +5502,11 @@
     "nom": "Cadaqués",
     "path": "/alt-emporda/cadaques",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 92",
+   "leg": 3,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727789,
@@ -5055,7 +5537,11 @@
     "nom": "Roses",
     "path": "/alt-emporda/roses",
     "distKm": 0.5
-   }
+   },
+   "axis": "GR 92",
+   "leg": 4,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727788,
@@ -5086,7 +5572,11 @@
     "nom": "Castelló d'Empúries",
     "path": "/alt-emporda/castello-d-empuries",
     "distKm": 4.1
-   }
+   },
+   "axis": "GR 92",
+   "leg": 5,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727787,
@@ -5118,7 +5608,11 @@
     "nom": "l'Escala",
     "path": "/alt-emporda/l-escala",
     "distKm": 0.9
-   }
+   },
+   "axis": "GR 92",
+   "leg": 6,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727786,
@@ -5149,7 +5643,11 @@
     "nom": "Torroella de Montgrí",
     "path": "/baix-emporda/torroella-de-montgri",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 92",
+   "leg": 7,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727785,
@@ -5180,7 +5678,11 @@
     "nom": "Begur",
     "path": "/baix-emporda/begur",
     "distKm": 0.4
-   }
+   },
+   "axis": "GR 92",
+   "leg": 8,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727784,
@@ -5211,7 +5713,11 @@
     "nom": "Palamós",
     "path": "/baix-emporda/palamos",
     "distKm": 0.8
-   }
+   },
+   "axis": "GR 92",
+   "leg": 9,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727783,
@@ -5244,7 +5750,11 @@
     "nom": "Sant Feliu de Guíxols",
     "path": "/baix-emporda/sant-feliu-de-guixols",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 92",
+   "leg": 10,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727830,
@@ -5275,7 +5785,11 @@
     "nom": "Tossa de Mar",
     "path": "/selva/tossa-de-mar",
     "distKm": 0.8
-   }
+   },
+   "axis": "GR 92",
+   "leg": 11,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727829,
@@ -5307,7 +5821,11 @@
     "nom": "Lloret de Mar",
     "path": "/selva/lloret-de-mar",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 92",
+   "leg": 12,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727828,
@@ -5338,7 +5856,11 @@
     "nom": "Tordera",
     "path": "/maresme/tordera",
     "distKm": 0.7
-   }
+   },
+   "axis": "GR 92",
+   "leg": 13,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727827,
@@ -5370,7 +5892,11 @@
     "nom": "Sant Cebrià de Vallalta",
     "path": "/maresme/sant-cebria-de-vallalta",
     "distKm": 6
-   }
+   },
+   "axis": "GR 92",
+   "leg": 14,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727826,
@@ -5402,7 +5928,11 @@
     "nom": "Vallgorguina",
     "path": "/valles-oriental/vallgorguina",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 92",
+   "leg": 15,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727854,
@@ -5434,7 +5964,11 @@
     "nom": "Llinars del Vallès",
     "path": "/valles-oriental/llinars-del-valles",
     "distKm": 1.6
-   }
+   },
+   "axis": "GR 92",
+   "leg": 16,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727853,
@@ -5468,7 +6002,11 @@
     "nom": "Vallromanes",
     "path": "/valles-oriental/vallromanes",
     "distKm": 1.9
-   }
+   },
+   "axis": "GR 92",
+   "leg": 17,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727852,
@@ -5500,7 +6038,11 @@
     "nom": "Montcada i Reixac",
     "path": "/valles-occidental/montcada-i-reixac",
     "distKm": 0.5
-   }
+   },
+   "axis": "GR 92",
+   "leg": 18,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727851,
@@ -5533,7 +6075,11 @@
     "nom": "Sant Just Desvern",
     "path": "/baix-llobregat/sant-just-desvern",
     "distKm": 4.1
-   }
+   },
+   "axis": "GR 92",
+   "leg": 19,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727850,
@@ -5564,7 +6110,11 @@
     "nom": "Sant Vicenç dels Horts",
     "path": "/baix-llobregat/sant-vicenc-dels-horts",
     "distKm": 0.5
-   }
+   },
+   "axis": "GR 92",
+   "leg": 20,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727897,
@@ -5596,7 +6146,11 @@
     "nom": "Gavà",
     "path": "/baix-llobregat/gava",
     "distKm": 3.7
-   }
+   },
+   "axis": "GR 92",
+   "leg": 21,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727896,
@@ -5627,7 +6181,11 @@
     "nom": "Castelldefels",
     "path": "/baix-llobregat/castelldefels",
     "distKm": 6.8
-   }
+   },
+   "axis": "GR 92",
+   "leg": 22,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727895,
@@ -5659,7 +6217,11 @@
     "nom": "Vilanova i la Geltrú",
     "path": "/garraf/vilanova-i-la-geltru",
     "distKm": 1
-   }
+   },
+   "axis": "GR 92",
+   "leg": 23,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727894,
@@ -5691,7 +6253,11 @@
     "nom": "Calafell",
     "path": "/baix-penedes/calafell",
     "distKm": 1.8
-   }
+   },
+   "axis": "GR 92",
+   "leg": 24,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727893,
@@ -5722,7 +6288,11 @@
     "nom": "Torredembarra",
     "path": "/tarragones/torredembarra",
     "distKm": 1.9
-   }
+   },
+   "axis": "GR 92",
+   "leg": 25,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727918,
@@ -5754,7 +6324,11 @@
     "nom": "Tarragona",
     "path": "/tarragones/tarragona",
     "distKm": 1
-   }
+   },
+   "axis": "GR 92",
+   "leg": 26,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727917,
@@ -5785,7 +6359,11 @@
     "nom": "Cambrils",
     "path": "/baix-camp/cambrils",
     "distKm": 1.2
-   }
+   },
+   "axis": "GR 92",
+   "leg": 27,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727916,
@@ -5817,7 +6395,11 @@
     "nom": "Pratdip",
     "path": "/baix-camp/pratdip",
     "distKm": 8.2
-   }
+   },
+   "axis": "GR 92",
+   "leg": 28,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727915,
@@ -5848,7 +6430,11 @@
     "nom": "l'Ametlla de Mar",
     "path": "/baix-ebre/l-ametlla-de-mar",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 92",
+   "leg": 29,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727914,
@@ -5879,7 +6465,11 @@
     "nom": "l'Ampolla",
     "path": "/baix-ebre/l-ampolla",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 92",
+   "leg": 30,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727913,
@@ -5911,7 +6501,11 @@
     "nom": "Deltebre",
     "path": "/baix-ebre/deltebre",
     "distKm": 1.4
-   }
+   },
+   "axis": "GR 92",
+   "leg": 31,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727921,
@@ -5942,7 +6536,11 @@
     "nom": "Amposta",
     "path": "/montsia/amposta",
     "distKm": 1
-   }
+   },
+   "axis": "GR 92",
+   "leg": 32,
+   "legs": 33,
+   "linked": true
   },
   {
    "osmId": 18727920,
@@ -5973,7 +6571,11 @@
     "nom": "Sant Carles de la Ràpita",
     "path": "/montsia/sant-carles-de-la-rapita",
     "distKm": 0.4
-   }
+   },
+   "axis": "GR 92",
+   "leg": 33,
+   "legs": 33,
+   "linked": false
   },
   {
    "osmId": 7539912,
@@ -6005,7 +6607,8 @@
     "nom": "Palau-sator",
     "path": "/baix-emporda/palau-sator",
     "distKm": 0.1
-   }
+   },
+   "variantOf": "GR 92"
   },
   {
    "osmId": 1805972,
@@ -6037,7 +6640,8 @@
     "nom": "Lloret de Mar",
     "path": "/selva/lloret-de-mar",
     "distKm": 0.3
-   }
+   },
+   "variantOf": "GR 92"
   },
   {
    "osmId": 554517,
@@ -6070,7 +6674,8 @@
     "nom": "Begues",
     "path": "/baix-llobregat/begues",
     "distKm": 0.7
-   }
+   },
+   "variantOf": "GR 92"
   },
   {
    "osmId": 1471561,
@@ -6102,7 +6707,8 @@
     "nom": "Begues",
     "path": "/baix-llobregat/begues",
     "distKm": 5.7
-   }
+   },
+   "variantOf": "GR 92"
   },
   {
    "osmId": 13524639,
@@ -6136,7 +6742,8 @@
     "nom": "Cubelles",
     "path": "/garraf/cubelles",
     "distKm": 1
-   }
+   },
+   "variantOf": "GR 92"
   },
   {
    "osmId": 1652288,
@@ -6298,7 +6905,11 @@
     "nom": "Almatret",
     "path": "/segria/almatret",
     "distKm": 6.5
-   }
+   },
+   "axis": "GR 99",
+   "leg": 1,
+   "legs": 7,
+   "linked": true
   },
   {
    "osmId": 18813006,
@@ -6330,7 +6941,11 @@
     "nom": "Almatret",
     "path": "/segria/almatret",
     "distKm": 0.4
-   }
+   },
+   "axis": "GR 99",
+   "leg": 2,
+   "legs": 7,
+   "linked": true
   },
   {
    "osmId": 18813005,
@@ -6361,7 +6976,11 @@
     "nom": "Flix",
     "path": "/ribera-d-ebre/flix",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 99",
+   "leg": 3,
+   "legs": 7,
+   "linked": true
   },
   {
    "osmId": 18813004,
@@ -6393,7 +7012,11 @@
     "nom": "Móra d'Ebre",
     "path": "/ribera-d-ebre/mora-d-ebre",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 99",
+   "leg": 4,
+   "legs": 7,
+   "linked": true
   },
   {
    "osmId": 18813003,
@@ -6424,7 +7047,11 @@
     "nom": "Benifallet",
     "path": "/baix-ebre/benifallet",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 99",
+   "leg": 5,
+   "legs": 7,
+   "linked": true
   },
   {
    "osmId": 18813002,
@@ -6456,7 +7083,11 @@
     "nom": "Tortosa",
     "path": "/baix-ebre/tortosa",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 99",
+   "leg": 6,
+   "legs": 7,
+   "linked": true
   },
   {
    "osmId": 18813001,
@@ -6488,7 +7119,11 @@
     "nom": "Amposta",
     "path": "/montsia/amposta",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 99",
+   "leg": 7,
+   "legs": 7,
+   "linked": false
   },
   {
    "osmId": 18892669,
@@ -6553,7 +7188,8 @@
     "nom": "Saldes",
     "path": "/bergueda/saldes",
     "distKm": 6.8
-   }
+   },
+   "variantOf": "GR 107"
   },
   {
    "osmId": 15595515,
@@ -6584,7 +7220,8 @@
     "nom": "Bellver de Cerdanya",
     "path": "/cerdanya/bellver-de-cerdanya",
     "distKm": 0.3
-   }
+   },
+   "variantOf": "GR 107"
   },
   {
    "osmId": 1761562,
@@ -6684,7 +7321,8 @@
     "nom": "Rupit i Pruit",
     "path": "/osona/rupit-i-pruit",
     "distKm": 1.7
-   }
+   },
+   "variantOf": "GR 151"
   },
   {
    "osmId": 1774120,
@@ -6748,7 +7386,8 @@
     "nom": "Torà",
     "path": "/solsones/tora",
     "distKm": 0.5
-   }
+   },
+   "variantOf": "GR 170"
   },
   {
    "osmId": 13529209,
@@ -6779,7 +7418,8 @@
     "nom": "Torà",
     "path": "/solsones/tora",
     "distKm": 0.4
-   }
+   },
+   "variantOf": "GR 170"
   },
   {
    "osmId": 13529243,
@@ -6810,7 +7450,8 @@
     "nom": "Torà",
     "path": "/solsones/tora",
     "distKm": 1.6
-   }
+   },
+   "variantOf": "GR 170"
   },
   {
    "osmId": 13529252,
@@ -6841,7 +7482,8 @@
     "nom": "Pinós",
     "path": "/solsones/pinos",
     "distKm": 5.9
-   }
+   },
+   "variantOf": "GR 170"
   },
   {
    "osmId": 1280069,
@@ -6912,7 +7554,8 @@
     "nom": "Passanant i Belltall",
     "path": "/conca-de-barbera/passanant-i-belltall",
     "distKm": 2.9
-   }
+   },
+   "variantOf": "GR 171"
   },
   {
    "osmId": 13533011,
@@ -6944,7 +7587,8 @@
     "nom": "Gandesa",
     "path": "/terra-alta/gandesa",
     "distKm": 3.7
-   }
+   },
+   "variantOf": "GR 171"
   },
   {
    "osmId": 18716453,
@@ -6975,7 +7619,11 @@
     "nom": "Vilaplana",
     "path": "/baix-camp/vilaplana",
     "distKm": 2.8
-   }
+   },
+   "axis": "GR 172",
+   "leg": 1,
+   "legs": 10,
+   "linked": true
   },
   {
    "osmId": 18716452,
@@ -7007,7 +7655,11 @@
     "nom": "Reus",
     "path": "/baix-camp/reus",
     "distKm": 0.8
-   }
+   },
+   "axis": "GR 172",
+   "leg": 2,
+   "legs": 10,
+   "linked": true
   },
   {
    "osmId": 18716451,
@@ -7038,7 +7690,11 @@
     "nom": "Tarragona",
     "path": "/tarragones/tarragona",
     "distKm": 0.9
-   }
+   },
+   "axis": "GR 172",
+   "leg": 3,
+   "legs": 10,
+   "linked": true
   },
   {
    "osmId": 18716450,
@@ -7070,7 +7726,11 @@
     "nom": "Renau",
     "path": "/tarragones/renau",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 172",
+   "leg": 4,
+   "legs": 10,
+   "linked": true
   },
   {
    "osmId": 18716449,
@@ -7101,7 +7761,11 @@
     "nom": "Aiguamúrcia",
     "path": "/alt-camp/aiguamurcia",
     "distKm": 0.4
-   }
+   },
+   "axis": "GR 172",
+   "leg": 5,
+   "legs": 10,
+   "linked": true
   },
   {
    "osmId": 18716457,
@@ -7134,7 +7798,11 @@
     "nom": "Pontons",
     "path": "/alt-penedes/pontons",
     "distKm": 2.9
-   }
+   },
+   "axis": "GR 172",
+   "leg": 6,
+   "legs": 10,
+   "linked": true
   },
   {
    "osmId": 18716456,
@@ -7166,7 +7834,11 @@
     "nom": "Mediona",
     "path": "/alt-penedes/mediona",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 172",
+   "leg": 7,
+   "legs": 10,
+   "linked": true
   },
   {
    "osmId": 18716461,
@@ -7198,7 +7870,11 @@
     "nom": "Piera",
     "path": "/anoia/piera",
     "distKm": 1.1
-   }
+   },
+   "axis": "GR 172",
+   "leg": 8,
+   "legs": 10,
+   "linked": true
   },
   {
    "osmId": 18716476,
@@ -7230,7 +7906,11 @@
     "nom": "Monistrol de Montserrat",
     "path": "/bages/monistrol-de-montserrat",
     "distKm": 2
-   }
+   },
+   "axis": "GR 172",
+   "leg": 9,
+   "legs": 10,
+   "linked": false
   },
   {
    "osmId": 18716475,
@@ -7261,7 +7941,11 @@
     "nom": "la Pobla de Claramunt",
     "path": "/anoia/la-pobla-de-claramunt",
     "distKm": 0.2
-   }
+   },
+   "axis": "GR 172",
+   "leg": 10,
+   "legs": 10,
+   "linked": false
   },
   {
    "osmId": 3073184,
@@ -7293,7 +7977,8 @@
     "nom": "Aiguamúrcia",
     "path": "/alt-camp/aiguamurcia",
     "distKm": 0.4
-   }
+   },
+   "variantOf": "GR 172"
   },
   {
    "osmId": 3330576,
@@ -7355,7 +8040,8 @@
     "nom": "Castellar del Vallès",
     "path": "/valles-occidental/castellar-del-valles",
     "distKm": 3.6
-   }
+   },
+   "variantOf": "GR 173"
   },
   {
    "osmId": 13535229,
@@ -7386,7 +8072,8 @@
     "nom": "Sant Quirze del Vallès",
     "path": "/valles-occidental/sant-quirze-del-valles",
     "distKm": 3
-   }
+   },
+   "variantOf": "GR 173"
   },
   {
    "osmId": 5611347,
@@ -7418,7 +8105,8 @@
     "nom": "Cerdanyola del Vallès",
     "path": "/valles-occidental/cerdanyola-del-valles",
     "distKm": 2
-   }
+   },
+   "variantOf": "GR 173"
   },
   {
    "osmId": 1192741,
@@ -7481,7 +8169,8 @@
     "nom": "Cornudella de Montsant",
     "path": "/priorat/cornudella-de-montsant",
     "distKm": 2.1
-   }
+   },
+   "variantOf": "GR 174"
   },
   {
    "osmId": 1180669,
@@ -7577,7 +8266,8 @@
     "nom": "Cardona",
     "path": "/bages/cardona",
     "distKm": 0.9
-   }
+   },
+   "variantOf": "GR 176"
   },
   {
    "osmId": 13542737,
@@ -7609,7 +8299,8 @@
     "nom": "Gaià",
     "path": "/bages/gaia",
     "distKm": 2.7
-   }
+   },
+   "variantOf": "GR 176"
   },
   {
    "osmId": 19603812,
@@ -7640,7 +8331,11 @@
     "nom": "Moià",
     "path": "/moianes/moia",
     "distKm": 0
-   }
+   },
+   "axis": "GR 177",
+   "leg": 1,
+   "legs": 6,
+   "linked": true
   },
   {
    "osmId": 19603811,
@@ -7671,7 +8366,11 @@
     "nom": "Calders",
     "path": "/moianes/calders",
     "distKm": 0
-   }
+   },
+   "axis": "GR 177",
+   "leg": 2,
+   "legs": 6,
+   "linked": true
   },
   {
    "osmId": 19603810,
@@ -7702,7 +8401,11 @@
     "nom": "Granera",
     "path": "/moianes/granera",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 177",
+   "leg": 3,
+   "legs": 6,
+   "linked": true
   },
   {
    "osmId": 19603809,
@@ -7734,7 +8437,11 @@
     "nom": "Castellterçol",
     "path": "/moianes/castelltercol",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 177",
+   "leg": 4,
+   "legs": 6,
+   "linked": true
   },
   {
    "osmId": 19603808,
@@ -7765,7 +8472,11 @@
     "nom": "Castellcir",
     "path": "/moianes/castellcir",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 177",
+   "leg": 5,
+   "legs": 6,
+   "linked": true
   },
   {
    "osmId": 19603807,
@@ -7796,7 +8507,11 @@
     "nom": "l'Estany",
     "path": "/moianes/l-estany",
     "distKm": 0
-   }
+   },
+   "axis": "GR 177",
+   "leg": 6,
+   "legs": 6,
+   "linked": false
   },
   {
    "osmId": 13546033,
@@ -7828,7 +8543,8 @@
     "nom": "Santa Maria d'Oló",
     "path": "/moianes/santa-maria-d-olo",
     "distKm": 3
-   }
+   },
+   "variantOf": "GR 177"
   },
   {
    "osmId": 13546045,
@@ -7859,7 +8575,8 @@
     "nom": "Santa Maria d'Oló",
     "path": "/moianes/santa-maria-d-olo",
     "distKm": 2.8
-   }
+   },
+   "variantOf": "GR 177"
   },
   {
    "osmId": 1770583,
@@ -7922,7 +8639,8 @@
     "nom": "Anglès",
     "path": "/selva/angles",
     "distKm": 5.4
-   }
+   },
+   "variantOf": "GR 178"
   },
   {
    "osmId": 5524720,
@@ -7985,7 +8703,8 @@
     "nom": "Viver i Serrateix",
     "path": "/bergueda/viver-i-serrateix",
     "distKm": 6.4
-   }
+   },
+   "variantOf": "GR 179"
   },
   {
    "osmId": 20700055,
@@ -8016,7 +8735,11 @@
     "nom": "Cambrils",
     "path": "/baix-camp/cambrils",
     "distKm": 1.2
-   }
+   },
+   "axis": "GR 192",
+   "leg": 1,
+   "legs": 5,
+   "linked": true
   },
   {
    "osmId": 20700054,
@@ -8047,7 +8770,11 @@
     "nom": "Mont-roig del Camp",
     "path": "/baix-camp/mont-roig-del-camp",
     "distKm": 1.9
-   }
+   },
+   "axis": "GR 192",
+   "leg": 2,
+   "legs": 5,
+   "linked": true
   },
   {
    "osmId": 20700053,
@@ -8080,7 +8807,11 @@
     "nom": "Vandellòs i l'Hospitalet de l'Infant",
     "path": "/baix-camp/vandellos-i-l-hospitalet-de-l-infant",
     "distKm": 2.2
-   }
+   },
+   "axis": "GR 192",
+   "leg": 3,
+   "legs": 5,
+   "linked": true
   },
   {
    "osmId": 20700052,
@@ -8112,7 +8843,11 @@
     "nom": "l'Ametlla de Mar",
     "path": "/baix-ebre/l-ametlla-de-mar",
     "distKm": 6.9
-   }
+   },
+   "axis": "GR 192",
+   "leg": 4,
+   "legs": 5,
+   "linked": true
   },
   {
    "osmId": 20700051,
@@ -8144,7 +8879,11 @@
     "nom": "Aldover",
     "path": "/baix-ebre/aldover",
     "distKm": 9
-   }
+   },
+   "axis": "GR 192",
+   "leg": 5,
+   "legs": 5,
+   "linked": false
   },
   {
    "osmId": 1239822,
@@ -8176,7 +8915,8 @@
     "nom": "Vandellòs i l'Hospitalet de l'Infant",
     "path": "/baix-camp/vandellos-i-l-hospitalet-de-l-infant",
     "distKm": 2.2
-   }
+   },
+   "variantOf": "GR 192"
   },
   {
    "osmId": 1771191,
@@ -8273,7 +9013,8 @@
     "nom": "Naut Aran",
     "path": "/val-d-aran/naut-aran",
     "distKm": 1
-   }
+   },
+   "variantOf": "GR 211"
   },
   {
    "osmId": 7604913,
@@ -8304,7 +9045,8 @@
     "nom": "Les",
     "path": "/val-d-aran/les",
     "distKm": 0
-   }
+   },
+   "variantOf": "GR 211"
   },
   {
    "osmId": 7604955,
@@ -8335,7 +9077,8 @@
     "nom": "Canejan",
     "path": "/val-d-aran/canejan",
     "distKm": 6.3
-   }
+   },
+   "variantOf": "GR 211"
   },
   {
    "osmId": 7031039,
@@ -8367,7 +9110,8 @@
     "nom": "Espot",
     "path": "/pallars-sobira/espot",
     "distKm": 11.2
-   }
+   },
+   "variantOf": "GR 211"
   },
   {
    "osmId": 7605005,
@@ -8398,7 +9142,8 @@
     "nom": "Vielha e Mijaran",
     "path": "/val-d-aran/vielha-e-mijaran",
     "distKm": 8.7
-   }
+   },
+   "variantOf": "GR 211"
   },
   {
    "osmId": 20706856,
@@ -8429,7 +9174,11 @@
     "nom": "Castellar de n'Hug",
     "path": "/bergueda/castellar-de-n-hug",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 270",
+   "leg": 1,
+   "legs": 9,
+   "linked": true
   },
   {
    "osmId": 20706855,
@@ -8460,7 +9209,11 @@
     "nom": "Guardiola de Berguedà",
     "path": "/bergueda/guardiola-de-bergueda",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 270",
+   "leg": 2,
+   "legs": 9,
+   "linked": true
   },
   {
    "osmId": 20706854,
@@ -8491,7 +9244,11 @@
     "nom": "Cercs",
     "path": "/bergueda/cercs",
     "distKm": 0.6
-   }
+   },
+   "axis": "GR 270",
+   "leg": 3,
+   "legs": 9,
+   "linked": true
   },
   {
    "osmId": 20706853,
@@ -8523,7 +9280,11 @@
     "nom": "Gironella",
     "path": "/bergueda/gironella",
     "distKm": 0.1
-   }
+   },
+   "axis": "GR 270",
+   "leg": 4,
+   "legs": 9,
+   "linked": true
   },
   {
    "osmId": 20706852,
@@ -8554,7 +9315,11 @@
     "nom": "Navàs",
     "path": "/bages/navas",
     "distKm": 0.3
-   }
+   },
+   "axis": "GR 270",
+   "leg": 5,
+   "legs": 9,
+   "linked": true
   },
   {
    "osmId": 20706851,
@@ -8585,7 +9350,11 @@
     "nom": "Navarcles",
     "path": "/bages/navarcles",
     "distKm": 0.8
-   }
+   },
+   "axis": "GR 270",
+   "leg": 6,
+   "legs": 9,
+   "linked": true
   },
   {
    "osmId": 20706850,
@@ -8618,7 +9387,11 @@
     "nom": "Monistrol de Montserrat",
     "path": "/bages/monistrol-de-montserrat",
     "distKm": 0.5
-   }
+   },
+   "axis": "GR 270",
+   "leg": 7,
+   "legs": 9,
+   "linked": true
   },
   {
    "osmId": 20706849,
@@ -8650,7 +9423,11 @@
     "nom": "Martorell",
     "path": "/baix-llobregat/martorell",
     "distKm": 0.8
-   }
+   },
+   "axis": "GR 270",
+   "leg": 8,
+   "legs": 9,
+   "linked": true
   },
   {
    "osmId": 20706848,
@@ -8681,7 +9458,11 @@
     "nom": "Sant Boi de Llobregat",
     "path": "/baix-llobregat/sant-boi-de-llobregat",
     "distKm": 0.7
-   }
+   },
+   "axis": "GR 270",
+   "leg": 9,
+   "legs": 9,
+   "linked": false
   },
   {
    "osmId": 1840721,
@@ -8901,7 +9682,11 @@
     "nom": "Vielha e Mijaran",
     "path": "/val-d-aran/vielha-e-mijaran",
     "distKm": 9.1
-   }
+   },
+   "axis": "HRP",
+   "leg": 1,
+   "legs": 5,
+   "linked": true
   },
   {
    "osmId": 3341833,
@@ -8934,7 +9719,11 @@
     "nom": "Naut Aran",
     "path": "/val-d-aran/naut-aran",
     "distKm": 8.9
-   }
+   },
+   "axis": "HRP",
+   "leg": 2,
+   "legs": 5,
+   "linked": true
   },
   {
    "osmId": 3341946,
@@ -8965,7 +9754,11 @@
     "nom": "Naut Aran",
     "path": "/val-d-aran/naut-aran",
     "distKm": 8.2
-   }
+   },
+   "axis": "HRP",
+   "leg": 3,
+   "legs": 5,
+   "linked": true
   },
   {
    "osmId": 3341955,
@@ -8996,7 +9789,11 @@
     "nom": "Alt Àneu",
     "path": "/pallars-sobira/alt-aneu",
     "distKm": 7.6
-   }
+   },
+   "axis": "HRP",
+   "leg": 4,
+   "legs": 5,
+   "linked": true
   },
   {
    "osmId": 3341968,
@@ -9027,7 +9824,11 @@
     "nom": "Esterri d'Àneu",
     "path": "/pallars-sobira/esterri-d-aneu",
     "distKm": 10.1
-   }
+   },
+   "axis": "HRP",
+   "leg": 5,
+   "legs": 5,
+   "linked": false
   },
   {
    "osmId": 7087343,
@@ -9059,7 +9860,11 @@
     "nom": "Naut Aran",
     "path": "/val-d-aran/naut-aran",
     "distKm": 0.1
-   }
+   },
+   "axis": "HRP Var.",
+   "leg": 1,
+   "legs": 3,
+   "linked": false
   },
   {
    "osmId": 7087383,
@@ -9090,7 +9895,11 @@
     "nom": "Lladorre",
     "path": "/pallars-sobira/lladorre",
     "distKm": 7.1
-   }
+   },
+   "axis": "HRP Var.",
+   "leg": 2,
+   "legs": 3,
+   "linked": false
   },
   {
    "osmId": 7087406,
@@ -9121,7 +9930,11 @@
     "nom": "Lladorre",
     "path": "/pallars-sobira/lladorre",
     "distKm": 9.6
-   }
+   },
+   "axis": "HRP Var.",
+   "leg": 3,
+   "legs": 3,
+   "linked": false
   },
   {
    "osmId": 2351642,
@@ -9441,7 +10254,8 @@
     "nom": "Figuerola del Camp",
     "path": "/alt-camp/figuerola-del-camp",
     "distKm": 3.4
-   }
+   },
+   "variantOf": "PR-C 5"
   },
   {
    "osmId": 7226865,
@@ -9565,7 +10379,8 @@
     "nom": "Aiguamúrcia",
     "path": "/alt-camp/aiguamurcia",
     "distKm": 2.5
-   }
+   },
+   "variantOf": "PR-C 8"
   },
   {
    "osmId": 1792528,
@@ -9629,7 +10444,8 @@
     "nom": "Gallifa",
     "path": "/valles-occidental/gallifa",
     "distKm": 2.6
-   }
+   },
+   "variantOf": "PR-C 9"
   },
   {
    "osmId": 1804861,
@@ -9908,7 +10724,8 @@
     "nom": "Riudecols",
     "path": "/baix-camp/riudecols",
     "distKm": 1.3
-   }
+   },
+   "variantOf": "PR-C 18"
   },
   {
    "osmId": 1726455,
@@ -10005,7 +10822,8 @@
     "nom": "Mont-ral",
     "path": "/alt-camp/mont-ral",
     "distKm": 5.2
-   }
+   },
+   "variantOf": "PR-C 20"
   },
   {
    "osmId": 7250990,
@@ -10068,7 +10886,8 @@
     "nom": "Pontils",
     "path": "/conca-de-barbera/pontils",
     "distKm": 0
-   }
+   },
+   "variantOf": "PR-C 21"
   },
   {
    "osmId": 6385058,
@@ -10918,7 +11737,8 @@
     "nom": "Orís",
     "path": "/osona/oris",
     "distKm": 3.3
-   }
+   },
+   "variantOf": "PR-C 54"
   },
   {
    "osmId": 1936846,
@@ -11108,7 +11928,8 @@
     "nom": "Vallfogona de Ripollès",
     "path": "/ripolles/vallfogona-de-ripolles",
     "distKm": 3.6
-   }
+   },
+   "variantOf": "PR-C 59"
   },
   {
    "osmId": 7280787,
@@ -11139,7 +11960,8 @@
     "nom": "Vallfogona de Ripollès",
     "path": "/ripolles/vallfogona-de-ripolles",
     "distKm": 3.7
-   }
+   },
+   "variantOf": "PR-C 59"
   },
   {
    "osmId": 1934689,
@@ -12301,7 +13123,8 @@
     "nom": "Gósol",
     "path": "/bergueda/gosol",
     "distKm": 0.3
-   }
+   },
+   "variantOf": "PR-C 123"
   },
   {
    "osmId": 5579492,
@@ -12929,7 +13752,8 @@
     "nom": "Sant Llorenç Savall",
     "path": "/valles-occidental/sant-llorenc-savall",
     "distKm": 0.9
-   }
+   },
+   "variantOf": "PR-C 145"
   },
   {
    "osmId": 3330339,
@@ -12960,7 +13784,8 @@
     "nom": "Granera",
     "path": "/moianes/granera",
     "distKm": 1.4
-   }
+   },
+   "variantOf": "PR-C 145"
   },
   {
    "osmId": 3327613,
@@ -12991,7 +13816,8 @@
     "nom": "Sant Llorenç Savall",
     "path": "/valles-occidental/sant-llorenc-savall",
     "distKm": 0.1
-   }
+   },
+   "variantOf": "PR-C 145"
   },
   {
    "osmId": 7360685,
@@ -13146,7 +13972,8 @@
     "nom": "Castellví de la Marca",
     "path": "/alt-penedes/castellvi-de-la-marca",
     "distKm": 2.3
-   }
+   },
+   "variantOf": "PR-C 154"
   },
   {
    "osmId": 6422376,
@@ -13208,7 +14035,8 @@
     "nom": "Subirats",
     "path": "/alt-penedes/subirats",
     "distKm": 3.2
-   }
+   },
+   "variantOf": "PR-C 156"
   },
   {
    "osmId": 7365919,
@@ -13240,7 +14068,8 @@
     "nom": "Subirats",
     "path": "/alt-penedes/subirats",
     "distKm": 4.1
-   }
+   },
+   "variantOf": "PR-C 156"
   },
   {
    "osmId": 6443008,
@@ -14656,7 +15485,11 @@
     "nom": "Maçanet de Cabrenys",
     "path": "/alt-emporda/macanet-de-cabrenys",
     "distKm": 3.9
-   }
+   },
+   "axis": "R4RT",
+   "leg": 1,
+   "legs": 3,
+   "linked": false
   },
   {
    "osmId": 8073880,
@@ -14687,7 +15520,11 @@
     "nom": "Cantallops",
     "path": "/alt-emporda/cantallops",
     "distKm": 3.5
-   }
+   },
+   "axis": "R4RT",
+   "leg": 2,
+   "legs": 3,
+   "linked": false
   },
   {
    "osmId": 8057200,
@@ -14718,7 +15555,11 @@
     "nom": "Roses",
     "path": "/alt-emporda/roses",
     "distKm": 0.6
-   }
+   },
+   "axis": "R4RT",
+   "leg": 3,
+   "legs": 3,
+   "linked": false
   },
   {
    "osmId": 8129161,
@@ -14750,7 +15591,11 @@
     "nom": "Esterri d'Àneu",
     "path": "/pallars-sobira/esterri-d-aneu",
     "distKm": 0.1
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 7,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8131391,
@@ -14781,7 +15626,11 @@
     "nom": "Naut Aran",
     "path": "/val-d-aran/naut-aran",
     "distKm": 0.1
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 8,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8131497,
@@ -14812,7 +15661,11 @@
     "nom": "Bossòst",
     "path": "/val-d-aran/bossost",
     "distKm": 0
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 9,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8132412,
@@ -14843,7 +15696,11 @@
     "nom": "Vielha e Mijaran",
     "path": "/val-d-aran/vielha-e-mijaran",
     "distKm": 0
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 10,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8132474,
@@ -14875,7 +15732,11 @@
     "nom": "Vielha e Mijaran",
     "path": "/val-d-aran/vielha-e-mijaran",
     "distKm": 9.9
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 11,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8132514,
@@ -14906,7 +15767,11 @@
     "nom": "la Vall de Boí",
     "path": "/alta-ribagorca/la-vall-de-boi",
     "distKm": 0.1
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 12,
+   "legs": 14,
+   "linked": false
   },
   {
    "osmId": 8096403,
@@ -14937,7 +15802,11 @@
     "nom": "Baix Pallars",
     "path": "/pallars-sobira/baix-pallars",
     "distKm": 4.2
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 14,
+   "legs": 14,
+   "linked": false
   },
   {
    "osmId": 8127786,
@@ -14968,7 +15837,11 @@
     "nom": "Rialp",
     "path": "/pallars-sobira/rialp",
     "distKm": 0.1
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 1,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8127810,
@@ -14999,7 +15872,11 @@
     "nom": "Tírvia",
     "path": "/pallars-sobira/tirvia",
     "distKm": 0.1
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 2,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8127950,
@@ -15030,7 +15907,11 @@
     "nom": "Alins",
     "path": "/pallars-sobira/alins",
     "distKm": 4.5
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 3,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8128181,
@@ -15061,7 +15942,11 @@
     "nom": "Vall de Cardós",
     "path": "/pallars-sobira/vall-de-cardos",
     "distKm": 0.1
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 4,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8128930,
@@ -15092,7 +15977,11 @@
     "nom": "la Guingueta d'Àneu",
     "path": "/pallars-sobira/la-guingueta-d-aneu",
     "distKm": 5.1
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 5,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8128999,
@@ -15123,7 +16012,11 @@
     "nom": "Espot",
     "path": "/pallars-sobira/espot",
     "distKm": 0
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 6,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 8095825,
@@ -15155,7 +16048,11 @@
     "nom": "la Pobla de Segur",
     "path": "/pallars-jussa/la-pobla-de-segur",
     "distKm": 5.3
-   }
+   },
+   "axis": "Ramat de Camins",
+   "leg": 13,
+   "legs": 14,
+   "linked": true
   },
   {
    "osmId": 19690383,

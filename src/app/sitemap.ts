@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { allPublishedPaths, buildSummary, operativeStations } from '@/lib/territory';
 import { cameraSlugs } from '@/lib/cameras';
-import { routeSlugs } from '@/lib/routes';
+import { allAxes, routeSlugs } from '@/lib/routes';
 import { IS_PRODUCTION, absolute } from '@/lib/site';
 
 /**
@@ -119,11 +119,26 @@ export default async function sitemap(
    * pren mirant un número, no una intuïció.
    */
   if (kind === 'rutes') {
-    return routeSlugs().map((slug) => ({
-      url: absolute(`/senderisme/rutes/${slug}`),
-      lastModified,
-      priority: 0.5,
-    }));
+    /*
+     * Els eixos van primer i amb més prioritat que les seves etapes.
+     *
+     * «GR 92» és el que la gent escriu; «Catalunya E17» no ho escriu ningú.
+     * Són quinze adreces que expliquen dues-centes nou, i posar-les al mateix
+     * nivell que una etapa solta seria dir-li a l'indexador que totes valen
+     * igual.
+     */
+    return [
+      ...allAxes().map((a) => ({
+        url: absolute(`/senderisme/rutes/eix/${a.slug}`),
+        lastModified,
+        priority: 0.6,
+      })),
+      ...routeSlugs().map((slug) => ({
+        url: absolute(`/senderisme/rutes/${slug}`),
+        lastModified,
+        priority: 0.5,
+      })),
+    ];
   }
 
   const wanted = kind === 'comarques'

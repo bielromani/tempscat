@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
-  hoursText, networkLabel, refApart, routeBySlug, routeGeometry, routeSlugs,
-  routesOfComarca, walkingHours, NAISMITH_KMH, NAISMITH_ASCENT_M_PER_H,
+  axisBySlug, axisOfRoute, axisSlug, hoursText, networkLabel, refApart, routeBySlug, routeGeometry,
+  routeSlugs, routesOfComarca, variantsOf, walkingHours,
+  NAISMITH_KMH, NAISMITH_ASCENT_M_PER_H,
 } from '@/lib/routes';
 import { allComarques, locationById } from '@/lib/territory';
 import { mapOutline } from '@/lib/map';
@@ -68,6 +69,17 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const route = routeBySlug(slug);
   if (!route) notFound();
+
+  /*
+   * L'eix i el que hi penja. Es demanen aquí i no dins del JSX perquè les
+   * tres preguntes —de quin eix soc, de qui soc variant, qui és variant meva—
+   * es contesten amb el mateix índex i val més recórrer-lo un cop.
+   */
+  const axis = axisOfRoute(route);
+  const prevLeg = axis && route.leg ? axis.legs[route.leg - 2] ?? null : null;
+  const nextLeg = axis && route.leg ? axis.legs[route.leg] ?? null : null;
+  const parentAxis = route.variantOf ? axisBySlug(axisSlug(route.variantOf)) : null;
+  const variants = variantsOf(route.ref);
 
   const comarques = new Map(allComarques().map((c) => [c.codi, c.nom]));
   const base = route.nearest ? locationById(route.nearest.id) : undefined;
@@ -237,6 +249,112 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
           )}
         </p>
       </section>
+
+      {/* ── L'eix del qual això és una etapa ──────────────────────────
+        *
+        * A OSM un GR llarg són trenta-tres relacions, una per etapa, i sense
+        * això cada fitxa era una pàgina que no sabia que en tenia trenta-dues
+        * germanes: ni quina va abans, ni quantes n'hi ha. Passa a 209 dels 683.
+        */}
+      {axis && (
+        <section className="mt-8 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Etapa {route.leg} de {axis.legs.length} del {axis.ref}
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed text-[var(--ink-2)]">
+            L&apos;eix sencer fa {num(axis.km, 1)} km, de {axis.legs[0].from ?? '—'} a{' '}
+            {axis.legs[axis.legs.length - 1].to ?? '—'}.{' '}
+            <Link href={`/senderisme/rutes/eix/${axis.slug}`} className="text-[var(--accent)] no-underline hover:underline">
+              Les {axis.legs.length} etapes ›
+            </Link>
+          </p>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {/*
+              L'anterior i la següent, i cada una diu si s'hi enllaça de debò.
+              Quan la sèrie d'OSM es trenca, «la següent» no és una etapa que
+              es pugui encadenar caminant, i dir-ho és el que evita prometre
+              una continuïtat que no hi ha.
+            */}
+            {[
+              { r: prevLeg, label: 'Abans', linked: prevLeg?.linked ?? false },
+              { r: nextLeg, label: 'Després', linked: route.linked ?? false },
+            ].map(({ r, label, linked }) => (
+              <div key={label}>
+                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">{label}</p>
+                {r ? (
+                  <>
+                    <Link
+                      href={`/senderisme/rutes/${r.slug}`}
+                      className="text-sm font-medium text-[var(--ink)] no-underline hover:underline"
+                    >
+                      {r.from && r.to ? `${r.from} → ${r.to}` : r.name}
+                    </Link>
+                    <span className="tnum ml-2 text-sm text-[var(--muted)]">{num(r.km, 1)} km</span>
+                    {!linked && (
+                      <p className="mt-0.5 text-xs text-[var(--muted)]">
+                        No s&apos;encadena amb aquesta: a OpenStreetMap la sèrie es trenca aquí.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-[var(--muted)]">
+                    {label === 'Abans' ? 'És la primera etapa.' : 'És l’última etapa.'}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* La mare, quan això n'és una variant: «GR 11.18» penja de «GR 11». */}
+      {parentAxis && (
+        <section className="mt-8 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Variant del {parentAxis.ref}
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed text-[var(--ink-2)]">
+            Aquest recorregut és una variant senyalitzada del {parentAxis.ref}, que fa{' '}
+            {num(parentAxis.km, 1)} km en {parentAxis.legs.length} etapes.{' '}
+            <Link href={`/senderisme/rutes/eix/${parentAxis.slug}`} className="text-[var(--accent)] no-underline hover:underline">
+              Veure l&apos;eix ›
+            </Link>
+          </p>
+        </section>
+      )}
+
+      {/*
+        I al revés: les variants que pengen d'aquesta.
+
+        Només quan l'itinerari **no** és una etapa d'un eix. Les variants
+        pengen del codi, i totes les etapes d'un GR el comparteixen: sense
+        aquesta condició, les cinc variants del GR 92 sortien repetides a les
+        trenta-tres fitxes. D'un eix pengen a la seva pàgina, un cop.
+      */}
+      {!axis && variants.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-2 text-lg font-semibold tracking-tight">
+            {variants.length === 1 ? 'Una variant senyalitzada' : `${variants.length} variants senyalitzades`}
+          </h2>
+          <ul className="space-y-1.5">
+            {variants.map((v) => (
+              <li key={v.slug}>
+                <Link
+                  href={`/senderisme/rutes/${v.slug}`}
+                  className="flex items-baseline justify-between gap-3 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2 no-underline hover:border-[var(--line)]"
+                >
+                  <span className="min-w-0 text-sm text-[var(--ink)]">
+                    <span className="tnum mr-2 text-[var(--muted)]">{v.ref}</span>
+                    {v.name}
+                  </span>
+                  <span className="tnum shrink-0 text-sm text-[var(--muted)]">{num(v.km, 1)} km</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* ── El temps, que és a què es ve ─────────────────────────────── */}
       {route.maxM != null && base && (nowUp != null || days.length > 0) && (
