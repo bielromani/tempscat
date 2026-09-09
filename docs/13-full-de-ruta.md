@@ -1317,10 +1317,25 @@ Vic**, y por qué:
     página tienen que calcular la misma ventana. Con dos copias, el mapa sale
     con agujeros y nada da error.
 - **Fotos.** No las tenemos y no se inventan.
-- **Los «eixos» para recortar la ruta.** En OSM las variantes existen como
-  relaciones propias —las PR-C variantes ya están publicadas como itinerarios— y
-  lo que falta es enlazarlas con su ruta madre. Se puede hacer por el `ref`:
-  «PR-C 123.1» cuelga de «PR-C 123».
+- ~~**Los «eixos» para recortar la ruta**~~ · ✅ hecho el 9 de septiembre de 2026,
+  y resultó ser bastante más que enlazar variantes. En OSM un GR largo **no es
+  una relación**: son treinta y tres, una por etapa, todas con el mismo `ref`.
+  Son **209 de los 683**, y cada una era una ficha que no sabía que tenía
+  treinta y dos hermanas.
+  El orden no se lo inventa nadie: se encadena el `to` de una etapa con el
+  `from` de la siguiente, y ocho de los once ejes con esos datos encadenan
+  enteros. Dos cosas hicieron falta: **los topónimos de los extremos los teclea
+  gente distinta** —la E16 acaba en «Coll de la Font de Cera» y la E17 sale de
+  «Coll de Font de Cera», el mismo collado con un artículo de diferencia, y
+  comparando las cadenas enteras el GR 92 se partía en dos y empezaba por la
+  E17, a mitad de camino—; y **los tramos que no encadenan no se descartan**,
+  porque el GR 177 es circular y a otros les falta un enlace: exigiendo una sola
+  cadena, siete de los once se quedaban sin orden. `linked` dice, etapa a etapa,
+  si la siguiente empieza donde acaba esta.
+  Hay `/senderisme/rutes/eix/<codi>`, la ficha de una etapa dice cuál es y
+  cuáles van antes y después, y las 61 variantes cuelgan de su eje — ahí y una
+  sola vez, que en la ficha de cada etapa serían las mismas cinco repetidas
+  treinta y tres veces.
 
 **Lo que no se hará: incrustar su mapa.** Sería un `iframe` a google.com en cada
 ficha —JavaScript y cookies de terceros en un sitio que no tiene ninguna—, ese
@@ -1331,12 +1346,55 @@ copian.
 
 ## Fase 2 — SEO e indexación
 
-Sin cambios respecto a lo ya escrito. El riesgo real del proyecto no es la falta
-de datos: es el *index bloat* de 4.293 rutas. Los feeds del punto 1 y las páginas
-de los puntos 7, 8 y 9 ayudan, porque dan razones para enlazar que no dependen de
-posicionar cada núcleo por su cuenta.
+El riesgo real del proyecto no es la falta de datos: es el *index bloat* de
+4.293 rutas. Los feeds y las páginas temáticas ayudan, porque dan razones para
+enlazar que no dependen de posicionar cada núcleo por su cuenta.
+
+### Datos estructurados · ✅ hecho el 9 de septiembre de 2026
+
+Había dos bloques de `JSON-LD` —la ficha de municipio y la de entidad— y los dos
+llevaban el mismo defecto: el `item` de cada miga de pan era **una ruta y no una
+dirección**. Schema.org espera una URL; el navegador la resuelve pero ninguna
+herramienta la valida, así que el rastro de las 4.293 fichas se publicaba roto
+sin que nada avisara. Es la misma clase de fallo que las canónicas apuntando a
+un dominio ajeno: invisible en pantalla, grave en el índice.
+
+| dónde | antes | ahora |
+|---|---|---|
+| municipio y entidad | Place + BreadcrumbList, con rutas relativas | lo mismo, con URLs |
+| comarca, estación, itinerario, eje | nada | BreadcrumbList |
+| esqueleto | nada | WebSite + SearchAction |
+| `/dades` | nada | Dataset |
+
+**El `WebSite` va en el esqueleto y no en la portada** porque un robot entra por
+cualquiera de las 4.293 páginas y puede no pasar nunca por la raíz. Su
+`SearchAction` apunta a `/cerca`, que es un `<form method="get">` de verdad: la
+dirección que se promete ahí funciona tal cual, sin JavaScript.
+
+**El `Dataset` de `/dades` es el único tipo que describe lo que este sitio tiene
+de propio.** Una página de predicción compite con todas las páginas de
+predicción; un conjunto de datos abierto de Catalunya con atribución por bloque
+y licencia declarada, con muy pocas.
+
+Y **no hay ningún `WeatherForecast`**, porque no existe en schema.org: quien lo
+usa inyecta marcado inválido.
+
+`npm run check:jsonld` lo comprueba **contra el HTML servido** y por tipo de
+página. Contra la función no serviría: lo que puede romperse no es el
+constructor, es que una página deje de llevarlo, y eso no da ningún error.
+Medido en producción el 9 de septiembre: los seis tipos, correctos.
+
+### Lo que sigue faltando
+
+- **Search Console.** Nada de lo de arriba se puede evaluar sin mirar cuántas de
+  las 4.293 entran de verdad en el índice. El sitemap ya va partido por tipo
+  justamente para poder mirarlo por separado.
+- Los ejes de los itinerarios son la primera pieza que se hizo pensando en esto:
+  quince direcciones que explican doscientas nueve.
 
 ---
+
+## Fase 3 — mapas---
 
 ## Fase 3 — mapas
 
@@ -1434,13 +1492,50 @@ El transporte: un binario compacto (768 × 2 `Float32`, unos 6 KB) servido por u
 
 ## Fase 4 — verificación, tauler y push
 
-### 13. Verificación de modelos
+### 13. Verificación de modelos · **acumulando desde el 9 de septiembre de 2026**
 
-Ya planeada, y necesita 60 días de histórico acumulado. Es la que permite quitar
-la nota de «els models pesen igual» y empezar a ponderar por acierto. Sigue siendo
-la mejora de calidad más grande que le queda al proyecto.
+Es la mejora de calidad más grande que le queda al proyecto —dejar de hacer que
+todos los modelos pesen igual y ponderarlos por lo que aciertan— y **no se puede
+hacer el día que se decida**: hace falta un historial de comparaciones, y un
+historial no se construye hacia atrás. La predicción de ayer no existe en
+ninguna parte: el fichero se reescribe en cada refresco. Así que el registro
+arrancó mucho antes de que sirva para nada.
 
-### 14. Tauler configurable · `/tauler`
+`forecast-verify.ts`, dentro de `diari.yml`, tiene dos mitades: **captura** lo
+que cada modelo dice de un día que aún no ha pasado, y **puntúa** ese día cuando
+se cierra, contra la máxima, la mínima y la lluvia que han medido las estaciones
+de la XEMA. Tres días de antelación, no siete: el objetivo es ponderar el
+consenso de las próximas horas.
+
+Tres decisiones son las que hacen que el número signifique algo:
+
+- **Se prefiere el punto de nivel A aunque no sea el más cercano.** Solo esos
+  llevan más de un modelo — los demás únicamente `best_match`, que es el que
+  Open-Meteo elige y no un modelo independiente. Emparejando por pura
+  proximidad, de 189 estaciones solo **38** podían comparar modelos; con el
+  nivel A como preferencia son **138**, y la mediana de la distancia es 2,7 km,
+  menos que la separación de la malla. Medido en la primera captura: 117
+  estaciones con tres modelos.
+- **Se baja la predicción de la cota del modelo a la de la estación.** Sin
+  corregir, lo que se mediría es la diferencia de altura, y castigaría más a los
+  modelos de malla ancha — que es exactamente el sesgo que esto tiene que
+  evitar. Por eso el gradiente vive ahora en `variables.ts` y no en
+  `weather.ts`: con dos copias, la corrección de la página y la de la
+  comprobación dejarían de ser la misma. Con más de 300 m de diferencia no se
+  puntúa.
+- **El diario sale de `mergeHourly` y `aggregateDaily`**, no de sumar las horas
+  a mano: el desplazamiento del convenio horario de Open-Meteo está ahí dentro.
+
+Se guardan `n`, la suma de errores y la de valores absolutos, no las medias: una
+media ya calculada no se puede seguir acumulando sin volver a ponderarla, y el
+día que alguien lo hiciera mal el número seguiría pareciendo una media. `/estat`
+enseña cuántos días lleva; hacen falta **60** antes de que la cifra sea otra cosa
+que el tiempo que ha hecho esas semanas.
+
+Mientras tanto la página sigue diciendo que los modelos pesan igual, que es lo
+que pasa.
+
+### 14. Tauler configurable### 14. Tauler configurable · `/tauler`
 
 Widgets que el usuario ordena: temperatura, viento, UV, aire, mar, radar.
 
