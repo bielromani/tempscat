@@ -175,7 +175,7 @@ npm run worker:forecast   # predicció · accepta --tiers=A,B,C i --fill
 npm run worker:history    # rècords i normals, un cop al dia
 npm run worker:cameres    # cameres de muntanya de FGC, cada hora
 npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
-npm run worker:field      # el camp de pluja del radar · el crida `prediccio.yml` al final
+npm run worker:field      # el camp de pluja del radar · cada hora, i al final de `prediccio.yml`
 ```
 
 Pruebas:
@@ -184,6 +184,7 @@ Pruebas:
 npm run test              # topónimos, astronomía, hora cero de la predicción, buscador y frases
 npm run test:search       # lo que el buscador tiene que encontrar y lo que no
 npm run test:climate      # los meses y los años que el histórico tiene que descartar
+npm run test:hours        # qué tramo del reloj describe cada valor de la predicción
 npm run check:credentials # a qué clave le queda poco. Lo corre `credencials.yml` cada lunes
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
@@ -315,10 +316,38 @@ cuota para exactamente la misma información.
   Se concatena a los marcos del radar y hereda la animación, el rótulo de la hora y la barra sin
   una línea más —toda la página cuenta grupos—, pero **no hereda el nombre**: la leyenda dice
   dónde acaba el radar y empieza el modelo, antes que ninguna otra cosa.
-- **Donde no hay punto no se pinta nada.** Los 3.190 son de Catalunya, así que el mar, Francia y
-  Aragón salen transparentes en el campo de lluvia, y es correcto que salgan así: allí no hay
-  predicción. Estirar el valor del punto más cercano hasta llenar el recuadro daría un mapa más
-  bonito diciendo algo que no sabemos. El radio de búsqueda es de 12 km.
+- **La pluja del model s'acabava dins del mapa, i això no es llegeix com «aquí no en sabem».**
+  Los 3.190 puntos son de Catalunya, así que el campo de lluvia se cortaba en seco en la raya de
+  la frontera y en la costa, con medio encuadre en blanco. Se arregló **sin inventar nada**: no
+  se estira el valor del punto más cercano —eso sería dibujar lo que no sabemos— sino que se le
+  pide la predicción también al mar, a Francia y a Aragón, en una malla de 0,25° (un punto cada
+  25 km). Son 129 puntos, **129 unidades de cuota al día** —el 1,3 % del techo— porque se piden
+  una sola vez por serie y se reaprovechan en cada repintada; van a su propio trozo
+  (`field/voltant`) porque solo los lee el worker. Fuera se dice: la leyenda distingue los 3,2 km
+  de dentro de los 25 de fuera.
+  Tres cosas que costaron una vuelta cada una, y las tres eran de dibujo y no de datos:
+  **un punto aislado con `1/d²` pinta un disco uniforme de su valor con el borde cortado**
+  —si es el único que contribuye, la media ponderada es él mismo valga lo que valga la
+  distancia—, así que el mar salía a lunares de 30 km; se apaga el peso con `(1 − d/r)²`, que es
+  la ponderación de Shepard modificada, y el disco se funde en vez de acabarse. **Una paleta a
+  escalones sobre un campo suave dibuja curvas de nivel**: encima de Catalunya no se veía
+  —el campo cambia deprisa y salen finas y torcidas, como las de un radar— pero encima del mar
+  cada umbral se convertía en un rectángulo y el mapa parecía de baldosas; se interpola entre
+  los peldaños. Y **el umbral de abajo también es un borde duro**: se le puso un peldaño
+  transparente a 0,05 mm/h para que la mancha se funda por fuera.
+  El margen de la malla va un paso por fuera de la ventana visible a propósito: sin él, el
+  desvanecimiento del último punto caería **dentro** del mapa y parecería que la lluvia se acaba
+  en el marco.
+- **El campo se repinta cada hora, y comparar con el disco para no repetir escrituras no
+  funciona.** Se pintaba solo cuando se refrescaba la predicción —cuatro veces al día— y como la
+  página únicamente enseña las horas que no han pasado, **el futuro del radar se iba encogiendo**:
+  con el último refresco a las 17:00 UTC, a las nueve de la mañana siguiente no quedaba ninguna.
+  Ahora hay `camp.yml` cada hora. Entre dos vueltas once de las doce imágenes son idénticas, así
+  que se comparan y no se vuelven a subir — pero **la comparación tiene que ser contra el índice
+  publicado, no contra el fichero del disco**: en GitHub Actions el disco arranca vacío, así que
+  mirándolo la comparación sale siempre negativa y se subirían las doce cada hora. Escrito
+  primero con `existsSync`, iba bien en local y no habría hecho nada en producción. Cada hora
+  lleva su `hash` en el índice. Medido: primera vuelta 14 ficheros, segunda 2.
 - **Un mapa pequeño no puede llevar el país entero dentro.** El bloque «Cap on va la pluja» de
   la ficha son cuatro cuadros de 100 km —el último radar y las tres horas siguientes— y la
   primera versión volcaba las 43 comarcas en cada uno: **320 kB de coordenadas, cuatro veces**,

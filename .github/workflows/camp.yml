@@ -1,0 +1,44 @@
+name: Camp de pluja del radar
+
+# Cada hora, i no perquè la dada canviï cada hora.
+#
+# La predicció es refresca quatre cops al dia, i mentre el camp es pintava
+# només allà passava això: el worker pinta les dotze hores següents, la pàgina
+# només ensenya les que encara no han passat, i **el futur del radar s'anava
+# encongint al llarg del dia**. Amb l'últim refresc a les 17:00 UTC, a les set
+# del matí següent quedaven dues hores de futur i a les nou, cap.
+#
+# Repintant cada hora, la finestra sempre són dotze. No costa quota: les
+# imatges surten de la predicció que ja tenim, i la malla del voltant es demana
+# un cop al dia i es reaprofita.
+#
+# I no costa gairebé escriptures: entre una volta i la següent onze de les
+# dotze hores són idèntiques i el worker no les torna a pujar. Es va comprovar
+# byte a byte abans de posar aquest cron, perquè R2 cobra per operació i aquest
+# projecte ja s'ha menjat una vegada 4.032 pujades diàries idèntiques al radar.
+on:
+  schedule:
+    # Xarxa de seguretat, com a la resta: el rellotge de debò és el cron de
+    # Cloudflare que crida `workflow_dispatch` —cloudflare/scheduler/worker.js—,
+    # perquè el planificador de GitHub no compleix les cadències curtes.
+    - cron: '50 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: camp
+  cancel-in-progress: false
+
+jobs:
+  pintar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET || vars.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || vars.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || vars.R2_SECRET_ACCESS_KEY }}
+      DATA_BASE_URL: ${{ secrets.DATA_BASE_URL || vars.DATA_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: npm run worker:field

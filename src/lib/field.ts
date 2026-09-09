@@ -19,6 +19,19 @@ export function fieldShard(): string {
   return `${FIELD_DIR}/index`;
 }
 
+/**
+ * La predicció del voltant —el mar, França i l'Aragó—, desada a part.
+ *
+ * Va al seu tros i no dins de l'índex per una raó de cost: l'índex el llegeix
+ * la pàgina del radar a cada visita i només necessita saber quines hores hi
+ * ha, mentre que això són tres dies de sèrie de setanta-cinc punts que
+ * **només** llegeix el worker. És la mateixa regla que parteix la resta:
+ * una pàgina baixa el que ensenya.
+ */
+export function ringShard(): string {
+  return `${FIELD_DIR}/voltant`;
+}
+
 export interface FieldHour {
   /** Segons des de l'epoch, com els marcs del radar. */
   time: number;
@@ -26,6 +39,23 @@ export interface FieldHour {
   iso: string;
   /** El nom del fitxer, sense sufix: `AAAAMMDDHH`. */
   name: string;
+  /**
+   * L'empremta de la imatge, per no tornar a pujar la que ja hi ha.
+   *
+   * El camp es repinta cada hora i entre dues voltes **onze de les dotze hores
+   * són idèntiques**: la predicció no ha canviat i només n'entra una de nova
+   * per la cua. Amb l'empremta al costat, el worker compara i puja només el
+   * que ha canviat.
+   *
+   * Va aquí i no es compara amb el fitxer del disc perquè a GitHub Actions
+   * **el disc arrenca buit**: allà «no hi és» i «no l'he sabut llegir» són el
+   * mateix, i la comparació sortiria sempre negativa. És la mateixa trampa que
+   * ja va fer publicar 350 punts de 3.190 amb l'execució en verd.
+   *
+   * Opcional perquè un índex escrit abans que existís no en porta; sense ella
+   * es puja tot, que és el que es feia.
+   */
+  hash?: string;
 }
 
 export interface FieldIndex {

@@ -513,11 +513,11 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
                 de {hour(frames[lastPast + 1].local)} és predicció.
               </strong>{' '}
               El radar mesura gotes que hi ha ara; la predicció és un model, i
-              a partir d’unes hores encerta millor si plourà que quant. Surt
-              dels {int(fieldData?.points ?? 0)} punts de predicció, un cada
-              3,2 km, i per això
-              s’acaba a la frontera: del mar, de França i de l’Aragó no en
-              tenim.{' '}
+              a partir d’unes hores encerta millor si plourà que quant. Damunt
+              de Catalunya surt dels {int(fieldData?.points ?? 0)} punts de
+              predicció, un cada 3,2 km; el mar, França i l’Aragó van amb una
+              malla molt més ampla, d’un punt cada 25 km, i per tant amb menys
+              detall.{' '}
             </>
           )}
           {frames.some((f) => f.kind === 'nowcast') && (
