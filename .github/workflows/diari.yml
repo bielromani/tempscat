@@ -46,4 +46,14 @@ jobs:
       - run: npm run worker:air-stations
         if: always()
       - run: npm run worker:water
+
+      # L'encert de cada model, comprovat contra el que han mesurat les
+      # estacions. Va **després** de tot: llegeix la predicció que el refresc
+      # de les 05:00 acaba de deixar i les mesures d'ahir que ja ha publicat el
+      # worker d'observació, i no baixa res.
+      #
+      # El resultat no serveix per a res fins d'aquí a dos mesos, i corre igual:
+      # un historial de comparacions no es pot construir cap enrere, perquè la
+      # predicció d'ahir ja no existeix enlloc.
+      - run: npm run worker:verify
         if: always()

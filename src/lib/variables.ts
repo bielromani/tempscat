@@ -262,6 +262,19 @@ export const RICH_HOURLY: VariableSlug[] = [
   'dew_point', 'pressure', 'uv_index', 'visibility', 'freezing_level', 'snowfall', 'cape',
 ];
 
+/**
+ * El gradient tèrmic estàndard, en °C per metre.
+ *
+ * Viu aquí, que és el fitxer compartit de les variables, i no a `weather.ts`,
+ * perquè el fan servir **els dos costats**: la pàgina per corregir la lectura
+ * d'una estació que és més amunt que el poble, i el worker de verificació per
+ * baixar la predicció des de la cota que el model creu que té el terreny fins
+ * a la de l'estació que la comprovarà. Amb dues còpies, el dia que una canviï,
+ * la correcció de la pàgina i la de la comprovació deixarien de ser la mateixa
+ * i el número de l'encert sortiria mogut sense que res fallés.
+ */
+export const LAPSE_RATE = 0.0065;
+
 /** Peso que Open-Meteo cobrará por una petición. */
 export function callWeight(nVariables: number, forecastDays: number, nLocations: number): number {
   const varFactor = Math.max(1, nVariables / 10);

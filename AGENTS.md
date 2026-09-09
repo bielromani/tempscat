@@ -176,6 +176,7 @@ npm run worker:history    # rècords i normals, un cop al dia
 npm run worker:cameres    # cameres de muntanya de FGC, cada hora
 npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
 npm run worker:field      # el camp de pluja del radar · cada hora, i al final de `prediccio.yml`
+npm run worker:verify     # quant encerta cada model, contra la XEMA · un cop al dia
 ```
 
 Pruebas:
@@ -595,6 +596,29 @@ cuota para exactamente la misma información.
   hora `T` cubriera `T → T+1`, las 07:00 tendrían media hora de sol dentro y no serían cero.
   Comprobado en cuatro puntos. `npm run test:hours`, y con `-- --api` se lo vuelve a preguntar
   a Open-Meteo.
+- **Un historial de aciertos no se puede construir hacia atrás, y por eso el worker de
+  verificación corre desde hoy aunque su resultado no sirva hasta dentro de dos meses.** La
+  predicción de ayer no existe en ninguna parte: el fichero se reescribe en cada refresco. Así
+  que `forecast-verify.ts` tiene dos mitades y la primera no sirve de nada sola — **captura** lo
+  que cada modelo dice de un día que aún no ha pasado, y **puntúa** ese día cuando se cierra,
+  contra la máxima, la mínima y la lluvia que han medido las estaciones.
+  Tres decisiones que son las que hacen que el número signifique algo:
+  **Se prefiere el punto de nivel A aunque no sea el más cercano.** Solo esos llevan más de un
+  modelo —los demás únicamente `best_match`, que es el que Open-Meteo elige y no un modelo
+  independiente—, así que emparejando por pura proximidad solo 38 de 189 estaciones podían
+  comparar modelos. Con el nivel A como preferencia son **138**, y la mediana de la distancia es
+  2,7 km: menos que la separación de la malla.
+  **Se baja la predicción de la cota del modelo a la de la estación**, con el mismo gradiente que
+  usa la página — que por eso vive ahora en `variables.ts` y no en `weather.ts`. Sin corregir, lo
+  que se mediría es la diferencia de altura, y castigaría más a los modelos de malla ancha, que
+  es exactamente el sesgo que esto tiene que evitar. Con más de 300 m de diferencia no se puntúa:
+  ahí lo que se mide es la corrección.
+  **El diario sale de `mergeHourly` y `aggregateDaily`**, no de sumar las horas a mano: el
+  desplazamiento del convenio horario de Open-Meteo está ahí dentro, y una suma con otro criterio
+  compararía el día del modelo con el de la estación corridos una hora.
+  Se guardan `n`, la suma de errores y la de valores absolutos, no las medias: una media ya
+  calculada no se puede seguir acumulando sin volver a ponderarla, y el día que alguien lo
+  hiciera mal el número seguiría pareciendo una media. `/estat` enseña cuántos días lleva.
 - **La ventana horaria de la predicción son 120 horas, pero el horizonte son 14 días.** El resumen
   diario lo calcula el worker. Cualquier frase que hable del horizonte tiene que salir de
   `forecast.daily`: sacándola de `forecast.hourly` se afirma sobre catorce días habiendo mirado

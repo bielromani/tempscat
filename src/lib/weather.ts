@@ -1,7 +1,7 @@
 import 'server-only';
 import { plainJson, snapshot } from './cache-store';
 import {
-  ALL_VARIABLES, VARIABLES, apparentTemperature,
+  ALL_VARIABLES, LAPSE_RATE, VARIABLES, apparentTemperature,
   type VariableSlug,
 } from './variables';
 import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
@@ -119,8 +119,13 @@ export async function allObservations(): Promise<{ data: RawObservation[]; sourc
  */
 export type { CurrentConditions, DailyPoint, HourlyPoint, LocationForecast };
 
-/** Gradiente térmico estándar en atmósfera bien mezclada, °C por metro. */
-const LAPSE_RATE = 0.0065;
+/*
+ * El gradient tèrmic estàndard viu a `variables.ts`.
+ *
+ * També el necessita el worker que comprova l'encert dels models —per baixar
+ * la predicció des de la cota que el model creu que té el terreny fins a la de
+ * l'estació que la comprovarà— i ha de ser exactament el mateix número.
+ */
 
 /**
  * Una temperatura, portada d'una cota a una altra.
