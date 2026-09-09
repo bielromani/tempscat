@@ -6,6 +6,7 @@ import { allComarques } from '@/lib/territory';
 import { mapOutline } from '@/lib/map';
 import { PointsMap } from '@/components/PointsMap';
 import { comarcaName, int, num } from '@/lib/format';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 
 /**
  * Un eix sencer: el GR amb totes les seves etapes, en ordre de caminar-lo.
@@ -67,6 +68,12 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
 
   return (
     <article>
+      <JsonLd data={graph(breadcrumbLd([
+          { nom: 'Catalunya', path: '/' },
+          { nom: 'Muntanya', path: '/senderisme' },
+          { nom: 'Itineraris', path: '/senderisme/rutes' },
+          { nom: axis.ref, path: `/senderisme/rutes/eix/${axis.slug}` },
+        ]))} />
       <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>

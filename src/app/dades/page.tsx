@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
+import { absolute } from '@/lib/site';
 
 /**
  * Documentación del feed, en catalán y legible por una persona.
@@ -54,6 +56,52 @@ function Row({ name, children }: { name: string; children: React.ReactNode }) {
 export default function DadesPage() {
   return (
     <article>
+      {/*
+        Això és un conjunt de dades, i té un tipus per dir-ho.
+        
+        `Dataset` és el marcatge que llegeix el cercador de conjunts de dades de
+        Google, i és **l'únic tipus d'aquest web que descriu el que el lloc té
+        de propi**: 4.293 punts amb la seva font, en JSON i en CSV, amb
+        llicència declarada. Una pàgina de predicció competeix amb totes les
+        altres pàgines de predicció; un conjunt de dades obert de Catalunya amb
+        atribució per bloc, amb molt poques.
+
+        La llicència va com a URL i no com a text: és el que la fa llegible per
+        una màquina, que és per a qui s'escriu això.
+      */}
+      <JsonLd data={graph(
+        {
+          '@type': 'Dataset',
+          name: 'El temps a Catalunya, poble a poble',
+          description:
+            'Observació i predicció per a 4.293 poblacions de Catalunya: municipis, '
+            + 'nuclis i entitats de població, cada punt amb la seva altitud i '
+            + "l'estació automàtica de referència. En JSON i en CSV, sense clau.",
+          url: absolute('/dades'),
+          inLanguage: 'ca',
+          license: 'https://creativecommons.org/licenses/by/4.0/',
+          isAccessibleForFree: true,
+          keywords: ['meteorologia', 'Catalunya', 'predicció', 'observació', 'dades obertes'],
+          spatialCoverage: { '@type': 'Place', name: 'Catalunya' },
+          creator: { '@type': 'Organization', name: 'El temps a Catalunya', url: absolute('/') },
+          distribution: [
+            {
+              '@type': 'DataDownload',
+              encodingFormat: 'application/json',
+              contentUrl: absolute('/api/lloc/maresme/malgrat-de-mar'),
+            },
+            {
+              '@type': 'DataDownload',
+              encodingFormat: 'text/csv',
+              contentUrl: absolute('/api/lloc/maresme/malgrat-de-mar.csv'),
+            },
+          ],
+        },
+        breadcrumbLd([
+          { nom: 'Catalunya', path: '/' },
+          { nom: 'Dades obertes', path: '/dades' },
+        ]),
+      )} />
       <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>

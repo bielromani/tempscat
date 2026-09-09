@@ -187,6 +187,7 @@ npm run test:search       # lo que el buscador tiene que encontrar y lo que no
 npm run test:climate      # los meses y los años que el histórico tiene que descartar
 npm run test:hours        # qué tramo del reloj describe cada valor de la predicción
 npm run check:credentials # a qué clave le queda poco. Lo corre `credencials.yml` cada lunes
+npm run check:jsonld      # que cada tipus de pàgina segueixi portant el seu marcatge
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
@@ -619,6 +620,20 @@ cuota para exactamente la misma información.
   Se guardan `n`, la suma de errores y la de valores absolutos, no las medias: una media ya
   calculada no se puede seguir acumulando sin volver a ponderarla, y el día que alguien lo
   hiciera mal el número seguiría pareciendo una media. `/estat` enseña cuántos días lleva.
+- **Un bloque de `JSON-LD` que desaparece no rompe nada.** No se ve, no da error y no hay prueba
+  que lo note: el día que alguien reordene un `<article>` y el bloque se quede fuera, la página
+  seguirá saliendo igual de bien y el buscador dejará de entenderla. Es la misma clase de fallo
+  que las 4.293 canónicas apuntando a un dominio ajeno. Por eso hay `npm run check:jsonld`, que
+  va **contra el HTML servido** y por tipo de página, no contra la función que lo construye.
+  Y lo que ya estaba publicado roto: el `item` de cada miga de pan era **una ruta relativa**.
+  Schema.org espera una URL; el navegador la resuelve pero ninguna herramienta la valida, así que
+  el rastro de las 4.293 fichas se publicaba mal sin que nada avisara. Ahora las construye
+  `breadcrumbLd()` con `absolute()`, en un solo sitio, y el marcado sale de las mismas migas que
+  la página enseña — construyéndolas aparte, un día una diría tres al lector y cuatro al robot.
+  **`WeatherForecast` no existe en schema.org**: quien lo usa inyecta marcado inválido. Lo que
+  hay es `Place`, `BreadcrumbList`, un `WebSite` con su `SearchAction` en el esqueleto —porque un
+  robot entra por cualquiera de las 4.293 páginas y puede no pasar nunca por la portada— y un
+  `Dataset` en `/dades`, que es el único tipo que describe lo que este sitio tiene de propio.
 - **La ventana horaria de la predicción son 120 horas, pero el horizonte son 14 días.** El resumen
   diario lo calcula el worker. Cualquier frase que hable del horizonte tiene que salir de
   `forecast.daily`: sacándola de `forecast.hourly` se afirma sobre catorce días habiendo mirado

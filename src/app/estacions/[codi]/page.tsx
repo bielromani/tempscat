@@ -15,6 +15,7 @@ import {
 } from '@/lib/climate';
 import { ClimateTrend } from '@/components/ClimateTrend';
 import { operativeStations, stationByCodi } from '@/lib/territory';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 
 /**
  * Ficha de estación. 189 rutas operativas.
@@ -104,6 +105,11 @@ export default async function EstacioPage({ params }: { params: Params }) {
 
   return (
     <article>
+      <JsonLd data={graph(breadcrumbLd([
+          { nom: 'Catalunya', path: '/' },
+          { nom: 'Estacions', path: '/estacions' },
+          { nom: station.nom, path: `/estacions/${station.codi}` },
+        ]))} />
       <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>

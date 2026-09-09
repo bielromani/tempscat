@@ -5,6 +5,8 @@ import { PRIMARY, SECTIONS } from '@/lib/nav';
 import { SiteSearch } from '@/components/SiteSearch';
 import './globals.css';
 import { External } from '@/components/External';
+import { JsonLd, graph } from '@/components/JsonLd';
+import { absolute } from '@/lib/site';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -30,6 +32,34 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ca">
       <body className="min-h-screen flex flex-col">
+        {/*
+          * Qui és aquest lloc i com s'hi busca, un cop i per a tot el web.
+          *
+          * Va a l'esquelet i no a la portada perquè un buscador pot entrar per
+          * qualsevol de les 4.293 pàgines i sortir-ne sense passar per l'arrel:
+          * declarant-ho només a la portada, la immensa majoria de les visites
+          * d'un robot no ho veurien mai.
+          *
+          * El `SearchAction` apunta a `/cerca`, que és un `<form method="get">`
+          * de veritat — o sigui que l'adreça que es promet aquí funciona tal
+          * qual, sense JavaScript, i no és una declaració d'intencions.
+          */}
+        <JsonLd data={graph(
+          {
+            '@type': 'WebSite',
+            name: 'El temps a Catalunya',
+            url: absolute('/'),
+            inLanguage: 'ca',
+            potentialAction: {
+              '@type': 'SearchAction',
+              target: {
+                '@type': 'EntryPoint',
+                urlTemplate: absolute('/cerca?q={search_term_string}'),
+              },
+              'query-input': 'required name=search_term_string',
+            },
+          },
+        )} />
         {/*
           * La capçalera porta quatre enllaços, no quinze.
           *

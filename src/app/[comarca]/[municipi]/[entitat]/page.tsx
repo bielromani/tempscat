@@ -19,6 +19,7 @@ import { routesNear } from '@/lib/routes';
 import { aName, deName } from '@/lib/format';
 import { narrativeFor } from '@/lib/narrative';
 import { localRainFor } from '@/lib/local-rain';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 
 /**
  * Página de entidad singular o núcleo. ~3.300 rutas.
@@ -91,33 +92,20 @@ export default async function EntitatPage({ params }: { params: Params }) {
         neighboursLabel=""
         description={describeLocation(loc, com, municipiLoc, siblings)}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@graph': [
-              {
-                '@type': 'Place',
-                name: loc.nom,
-                containedInPlace: municipiLoc
-                  ? { '@type': 'AdministrativeArea', name: municipiLoc.nom }
-                  : { '@type': 'AdministrativeArea', name: com.nom },
-                geo: loc.lat != null ? {
-                  '@type': 'GeoCoordinates',
-                  latitude: loc.lat, longitude: loc.lon, elevation: loc.altitud,
-                } : undefined,
-              },
-              {
-                '@type': 'BreadcrumbList',
-                itemListElement: breadcrumbs(loc).map((b, i) => ({
-                  '@type': 'ListItem', position: i + 1, name: b.nom, item: b.path,
-                })),
-              },
-            ],
-          }),
-        }}
-      />
+      <JsonLd data={graph(
+        {
+          '@type': 'Place',
+          name: loc.nom,
+          containedInPlace: municipiLoc
+            ? { '@type': 'AdministrativeArea', name: municipiLoc.nom }
+            : { '@type': 'AdministrativeArea', name: com.nom },
+          geo: loc.lat != null ? {
+            '@type': 'GeoCoordinates',
+            latitude: loc.lat, longitude: loc.lon, elevation: loc.altitud,
+          } : undefined,
+        },
+        breadcrumbLd(breadcrumbs(loc)),
+      )} />
     </>
   );
 }

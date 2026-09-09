@@ -17,6 +17,7 @@ import { shareAboveSnowLine } from '@/lib/mountain';
 import { ago, comarcaName, dateShort, deComarca, int, num, relativeDayTiny, temp } from '@/lib/format';
 import { weatherCode } from '@/lib/weather-codes';
 import { External } from '@/components/External';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 
 /**
  * Un itinerari, amb la predicció a la seva altura.
@@ -165,6 +166,12 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
 
   return (
     <article>
+      <JsonLd data={graph(breadcrumbLd([
+          { nom: 'Catalunya', path: '/' },
+          { nom: 'Muntanya', path: '/senderisme' },
+          { nom: 'Itineraris', path: '/senderisme/rutes' },
+          { nom: route.name, path: `/senderisme/rutes/${route.slug}` },
+        ]))} />
       <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>

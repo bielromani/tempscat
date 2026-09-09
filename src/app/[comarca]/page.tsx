@@ -9,6 +9,7 @@ import { temperatureMap } from '@/lib/map';
 import { TemperatureMap } from '@/components/TemperatureMap';
 import { aName, comarcaName, dateLong, deComarca, num, temp } from '@/lib/format';
 import { localToday } from '@/lib/weather';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 
 /** Página de comarca: 43 rutas, todas prerenderizadas. */
 export const dynamicParams = false;
@@ -55,6 +56,10 @@ export default async function ComarcaPage({ params }: { params: Params }) {
 
   return (
     <article>
+      <JsonLd data={graph(breadcrumbLd([
+          { nom: 'Catalunya', path: '/' },
+          { nom: c.nom, path: c.path },
+        ]))} />
       <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>

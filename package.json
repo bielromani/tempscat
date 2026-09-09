@@ -39,6 +39,7 @@
     "test:climate": "node scripts/test-climate.ts",
     "test:hours": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-forecast-hours.ts",
     "check:credentials": "node --env-file-if-exists=.env.local scripts/check-credentials.ts",
+    "check:jsonld": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-jsonld.ts",
     "test:narrative": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-narrative.ts",
     "test:align": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-forecast-align.ts",
     "test": "npm run test:catalan && npm run test:astronomy && npm run test:align && npm run test:search && npm run test:climate && npm run test:hours && npm run test:narrative",
