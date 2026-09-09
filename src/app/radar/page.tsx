@@ -250,7 +250,23 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
           On plou ara mateix
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          {frame.kind === 'nowcast' ? (
+          {/*
+            * Un marc de model no es pot anunciar com una imatge de radar.
+            *
+            * Els tres tipus van pel mateix carril —tota la pàgina compta
+            * grups— i aquest text es va quedar amb dues branques: la del
+            * `nowcast` i «la resta». Amb el futur concatenat, «la resta» va
+            * passar a incloure'l, i el capçal d'una hora de predicció deia
+            * «Imatge del radar de dimecres a les 10:00» d'un dibuix que no ha
+            * vist cap radar. La frase que ho desmentia era el peu, tres
+            * pantalles avall.
+            */}
+          {frame.kind === 'forecast' ? (
+            <>
+              Pluja prevista per a {dateLong(frame.local)} a {hour(frame.local)} — no
+              és una imatge de radar, és el que diu el model per a aquella hora.
+            </>
+          ) : frame.kind === 'nowcast' ? (
             <>
               Previsió immediata per a {hour(frame.local)} — no és una imatge
               observada, és una extrapolació del moviment dels ecos.
