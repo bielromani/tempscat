@@ -956,44 +956,62 @@ nosotros».
 Apuntado tal como salió, para no perderlo. Nada de esto es de datos: es de que
 lo que ya hay se entienda y se use.
 
-### La predicció va una hora tard, i no es nota · **pendent, i és el més important**
+### La predicció anava una hora tard · ✅ arreglat el 9 de setembre de 2026
 
-Descobert el 9 de setembre de 2026 mirant per què el futur del radar no
-enllaçaba amb el present. La taula de variables d'Open-Meteo ho diu literalment:
+Trobat mirant per què el futur del radar no enllaçava amb el present. La taula
+de variables d'Open-Meteo ho diu literalment:
 
 | variable | quan |
 |---|---|
-| `precipitation` | **Preceding hour sum** |
+| `precipitation`, `snowfall` | **Preceding hour sum** |
 | `precipitation_probability` | **Preceding hour probability** |
 | `wind_gusts_10m` | **Preceding hour max** |
-| `temperature_2m`, `weather_code`, `wind_direction` | Instant |
+| `shortwave_radiation` | **Preceding hour mean** |
+| `temperature_2m`, `weather_code`, `wind_direction_10m`, `wind_speed_10m` i la resta | Instant |
 
-O sea que la pluja de la fila de les 17 h **és la que ha caigut de 16 a 17**,
+O sigui que la pluja de la fila de les 17 h **és la que ha caigut de 16 a 17**,
 i la temperatura de la mateixa fila sí que és la de les 17. Dos convenis a la
-mateixa fila, i el web tracta els dos com «el que passa a partir d'aquesta
-hora».
+mateixa fila, i el web tractava els dos com «el que passa a partir d'aquesta
+hora»: les frases deien «de les 15 a les 18 h» per a una finestra que el model
+situa de 14 a 17, la columna de mil·límetres i la de ratxa anaven una hora tard
+respecte de la seva fila, els marcs de futur del radar portaven l'etiqueta d'una
+hora més que la que pintaven, i el resum diari sumava de les 23 h del dia abans
+a les 23 h.
 
-Què surt malament, tot alhora i sense que res falli:
+#### Com es va decidir, que és la part que val
 
-- Les frases: `rangePhrase()` escriu «de les 15 a les 18 h» per a una finestra
-  que el model situa **de 14 a 17**.
-- La taula horària: la columna de mil·límetres i la de ratxa van una hora tard
-  respecte de la seva pròpia fila.
-- Els marcs de futur del radar: el que porta l'etiqueta de les 05:00 pinta la
-  pluja de 04:00 a 05:00.
-- El resum diari: suma de les 23 h del dia anterior a les 23 h.
+Primer es va provar contra **el total diari d'Open-Meteo**, i no va servir: la
+nostra suma per dia coincidia amb el seu `precipitation_sum` **al mil·límetre amb
+les dues alineacions** als quatre punts provats. La raó és que ells també
+agrupen el dia per etiqueta, així que el seu dia natural porta el mateix
+desfasament. Una comprovació que dona el mateix amb la hipòtesi certa i amb la
+falsa no és una comprovació.
 
-**L'arreglo és un sol desplaçament**, i va a `forecast-merge.ts`, que és on es
-casen `times` amb els valors: si allà l'acumulat de `T` es penja de l'hora
-`T-1`, tot el que hi ha aigües avall passa a ser correcte sense tocar-ho —
-frases, taules, camp del radar i agregat diari—, i l'última hora de la sèrie
-cau perquè ja no se sap què cobreix. És la mateixa forma que
-`forecast-align.ts`: una correcció en un sol lloc en comptes de quatre.
+El que sí que ho decideix és **la física**. La irradiància és zero de nit:
 
-No s'ha fet la mateixa nit que es va trobar, i a posta: canvia el significat de
-l'hora a les 4.293 fitxes, i s'ha de tornar a escriure `npm run test:narrative`
-amb el conveni nou i comprovar-ho **contra la pluja mesurada de la XEMA** i no
-només contra la documentació.
+| | orto | 1a etiqueta amb sol |
+|---|---|---|
+| Barcelona | 07:25 | **08:00** |
+| Lleida | 07:31 | **08:00** |
+| Vielha | 07:30 | **08:00** |
+| Tortosa | 07:29 | **08:00** |
+
+Si el valor de les 07:00 cobrís de 07 a 08 tindria mitja hora de sol a dins i no
+seria zero. Només quadra si el valor de `T` cobreix `T-1 → T`.
+
+#### L'arreglo
+
+Un sol desplaçament a `mergeHourly`, que és **l'únic lloc on es casen `times`
+amb els valors**: les cinc variables es llegeixen a `i + 1` i l'última hora de
+la sèrie cau, perquè el seu tram acabaria fora. D'allà cap avall la hora `T` vol
+dir `T → T+1` a tot el projecte. `narrative.ts` no s'ha hagut de tocar —treballa
+sobre la sèrie ja fusionada, on el conveni ara és el bo— i el worker del camp de
+pluja, que no hi passa, fa el mateix desplaçament amb un `slice(1)`.
+
+La prova nova és `npm run test:hours`: fixa quines cinc variables van
+desplaçades i quines catorze no, comprova sobre una sèrie feta a mà que la pluja
+surt a la fila anterior i que la temperatura **no** es mou, i amb `-- --api`
+torna a preguntar-li al sol.
 
 ### El radar · ✅ passat, present i futur, el 8 de setembre de 2026
 

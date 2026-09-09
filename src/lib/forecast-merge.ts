@@ -18,7 +18,7 @@
  * importan nada, así que los scripts pueden cargar esto con la extensión `.ts`
  * y la aplicación con el alias `@/`.
  */
-import { meanDirection, type VariableSlug } from './variables.ts';
+import { VARIABLES, meanDirection, type VariableSlug } from './variables.ts';
 import { consensusCode, dailySummaryCode } from './weather-codes.ts';
 import { sunTimes } from './astronomy.ts';
 import type { DailyPoint, HourlyPoint } from './forecast-types.ts';
@@ -116,10 +116,33 @@ export function mergeHourly(
   const { tempCorrection, lat, lon } = opts;
   const tempFactor = 10 ** (opts.tempDecimals ?? 1);
 
-  return times.map((time, i) => {
-    /** Valores de todos los modelos que tienen esta variable a esta hora. */
-    const pick = (slug: VariableSlug): number[] =>
-      models.map((m) => byModel[m].values[slug]?.[i]).filter((v): v is number => v != null);
+  /*
+   * La última hora se cae, y es el precio del desplazamiento de abajo.
+   *
+   * Su lluvia sería la del tramo que va de ella a la hora siguiente, y esa
+   * hora no está en la serie. Publicarla con la acumulación en nulo sería peor
+   * que no publicarla: aguas abajo hay más de un `?? 0` que convertiría «no lo
+   * sé» en «no llueve».
+   */
+  return times.slice(0, -1).map((time, i) => {
+    /**
+     * Valores de todos los modelos que tienen esta variable a esta hora.
+     *
+     * **Las cinco variables «Preceding hour» se leen una posición más
+     * adelante.** Open-Meteo pone en la hora `T` la lluvia que ha caído entre
+     * `T-1` y `T`, así que la que cae entre `T` y `T+1` —que es la que quiere
+     * saber quien mira la fila de las cinco— está guardada en `T+1`. El resto
+     * son «Instant» y se leen donde están.
+     *
+     * Es el único sitio del proyecto donde las horas se casan con los valores,
+     * y por eso el arreglo va aquí y no en cada página: las frases, la tabla
+     * horaria, el resumen diario y el campo de lluvia del radar salen todos de
+     * esta función.
+     */
+    const pick = (slug: VariableSlug): number[] => {
+      const j = VARIABLES[slug].precedingHour ? i + 1 : i;
+      return models.map((m) => byModel[m].values[slug]?.[j]).filter((v): v is number => v != null);
+    };
 
     /** Media entre modelos; para variables que solo tiene uno, ese valor. */
     const mean = (slug: VariableSlug, decimals = 1): number | null => {

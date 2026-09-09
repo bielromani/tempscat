@@ -541,24 +541,31 @@ cuota para exactamente la misma información.
   sirve **corrida un día**, y al siguiente dos. No da ningún error —los números son plausibles,
   solo son de otro día—. Lo cuadra `scripts/lib/forecast-align.ts`, y el desplazamiento se busca
   con `indexOf` y no restándole fechas, porque el domingo del cambio horario tiene 23 o 25 horas.
-- **En Open-Meteo, la lluvia de la hora `T` es la que cayó entre `T-1` y `T`, y aquí se
-  presenta como si fuera de `T` a `T+1`.** Su tabla de variables lo dice palabra por palabra:
-  `precipitation` → «Preceding hour sum», `precipitation_probability` → «Preceding hour
-  probability», `wind_gusts_10m` → «Preceding hour max». En cambio `temperature_2m`,
-  `weather_code` y `wind_direction` son «Instant». O sea que **en una misma fila conviven dos
-  convenios**, y el sitio los trata a los dos como «lo que pasa a partir de esta hora».
-  Consecuencia: `rangePhrase()` escribe «de les 15 a les 18 h» para una ventana que el modelo
-  sitúa de 14 a 17, la columna de mm y la de ratxa de la tabla horaria van una hora tarde
-  respecto de su propia fila, los marcos de futuro del radar llevan la etiqueta de una hora más
-  que la que pintan, y el resumen diario suma de las 23 h del día anterior a las 23 h. Ningún
-  número es falso: están todos corridos una hora, que es peor porque no se nota.
-  **Sin arreglar** — se descubrió el 9 de septiembre de 2026. El arreglo es un solo
-  desplazamiento en `forecast-merge.ts`, que es donde se casa `times` con los valores: si allí
-  la acumulación de `T` se cuelga de la hora `T-1`, todo lo de aguas abajo —frases, tablas,
-  campo del radar, agregado diario— pasa a ser correcto sin tocar nada más, y la última hora
-  de la serie se cae porque ya no se sabe qué cubre. Hay que rehacer `npm run test:narrative`
-  con el convenio nuevo y comprobarlo contra la lluvia medida de la XEMA, no solo contra la
-  documentación.
+- **En Open-Meteo, la lluvia de la hora `T` es la que cayó entre `T-1` y `T`.** Su tabla de
+  variables lo dice de cinco de las que pedimos —`precipitation` y `snowfall` («Preceding hour
+  sum»), `precipitation_probability` («probability»), `wind_gusts_10m` («max») y
+  `shortwave_radiation` («mean»)— y del resto dice «Instant». O sea que **en una misma fila
+  conviven dos convenios**: la lluvia de las 17 h es la de 16 a 17 y la temperatura de esa
+  misma fila sí es la de las 17. El sitio los trataba a los dos como «lo que pasa a partir de
+  esta hora», así que las frases decían «de les 15 a les 18 h» para una ventana que el modelo
+  situaba de 14 a 17, la columna de mm y la de racha iban una hora tarde respecto de su fila,
+  los marcos de futuro del radar llevaban la etiqueta de una hora más que la que pintaban, y el
+  resumen diario sumaba de las 23 h del día anterior a las 23 h.
+  **Arreglado el 9 de septiembre de 2026** con un solo desplazamiento en `mergeHourly`, que es
+  el único sitio donde se casan `times` con los valores: las cinco variables se leen en `i + 1`
+  y la última hora de la serie se cae, porque su tramo acabaría fuera. De ahí para abajo la hora
+  `T` significa `T → T+1` en todo el proyecto — frases, tabla horaria, resumen diario y campo de
+  lluvia del radar—, y `narrative.ts` no necesitó tocarse porque trabaja sobre la serie ya
+  fusionada. El worker del campo no pasa por ahí, así que hace el mismo desplazamiento con un
+  `slice(1)`.
+  Dos cosas que conviene no repetir. La primera: **el total diario de Open-Meteo no sirve de
+  árbitro.** Nuestra suma por día coincidía con su `precipitation_sum` al milímetro con las dos
+  alineaciones, porque ellos también agrupan el día por etiqueta — o sea que su día natural
+  arrastra el mismo desfase. La segunda: **lo que sí lo decide es la física.** La irradiancia es
+  cero de noche, y su primera hora con valor son las 08:00 cuando el orto es a las 07:25; si la
+  hora `T` cubriera `T → T+1`, las 07:00 tendrían media hora de sol dentro y no serían cero.
+  Comprobado en cuatro puntos. `npm run test:hours`, y con `-- --api` se lo vuelve a preguntar
+  a Open-Meteo.
 - **La ventana horaria de la predicción son 120 horas, pero el horizonte son 14 días.** El resumen
   diario lo calcula el worker. Cualquier frase que hable del horizonte tiene que salir de
   `forecast.daily`: sacándola de `forecast.hourly` se afirma sobre catorce días habiendo mirado

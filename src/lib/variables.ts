@@ -39,6 +39,26 @@ export interface VariableDef {
   decimals: number;
   /** Si al agregar por hora o día hay que sumar en vez de promediar. */
   accumulated: boolean;
+  /**
+   * Si el valor que Open-Meteo pone en la hora `T` describe el tramo `T-1 → T`
+   * y no `T → T+1`.
+   *
+   * Su tabla de variables lo llama «Preceding hour» y lo dice de cinco de las
+   * que pedimos; el resto son «Instant». O sea que en una misma fila conviven
+   * dos convenios, y tratarlos igual corre la lluvia una hora sin que nada
+   * falle.
+   *
+   * **No es lo mismo que `accumulated`**: la racha es un máximo y la
+   * probabilidad es una probabilidad —ninguna de las dos se suma— y las dos
+   * son del tramo anterior. La irradiancia es una media, y también.
+   *
+   * Comprobado con física y no solo con la documentación, porque la
+   * documentación ya nos ha mentido otras veces: la irradiancia es cero de
+   * noche, y su primera hora con valor son las 08:00 cuando el orto es a las
+   * 07:25. Si la hora `T` cubriera `T → T+1`, las 07:00 tendrían media hora de
+   * sol dentro y no serían cero. `scripts/test-forecast-hours.ts`.
+   */
+  precedingHour?: true;
   /** Si es angular: promediar 350° y 10° dando 180° es el error clásico. */
   circular?: boolean;
   nom: { ca: string; es: string; en: string };
@@ -78,7 +98,7 @@ export const VARIABLES: Record<VariableSlug, VariableDef> = {
     xema: ['35'],
     openMeteo: 'precipitation',
     openMeteoDaily: 'precipitation_sum',
-    unit: 'mm', decimals: 1, accumulated: true,
+    unit: 'mm', decimals: 1, accumulated: true, precedingHour: true,
     nom: { ca: 'Precipitació', es: 'Precipitación', en: 'Precipitation' },
   },
   pressure: {
@@ -110,14 +130,14 @@ export const VARIABLES: Record<VariableSlug, VariableDef> = {
     slug: 'wind_gust',
     xema: ['50', '53', '56'],
     openMeteo: 'wind_gusts_10m',
-    unit: 'm/s', displayUnit: 'km/h', decimals: 1, accumulated: false,
+    unit: 'm/s', displayUnit: 'km/h', decimals: 1, accumulated: false, precedingHour: true,
     nom: { ca: 'Ratxa màxima', es: 'Racha máxima', en: 'Wind gust' },
   },
   solar_radiation: {
     slug: 'solar_radiation',
     xema: ['36'],
     openMeteo: 'shortwave_radiation',
-    unit: 'W/m²', decimals: 0, accumulated: false,
+    unit: 'W/m²', decimals: 0, accumulated: false, precedingHour: true,
     nom: { ca: 'Irradiància solar', es: 'Irradiancia solar', en: 'Solar radiation' },
   },
   snow_depth: {
@@ -151,7 +171,7 @@ export const VARIABLES: Record<VariableSlug, VariableDef> = {
     slug: 'precipitation_probability',
     xema: [],
     openMeteo: 'precipitation_probability',
-    unit: '%', decimals: 0, accumulated: false,
+    unit: '%', decimals: 0, accumulated: false, precedingHour: true,
     nom: { ca: 'Probabilitat de precipitació', es: 'Probabilidad de precipitación', en: 'Precipitation probability' },
   },
   uv_index: {
@@ -195,7 +215,7 @@ export const VARIABLES: Record<VariableSlug, VariableDef> = {
     slug: 'snowfall',
     xema: [],
     openMeteo: 'snowfall',
-    unit: 'cm', decimals: 1, accumulated: true,
+    unit: 'cm', decimals: 1, accumulated: true, precedingHour: true,
     nom: { ca: 'Neu acumulada', es: 'Nieve acumulada', en: 'Snowfall' },
   },
   cape: {

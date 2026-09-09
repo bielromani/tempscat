@@ -176,7 +176,20 @@ async function main() {
     for (const [id, models] of Object.entries(shard.data.points)) {
       const v = models.best_match?.values?.precipitation
         ?? Object.values(models)[0]?.values?.precipitation;
-      if (v) precip.set(id, v);
+      /*
+       * Desplaçat una posició, com a `mergeHourly`.
+       *
+       * Open-Meteo posa a l'hora `T` la pluja que ha caigut **entre `T-1` i
+       * `T`**, i el que ha d'ensenyar el marc etiquetat `T` és la que caurà de
+       * `T` a `T+1`. Aquest worker no passa per `mergeHourly` —només vol una
+       * variable de 3.190 punts— així que el desplaçament es fa aquí, un cop,
+       * en comptes de dins del bucle que recorre cinquanta mil caselles.
+       *
+       * Amb `slice(1)`, l'índex `i` de `times` torna a apuntar al valor que
+       * toca, i l'última hora de la sèrie es queda sense: per això `wanted`
+       * no hi arriba mai.
+       */
+      if (v) precip.set(id, v.slice(1));
     }
   }
   if (!precip.size) throw new Error('cap punt amb precipitació als trossos de predicció');
@@ -201,6 +214,9 @@ async function main() {
     .slice(0, 13);
   const wanted = times
     .map((t, i) => ({ t, i }))
+    // L'última hora no té acumulat: el seu tram acabaria a l'hora següent, que
+    // no hi és. Fora d'aquí es quedaria transparent, que és pitjor que no ser-hi.
+    .slice(0, -1)
     .filter(({ t }) => t.slice(0, 13) > nowIso)
     .slice(0, HOURS);
 
