@@ -48,3 +48,6 @@ next-env.d.ts
 
 # La plantilla sí se versiona; los valores reales no
 !.env.example
+
+# El worker de MapLibre, copiat del paquet instal·lat a cada build.
+/public/maplibre/

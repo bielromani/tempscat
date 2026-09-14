@@ -12,6 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    /*
+     * El worker de MapLibre, copiat del paquet instal·lat a cada `build`.
+     * És codi de tercers ja empaquetat i minificat: analitzar-lo donava mil
+     * cent avisos que no es poden arreglar ni ignorar d'un en un.
+     * Veure `scripts/16-maplibre-worker.ts`.
+     */
+    "public/maplibre/**",
   ]),
   {
     /*

@@ -40,19 +40,29 @@
  * mateixa resolució. Amb PNG, un mapa de dotze tessel·les serien quatre megues
  * i mig: la pàgina no es podria publicar.
  *
- * ## Només les que es fan servir
+ * ## Només les que es fan servir, i el país als zooms baixos
  *
- * No es baixa Catalunya sencera: es baixa el que demanen els 683 itineraris amb
- * la finestra i el zoom que la pàgina calcularà. Al zoom 13, el país sencer
- * serien vint mil tessel·les i se n'ensenyen 2.315.
+ * Dues coses, i convindria no confondre-les:
+ *
+ *  · **Per als itineraris** no es baixa Catalunya sencera, sinó el que demanen
+ *    els 683 amb la finestra i el zoom que la pàgina calcularà. Al zoom 13 el
+ *    país sencer serien vint mil tessel·les i se n'ensenyen 2.315.
+ *  · **Per al mapa que es pot moure** sí que es baixa sencer, però només del
+ *    zoom 6 a l'11, que són 527. Allà la finestra no la tria el servidor.
+ *
+ * Es baixen alhora i al mateix `Map`: una tessel·la que serveixi per a les dues
+ * coses es demana un cop.
  */
 import { mkdirSync, writeFileSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
-import { fitBox, projectToMap, tileWindow, type MapProjection } from '../src/lib/mercator.ts';
+import {
+  fitBox, latToTileY, lonToTileX, projectToMap, tileWindow, type MapProjection,
+} from '../src/lib/mercator.ts';
 import { fetchWithRetry, throttledMap } from './lib/http.ts';
 import { CACHE, markForPublish, publish } from './lib/store.ts';
 import { build } from './lib/paths.ts';
+import { MAP_BOX, MAP_MIN_ZOOM, MAP_NATIVE_MAX_ZOOM } from '../src/lib/webmap.ts';
 
 const WMTS = 'https://geoserveis.icgc.cat/servei/catalunya/mapa-base/wmts/topografic/MON3857NW';
 
@@ -65,6 +75,75 @@ const WMTS = 'https://geoserveis.icgc.cat/servei/catalunya/mapa-base/wmts/topogr
  */
 export const BASE_ZOOMS = [9, 10, 11, 12, 13, 14];
 export const BASE_MAX_TILES = 12;
+
+/**
+ * I, a banda dels itineraris, el país sencer als zooms baixos.
+ *
+ * ## Per què això no es podia deixar per als itineraris
+ *
+ * Perquè un mapa que es pot moure no ensenya una finestra decidida pel
+ * servidor: l'escull qui mira. Comptades les que hi havia contra les que fan
+ * falta per cobrir Catalunya, en faltaven **totes les del 7 i del 8, 3 del
+ * zoom 9, 35 del 10 i 206 de l'11**: les que hi havia són les que els 683
+ * itineraris travessen, i entremig hi ha comarques senceres per on no en passa
+ * cap.
+ *
+ * I una tessel·la que falta **no sembla un error: sembla el mapa**. Qui arrossega
+ * cap a les Garrigues veuria un quadrat blanc i entendria que allà no hi ha res,
+ * que és exactament la lectura que aquest projecte evita a tot arreu.
+ *
+ * ## Per què des del sis i no des del nou
+ *
+ * Perquè el país sencer dins d'una finestra de mil píxels cau cap al zoom 7,7,
+ * i dins d'una de 375 —un telèfon— cau al 6,3. Un mapa que obre ensenyant
+ * Catalunya entera demana, doncs, del 6 al 8. Sense elles el fons surt **buit
+ * en obrir** i només apareix en acostar-s'hi, que és el moment en què ningú no
+ * entendria què ha passat. Costen 2, 4 i 12 tessel·les: el zoom baix és barat
+ * justament perquè n'hi caben poques.
+ *
+ * ## I per què fins a l'onze i no més
+ *
+ * Perquè les de l'ICGC són de 512 píxels, o sigui que el zoom 11 té el detall
+ * que en tindria el 12 amb tessel·les de 256: carrers d'un poble. El dotze
+ * sencer serien **1.444 tessel·les més**, uns 70 MB, per a un detall que aquest
+ * mapa no fa servir — qui vol el carrer té la fitxa del lloc. Els zooms alts
+ * segueixen baixant-se allà on un itinerari els demana.
+ *
+ * ## Els zooms i la finestra els decideix `webmap.ts`
+ *
+ * No es tornen a escriure aquí. El guió baixa un rectangle i la pàgina en
+ * demana un altre el dia que les dues còpies es separin, i llavors surten
+ * forats al caire **sense que res doni cap error**: una tessel·la que falta,
+ * a MapLibre, és un quadrat buit i prou. És la mateixa raó per la qual
+ * `fitBox()` i `tileWindow()` no viuen dins del `RouteMap`.
+ *
+ * ## Per què no és una opció que s'hagi de recordar
+ *
+ * Perquè seria una opció que un dia no es passaria. El guió ja salta el que ja
+ * té, així que la segona vegada no baixa res i el cost de tenir-ho sempre és
+ * comptar tres-centes entrades d'un `Map`.
+ */
+export const COUNTRY_ZOOMS = Array.from(
+  { length: MAP_NATIVE_MAX_ZOOM - MAP_MIN_ZOOM + 1 },
+  (_, i) => MAP_MIN_ZOOM + i,
+);
+
+/** La finestra. Viu a `webmap.ts` perquè la pàgina n'ha de fer servir la mateixa. */
+export const COUNTRY_BOX = MAP_BOX;
+
+/** Les tessel·les que cobreixen `COUNTRY_BOX` a cada zoom de `COUNTRY_ZOOMS`. */
+function countryTiles(): Array<{ z: number; x: number; y: number }> {
+  const out: Array<{ z: number; x: number; y: number }> = [];
+  for (const z of COUNTRY_ZOOMS) {
+    const x0 = Math.floor(lonToTileX(COUNTRY_BOX.west, z));
+    const x1 = Math.floor(lonToTileX(COUNTRY_BOX.east, z));
+    // La y creix cap al sud: el nord dona la primera.
+    const y0 = Math.floor(latToTileY(COUNTRY_BOX.north, z));
+    const y1 = Math.floor(latToTileY(COUNTRY_BOX.south, z));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out.push({ z, x, y });
+  }
+  return out;
+}
 
 /** Qualitat del WebP. A 80, una tessel·la del topogràfic es queda en uns 50 kB. */
 const QUALITY = 80;
@@ -100,7 +179,13 @@ async function main() {
   }
 
   console.log(`${routes.length} itineraris · ${wanted.size} tessel·les diferents`);
-  console.log(`Per zoom: ${Object.entries(perZoom).sort().map(([z, n]) => `${z}=${n}`).join(' · ')}\n`);
+  console.log(`Per zoom: ${Object.entries(perZoom).sort().map(([z, n]) => `${z}=${n}`).join(' · ')}`);
+
+  // I el país sencer als zooms baixos, per al mapa que es pot moure.
+  const before = wanted.size;
+  for (const t of countryTiles()) wanted.set(`${t.z}/${t.x}/${t.y}`, t);
+  console.log(`Catalunya sencera als zooms ${COUNTRY_ZOOMS.join(', ')}: `
+    + `${wanted.size - before} de noves · ${wanted.size} en total\n`);
 
   let done = 0;
   let made = 0;

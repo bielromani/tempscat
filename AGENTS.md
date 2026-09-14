@@ -83,6 +83,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/search-match.ts` | Cómo se parece lo que se escribe en el buscador al nombre de un sitio |
 | `src/lib/climate-math.ts` | Qué es un mes comparable, qué es un año entero y cómo se saca una tendencia |
 | `src/lib/field.ts` | El recuadro del campo de lluvia, en píxeles del mosaico del radar |
+| `src/lib/webmap.ts` | La ventana, los zooms y la dirección del worker del mapa que se mueve |
 
 ## Dónde viven los datos vivos
 
@@ -160,8 +161,10 @@ Dos cosas que no son evidentes y que cuestan caro descubrir:
 ```bash
 npm run data:all        # construye el territorio desde cero (~35 min)
 npm run data:validate   # criterios de aceptación de la fase 0
+npm run data:base       # teselas del mapa base: el país del zoom 6 al 11, y los itinerarios
+npm run data:web-geo    # comarcas y municipios simplificados en grados, para MapLibre
 npm run typecheck       # aplicación y scripts
-npm run build
+npm run build           # `prebuild` copia antes el worker de MapLibre a public/
 ```
 
 Workers:
@@ -188,6 +191,8 @@ npm run test:climate      # los meses y los años que el histórico tiene que de
 npm run test:hours        # qué tramo del reloj describe cada valor de la predicción
 npm run check:credentials # a qué clave le queda poco. Lo corre `credencials.yml` cada lunes
 npm run check:jsonld      # que cada tipus de pàgina segueixi portant el seu marcatge
+npm run check:workflows   # claus repetides, `npm run` inexistents i workflows sense feines
+npm run test:colors       # que el color que rep el mapa sigui el que pinta el navegador
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
@@ -236,7 +241,7 @@ páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado.
 **Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
 interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí.
 
-Hay **dos** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
+Hay **tres** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
 
 - `SiteSearch.tsx`, el cuadro de búsqueda de la cabecera. Va en todas las páginas, así que el
   coste se midió antes de ponerlo: **1.546 bytes en gzip**, la diferencia de sumar todos los
@@ -244,6 +249,12 @@ Hay **dos** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
   —ver la tabla de abajo—. Lo que **no** se hizo fue bajar el índice al navegador: los
   sugerimientos los contesta `/api/cerca`, que solo llama quien escribe.
 - `RadarScrubber.tsx`, la línea de tiempo del radar, y solo en `/radar`.
+- `InteractiveMap.tsx`, el mapa que se puede mover, y solo en `/mapa/interactiu`.
+  Este **no** es una mejora encima de algo que ya funcionaba: sin script no hay mapa
+  que se mueva. Por eso vive en una dirección propia, `/mapa` sigue siendo el SVG de
+  servidor de 10 kB que enlazan las 43 comarcas, y las dos páginas se enlazan entre sí
+  diciendo qué es la otra. MapLibre son unos 200 kB y entra con un `import()` dentro
+  del efecto: ninguna otra ruta lo toca.
 
 Los dos son mejoras **encima** de algo que ya funcionaba sin JavaScript, y los dos lo dejan
 funcionando: el buscador sigue siendo un `<form method="get">` y el radar sigue siendo los
@@ -813,6 +824,51 @@ cuota para exactamente la misma información.
   totes a `/mar` i trobar-hi la que s'havia demanat tornava a ser feina del lector. Les
   files porten `id` —`p-` platges, `e-` embassaments i estacions de muntanya, `a-`
   aforaments— i el `:target` de `globals.css` fa que es vegi en arribar-hi.
+- **Un mapa de MapLibre que es dibuixa perfectament pot no estar carregat mai, i la
+  pàgina no se n'assabenta.** Tot el que va costar el mapa de `/mapa/interactiu` és
+  d'aquesta mateixa família: cap error, cap execució en roig, i una cosa que sembla bé.
+  Quatre trampes, per ordre de descobriment:
+  **El worker.** MapLibre no analitza el GeoJSON al fil principal: ho fa en un worker, i
+  en compon el nom del fitxer amb una cadena en temps d'execució
+  (`'maplibre-gl-worker.mjs'`) resolta contra `import.meta.url`. Qualsevol empaquetador
+  hi posa l'empremta del contingut al nom —Turbopack el deixa a
+  `/_next/static/media/maplibre-gl-worker.1n8lzpjb93uvs.mjs`— i llavors aquella cadena
+  demana un fitxer que no existeix. **Cap dels dos s'equivoca i el resultat no funciona.**
+  El 404 el contesta Next amb HTML, i a la consola surt «Failed to load module script:
+  non-JavaScript MIME type text/html», que no anomena ni MapLibre ni cap mapa. El mapa es
+  dibuixa igualment —les tessel·les són ràsters i no passen pel worker— però el GeoJSON no
+  arriba mai; i com que `style.loaded()` demana que **totes** les fonts estiguin
+  carregades, l'esdeveniment `load` no es dispara mai i la pàgina es queda ensenyant el
+  missatge d'espera damunt d'un mapa ja dibuixat. Es va trobar comparant
+  `isSourceLoaded('base')`, que deia sí, amb `isSourceLoaded('comarques')`, que deia no.
+  `scripts/16-maplibre-worker.ts` el copia a `public/` amb un nom estable i
+  `setWorkerUrl()` l'hi apunta — i el copia **amb tot el que importa**, perquè
+  `maplibre-gl-worker.mjs` comença amb un `from "./maplibre-gl-shared.mjs"` i copiant-ne
+  només un es torna a caure exactament pel mateix lloc, amb el mateix missatge.
+  **L'espai de color.** Les escales del lloc són OKLCH; a l'analitzador de colors de
+  MapLibre no hi surt la paraula `oklch` ni una vegada. No es queixa: no pinta la capa.
+  Es converteix amb `oklchToHex()`, i la comprovació és contra el navegador —onze colors
+  pintats per Chrome en un `canvas` d'un píxel— i no contra la fórmula: `npm run
+  test:colors`.
+  **`to-color`.** `['get', 'c']` torna una cadena i `fill-color` vol un color. MapLibre
+  accepta la capa, l'afegeix i la dibuixa —`queryRenderedFeatures` en tornava 969— amb el
+  color buit. Es va trobar posant-hi un vermell fix: si amb una constant es pinta i amb
+  l'expressió no, el que falla és l'expressió.
+  **Les tessel·les que no hi eren.** `14-basemap-tiles.ts` baixava el que els 683
+  itineraris travessen, no el país: faltaven totes les del zoom 6, 7 i 8, 3 del 9, 35 del
+  10 i 206 de l'11. En un mapa que es pot moure **una tessel·la que falta no sembla un
+  error: sembla el mapa**. I el sostre de zoom cap avall també importa: amb el mínim al 7,
+  un telèfon de 375 px obria ensenyant només el mig del país sense poder-se'n allunyar,
+  perquè Catalunya sencera hi cau al 6,3.
+- **La geometria que va al navegador no és la mateixa que la del build.**
+  `comarques.geojson` i `municipis.geojson` són graus —el que MapLibre menja— però pesen
+  87 i 506 kB comprimits, i `comarques-map.json` ja està aprimat però està **projectat**,
+  o sigui camins d'SVG en unitats d'un `viewBox`. `scripts/15-web-geometry.ts` fa l'únic
+  pas que faltava: simplificar **en graus**, a 0,002° (uns 200 m), que al zoom 11 amb
+  tessel·les de 512 píxels són set píxels de costa. Queden 34 i 144 kB. Els municipis van
+  a part i només els baixa qui encén la capa de temperatura: una pàgina baixa el que
+  ensenya.
+
 - **El camp de meduses porta diverses espècies separades per `;`.** Cada una és
   `espècie,abundància,talla`. Llegint només fins a la primera coma, a Castell-Platja d'Aro
   —que en reporta tres— sortia la inofensiva i **quedava amagada la que pica**. `parseJellyfish()`

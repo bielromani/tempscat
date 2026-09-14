@@ -7,7 +7,11 @@ import { KIND_LABEL, type SearchSuggestion } from '@/lib/search-kinds';
 /**
  * El quadre de cerca, amb suggeriments mentre s'escriu.
  *
- * ## Aquest és l'únic `'use client'` del projecte, i val la pena dir per què
+ * ## L'únic `'use client'` que va a **totes** les pàgines, i per què
+ *
+ * N'hi ha tres al projecte —aquest, `RadarScrubber` a `/radar` i
+ * `InteractiveMap` a `/mapa/interactiu`— però els altres dos viuen a la seva
+ * adreça i no els carrega ningú més. Aquest sí: és a la capçalera.
  *
  * La regla del web és que les pàgines territorials no porten JavaScript propi,
  * i segueix sent certa: això no en canvia ni una. El que sí que canvia és que

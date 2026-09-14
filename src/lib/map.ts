@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { allComarques, municipisOfComarca } from './territory';
 import { currentFor } from './weather';
+import { oklchToHex, temperatureColor } from './scales';
 import type { MapProjection } from './mercator';
 
 /**
@@ -168,6 +169,70 @@ export async function temperatureMap(): Promise<TemperatureMap> {
     height: geo.height,
     comarques: out,
     withData: temps.length,
+    min: temps.length ? Math.min(...temps) : null,
+    max: temps.length ? Math.max(...temps) : null,
+  };
+}
+
+/**
+ * La temperatura de cada municipi, ja tenyida, per al mapa que es mou.
+ *
+ * ## Per què el color el calcula el servidor
+ *
+ * Perquè hi ha **una sola escala**, i és `temperatureColor()`. Té un ram de
+ * croma per l'arrel quadrada i està ancorada als 15 °C: escrita altra vegada
+ * com una interpolació de MapLibre seria una segona escala, i el dia que una
+ * de les dues es toqués, el mapa de comarques i el de municipis pintarien el
+ * mateix grau de dos colors diferents sense que res fallés.
+ *
+ * Així el navegador no en sap res: rep `codi → color` i el posa. Són 947
+ * entrades, uns 3 kB comprimits.
+ *
+ * ## I per què no en fa la mediana
+ *
+ * Perquè aquí el municipi **és** la unitat. La mediana existeix a
+ * `temperatureMap()` perquè allà s'ha de resumir una comarca sencera en una
+ * xifra, i al Ripollès hi ha mil dos-cents metres de desnivell entre pobles.
+ * Un municipi ja porta la seva correcció d'altitud feta i no s'ha de resumir.
+ */
+export interface MunicipalTemperatures {
+  /** `codi INE → color`. Només els que tenen observació. */
+  colors: Record<string, string>;
+  /** `codi INE → graus`, per al text que surt en passar-hi per sobre. */
+  degrees: Record<string, number>;
+  observed: number;
+  total: number;
+  min: number | null;
+  max: number | null;
+}
+
+export async function municipalTemperatures(): Promise<MunicipalTemperatures> {
+  const municipis = allComarques().flatMap((c) => municipisOfComarca(c.codi));
+  const observed = await Promise.all(
+    municipis.map(async (m) => ({ m, cur: await currentFor(m) })),
+  );
+
+  const colors: Record<string, string> = {};
+  const degrees: Record<string, number> = {};
+  const temps: number[] = [];
+
+  for (const { m, cur } of observed) {
+    const t = cur?.temperatureAdjusted;
+    // El codi del Nomenclàtor i el del fitxer de l'ICGC són el mateix: sense
+    // ell, el color no es podria lligar a cap polígon.
+    if (t == null || !m.municipiCodi) continue;
+    const rounded = Math.round(t * 10) / 10;
+    // En hexadecimal: MapLibre no sap llegir OKLCH i no ho diu.
+    colors[m.municipiCodi] = oklchToHex(temperatureColor(rounded));
+    degrees[m.municipiCodi] = rounded;
+    temps.push(rounded);
+  }
+
+  return {
+    colors,
+    degrees,
+    observed: temps.length,
+    total: municipis.length,
     min: temps.length ? Math.min(...temps) : null,
     max: temps.length ? Math.max(...temps) : null,
   };

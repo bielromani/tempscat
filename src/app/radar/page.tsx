@@ -548,7 +548,12 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
             */}
           Les zones amplien la mateixa imatge — un píxel de radar són uns 460
           metres i ampliant-la no n’apareixen més —, però les fronteres i els
-          noms que hi van a sobre sí que s’afinen.
+          noms que hi van a sobre sí que s’afinen.{' '}
+          <Link href="/mapa/interactiu">
+            Al mapa que es pot moure
+          </Link>{' '}
+          la mateixa seqüència va damunt de la cartografia de l’ICGC, amb els
+          camins i els pobles a sota. El radar segueix acabant-se al mateix lloc.
         </figcaption>
       </figure>
 

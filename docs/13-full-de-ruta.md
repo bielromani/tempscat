@@ -1432,39 +1432,34 @@ la página de comarca —que es territorial y no debe cargar bundle— y sirve d
 prueba de que los datos y la geometría encajan antes de meter 200 KB de MapLibre
 en la ecuación.
 
-### La decisión, para el interactivo: MapLibre GL JS, no Leaflet
+### El mapa interactivo · ✅ hecho el 14 de septiembre de 2026, en `/mapa/interactiu`
 
-**MapLibre GL**, por tres razones concretas y una que no lo es:
+**MapLibre GL**, por las tres razones de siempre —las partículas de viento piden GPU,
+nuestros límites ya son vectoriales, y ningún basemap de terceros ni clave de API— y
+con la decisión añadida de que **no sustituye a `/mapa`**. Aquella página es un SVG de
+servidor de 10 kB que enlazan las 43 comarcas y que indexa el buscador; cambiarla por
+200 kB de WebGL sería cambiar una página que funciona para todos por una que funciona
+para quien tiene tarjeta gráfica. Conviven, y cada una dice qué es la otra.
 
-1. **Las partículas de viento necesitan la GPU.** El campo animado de Windy es un
-   shader que mueve decenas de miles de partículas sobre una textura de viento.
-   MapLibre es WebGL nativo y eso se implementa como una capa custom. Leaflet
-   dibuja en DOM y canvas 2D: la misma animación pide un plugin que pinta en un
-   canvas superpuesto y se despega del mapa al hacer zoom.
-2. **Nuestros límites ya son vectoriales.** Los polígonos del ICGC están en
-   `data/build/geo/`, y MapLibre los consume como fuente GeoJSON o como teselas
-   vectoriales propias. Sin conversión y sin servidor de teselas ajeno.
-3. **Ningún basemap de terceros, ninguna clave de API.** Y esto es una ventaja de
-   producto, no solo de privacidad: el mapa no tiene que ser un callejero con
-   nuestros datos encima. Puede ser **nuestro territorio**, con las comarcas, los
-   municipios y los 4.293 puntos, que es lo único que este sitio tiene y los demás
-   no. Mismo razonamiento que con las teselas del radar: se sirven de nuestro
-   dominio y la IP del visitante no sale a ningún sitio.
+Lo que hay: el **radar** con su barra de tiempo, encadenado a la **predicción** —las
+mismas imágenes del campo de lluvia, colocadas por sus cuatro esquinas— y la
+**temperatura municipio a municipio**, 924 de 947 observados. Cada capa se baja cuando
+se enciende: los 144 kB de los municipios solo los paga quien pide temperaturas.
 
-Lo que cuesta: `maplibre-gl` son unos 200 KB comprimidos, contra 40 de Leaflet. Es
-mucho, y es aceptable **solo porque vive en `/mapa`** y se carga en diferido. Si
-alguien lo mete en `LocationView`, el principio se ha roto y hay que revertirlo.
+El fondo son nuestras propias teselas del ICGC, del zoom 6 al 11 y ahora **de todo el
+país**: `14-basemap-tiles.ts` bajaba solo lo que los 683 itinerarios atraviesan, y en un
+mapa que se mueve una tesela que falta no parece un error, parece el mapa. Faltaban 279.
 
-### El orden de las capas
+**Lo que no hay son los avisos**, y no es un descuido: el worker de AEMET guarda las
+ubicaciones que cada aviso toca pero **no los polígonos**, así que hoy no existe la
+geometría para dibujarlos. Pintarlos por comarcas sería teñir de naranja comarcas
+enteras por un aviso que cubre un valle. Guardar los polígonos del CAP es el paso previo.
 
-1. **Radar.** Las teselas ya se descargan y ya se sirven. Es la capa que menos
-   trabajo nuevo necesita y la que más se usa.
-2. **Temperatura por municipio.** Polígonos ya construidos, escala ya escrita en
-   `src/lib/scales.ts`, observación ya en memoria. Es un `fill-color` con
-   expresión sobre una propiedad.
-3. **Avisos oficiales**, con los polígonos CAP que el worker ya recibe.
-4. **Viento con partículas.** La última, porque es la única que necesita datos
-   nuevos y presupuesto.
+Y una advertencia para quien lo toque: **casi nada de esto falla dando un error.** El
+worker de MapLibre que no carga, el OKLCH que no entiende, la expresión sin `to-color`,
+la tesela que no está — las cuatro producen un mapa que se dibuja perfectamente y que
+está mal. Las cuatro están descritas en `AGENTS.md`; leerlas antes ahorra la tarde que
+costaron.
 
 ### El viento: medido antes de implementarlo, y sale gratis
 

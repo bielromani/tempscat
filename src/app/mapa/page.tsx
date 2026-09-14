@@ -71,6 +71,15 @@ export default async function MapaPage() {
         span={data.min != null && data.max != null ? { min: data.min, max: data.max } : undefined}
       />
 
+      <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">
+        Aquest mapa es dibuixa sencer al servidor i no executa res.{' '}
+        <Link href="/mapa/interactiu">
+          El mapa que es pot moure i ampliar
+        </Link>{' '}
+        hi afegeix la pluja del radar i la temperatura municipi a municipi, i
+        per això demana JavaScript.
+      </p>
+
       {withData.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">

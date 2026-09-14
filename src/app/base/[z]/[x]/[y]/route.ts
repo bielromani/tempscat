@@ -22,7 +22,13 @@ import { blob } from '@/lib/cache-store';
  * córrer el worker i buidar el CDN — no fer que cada lector pregunti cada dia.
  */
 
-const Z_RE = /^(9|1[0-4])$/;
+/*
+ * Del sis al catorze. Del sis al vuit hi són des que el mapa que es pot moure
+ * obre ensenyant el país sencer: aquella finestra cau cap al zoom 7,7 en una
+ * pantalla ampla i al 6,3 en un telèfon, i sense aquells tres el fons surt buit
+ * fins que algú s'hi acosta.
+ */
+const Z_RE = /^([6-9]|1[0-4])$/;
 const X_RE = /^\d{1,5}$/;
 const Y_RE = /^\d{1,5}\.webp$/;
 

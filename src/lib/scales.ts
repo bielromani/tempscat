@@ -150,3 +150,59 @@ export function capColor(severity: string): string {
     default: return 'var(--cap-green)';
   }
 }
+
+/**
+ * El mateix color, escrit en hexadecimal.
+ *
+ * ## Per què cal, i per què no ho diu ningú
+ *
+ * Totes les escales d'aquest fitxer són OKLCH perquè és l'espai on una rampa
+ * de color té passos que es veuen iguals. El navegador l'entén des de fa anys.
+ * **MapLibre no**: al seu analitzador de colors no hi surt la paraula `oklch`
+ * ni una sola vegada.
+ *
+ * I el que passa quan no l'entén no és un error: la capa es queda sense pintar
+ * i el mapa surt igual de bé, amb el mapa base a sota i el rètol dient «924
+ * municipis observats». Tot correcte i cap color. Es va veure mirant el mapa,
+ * no cap registre.
+ *
+ * Així que la conversió es fa aquí i **l'escala segueix sent una de sola**:
+ * `temperatureColor()` mana, i això només tradueix el que ella diu. Amb una
+ * segona escala escrita com una interpolació de MapLibre, el dia que algú
+ * toqués la rampa, el mapa de comarques i el de municipis pintarien el mateix
+ * grau de dos colors diferents.
+ *
+ * Fora de gamut es retalla per canal. Amb els cromes d'aquestes escales
+ * —0,15 com a màxim— no passa gairebé mai, i quan passa val més un color una
+ * mica menys saturat que un de negre.
+ */
+export function oklchToHex(css: string): string {
+  const m = css.match(/oklch\(\s*([\d.]+)%\s+([\d.]+)\s+([\d.]+)\s*\)/);
+  if (!m) return css;
+
+  const L = +m[1] / 100;
+  const C = +m[2];
+  const h = (+m[3] * Math.PI) / 180;
+  const a = C * Math.cos(h);
+  const b = C * Math.sin(h);
+
+  // OKLab → LMS, i el cub que desfà l'arrel cúbica de la definició.
+  const l3 = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m3 = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s3 = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+
+  const lin = [
+    4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3,
+    -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3,
+    -0.0041960863 * l3 - 0.7034186147 * m3 + 1.7076147010 * s3,
+  ];
+
+  const hex = lin.map((v) => {
+    // Corba de transferència de l'sRGB, que no és una gamma de 2,2 i prou.
+    const g = v <= 0.0031308 ? 12.92 * v : 1.055 * Math.abs(v) ** (1 / 2.4) - 0.055;
+    const n = Math.round(Math.min(1, Math.max(0, g)) * 255);
+    return n.toString(16).padStart(2, '0');
+  });
+
+  return `#${hex.join('')}`;
+}
