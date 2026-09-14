@@ -1394,8 +1394,6 @@ Medido en producción el 9 de septiembre: los seis tipos, correctos.
 
 ---
 
-## Fase 3 — mapas---
-
 ## Fase 3 — mapas
 
 ### Antes del mapa interactivo: el mapa que no necesita JavaScript · ✅ hecho
@@ -1468,25 +1466,56 @@ alguien lo mete en `LocationView`, el principio se ha roto y hay que revertirlo.
 4. **Viento con partículas.** La última, porque es la única que necesita datos
    nuevos y presupuesto.
 
-### El viento: lo que hace falta y lo que cuesta
+### El viento: medido antes de implementarlo, y sale gratis
 
-Las partículas no se alimentan de puntos sueltos: necesitan un **campo regular de
-u/v**. La conversión es trivial —`u = −v·sin(θ)`, `v = −v·cos(θ)`— pero la rejilla
-hay que pedirla.
+Aquí decía que las partículas necesitan una rejilla regular de u/v, que
+Catalunya en 0,1° son unas 768 celdas, que eso son ~3.072 unidades diarias a
+cuatro refrescos, y que **antes de implementarlo había que sacar la proyección
+real y decidir si cabe**. Hecha la cuenta, las dos mitades estaban mal — y la
+segunda para bien.
 
-El mismo truco que con la calidad del aire: una rejilla regular en vez de los
-3.190 puntos. Catalunya en 0,1° son unas **768 celdas**; en 0,2°, 192. Para un
-campo visual, 0,1° sobra — el radar tiene 1 km y AROME 1,3, pero una partícula no
-se lee a esa escala.
+**Lo que cuesta de verdad una rejilla nueva.** Las 768 celdas eran el país
+justo, sin margen, y un campo que se acaba en la raya de la frontera es el
+mismo defecto que ya costó una vuelta entera en el campo de lluvia. Con el
+margen de un paso por fuera son **1.209 celdas**, no 768.
 
-**Y aquí está el problema que hay que mirar de frente:** esto consume el contador
-de la predicción, que es el que va justo. Son ~768 unidades por refresco; a cuatro
-refrescos diarios, 3.072 al día sobre lo que ya se gasta. Antes de implementarlo
-hay que sacar la proyección diaria real de `forecast-refresh.ts` y decidir si cabe
-o si hay que bajar a 0,2° o a dos refrescos. **No se implementa y luego se mide.**
+| | celdas por refresco | a 4 refrescos |
+|---|---|---|
+| 0,1° con margen | 1.209 | 4.836/día |
+| 0,2° con margen | 320 | 1.280/día |
 
-El transporte: un binario compacto (768 × 2 `Float32`, unos 6 KB) servido por un
-`route.ts`, que el cliente convierte en textura. Nada de PNG codificado a mano.
+Y el margen que hay es **1.753 unidades al día**: la predicción gasta 8.118
+—nivel A dos veces con `best_match` y tres con AROME y ECMWF, B y C una— más
+las 129 del anillo del campo de lluvia, o sea 8.247 de un techo de 10.000. Así
+que a 0,1° **un solo refresco diario ya se come el 69 % de lo que queda** y dos
+no caben de ninguna manera. La cifra de la que se partía se quedaba corta en un
+57 %.
+
+**Pero la rejilla no hace falta.** `wind_speed` y `wind_direction` están en
+`ESSENTIAL_HOURLY` **y** en `RICH_HOURLY`, así que los 3.190 puntos ya las
+traen, hora a hora, y ya están pagadas. El campo de viento es el mismo problema
+que el campo de lluvia con dos componentes en vez de uno, y `forecast-field.ts`
+ya resuelve la parte difícil: la ponderación de Shepard, el margen de la malla,
+el recuadro en píxeles del mosaico.
+
+Lo único que falta es el borde, y también es gratis: el anillo pide hoy
+`&hourly=precipitation`, una variable. Añadiéndole las dos del viento son tres,
+y la fórmula de Open-Meteo es `max(1, variables/10) × …` — **con ese suelo en 1,
+una variable y tres valen exactamente lo mismo**. Los 129 puntos siguen
+costando 129.
+
+> **Coste del campo de viento: 0 unidades al día.** No es una estimación: es
+> que el dato ya está descargado y el suelo de la fórmula absorbe el resto.
+
+Lo que sí cuesta es lo otro: interpolar **u y v por separado** y no la
+velocidad con la dirección. Promediando ángulos, dos puntos con viento de 350°
+y de 10° dan 180° — viento del sur exactamente donde sopla del norte. Se
+descompone en `u = −v·sin(θ)`, `v = −v·cos(θ)`, se interpola cada componente y
+se recompone al final; y entonces dos vientos opuestos se cancelan, que es lo
+que hace el aire de verdad.
+
+El transporte: un binario compacto servido por un `route.ts`, que el cliente
+convierte en textura. Nada de PNG codificado a mano.
 
 ---
 
