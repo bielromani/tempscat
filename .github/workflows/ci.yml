@@ -19,7 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
-      # Primer de tot: que el lockfile serveixi a Linux i no només a Windows.
+      # Primer de tot, i abans que el lockfile: que els fitxers que ho llancen
+      # tot siguin valids. Una clau repetida dins d'un pas fa que GitHub
+      # rebutgi el workflow sencer i el correu digui nomes «No jobs were run»
+      # -- cap worker no ha petat, simplement no s'ha executat res. Va passar
+      # amb `diari.yml` el 14 de setembre de 2026.
+      - run: npm run check:workflows
+      # I que el lockfile serveixi a Linux i no nomes a Windows.
       # Si aixo falla, tota la ingesta automatica esta parada.
       - run: npm run check:lockfile
       - run: npm run typecheck

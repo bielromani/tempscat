@@ -58,4 +58,3 @@ jobs:
       # predicció d'ahir ja no existeix enlloc.
       - run: npm run worker:verify
         if: always()
-        if: always()

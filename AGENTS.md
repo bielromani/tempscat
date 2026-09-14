@@ -652,6 +652,16 @@ cuota para exactamente la misma información.
   i dos no en portaven**. Amb `air-stations` en vermell, l'aigua de l'ACA i la verificació de
   models quedaven saltades — tres dies sense adonar-se'n. Un comentari que promet una cosa que
   el fitxer no fa és pitjor que cap comentari.
+- **Una clau repetida dins d'un pas no fa fallar cap worker: fa que no se'n executi cap.**
+  `diari.yml` va quedar amb `if: always()` dues vegades al darrer pas —una substitució
+  automàtica damunt dels tretze workers— i GitHub va rebutjar el fitxer sencer. El correu
+  no deia «tal cosa ha petat» sinó **`No jobs were run`**, i la feina d'un dia —rècords,
+  aire, aigua i l'acumulació de l'encert— simplement no es va fer. YAML prohibeix la clau
+  repetida però gairebé cap analitzador hi diu res: es queden l'última en silenci. `ci.yml`
+  comprovava els dos projectes de TypeScript, el lint, les proves i el build — **tot menys
+  els fitxers que ho llancen tot**. Ara hi ha `npm run check:workflows`, el primer pas de
+  tots: claus repetides, tabuladors, `npm run` que no existeixen i workflows sense feines.
+
 - **Un comptador de dies que s'incrementa és un doble recompte esperant el seu torn.** El
   registre d'encert acumula sumatoris, així que un dia puntuat dues vegades —un
   `workflow_dispatch` a mà damunt de l'horari, o unes quantes proves seguides— infla `n` i fa
