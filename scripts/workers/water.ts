@@ -35,7 +35,7 @@
 import { soql } from '../lib/socrata.ts';
 import { utm31ToLatLon } from '../lib/geo.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncState, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 
 const RESERVOIRS = 'vjx7-6kcp';
@@ -313,11 +313,8 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'water', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 30, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+main().catch((err) => reportFailure({
+  source: 'water', lastSuccessAt: '', lastDataTs: null,
+    stalenessLimitMin: 60 * 30, rows: 0, apiCalls: 0,
+}, err));
+

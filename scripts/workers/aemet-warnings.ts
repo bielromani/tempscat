@@ -23,7 +23,7 @@ import { parseCap, type CapAlert, type CapLevel } from '../lib/cap.ts';
 import { pointInRing, ringBbox } from '../lib/geo.ts';
 import { isDate } from '../lib/credentials.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncState, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 
 /** Código de área de AEMET Meteoalerta para Catalunya. Verificado. */
@@ -218,13 +218,16 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'aemet-warnings', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 30 * 60, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
-    credentialExpiresAt: isDate(process.env.AEMET_API_KEY_EXPIRES)
-      ? process.env.AEMET_API_KEY_EXPIRES : null,
-  });
-  console.error(err);
-  process.exit(1);
-});
+main().catch((err) => reportFailure({
+  source: 'aemet-warnings',
+  lastSuccessAt: '',
+  lastDataTs: null,
+  stalenessLimitMin: 30 * 60,
+  rows: 0,
+  apiCalls: 0,
+  // La caducitat viatja també quan peta: si el motiu és que la clau s'ha
+  // acabat, `/estat` ho ha de poder dir sense que ningú obri un registre.
+  credentialExpiresAt: isDate(process.env.AEMET_API_KEY_EXPIRES)
+    ? process.env.AEMET_API_KEY_EXPIRES : null,
+}, err));
+

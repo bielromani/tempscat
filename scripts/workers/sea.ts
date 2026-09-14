@@ -38,7 +38,7 @@
 import { fetchWithRetry } from '../lib/http.ts';
 import { soql } from '../lib/socrata.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncState, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 
 const BEACHES = '4baz-cjv2';
@@ -334,11 +334,8 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'sea', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 72, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+main().catch((err) => reportFailure({
+  source: 'sea', lastSuccessAt: '', lastDataTs: null,
+    stalenessLimitMin: 60 * 72, rows: 0, apiCalls: 0,
+}, err));
+

@@ -37,7 +37,7 @@ import { join } from 'node:path';
 import { fetchWithRetry, sleep } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import {
-  CACHE, DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard, publish, publishQuota, pullSnapshot, recordFreshness, syncState, writeSnapshot,
+  CACHE, DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard, publish, publishQuota, pullSnapshot, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import {
   FORECAST_INDEX, forecastShard, type ForecastIndex,
@@ -746,11 +746,8 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'forecast-refresh', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 14, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+main().catch((err) => reportFailure({
+  source: 'forecast-refresh', lastSuccessAt: '', lastDataTs: null,
+    stalenessLimitMin: 60 * 14, rows: 0, apiCalls: 0,
+}, err));
+

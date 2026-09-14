@@ -28,7 +28,7 @@ import { soql, soqlAll } from '../lib/socrata.ts';
 import { build } from '../lib/paths.ts';
 import { throttledMap } from '../lib/http.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, pullSnapshot, recordFreshness, syncState, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, pullSnapshot, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { CLIMATE_DIR, climateShard, historyShard } from '../../src/lib/shards.ts';
 import { windCardinal } from '../../src/lib/variables.ts';
@@ -1095,11 +1095,8 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'xema-history', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 24 * 3, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+main().catch((err) => reportFailure({
+  source: 'xema-history', lastSuccessAt: '', lastDataTs: null,
+    stalenessLimitMin: 60 * 24 * 3, rows: 0, apiCalls: 0,
+}, err));
+

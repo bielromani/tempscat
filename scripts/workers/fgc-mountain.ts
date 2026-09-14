@@ -93,7 +93,7 @@ import { build } from '../lib/paths.ts';
 import { slugify } from '../lib/catalan.ts';
 import { fgcTimestamp, madridToUtc } from '../lib/madrid.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncState, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import type {
   LiftStats, MountainData, MountainStation, Resort, SlopeStats,
@@ -591,16 +591,12 @@ async function main() {
   if (!pub.skipped) console.log(`Publicat: ${pub.uploaded} fitxers`);
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'fgc-mountain',
+main().catch((err) => reportFailure({
+  source: 'fgc-mountain',
     lastSuccessAt: '',
     lastDataTs: null,
     stalenessLimitMin: 150,
     rows: 0,
     apiCalls: 0,
-    error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+}, err));
+

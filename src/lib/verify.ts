@@ -94,13 +94,27 @@ export interface Tally {
 }
 
 export interface Scores {
-  /** El primer dia puntuat i l'últim, per saber sobre quant es parla. */
-  from: string;
-  to: string;
-  /** Quants dies distints hi han entrat. */
-  days: number;
+  /**
+   * Els dies ja puntuats, per data.
+   *
+   * **La llista i no un comptador.** Els sumatoris s'acumulen, així que un dia
+   * que entri dues vegades —un `workflow_dispatch` a mà damunt de l'horari, o
+   * una prova— infla `n` i pesa el doble que els altres dins de la mitjana.
+   * No donaria cap error: donaria un error mitjà calculat sobre el doble de
+   * comparacions de les que hi ha hagut. Va passar la primera tarda: set dies
+   * comptats sobre quatre de calendari.
+   *
+   * Amb la llista, la comprovació és una pertinença i el nombre de dies és la
+   * seva mida: no hi ha cap manera d'incrementar-lo sense dir quin dia és.
+   */
+  scored: string[];
   /** `model → variable → antelació → sumatori`. */
   models: Record<string, Partial<Record<VerifyVar, Record<string, Tally>>>>;
+}
+
+/** Un registre buit, que és per on es comença. */
+export function emptyScores(): Scores {
+  return { scored: [], models: {} };
 }
 
 /** L'error mitjà absolut, o null si encara no hi ha res. */

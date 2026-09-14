@@ -31,7 +31,7 @@
  */
 import { soql } from '../lib/socrata.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncState, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 
 const DATASET = 'tasf-thgu';
@@ -172,7 +172,44 @@ async function main() {
     for (const vs of b.hours.values()) if (vs.length >= 24) { completeDays.add(day); break; }
   }
   const day = [...completeDays].sort().at(-1) ?? null;
-  if (!day) throw new Error('Cap dia complet a la finestra descarregada.');
+
+  /*
+   * Que la font no publiqui no és una avaria nostra, i no s'ha de comportar
+   * com si ho fos.
+   *
+   * La XVPCA va deixar de publicar el 10 de setembre de 2026 —aquell dia no
+   * existeix al conjunt i el 9 es va quedar amb 22 hores— i va tornar quatre
+   * dies després amb el buit fet. Mentrestant aquí no hi havia cap dia complet
+   * a la finestra, això llançava, i el resultat van ser tres matins de correus
+   * de «Run failed» **sense cap motiu enlloc**, perquè un worker que peta no
+   * publicava el seu registre.
+   *
+   * El que toca és no publicar res nou —la instantània anterior segueix sent
+   * bona i porta la seva data—, deixar dit per què, i sortir bé. Qui avisa és
+   * el rètol d'endarreriment de `/estat`, que és el mecanisme que hi ha per a
+   * això: una font que no s'actualitza s'hi va posant vermella tota sola.
+   *
+   * Llançar només es justifica quan el que es publicaria seria **fals**. Aquí
+   * no es publicaria res.
+   */
+  if (!day) {
+    const days = [...new Set(rows.map((r) => String(r.data).slice(0, 10)))].sort();
+    const why = `La font no ha publicat cap dia complet des de ${from}.`
+      + ` Dies a la finestra: ${days.join(', ') || 'cap'}.`;
+    console.warn(why);
+    recordFreshness({
+      source: 'air-stations',
+      lastSuccessAt: '',
+      lastDataTs: null,
+      stalenessLimitMin: 60 * 36,
+      rows: rows.length,
+      apiCalls: 1,
+      error: why,
+    });
+    const pub = await publish();
+    if (!pub.skipped) console.log(`Motiu publicat: ${pub.uploaded} fitxers`);
+    return;
+  }
 
   const stations: AirStation[] = [];
   for (const [key, b] of byStationDay) {
@@ -266,11 +303,8 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'air-stations', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 36, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+main().catch((err) => reportFailure({
+  source: 'air-stations', lastSuccessAt: '', lastDataTs: null,
+    stalenessLimitMin: 60 * 36, rows: 0, apiCalls: 0,
+}, err));
+

@@ -322,6 +322,33 @@ export function recordFreshness(entry: FreshnessEntry): void {
   pending.add(name);
 }
 
+/**
+ * Un worker que peta, **explicat on algú ho pugui veure**.
+ *
+ * `recordFreshness` escriu el motiu i el posa a la cua de publicació, però la
+ * publicació només passava al camí bo: quan un worker moria, el motiu es
+ * quedava al disc d'un contenidor que s'apaga i `/estat` seguia ensenyant
+ * l'última execució correcta, envellint a poc a poc. L'única còpia del perquè
+ * era el registre d'Actions, que demana un testimoni per llegir-lo i caduca.
+ *
+ * Va costar-ho: el 13 de setembre de 2026 la font de l'aire va deixar de
+ * publicar, el worker va llançar cada matí i el que va arribar van ser correus
+ * de «Run failed» sense cap motiu enlloc. Amb això, el motiu surt a `/estat`.
+ *
+ * La publicació no pot fer caure el procés: si el magatzem tampoc no respon,
+ * el que importa segueix sent el codi de sortida i el missatge a la consola.
+ */
+export async function reportFailure(entry: FreshnessEntry, err: unknown): Promise<never> {
+  recordFreshness({ ...entry, error: String(err).slice(0, 300) });
+  try {
+    await publish();
+  } catch (pubErr) {
+    console.error(`I el motiu no s'ha pogut publicar: ${String(pubErr).slice(0, 160)}`);
+  }
+  console.error(err);
+  process.exit(1);
+}
+
 export function readFreshness(): Record<string, FreshnessEntry> {
   const all: Record<string, FreshnessEntry> = {};
   for (const source of FRESHNESS_SOURCES) {

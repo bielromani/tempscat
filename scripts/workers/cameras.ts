@@ -111,7 +111,7 @@ import { build } from '../lib/paths.ts';
 import { slugify } from '../lib/catalan.ts';
 import { madridToUtc } from '../lib/madrid.ts';
 import {
-  CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, pullSnapshot, recordFreshness,
+  CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, pullSnapshot, recordFreshness, reportFailure,
   syncState, writeSnapshot,
 } from '../lib/store.ts';
 import type { Camera, CamerasData } from '../../src/lib/camera-types.ts';
@@ -589,16 +589,12 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'cameras',
+main().catch((err) => reportFailure({
+  source: 'cameras',
     lastSuccessAt: '',
     lastDataTs: null,
     stalenessLimitMin: 150,
     rows: 0,
     apiCalls: 0,
-    error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+}, err));
+

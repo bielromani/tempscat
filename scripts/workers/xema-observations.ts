@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { fetchJson } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, syncState, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { XEMA_TO_SLUG, type VariableSlug } from '../../src/lib/variables.ts';
 import type { Station } from '../04-fetch-stations.ts';
@@ -316,16 +316,12 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'xema-observations',
+main().catch((err) => reportFailure({
+  source: 'xema-observations',
     lastSuccessAt: '',
     lastDataTs: null,
     stalenessLimitMin: 120,
     rows: 0,
     apiCalls: 0,
-    error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+}, err));
+

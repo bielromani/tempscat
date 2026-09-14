@@ -35,7 +35,7 @@ import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:
 import { join } from 'node:path';
 import { fetchWithRetry, throttledMap } from '../lib/http.ts';
 import {
-  CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, recordFreshness, syncState, writeSnapshot,
+  CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { CATALUNYA_BBOX, tileGrid, type TileGrid } from '../../src/lib/mercator.ts';
 
@@ -240,11 +240,8 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'radar', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 40, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+main().catch((err) => reportFailure({
+  source: 'radar', lastSuccessAt: '', lastDataTs: null,
+    stalenessLimitMin: 40, rows: 0, apiCalls: 0,
+}, err));
+

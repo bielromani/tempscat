@@ -634,6 +634,31 @@ cuota para exactamente la misma información.
   hay es `Place`, `BreadcrumbList`, un `WebSite` con su `SearchAction` en el esqueleto —porque un
   robot entra por cualquiera de las 4.293 páginas y puede no pasar nunca por la portada— y un
   `Dataset` en `/dades`, que es el único tipo que describe lo que este sitio tiene de propio.
+- **Un worker que peta no deixava rastre enlloc, i el 13 de setembre de 2026 van arribar tres
+  matins de correus de «Run failed» sense cap motiu.** `recordFreshness` escriu el perquè i el
+  posa a la cua de publicació, però **la publicació només passava al camí bo**: quan el worker
+  moria, el motiu es quedava al disc d'un contenidor que s'apaga, `/estat` seguia ensenyant
+  l'última execució correcta envellint a poc a poc, i l'única còpia del perquè era el registre
+  d'Actions —que demana un testimoni per llegir-lo i caduca—. Ara tots els workers acaben amb
+  `reportFailure()`, que publica el motiu abans de sortir.
+  La causa d'aquell cop: **la XVPCA va deixar de publicar**. El 10 de setembre no existeix al
+  conjunt i el 9 es va quedar amb 22 hores, o sigui que a la finestra de quatre dies no hi havia
+  cap dia complet i `air-stations` llançava. Que una font no publiqui **no és una avería nostra i
+  no s'ha de comportar com si ho fos**: ara no publica res nou —la instantània anterior segueix
+  sent bona i porta la seva data—, deixa dit per què, i surt bé. Qui avisa és el rètol
+  d'endarreriment de `/estat`, que és el mecanisme que hi ha per a això. Llançar només es
+  justifica quan el que es publicaria seria **fals**; aquí no es publicaria res.
+  I el que ho va multiplicar: **el comentari de `diari.yml` deia que cada pas porta `if: always()`
+  i dos no en portaven**. Amb `air-stations` en vermell, l'aigua de l'ACA i la verificació de
+  models quedaven saltades — tres dies sense adonar-se'n. Un comentari que promet una cosa que
+  el fitxer no fa és pitjor que cap comentari.
+- **Un comptador de dies que s'incrementa és un doble recompte esperant el seu torn.** El
+  registre d'encert acumula sumatoris, així que un dia puntuat dues vegades —un
+  `workflow_dispatch` a mà damunt de l'horari, o unes quantes proves seguides— infla `n` i fa
+  que aquell dia pesi el doble dins de la mitjana. No dona cap error. Es va veure perquè el
+  comptador deia **set dies cobrint-ne quatre de calendari**. Ara es desa **la llista de dates
+  puntuades**: la comprovació és una pertinença i el nombre de dies és la seva mida, i no hi ha
+  cap manera d'incrementar-lo sense dir quin dia és.
 - **La ventana horaria de la predicción son 120 horas, pero el horizonte son 14 días.** El resumen
   diario lo calcula el worker. Cualquier frase que hable del horizonte tiene que salir de
   `forecast.daily`: sacándola de `forecast.hourly` se afirma sobre catorce días habiendo mirado

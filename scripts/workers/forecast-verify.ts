@@ -43,13 +43,13 @@
 import { readFileSync } from 'node:fs';
 import { build } from '../lib/paths.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, pullSnapshot, recordFreshness, syncState, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, pullSnapshot, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { aggregateDaily, mergeHourly, type PointForecast } from '../../src/lib/forecast-merge.ts';
 import { LAPSE_RATE } from '../../src/lib/variables.ts';
 import { FORECAST_INDEX, forecastShard, type ForecastIndex } from '../../src/lib/shards.ts';
 import {
-  LEADS, VERIFY_VARS, pendingShard, scoresShard,
+  LEADS, VERIFY_VARS, emptyScores, pendingShard, scoresShard,
   type Pending, type Predicted, type Scores, type Tally,
 } from '../../src/lib/verify.ts';
 
@@ -167,13 +167,27 @@ async function main() {
     if (o.yesterday) truth.set(o.station, o.yesterday);
   }
 
-  const scores: Scores = (await pullSnapshot<Scores>(scoresShard()))?.data
-    ?? { from: yesterday, to: yesterday, days: 0, models: {} };
+  const stored = (await pullSnapshot<Scores>(scoresShard()))?.data;
+  const scores: Scores = stored?.scored ? stored : emptyScores();
 
   const pending = (await pullSnapshot<Pending>(pendingShard(yesterday)))?.data ?? null;
   let scored = 0;
 
-  if (!pending) {
+  /*
+   * Un dia no es pot puntuar dues vegades.
+   *
+   * Els sumatoris s'acumulen, així que si el worker corre dos cops el mateix
+   * dia —un `workflow_dispatch` a mà damunt de l'horari, que és el més fàcil
+   * del món— el dia d'ahir entraria dues vegades i `n` sortiria inflat. No
+   * donaria cap error: donaria un error mitjà calculat sobre el doble de
+   * comparacions de les que hi ha hagut, i amb els dies pesats desigualment
+   * entre ells.
+   */
+  const alreadyScored = scores.scored.includes(yesterday);
+
+  if (alreadyScored) {
+    console.log(`${yesterday} ja estava puntuat: no es torna a comptar.`);
+  } else if (!pending) {
     console.log(`Sense res desat per a ${yesterday}: encara no s'havia capturat aquell dia.`);
   } else if (!truth.size) {
     console.log(`Sense mesures d'ahir a l'observació: ${yesterday} es puntuarà quan n'hi hagi.`);
@@ -200,11 +214,10 @@ async function main() {
       }
     }
     if (scored) {
-      scores.days++;
-      scores.to = yesterday;
-      if (scores.days === 1) scores.from = yesterday;
+      scores.scored.push(yesterday);
+      scores.scored.sort();
     }
-    console.log(`Puntuat ${yesterday}: ${scored} comparacions · ${scores.days} dies acumulats`);
+    console.log(`Puntuat ${yesterday}: ${scored} comparacions · ${scores.scored.length} dies acumulats`);
   }
 
   // ── 2. Capturar els dies que vindran ────────────────────────────────────
@@ -306,7 +319,7 @@ async function main() {
     written++;
   }
 
-  writeSnapshot(scoresShard(), 'Open-Meteo + Meteocat XEMA', scores, scores.to);
+  writeSnapshot(scoresShard(), 'Open-Meteo + Meteocat XEMA', scores, scores.scored.at(-1) ?? null);
 
   const lines: string[] = [];
   for (const [model, vars] of Object.entries(scores.models)) {
@@ -332,7 +345,7 @@ async function main() {
   recordFreshness({
     source: 'forecast-verify',
     lastSuccessAt: new Date().toISOString(),
-    lastDataTs: scores.days ? scores.to : null,
+    lastDataTs: scores.scored.at(-1) ?? null,
     /*
      * Seixanta hores, i no vint-i-quatre.
      *
@@ -345,7 +358,7 @@ async function main() {
      * la freqüència amb què voldríem la dada.
      */
     stalenessLimitMin: 60 * 60,
-    rows: scores.days,
+    rows: scores.scored.length,
     apiCalls: 0,
   });
 
@@ -356,11 +369,8 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'forecast-verify', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 60, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+main().catch((err) => reportFailure({
+  source: 'forecast-verify', lastSuccessAt: '', lastDataTs: null,
+    stalenessLimitMin: 60 * 60, rows: 0, apiCalls: 0,
+}, err));
+

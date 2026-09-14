@@ -40,7 +40,7 @@ import sharp from 'sharp';
 import { build } from '../lib/paths.ts';
 import { madridToUtc } from '../lib/madrid.ts';
 import {
-  CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, pullSnapshot, recordFreshness,
+  CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, pullSnapshot, recordFreshness, reportFailure,
   syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { CATALUNYA_BBOX, project, tileGrid } from '../../src/lib/mercator.ts';
@@ -768,11 +768,8 @@ ${kept} de ${written.length} hores ja hi eren igual: no s'han tornat a pujar.`);
   }
 }
 
-main().catch((err) => {
-  recordFreshness({
-    source: 'forecast-field', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 14, rows: 0, apiCalls: 0, error: String(err).slice(0, 300),
-  });
-  console.error(err);
-  process.exit(1);
-});
+main().catch((err) => reportFailure({
+  source: 'forecast-field', lastSuccessAt: '', lastDataTs: null,
+    stalenessLimitMin: 60 * 14, rows: 0, apiCalls: 0,
+}, err));
+
