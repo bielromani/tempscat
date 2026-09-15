@@ -8,6 +8,7 @@ import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
 import { airCellKey } from './air-grid';
 import type { MonthProgress, RainProgress } from './climate-math';
 import { fieldShard, type FieldIndex } from './field';
+import { windShard, type WindIndex } from './wind';
 import {
   aggregateDaily, mergeHourly, type PointForecast, type StoredDaily,
 } from './forecast-merge';
@@ -850,6 +851,27 @@ export async function radar(): Promise<(RadarData & {
  */
 export async function precipField(): Promise<FieldIndex | null> {
   const snap = await snapshot<FieldIndex>(fieldShard());
+  if (!snap?.data?.hours?.length) return null;
+  const now = localNowHour();
+  const hours = snap.data.hours.filter(
+    (h) => Number.isFinite(h.time) && h.iso.slice(0, 13) > now,
+  );
+  return hours.length ? { ...snap.data, hours } : null;
+}
+
+/**
+ * El camp de vent: una graella d'u i v per hora, desada com un PNG.
+ *
+ * Mateix filtre que el de pluja i pel mateix motiu —les hores que ja han
+ * passat no s'ofereixen com a futur— i el mateix guardió sobre l'instant.
+ *
+ * Les dues capes les pinta el mateix worker i surten de les mateixes hores a
+ * posta: la barra de temps del mapa és una de sola, i si una tingués dotze
+ * hores i l'altra onze, arrossegar-la ensenyaria el vent d'una hora damunt de
+ * la pluja d'una altra sense que res fallés.
+ */
+export async function windField(): Promise<WindIndex | null> {
+  const snap = await snapshot<WindIndex>(windShard());
   if (!snap?.data?.hours?.length) return null;
   const now = localNowHour();
   const hours = snap.data.hours.filter(

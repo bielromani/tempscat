@@ -193,6 +193,7 @@ npm run check:credentials # a qué clave le queda poco. Lo corre `credencials.ym
 npm run check:jsonld      # que cada tipus de pàgina segueixi portant el seu marcatge
 npm run check:workflows   # claus repetides, `npm run` inexistents i workflows sense feines
 npm run test:colors       # que el color que rep el mapa sigui el que pinta el navegador
+npm run test:wind         # que el vent vagi cap on ha d'anar · amb `-- --api`, contra la marinada
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
@@ -876,6 +877,47 @@ cuota para exactamente la misma información.
   error: sembla el mapa**. I el sostre de zoom cap avall també importa: amb el mínim al 7,
   un telèfon de 375 px obria ensenyant només el mig del país sense poder-se'n allunyar,
   perquè Catalunya sencera hi cau al 6,3.
+- **El vent amb partícules no va costar cap unitat de quota, i la meitat de la feina va
+  ser fer-lo visible.** `wind_speed` i `wind_direction` ja són a `ESSENTIAL_HOURLY` i a
+  `RICH_HOURLY`: els 3.190 punts ja les porten. I a l'anell del camp de pluja se n'hi van
+  poder afegir dues sense pagar res, perquè `callWeight` fa `max(1, variables/10)` i amb
+  aquell terra a 1 una variable i tres valen igual — **però l'empremta del tros desat
+  ha de portar la llista de variables a dins**, o el dia que se n'hi afegeix una, el
+  tros vell segueix valent i el voltant es queda sense la nova fins que la predicció es
+  refresqui sola.
+  **La direcció no es pot interpolar, i el signe no es pot deduir.** Entre 350° i 10° la
+  mitjana dona 180°: vent del sud exactament on bufa del nord. Es descompon en u i v
+  abans d'interpolar. I la conversió —`u = −v·sinθ`, `v = −v·cosθ`, amb θ **d'on ve** el
+  vent— es va escollir comprovant la **marinada**: a les quatre de la tarda, a Malgrat,
+  Cambrils i Sant Feliu, la component cap al nord ha de sortir positiva. Amb el signe
+  girat sortiria bufant mar endins una tarda de setembre i el mapa seguiria semblant un
+  mapa. `npm run test:wind`.
+  **El vent no es desplaça una hora i la pluja sí.** A Open-Meteo la pluja de l'hora `T`
+  és la que va caure entre `T−1` i `T`, però la velocitat i la direcció són instantànies:
+  `precedingHour` està posat a la pluja i a la ratxa, i no a aquestes dues. Desplaant-les
+  «per coherència», el camp aniria una hora endavant de la pluja del mateix marc.
+- **Una capa pròpia de MapLibre es pot dibuixar perfectament i no ensenyar res, i hi ha
+  quatre maneres.** Les quatre van passar el mateix vespre, cap va donar un error, i el
+  que les va separar va ser posar-hi **una creu fixa d'un cantó a l'altre del país amb
+  l'alfa a 1**: si ni això surt, el que falla no és la geometria.
+  **La matriu.** A la versió 6, `render(gl, options)` porta `modelViewProjectionMatrix` i
+  `defaultProjectionData.mainMatrix`, i la que va amb coordenades de mercator 0–1 és **la
+  segona**. Amb la primera es dibuixa fora de la pantalla, sense cap avís. (Passar-hi
+  l'objecte sencer, en canvi, sí que es veu: `uniformMatrix4fv` es queixa que «no té un
+  @@iterator».)
+  **El VAO.** MapLibre deixa un objecte de vèrtexs seu enllaçat, així que
+  `vertexAttribPointer` no configura els teus atributs: configura **els d'ell**. Cal
+  crear-ne un de propi, enllaçar-lo i desenllaçar-lo.
+  **El color.** Els camps de vent que tothom té al cap són blancs perquè van damunt d'un
+  mapa negre. El nostre fons és la cartografia de l'ICGC, que és clara.
+  **L'escala del moviment.** Avançant «tants minuts de rellotge per fotograma» —que sona
+  més honest— un vent de tarda de setembre movia cada partícula un terç de píxel i el
+  rastre sencer en feia dos: vint mil segments correctes i invisibles. Es compta en
+  **píxels**, que a més arregla que la mateixa velocitat de terra surti disparada en
+  ampliar. I el rang es comprimeix amb `velocitat^0,6`, perquè entre una calma d'1,5 m/s
+  i una tramuntana de 25 no hi cap una sola constant: reescalant el vector —no girant-lo—
+  les dues es veuen.
+
 - **La geometria que va al navegador no és la mateixa que la del build.**
   `comarques.geojson` i `municipis.geojson` són graus —el que MapLibre menja— però pesen
   87 i 506 kB comprimits, i `comarques-map.json` ja està aprimat però està **projectat**,

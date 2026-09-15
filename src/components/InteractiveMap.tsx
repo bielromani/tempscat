@@ -17,6 +17,7 @@ import {
  * rectangle buit.
  */
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { WindLayer, decodeWind, type WindData } from './wind-layer';
 
 /**
  * El mapa que es pot moure.
@@ -82,6 +83,18 @@ export interface MapFrame {
 
 interface Props {
   frames: MapFrame[];
+  /**
+   * Les hores del camp de vent, amb la graella que les descriu.
+   *
+   * Són **les mateixes hores** que les de la pluja: les pinta el mateix worker
+   * de la mateixa sèrie. Si un dia no ho fossin, la barra de temps ensenyaria
+   * el vent d'una hora damunt de la pluja d'una altra.
+   */
+  wind: {
+    width: number; height: number;
+    box: { west: number; east: number; south: number; north: number };
+    hours: Array<{ time: number; name: string; maxMs: number }>;
+  } | null;
   /** `codi INE → color`, ja calculat amb l'escala del lloc. */
   colors: Record<string, string>;
   degrees: Record<string, number>;
@@ -90,11 +103,12 @@ interface Props {
   /** Els peus, que els escriu el servidor perquè no n'hi hagi dues versions. */
   radarLegend: ReactNode;
   temperatureLegend: ReactNode;
+  windLegend: ReactNode;
   /** El text que es veu sense JavaScript, i mentre el mapa no ha arrencat. */
   fallback: ReactNode;
 }
 
-type Capa = 'radar' | 'temperatura';
+type Capa = 'radar' | 'temperatura' | 'vent';
 
 /**
  * L'adreça sencera, i és obligatori per a les fonts de GeoJSON.
@@ -127,8 +141,8 @@ const FRAME_MS = 550;
 const LAST_MS = 1600;
 
 export default function InteractiveMap({
-  frames, colors, degrees, observed, total,
-  radarLegend, temperatureLegend, fallback,
+  frames, wind, colors, degrees, observed, total,
+  radarLegend, temperatureLegend, windLegend, fallback,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<unknown>(null);
@@ -149,6 +163,10 @@ export default function InteractiveMap({
    * era. Mentre carrega hi ha una pastilla que ho diu, i prou.
    */
   const fallbackBox = useRef<HTMLDivElement>(null);
+  /** La capa de partícules. Es crea un cop i se li van donant hores. */
+  const windLayer = useRef<WindLayer | null>(null);
+  /** Les graelles ja descodificades, per hora. Descodificar-les és un cop. */
+  const windCache = useRef(new Map<string, WindData>());
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [capa, setCapa] = useState<Capa>('radar');
@@ -247,7 +265,21 @@ export default function InteractiveMap({
           { padding: 12, animate: false },
         );
 
-        m.on('load', () => { if (!dead) setReady(true); });
+        m.on('load', () => {
+          if (dead) return;
+          /*
+           * La capa del vent es crea buida i s'afegeix un sol cop.
+           *
+           * Afegir-la i treure-la cada vegada que s'encén la capa tornaria a
+           * compilar els shaders i a sembrar tres mil partícules: es veuria
+           * com una becada. Sense dades no dibuixa res, així que quedar-se
+           * posada no costa.
+           */
+          const layer = new WindLayer(() => m.getZoom(), () => m.triggerRepaint());
+          windLayer.current = layer;
+          m.addLayer(layer as unknown as Parameters<typeof m.addLayer>[0], 'comarques-linia');
+          setReady(true);
+        });
         /*
          * Un error de MapLibre acaba a la consola i enlloc més: la pàgina es
          * queda amb un rectangle gris i qui mira no sap si és que no plou.
@@ -310,9 +342,55 @@ export default function InteractiveMap({
     }
   }, [ready, capa, i, build, frames.length]);
 
+  /*
+   * La graella del vent de l'hora que es mira.
+   *
+   * Es baixa **quan s'encén la capa**, no en obrir: són tres quilobytes per
+   * hora, però dotze hores són trenta-sis i qui només vol veure si plou no
+   * els ha de pagar. Les ja descodificades es guarden: canviar d'hora amb la
+   * barra no torna a baixar res.
+   */
+  useEffect(() => {
+    const layer = windLayer.current;
+    if (!ready || !layer) return;
+    if (capa !== 'vent' || !wind) { layer.setData(null); return; }
+
+    const hour = wind.hours.find((h) => h.time === frames[i]?.time) ?? wind.hours[0];
+    if (!hour) { layer.setData(null); return; }
+
+    const hit = windCache.current.get(hour.name);
+    if (hit) { layer.setData(hit); return; }
+
+    let dead = false;
+    const img = new Image();
+    img.onload = () => {
+      if (dead) return;
+      /*
+       * El PNG es llegeix píxel a píxel amb un `canvas`, i **no es pot fer amb
+       * `willReadFrequently`**: això passa un cop per hora, no per fotograma.
+       */
+      const cv = document.createElement('canvas');
+      cv.width = wind.width;
+      cv.height = wind.height;
+      const ctx = cv.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0);
+      const data = decodeWind(
+        ctx.getImageData(0, 0, wind.width, wind.height).data,
+        wind.width, wind.height, wind.box,
+      );
+      windCache.current.set(hour.name, data);
+      layer.setData(data);
+    };
+    img.onerror = () => { if (!dead) setError(`no s'ha pogut llegir el vent de ${hour.name}`); };
+    img.src = abs(`/vent/${hour.name}.png`);
+
+    return () => { dead = true; };
+  }, [ready, capa, i, wind, frames]);
+
   // ── L'animació ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!playing || capa !== 'radar' || frames.length < 2) return;
+    if (!playing || capa === 'temperatura' || frames.length < 2) return;
     const last = i === frames.length - 1;
     const t = setTimeout(
       () => setI((n) => (n + 1) % frames.length),
@@ -426,13 +504,17 @@ export default function InteractiveMap({
     <figure className="my-6">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div role="group" aria-label="Què s'ensenya al mapa" className="flex gap-1">
-          {([['radar', 'Pluja'], ['temperatura', 'Temperatura']] as const).map(([k, text]) => (
+          {([
+            ['radar', 'Pluja'],
+            ['temperatura', 'Temperatura'],
+            ...(wind ? [['vent', 'Vent'] as const] : []),
+          ] as const).map(([k, text]) => (
             <button
               key={k}
               type="button"
               // L'aturada va aquí i no a l'efecte: canviar d'estat dins d'un
               // efecte encadena un segon dibuix, i el lint hi és per això.
-              onClick={() => { setCapa(k); if (k !== 'radar') setPlaying(false); }}
+              onClick={() => { setCapa(k); if (k === 'temperatura') setPlaying(false); }}
               aria-pressed={capa === k}
               className={`rounded-full border px-3 py-1 text-sm transition-colors ${
                 capa === k
@@ -445,7 +527,7 @@ export default function InteractiveMap({
           ))}
         </div>
 
-        {capa === 'radar' && frames.length > 1 ? (
+        {capa !== 'temperatura' && frames.length > 1 ? (
           <>
             <button
               type="button"
@@ -503,11 +585,13 @@ export default function InteractiveMap({
           </p>
         ) : null}
 
-        {ready && !error && capa === 'radar' && f ? (
+        {ready && !error && capa !== 'temperatura' && f ? (
           <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-[var(--bg)]/90 px-2.5 py-1 text-sm tabular-nums shadow-sm">
             <span className="font-semibold">{f.label}</span>
             <span className="ml-2 text-[var(--muted)]">
-              {f.kind === 'forecast' ? 'predicció' : 'radar'}
+              {capa === 'vent'
+                ? 'predicció'
+                : f.kind === 'forecast' ? 'predicció' : 'radar'}
             </span>
           </p>
         ) : null}
@@ -533,7 +617,7 @@ export default function InteractiveMap({
       </div>
 
       <figcaption className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-        {capa === 'radar' ? radarLegend : temperatureLegend}
+        {capa === 'radar' ? radarLegend : capa === 'vent' ? windLegend : temperatureLegend}
       </figcaption>
     </figure>
   );

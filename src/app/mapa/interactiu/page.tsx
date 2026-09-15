@@ -4,7 +4,7 @@ import InteractiveMap, { type MapFrame } from '@/components/InteractiveMap';
 import { TemperatureLegend } from '@/components/TemperatureMap';
 import { JsonLd, breadcrumbLd } from '@/components/JsonLd';
 import { municipalTemperatures } from '@/lib/map';
-import { precipField, radar } from '@/lib/weather';
+import { precipField, radar, windField } from '@/lib/weather';
 import { tileXToLon, tileYToLat } from '@/lib/mercator';
 import { hour, num } from '@/lib/format';
 import { MAP_NATIVE_MAX_ZOOM } from '@/lib/webmap';
@@ -44,9 +44,10 @@ export const metadata: Metadata = {
 };
 
 export default async function MapaInteractiuPage() {
-  const [rad, field, temps] = await Promise.all([
+  const [rad, field, air, temps] = await Promise.all([
     radar(),
     precipField(),
+    windField(),
     municipalTemperatures(),
   ]);
 
@@ -155,6 +156,15 @@ export default async function MapaInteractiuPage() {
 
       <InteractiveMap
         frames={frames}
+        /*
+         * El vent només s'ofereix si les seves hores són les mateixes que les
+         * dels marcs. Les pinta el mateix worker de la mateixa sèrie, però si
+         * un dia una de les dues es publiqués a mitges, la barra ensenyaria el
+         * vent d'una hora damunt de la pluja d'una altra i tot semblaria bé.
+         */
+        wind={air && air.hours.every((h) => frames.some((f) => f.time === h.time))
+          ? { width: air.width, height: air.height, box: air.box, hours: air.hours }
+          : null}
         colors={temps.colors}
         degrees={temps.degrees}
         observed={temps.observed}
@@ -202,6 +212,29 @@ export default async function MapaInteractiuPage() {
                 </>
               ) : null}
             </p>
+          </>
+        )}
+        windLegend={(
+          <>
+            On va l’aire, hora a hora. Cada fil és una partícula que segueix la
+            predicció del vent a deu metres del terra; com més marcat, més
+            força.{' '}
+            {air ? (
+              <>
+                En les properes{' '}
+                <strong className="tnum">{air.hours.length} hores</strong> el
+                màxim previst arreu del mapa és de{' '}
+                <strong className="tnum">
+                  {num(Math.max(...air.hours.map((h) => h.maxMs)) * 3.6, 0)} km/h
+                </strong>.{' '}
+              </>
+            ) : null}
+            <strong className="font-medium text-[var(--ink-2)]">
+              No és vent mesurat: és vent previst.
+            </strong>{' '}
+            Surt dels mateixos punts que la pluja, un cada 3,2 km dins de
+            Catalunya i un cada 25 al mar i a fora. El que s’ha mesurat de debo
+            és a la fitxa de cada lloc, amb la seva estació i la seva hora.
           </>
         )}
         fallback={(

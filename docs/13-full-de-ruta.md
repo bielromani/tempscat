@@ -1461,56 +1461,44 @@ la tesela que no está — las cuatro producen un mapa que se dibuja perfectamen
 está mal. Las cuatro están descritas en `AGENTS.md`; leerlas antes ahorra la tarde que
 costaron.
 
-### El viento: medido antes de implementarlo, y sale gratis
+### El viento con partículas · ✅ hecho el 15 de septiembre de 2026
 
-Aquí decía que las partículas necesitan una rejilla regular de u/v, que
-Catalunya en 0,1° son unas 768 celdas, que eso son ~3.072 unidades diarias a
-cuatro refrescos, y que **antes de implementarlo había que sacar la proyección
-real y decidir si cabe**. Hecha la cuenta, las dos mitades estaban mal — y la
-segunda para bien.
+Aquí decía que hacía falta una rejilla nueva de ~768 celdas y ~3.072 unidades diarias, y
+que **antes de implementarlo había que medir si cabía**. Medido: las dos mitades estaban
+mal, y la segunda para bien.
 
-**Lo que cuesta de verdad una rejilla nueva.** Las 768 celdas eran el país
-justo, sin margen, y un campo que se acaba en la raya de la frontera es el
-mismo defecto que ya costó una vuelta entera en el campo de lluvia. Con el
-margen de un paso por fuera son **1.209 celdas**, no 768.
+**La rejilla nueva no cabía.** Las 768 celdas eran el país justo, sin margen; con el
+margen de un paso son **1.209**, y el hueco que hay son 1.753 unidades al día —la
+predicción gasta 8.118 más las 129 del anillo—. A 0,1° un solo refresco diario ya se come
+el 69 % de lo que queda.
 
-| | celdas por refresco | a 4 refrescos |
-|---|---|---|
-| 0,1° con margen | 1.209 | 4.836/día |
-| 0,2° con margen | 320 | 1.280/día |
+**Y no hacía falta.** `wind_speed` y `wind_direction` están en `ESSENTIAL_HOURLY` y en
+`RICH_HOURLY`: los 3.190 puntos ya las traen. Y al anillo se le pudieron añadir sin pagar
+nada, porque `max(1, variables/10)` tiene suelo en 1.
 
-Y el margen que hay es **1.753 unidades al día**: la predicción gasta 8.118
-—nivel A dos veces con `best_match` y tres con AROME y ECMWF, B y C una— más
-las 129 del anillo del campo de lluvia, o sea 8.247 de un techo de 10.000. Así
-que a 0,1° **un solo refresco diario ya se come el 69 % de lo que queda** y dos
-no caben de ninguna manera. La cifra de la que se partía se quedaba corta en un
-57 %.
+> **Coste del campo de viento: 0 unidades al día.**
 
-**Pero la rejilla no hace falta.** `wind_speed` y `wind_direction` están en
-`ESSENTIAL_HOURLY` **y** en `RICH_HOURLY`, así que los 3.190 puntos ya las
-traen, hora a hora, y ya están pagadas. El campo de viento es el mismo problema
-que el campo de lluvia con dos componentes en vez de uno, y `forecast-field.ts`
-ya resuelve la parte difícil: la ponderación de Shepard, el margen de la malla,
-el recuadro en píxeles del mosaico.
+Lo calcula el mismo worker del campo de lluvia, en el mismo recorrido de los 43 trozos, y
+sale un PNG por hora de 69 × 51 celdas —unos 3 kB— con la componente hacia el este en el
+rojo y la componente hacia el norte en el verde. No es un dibujo: es el dato. Quien lo
+pinta es el navegador, moviendo tres mil partículas por encima con una capa propia de
+MapLibre.
 
-Lo único que falta es el borde, y también es gratis: el anillo pide hoy
-`&hourly=precipitation`, una variable. Añadiéndole las dos del viento son tres,
-y la fórmula de Open-Meteo es `max(1, variables/10) × …` — **con ese suelo en 1,
-una variable y tres valen exactamente lo mismo**. Los 129 puntos siguen
-costando 129.
+Dos cosas que decidieron el resultado, y las dos están en `AGENTS.md`:
 
-> **Coste del campo de viento: 0 unidades al día.** No es una estimación: es
-> que el dato ya está descargado y el suelo de la fórmula absorbe el resto.
+- **La dirección se verificó con la marinada, no con la fórmula.** A las cuatro de la
+  tarde, en Malgrat, Cambrils y Sant Feliu, la componente hacia el norte tiene que salir
+  positiva — del mar hacia tierra. Con el signo girado saldría soplando mar adentro una
+  tarde de septiembre y el mapa seguiría pareciendo un mapa. `npm run test:wind`.
+- **Casi nada de lo que falló dio un error.** La matriz equivocada de las dos que
+  MapLibre ofrece, el VAO que deja enlazado, las partículas blancas sobre un mapa claro,
+  y un paso diez veces demasiado corto — cuatro maneras distintas de dibujar veinte mil
+  segmentos perfectamente correctos e invisibles.
 
-Lo que sí cuesta es lo otro: interpolar **u y v por separado** y no la
-velocidad con la dirección. Promediando ángulos, dos puntos con viento de 350°
-y de 10° dan 180° — viento del sur exactamente donde sopla del norte. Se
-descompone en `u = −v·sin(θ)`, `v = −v·cos(θ)`, se interpola cada componente y
-se recompone al final; y entonces dos vientos opuestos se cancelan, que es lo
-que hace el aire de verdad.
+Lo que queda del viento: **no se anima solo con la barra de tiempo desde la observación**,
+porque no hay viento observado en rejilla; lo que hay medido está en la ficha de cada
+lugar, con su estación y su hora. Y el mapa lo dice.
 
-El transporte: un binario compacto servido por un `route.ts`, que el cliente
-convierte en textura. Nada de PNG codificado a mano.
 
 ---
 

@@ -47,6 +47,12 @@ import { CATALUNYA_BBOX, project, tileGrid } from '../../src/lib/mercator.ts';
 import { callWeight } from '../../src/lib/variables.ts';
 import { FORECAST_INDEX, forecastShard, type ForecastIndex } from '../../src/lib/shards.ts';
 import { FIELD_DIR, fieldShard, ringShard, type FieldIndex } from '../../src/lib/field.ts';
+import {
+  WIND_DIR, WIND_MAX, WIND_STEP, windEncode, windShard,
+  type WindHour, type WindIndex,
+} from '../../src/lib/wind.ts';
+import { MAP_BOX } from '../../src/lib/webmap.ts';
+import { windGrid, type WindPoint } from '../lib/wind-grid.ts';
 
 /** Hores de futur que es pinten. Més enllà, la quantitat ja no és fiable. */
 const HOURS = 12;
@@ -142,8 +148,13 @@ const WET_MM = 0.1;
 
 interface Relief { x: number; y: number; w: number; h: number }
 interface Point { id: string; lat: number; lon: number }
+interface ForecastValues {
+  precipitation?: Array<number | null>;
+  wind_speed?: Array<number | null>;
+  wind_direction?: Array<number | null>;
+}
 interface ForecastPointValues {
-  [model: string]: { values?: { precipitation?: Array<number | null> } };
+  [model: string]: { values?: ForecastValues };
 }
 interface ForecastShard { times?: string[]; points: Record<string, ForecastPointValues> }
 
@@ -258,11 +269,35 @@ function distKm(aLat: number, aLon: number, bLat: number, bLon: number): number 
 }
 
 interface Ring {
-  /** L'empremta de la predicció amb què es va demanar. */
+  /**
+   * L'empremta de la predicció amb què es va demanar.
+   *
+   * Hi va **la llista de variables** a dins. Sense això, el dia que se n'hi
+   * afegeix una, l'empremta no canvia, el tros desat segueix valent i el
+   * voltant es queda sense la variable nova fins que la predicció es refresqui
+   * sola — o sigui fins a un dia, amb el camp de vent acabant-se a la frontera
+   * i cap error enlloc.
+   */
   key: string;
   times: string[];
-  points: Array<{ lat: number; lon: number; precipitation: Array<number | null> }>;
+  points: Array<{
+    lat: number; lon: number;
+    precipitation: Array<number | null>;
+    /** km/h i graus d'on ve, com els dona Open-Meteo. Opcionals: un tros
+     *  desat abans que el vent existís no els porta. */
+    wind_speed?: Array<number | null>;
+    wind_direction?: Array<number | null>;
+  }>;
 }
+
+/**
+ * El que se li demana al voltant, i per què surt de franc.
+ *
+ * `callWeight` fa `max(1, variables/10) × …`: amb aquell terra a 1, demanar-ne
+ * una i demanar-ne tres val **exactament el mateix**. Els 129 punts seguiran
+ * costant 129 unitats.
+ */
+const RING_VARS = ['precipitation', 'wind_speed_10m', 'wind_direction_10m'] as const;
 
 /**
  * La predicció del voltant, demanada un cop i reaprofitada a cada repintada.
@@ -286,7 +321,7 @@ async function loadRing(
    * la costa la diferència la difumina la pondèracio, que dona setanta vegades
    * més pes al punt de terra que té a sobre que al de mar que té a 25 km.
    */
-  const key = [index.data.times[0], index.data.times.length].join('|');
+  const key = [index.data.times[0], index.data.times.length, RING_VARS.join(',')].join('|');
 
   const cached = await pullSnapshot<Ring>(ringShard());
   if (cached?.data?.key === key && cached.data.points.length) {
@@ -325,14 +360,14 @@ async function loadRing(
   if (!wanted.length) return null;
 
   /*
-   * Una unitat per punt, ni més ni menys.
+   * Una unitat per punt, ni més ni menys — i amb tres variables, igual.
    *
-   * `callWeight` no baixa d'1 per ubicació per molt poc que se li demani, així
-   * que demanar-hi una sola variable no ho abarateix — però demanar-ne més
-   * tampoc no ho encariria fins a passar de deu. Es demana només la pluja
-   * perquè és l'única que es pinta.
+   * `callWeight` no baixa d'1 per ubicació per molt poc que se li demani, i
+   * tampoc no puja fins a passar de deu variables. Aquí se'n demanen tres —la
+   * pluja i les dues del vent— i **costa exactament el mateix** que quan
+   * només es demanava la pluja: 129 unitats al dia.
    */
-  const cost = callWeight(1, 3, wanted.length);
+  const cost = callWeight(RING_VARS.length, 3, wanted.length);
   if (!quota.canSpend('open-meteo', cost)) {
     console.warn(`Voltant: no hi cap a la quota (${cost} unitats). Es pinta només Catalunya.`);
     return cached?.data ?? null;
@@ -341,14 +376,19 @@ async function loadRing(
   const url = 'https://api.open-meteo.com/v1/forecast'
     + `?latitude=${wanted.map((p) => p.lat).join(',')}`
     + `&longitude=${wanted.map((p) => p.lon).join(',')}`
-    + '&hourly=precipitation&timezone=Europe%2FMadrid&forecast_days=3';
+    + `&hourly=${RING_VARS.join(',')}&timezone=Europe%2FMadrid&forecast_days=3`;
 
   const res = await fetch(url, { headers: { 'user-agent': 'tempscat.cat' } });
   if (!res.ok) throw new Error(`el voltant no s'ha pogut demanar: HTTP ${res.status}`);
   // Open-Meteo torna `nan` sense cometes quan un punt cau fora del domini.
   const body = JSON.parse((await res.text()).replaceAll(':nan', ':null')) as Array<{
     latitude: number; longitude: number;
-    hourly?: { time: string[]; precipitation: Array<number | null> };
+    hourly?: {
+      time: string[];
+      precipitation: Array<number | null>;
+      wind_speed_10m?: Array<number | null>;
+      wind_direction_10m?: Array<number | null>;
+    };
   }>;
   quota.spend('open-meteo', cost);
 
@@ -358,6 +398,8 @@ async function loadRing(
     .map((r) => ({
       lat: r.latitude, lon: r.longitude,
       precipitation: r.hourly!.precipitation,
+      wind_speed: r.hourly!.wind_speed_10m,
+      wind_direction: r.hourly!.wind_direction_10m,
     }));
   const times = rows.find((r) => r.hourly?.time?.length)?.hourly!.time ?? [];
 
@@ -406,6 +448,14 @@ async function main() {
 
   const times = index.data.times;
   const precip = new Map<string, Array<number | null>>();
+  /*
+   * El vent, recollit al mateix recorregut.
+   *
+   * Els 43 trossos ja es baixen per a la pluja; llegir-ne dues columnes més no
+   * costa cap petició. Fer-ho a un worker a part en costaria 43 cada hora per
+   * a una dada que ja està a la mà.
+   */
+  const wind = new Map<string, { speed: Array<number | null>; direction: Array<number | null> }>();
   for (const c of index.data.comarques) {
     // Sense captura, com a `forecast-refresh`: seguir voldria dir publicar un
     // camp al qual li falta una comarca sencera, i això no es veuria.
@@ -428,6 +478,25 @@ async function main() {
        * no hi arriba mai.
        */
       if (v) precip.set(id, v.slice(1));
+
+      /*
+       * El vent **no** es desplaça, i això no és cap descuit.
+       *
+       * A Open-Meteo la pluja de l'hora `T` és la que ha caigut entre `T-1` i
+       * `T` —per això el `slice(1)` de sobre— però la velocitat i la direcció
+       * són **instantànies**: el valor de `T` és el vent que fa a les `T`, que
+       * és exactament el que ha d'ensenyar el marc etiquetat `T`. A
+       * `variables.ts`, `precedingHour` està posat a la pluja i a la ratxa, i
+       * no a aquestes dues.
+       *
+       * Desplaçant-les «per coherència», el camp aniria una hora endavant de
+       * la pluja del mateix marc. Cap error: només una tempesta amb el vent
+       * d'una altra hora.
+       */
+      const w = models.best_match?.values ?? Object.values(models)[0]?.values;
+      if (w?.wind_speed && w.wind_direction) {
+        wind.set(id, { speed: w.wind_speed, direction: w.wind_direction });
+      }
     }
   }
   if (!precip.size) throw new Error('cap punt amb precipitació als trossos de predicció');
@@ -735,6 +804,102 @@ async function main() {
     source: 'Open-Meteo · CC-BY 4.0',
   };
   writeSnapshot(fieldShard(), 'Open-Meteo · CC-BY 4.0', fieldIndex, written[0]?.iso ?? null);
+
+  // ── I el camp de vent, de les mateixes hores ──────────────────────────
+
+  /*
+   * Les mateixes hores que la pluja, i no unes altres.
+   *
+   * Són dues capes del mateix mapa i la barra de temps és una: si una tingués
+   * dotze hores i l'altra onze, arrossegar-la ensenyaria vent d'una hora amb
+   * pluja d'una altra sense que res fallés.
+   */
+  const windPoints: WindPoint[] = [];
+  for (const p of points) {
+    const w = wind.get(p.id);
+    if (w) windPoints.push({ lat: p.lat, lon: p.lon, speed: w.speed, direction: w.direction });
+  }
+  for (const r of ring?.points ?? []) {
+    if (r.wind_speed && r.wind_direction) {
+      windPoints.push({
+        lat: r.lat, lon: r.lon, speed: r.wind_speed, direction: r.wind_direction,
+      });
+    }
+  }
+
+  const windDir = join(CACHE, WIND_DIR);
+  mkdirSync(windDir, { recursive: true });
+  const previousWind = (await pullSnapshot<WindIndex>(windShard()))?.data ?? null;
+  const windHours: WindHour[] = [];
+  let windKept = 0;
+
+  if (windPoints.length < 100) {
+    /*
+     * Sense prou punts no es publica un camp de vent: es deixa el de la volta
+     * anterior. Amb quatre punts la interpolació dona un camp suau i
+     * versemblant que no descriu res, i **això no es veu mirant-lo**.
+     */
+    console.warn(`
+Vent: només ${windPoints.length} punts amb vent. No es publica.`);
+  } else {
+    console.log(`
+Vent: ${windPoints.length} punts · graella de ${WIND_STEP}°`);
+
+    for (const { t, i } of wanted) {
+      const g = windGrid(windPoints, i, MAP_BOX, WIND_STEP);
+
+      /*
+       * Cap casella sense dada. Amb el voltant demanat no n'hi hauria d'haver
+       * ni una, i si n'hi ha vol dir que el rectangle del mapa ha crescut o
+       * que el voltant no ha arribat: val més dir-ho que publicar un camp amb
+       * un forat de calma que sembla calma de debo.
+       */
+      if (g.empty) {
+        console.warn(`  ${t}: ${g.empty} caselles de ${g.width * g.height} sense cap punt a l'abast`);
+      }
+
+      /*
+       * Tres canals: u al vermell, v al verd i el blau a zero.
+       *
+       * El PNG és sense pèrdua —amb WebP amb pèrdua els bytes deixarien de ser
+       * números— i entra a una textura de WebGL sense descodificar res.
+       */
+      const raw = Buffer.alloc(g.width * g.height * 3);
+      for (let k = 0; k < g.width * g.height; k++) {
+        raw[k * 3] = windEncode(g.u[k]);
+        raw[k * 3 + 1] = windEncode(g.v[k]);
+      }
+      const png = await sharp(raw, { raw: { width: g.width, height: g.height, channels: 3 } })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+
+      const name = t.slice(0, 13).replace(/[-T]/g, '');
+      const hash = createHash('sha256').update(png).digest('hex').slice(0, 16);
+      writeFileSync(join(windDir, `${name}.png`), png);
+      // Contra l'índex publicat, com el camp de pluja i pel mateix motiu.
+      if (previousWind?.hours.find((h) => h.name === name)?.hash === hash) windKept++;
+      else markForPublish(`${WIND_DIR}/${name}.png`);
+
+      windHours.push({ time: epochOf(t), iso: t, name, hash, maxMs: Math.round(g.maxMs * 10) / 10 });
+      console.log(
+        `  ${t}  ${(png.length / 1024).toFixed(1)} kB`
+        + ` · màxim ${(g.maxMs * 3.6).toFixed(0)} km/h`,
+      );
+    }
+
+    const windIndex: WindIndex = {
+      box: MAP_BOX,
+      width: Math.round((MAP_BOX.east - MAP_BOX.west) / WIND_STEP) + 1,
+      height: Math.round((MAP_BOX.north - MAP_BOX.south) / WIND_STEP) + 1,
+      step: WIND_STEP,
+      max: WIND_MAX,
+      hours: windHours,
+      points: windPoints.length,
+      source: 'Open-Meteo · CC-BY 4.0',
+    };
+    writeSnapshot(windShard(), 'Open-Meteo · CC-BY 4.0', windIndex, windHours[0]?.iso ?? null);
+    if (windKept) console.log(`  ${windKept} hores de vent ja hi eren igual.`);
+  }
 
   recordFreshness({
     source: 'forecast-field',
