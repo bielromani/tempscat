@@ -15,6 +15,17 @@ export type CapLevel = 'verd' | 'groc' | 'taronja' | 'vermell';
 
 export interface CapArea {
   desc: string;
+  /**
+   * El código de la zona de Meteoalerta: `692502`, `690804C`.
+   *
+   * Es la clave estable, y por eso la geometría se guarda por aquí y no por el
+   * `areaDesc`. El nombre es prosa de AEMET —«Costa - Litoral sur de Girona»—
+   * y el día que le cambien un guion o una tilde, emparejar por nombre deja la
+   * zona sin polígono **sin dar ningún error**: el mapa saldría entero con un
+   * trozo menos pintado. La `C` del final marca las zonas costeras, que se
+   * solapan con las de tierra a propósito.
+   */
+  code: string;
   /** Anillos [lon, lat], listos para point-in-polygon. */
   polygons: Array<Array<[number, number]>>;
 }
@@ -93,6 +104,19 @@ export function parseCap(xml: string): CapAlert | null {
 
   const areas: CapArea[] = all(info, 'area').map((a) => ({
     desc: decode(one(a, 'areaDesc')),
+    /*
+     * El código vive dentro de un `<geocode>` con su `valueName`.
+     *
+     * Se comprueba el nombre en vez de coger el primer `<value>` que aparezca:
+     * si algún día añaden un segundo geocode —el municipio, la provincia— coger
+     * el primero devolvería otra cosa con la misma pinta.
+     */
+    code: (() => {
+      for (const gc of all(a, 'geocode')) {
+        if (one(gc, 'valueName').includes('Meteoalerta zona')) return decode(one(gc, 'value'));
+      }
+      return '';
+    })(),
     polygons: all(a, 'polygon').map(parsePolygon).filter((p) => p.length >= 3),
   }));
 

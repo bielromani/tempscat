@@ -152,6 +152,31 @@ export function capColor(severity: string): string {
 }
 
 /**
+ * Els quatre colors oficials CAP, escrits.
+ *
+ * ## Per què existeix aquesta segona còpia
+ *
+ * Perquè a la pàgina el color es demana amb `var(--cap-yellow)` —i així el tema
+ * fosc el pot canviar— però **MapLibre no llegeix el DOM**: una capa d'un mapa
+ * vol un color, i una variable CSS allà dins no és res. Sense un valor escrit,
+ * la zona d'avís no es pintaria i el mapa sortiria igual de bé.
+ *
+ * Són els mateixos valors que el bloc clar de `globals.css`, i que siguin els
+ * mateixos no es confia a la bona voluntat: `npm run test:colors` compara
+ * aquesta taula amb el fitxer de CSS. Dos colors oficials que es separen és
+ * exactament el defecte que ningú no veuria.
+ *
+ * Es fa servir el joc clar i no el fosc perquè el mapa base de l'ICGC és clar
+ * en tots dos temes: la cartografia no canvia de color quan el web ho fa.
+ */
+export const CAP_OKLCH = {
+  verd: 'oklch(62% 0.14 150)',
+  groc: 'oklch(83% 0.15 95)',
+  taronja: 'oklch(70% 0.16 55)',
+  vermell: 'oklch(55% 0.20 27)',
+} as const;
+
+/**
  * El mateix color, escrit en hexadecimal.
  *
  * ## Per què cal, i per què no ho diu ningú

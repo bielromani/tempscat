@@ -100,10 +100,23 @@ interface Props {
   degrees: Record<string, number>;
   observed: number;
   total: number;
+  /**
+   * Les zones amb avís vigent, ja en GeoJSON i amb el color escrit.
+   *
+   * No és una capa de les que es trien: un avís no és una vista alternativa
+   * de la pluja, és context que ha de poder conviure amb el que s'estigui
+   * mirant. Va amb el seu interruptor propi i arrenca encès.
+   */
+  warnings: {
+    geojson: unknown;
+    zones: number;
+    worst: 'verd' | 'groc' | 'taronja' | 'vermell' | null;
+  } | null;
   /** Els peus, que els escriu el servidor perquè no n'hi hagi dues versions. */
   radarLegend: ReactNode;
   temperatureLegend: ReactNode;
   windLegend: ReactNode;
+  warningsLegend: ReactNode;
   /** El text que es veu sense JavaScript, i mentre el mapa no ha arrencat. */
   fallback: ReactNode;
 }
@@ -141,8 +154,8 @@ const FRAME_MS = 550;
 const LAST_MS = 1600;
 
 export default function InteractiveMap({
-  frames, wind, colors, degrees, observed, total,
-  radarLegend, temperatureLegend, windLegend, fallback,
+  frames, wind, warnings, colors, degrees, observed, total,
+  radarLegend, temperatureLegend, windLegend, warningsLegend, fallback,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<unknown>(null);
@@ -175,6 +188,8 @@ export default function InteractiveMap({
   const [hover, setHover] = useState<{ name: string; t: number | null } | null>(null);
   /** Els municipis encara s'estan baixant. */
   const [loadingTemp, setLoadingTemp] = useState(false);
+  /** Els avisos, encesos d'entrada quan n'hi ha. */
+  const [avisos, setAvisos] = useState(true);
 
   /*
    * Amagar-lo és sincronitzar el DOM amb el que ja sabem, no canviar d'estat:
@@ -278,6 +293,7 @@ export default function InteractiveMap({
           const layer = new WindLayer(() => m.getZoom(), () => m.triggerRepaint());
           windLayer.current = layer;
           m.addLayer(layer as unknown as Parameters<typeof m.addLayer>[0], 'comarques-linia');
+
           setReady(true);
         });
         /*
@@ -481,6 +497,49 @@ export default function InteractiveMap({
     return () => { dead = true; };
   }, [ready, capa, colors, degrees]);
 
+  // ── Les zones d'avís ─────────────────────────────────────────────────────
+  /*
+   * Van al seu efecte i no a l'arrencada perquè l'arrencada no depèn d'elles:
+   * lligant-les-hi, un canvi d'avisos tornaria a construir el mapa sencer.
+   *
+   * Per damunt de tot i no per sota: si anessin sota la pluja, un avís de
+   * pluja quedaria tapat justament pel que avisa. Per això la taca és fluixa
+   * —0,22— i qui fa la feina és la ratlla del contorn, que sí que es veu
+   * damunt de qualsevol cosa.
+   *
+   * El color ve escrit de cada element (`['get','color']`), i li cal el
+   * `to-color`: `get` torna una cadena i `fill-color` vol un color. MapLibre
+   * accepta la capa igualment, la dibuixa i no la pinta — ja va passar amb els
+   * municipis. I amb un `interpolate` per nivell hi hauria dues taules de
+   * colors CAP: el dia que se'n toqués una, el mapa i la targeta pintarien el
+   * mateix taronja de dos tons.
+   */
+  useEffect(() => {
+    const m = map.current as {
+      getLayer(id: string): unknown;
+      addSource(id: string, src: unknown): void;
+      addLayer(l: unknown, before?: string): void;
+    } | null;
+    if (!ready || !m || !warnings || m.getLayer('avisos-taca')) return;
+
+    m.addSource('avisos', { type: 'geojson', data: warnings.geojson });
+    m.addLayer({
+      id: 'avisos-taca',
+      type: 'fill',
+      source: 'avisos',
+      paint: { 'fill-color': ['to-color', ['get', 'color']], 'fill-opacity': 0.22 },
+    });
+    m.addLayer({
+      id: 'avisos-vora',
+      type: 'line',
+      source: 'avisos',
+      paint: {
+        'line-color': ['to-color', ['get', 'color']],
+        'line-width': ['interpolate', ['linear'], ['zoom'], 6, 1.6, 11, 3.2],
+      },
+    });
+  }, [ready, warnings]);
+
   // Canviar de capa apaga l'altra.
   useEffect(() => {
     const m = map.current as {
@@ -496,7 +555,12 @@ export default function InteractiveMap({
     for (const n of built.current) {
       m.setPaintProperty(`marc-${n}`, 'raster-opacity', capa === 'radar' && n === i ? 0.82 : 0);
     }
-  }, [ready, capa, i]);
+
+    // Els avisos no depenen de la capa triada: conviuen amb totes tres.
+    for (const id of ['avisos-taca', 'avisos-vora']) {
+      if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', avisos ? 'visible' : 'none');
+    }
+  }, [ready, capa, i, avisos]);
 
   const f = frames[i];
 
@@ -518,7 +582,7 @@ export default function InteractiveMap({
               aria-pressed={capa === k}
               className={`rounded-full border px-3 py-1 text-sm transition-colors ${
                 capa === k
-                  ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]'
+                  ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]'
                   : 'border-[var(--line)] text-[var(--ink-2)] hover:border-[var(--ink-2)]'
               }`}
             >
@@ -526,6 +590,35 @@ export default function InteractiveMap({
             </button>
           ))}
         </div>
+
+        {/*
+          L'interruptor dels avisos, separat dels tres botons de capa.
+
+          Separat a posta: aquells tres són excloents —o pluja, o temperatura,
+          o vent— i aquest no. Posant-lo a la mateixa filera de píndoles diria
+          que triar-lo apaga la pluja, que és justament el contrari del que fa.
+        */}
+        {warnings ? (
+          <button
+            type="button"
+            onClick={() => setAvisos((v) => !v)}
+            aria-pressed={avisos}
+            className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+              avisos
+                ? 'border-[var(--cap-orange)] text-[var(--ink)]'
+                : 'border-[var(--line)] text-[var(--muted)] hover:border-[var(--ink-2)]'
+            }`}
+          >
+            <span
+              aria-hidden
+              className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+              style={{ background: `var(--cap-${
+                { verd: 'green', groc: 'yellow', taronja: 'orange', vermell: 'red' }[warnings.worst ?? 'groc']
+              })` }}
+            />
+            Avisos ({warnings.zones})
+          </button>
+        ) : null}
 
         {capa !== 'temperatura' && frames.length > 1 ? (
           <>
@@ -566,7 +659,7 @@ export default function InteractiveMap({
 
         <div
           ref={fallbackBox}
-          className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--bg)] p-6"
+          className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--paper)] p-6"
         >
           <div className="max-w-[46ch] text-sm leading-relaxed text-[var(--ink-2)]">
             {error ? (
@@ -580,13 +673,13 @@ export default function InteractiveMap({
         </div>
 
         {!ready && !error ? (
-          <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-[var(--bg)]/90 px-2.5 py-1 text-sm text-[var(--muted)] shadow-sm">
+          <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-[var(--paper)]/90 px-2.5 py-1 text-sm text-[var(--muted)] shadow-sm">
             S’està carregant el mapa…
           </p>
         ) : null}
 
         {ready && !error && capa !== 'temperatura' && f ? (
-          <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-[var(--bg)]/90 px-2.5 py-1 text-sm tabular-nums shadow-sm">
+          <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-[var(--paper)]/90 px-2.5 py-1 text-sm tabular-nums shadow-sm">
             <span className="font-semibold">{f.label}</span>
             <span className="ml-2 text-[var(--muted)]">
               {capa === 'vent'
@@ -597,7 +690,7 @@ export default function InteractiveMap({
         ) : null}
 
         {ready && !error && capa === 'temperatura' ? (
-          <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-[var(--bg)]/90 px-2.5 py-1 text-sm tabular-nums shadow-sm">
+          <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-[var(--paper)]/90 px-2.5 py-1 text-sm tabular-nums shadow-sm">
             {loadingTemp ? (
               <span className="text-[var(--muted)]">S’estan baixant els municipis…</span>
             ) : hover ? (
@@ -618,6 +711,13 @@ export default function InteractiveMap({
 
       <figcaption className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
         {capa === 'radar' ? radarLegend : capa === 'vent' ? windLegend : temperatureLegend}
+        {/*
+          El peu dels avisos només surt quan la capa és encesa.
+
+          Va a part i no dins de cada peu de capa perquè els avisos conviuen
+          amb totes tres: repetint-lo als tres, un dia se'n canviaria un.
+        */}
+        {warnings && avisos ? warningsLegend : null}
       </figcaption>
     </figure>
   );

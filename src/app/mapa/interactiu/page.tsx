@@ -3,7 +3,7 @@ import Link from 'next/link';
 import InteractiveMap, { type MapFrame } from '@/components/InteractiveMap';
 import { TemperatureLegend } from '@/components/TemperatureMap';
 import { JsonLd, breadcrumbLd } from '@/components/JsonLd';
-import { municipalTemperatures } from '@/lib/map';
+import { municipalTemperatures, warningOverlay } from '@/lib/map';
 import { precipField, radar, windField } from '@/lib/weather';
 import { tileXToLon, tileYToLat } from '@/lib/mercator';
 import { hour, num } from '@/lib/format';
@@ -26,12 +26,19 @@ import { MAP_NATIVE_MAX_ZOOM } from '@/lib/webmap';
  *
  * ## Què hi ha, i què no
  *
- * Hi ha la pluja —el radar i, a continuació, la nostra predicció— i la
- * temperatura municipi a municipi. **No hi ha avisos**, i no és un descuit: el
- * worker de l'AEMET desa les ubicacions que cada avís toca però no els
- * polígons, així que avui no hi ha geometria per dibuixar-los. Ensenyar-los
- * per comarques seria pintar de taronja comarques senceres per un avís que
- * cobreix una vall.
+ * Hi ha la pluja —el radar i, a continuació, la nostra predicció—, la
+ * temperatura municipi a municipi, el vent i **els avisos de l'AEMET**.
+ *
+ * Els avisos van per **zona de Meteoalerta** i no per comarca, i aquesta és
+ * tota la raó per la qual van trigar: fins al 15 de setembre de 2026 el worker
+ * desava les ubicacions que cada avís toca però llençava els polígons, i
+ * pintar les comarques afectades hauria estat inventar-se una vora — un avís
+ * del Pirineu de Girona no arriba a tota la Garrotxa, i una comarca sencera de
+ * taronja diria que sí.
+ *
+ * I no són una capa de les tres que es trien: un avís no és una vista
+ * alternativa de la pluja, és context. Té el seu interruptor i conviu amb el
+ * que s'estigui mirant.
  */
 export const revalidate = 900;
 
@@ -44,11 +51,12 @@ export const metadata: Metadata = {
 };
 
 export default async function MapaInteractiuPage() {
-  const [rad, field, air, temps] = await Promise.all([
+  const [rad, field, air, temps, warnings] = await Promise.all([
     radar(),
     precipField(),
     windField(),
     municipalTemperatures(),
+    warningOverlay(),
   ]);
 
   /*
@@ -156,6 +164,7 @@ export default async function MapaInteractiuPage() {
 
       <InteractiveMap
         frames={frames}
+        warnings={warnings}
         /*
          * El vent només s'ofereix si les seves hores són les mateixes que les
          * dels marcs. Les pinta el mateix worker de la mateixa sèrie, però si
@@ -237,6 +246,21 @@ export default async function MapaInteractiuPage() {
             és a la fitxa de cada lloc, amb la seva estació i la seva hora.
           </>
         )}
+        warningsLegend={warnings ? (
+          <>
+            {' '}Les taques i els contorns de color són els{' '}
+            <Link href="/avisos">avisos oficials de l’AEMET</Link> vigents:{' '}
+            <strong className="tnum">{warnings.zones}</strong>{' '}
+            {warnings.zones === 1 ? 'zona' : 'zones'} d’avís. Van per{' '}
+            <strong className="font-medium text-[var(--ink-2)]">zona de
+            Meteoalerta</strong>, que és la unitat en què l’AEMET els emet — no
+            per comarca ni per municipi: dins d’una zona pintada, l’avís no
+            distingeix un poble d’un altre. Quan una zona en té més d’un, el
+            color és el del més greu. Per saber què diuen exactament, consulteu
+            la fitxa del vostre poble o la <Link href="/avisos">llista
+            d’avisos</Link>.
+          </>
+        ) : null}
         fallback={(
           <>
             <p>

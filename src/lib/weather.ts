@@ -25,6 +25,7 @@ import type {
 import type { TileGrid } from './mercator';
 import type { Location } from './territory';
 import { LEVEL_RANK, type Warning } from './warning-stack';
+import { WARNING_ZONES_SHARD, type WarningZones } from './warning-zones';
 
 /**
  * Observación y predicción para una ubicación.
@@ -341,6 +342,7 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
  */
 export type { Warning, WarningGroup, WarningLevel, WarningStack } from './warning-stack';
 export { groupWarnings, stackWarnings, thresholdParam } from './warning-stack';
+export type { WarningZone, WarningZones } from './warning-zones';
 
 /**
  * Avisos vigentes para una ubicación.
@@ -357,6 +359,18 @@ export async function warningsFor(loc: Location): Promise<Warning[]> {
   return snap.data
     .filter((w) => w.locationIds.includes(loc.id) && Date.parse(w.expires) > now)
     .sort((a, b) => LEVEL_RANK[b.level] - LEVEL_RANK[a.level]);
+}
+
+/**
+ * El contorn de les 21 zones de Meteoalerta.
+ *
+ * **Només el llegeix el mapa que es pot moure.** Va a un fitxer a part de
+ * `warnings.json` justament per això: aquell el llegeixen les 4.293 fitxes de
+ * poble i cap no dibuixa geometria. El porquè, a `warning-zones.ts`.
+ */
+export async function warningZones(): Promise<WarningZones | null> {
+  const snap = await snapshot<WarningZones>(WARNING_ZONES_SHARD);
+  return snap?.data ?? null;
 }
 
 /** Todos los avisos vigentes, para la portada y la página de comarca. */

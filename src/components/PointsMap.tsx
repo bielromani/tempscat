@@ -161,7 +161,7 @@ export function PointsMap({
                 fontSize={13}
                 fontWeight={500}
                 fill="var(--ink)"
-                stroke="var(--bg)"
+                stroke="var(--paper)"
                 strokeWidth={3.5}
                 paintOrder="stroke"
               >

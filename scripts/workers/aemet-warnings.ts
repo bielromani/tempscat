@@ -23,6 +23,9 @@ import { parseCap, type CapAlert, type CapLevel } from '../lib/cap.ts';
 import { pointInRing, ringBbox } from '../lib/geo.ts';
 import { isDate } from '../lib/credentials.ts';
 import {
+  WARNING_ZONES_SHARD, type WarningZone, type WarningZones,
+} from '../../src/lib/warning-zones.ts';
+import {
   DAILY_LIMITS, QuotaGuard, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 
@@ -39,6 +42,14 @@ interface Location {
 export interface StoredWarning extends Omit<CapAlert, 'areas'> {
   /** Zonas nombradas que cubre, para el texto. */
   zones: string[];
+  /**
+   * Los códigos de esas mismas zonas, para el mapa.
+   *
+   * El contorno no viaja aquí: va a `warnings-zones.json` y se junta por este
+   * código. El porqué está en `src/lib/warning-zones.ts` — este fichero lo
+   * leen las 4.293 fichas de pueblo y ninguna dibuja la geometría.
+   */
+  zoneCodes: string[];
   /** Ubicaciones afectadas, resueltas por geometría. */
   locationIds: string[];
   comarcaCodis: string[];
@@ -143,6 +154,30 @@ async function main() {
   const locations: Location[] = JSON.parse(readFileSync(build('locations.json'), 'utf8'));
   const published = locations.filter((l) => l.published && l.lat != null && l.lon != null);
 
+  /*
+   * La geometria de les zones, desada un sol cop.
+   *
+   * Es recull de **tots** els avisos llegits i no només dels actius: el
+   * contorn d'una zona no depèn de si avui hi ha avís, i recollint-lo només
+   * dels actius el fitxer s'aniria buidant a mesura que caduquen — i el mapa
+   * perdria el contorn just quan l'avís encara s'hi ha de dibuixar.
+   *
+   * Si dos fitxers donen contorns diferents per al mateix codi, es diu. Amb els
+   * 42 CAP del 15 de setembre de 2026 no passava ni una vegada.
+   */
+  const zonesByCode = new Map<string, { desc: string; rings: Array<Array<[number, number]>> }>();
+  for (const a of alerts) {
+    for (const area of a.areas) {
+      if (!area.code || !area.polygons.length) continue;
+      const prev = zonesByCode.get(area.code);
+      if (!prev) {
+        zonesByCode.set(area.code, { desc: area.desc, rings: area.polygons });
+      } else if (JSON.stringify(prev.rings) !== JSON.stringify(area.polygons)) {
+        console.warn(`  ! la zona ${area.code} (${area.desc}) arriba amb dos contorns diferents`);
+      }
+    }
+  }
+
   const stored: StoredWarning[] = active.map((a) => {
     const ids = new Set<string>();
     const comarques = new Set<string>();
@@ -165,6 +200,7 @@ async function main() {
     return {
       ...rest,
       zones: areas.map((x) => x.desc),
+      zoneCodes: areas.map((x) => x.code).filter(Boolean),
       locationIds: [...ids],
       comarcaCodis: [...comarques],
     };
@@ -186,6 +222,30 @@ async function main() {
     : null;
 
   writeSnapshot('warnings', 'AEMET · avisos oficials', stored, newest);
+
+  /*
+   * I la geometria, al seu fitxer.
+   *
+   * Es publica encara que avui no hi hagi cap avís: el contorn de les 21 zones
+   * no caduca, i el dia que n'arribi un de sobte el mapa l'ha de poder
+   * dibuixar de seguida. Si un lot de CAP no en portés cap —cosa que no s'ha
+   * vist mai— no s'esborra el que ja hi ha: perdre el contorn per una volta
+   * dolenta deixaria el mapa sense avisos sense que res fallés.
+   */
+  const zones: WarningZone[] = [...zonesByCode]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([code, z]) => ({ code, desc: z.desc, rings: z.rings }));
+  const points = zones.reduce((s, z) => s + z.rings.reduce((r, ring) => r + ring.length, 0), 0);
+
+  if (zones.length) {
+    writeSnapshot<WarningZones>(
+      WARNING_ZONES_SHARD, 'AEMET · zones de Meteoalerta', { zones, points }, newest,
+    );
+    console.log(`Zones amb contorn: ${zones.length} · ${points} punts`);
+  } else {
+    console.warn('Cap zona amb contorn en aquest lot: es conserva el fitxer anterior.');
+  }
+
   recordFreshness({
     source: 'aemet-warnings',
     lastSuccessAt: new Date().toISOString(),

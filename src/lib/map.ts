@@ -2,8 +2,10 @@ import 'server-only';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { allComarques, municipisOfComarca } from './territory';
-import { currentFor } from './weather';
-import { oklchToHex, temperatureColor } from './scales';
+import { activeWarnings, currentFor, warningZones } from './weather';
+import { LEVEL_RANK, type Warning, type WarningLevel } from './warning-stack';
+import { phenomenonName, zoneName } from './warning-labels';
+import { CAP_OKLCH, oklchToHex, temperatureColor } from './scales';
 import type { MapProjection } from './mercator';
 
 /**
@@ -235,5 +237,117 @@ export async function municipalTemperatures(): Promise<MunicipalTemperatures> {
     total: municipis.length,
     min: temps.length ? Math.min(...temps) : null,
     max: temps.length ? Math.max(...temps) : null,
+  };
+}
+
+// ── Els avisos, sobre el mapa que es pot moure ──────────────────────────────
+
+/**
+ * Les zones amb avís vigent, ja en GeoJSON i amb el color posat.
+ *
+ * ## Per zones i no per comarques
+ *
+ * Perquè la zona **és** la unitat de l'avís. Pintar les comarques que toca
+ * seria inventar una vora: un avís del «Pirineu de Girona» no arriba a tota la
+ * Garrotxa, i una comarca sencera de taronja diria que sí. Els contorns
+ * d'AEMET són bastos —entre 11 i 88 punts— i això tampoc no és cap defecte: la
+ * seva zona tampoc no té una vora fina.
+ *
+ * ## Una zona, un color: el del seu avís més greu
+ *
+ * Una zona pot tenir tres avisos alhora i un polígon només es pot pintar d'un
+ * color. Es tria el més alt, i la llista sencera va a l'etiqueta — el mateix
+ * criteri que la franja d'una fitxa, que ensenya el més greu i no amaga la
+ * resta.
+ *
+ * ## I el color va escrit
+ *
+ * `var(--cap-orange)` dins d'una capa de MapLibre no és res: no llegeix el
+ * DOM. Sense convertir-lo, la zona no es pintaria i el mapa sortiria igual de
+ * bé. `CAP_OKLCH` i `oklchToHex()`, i `npm run test:colors` comprova que el que
+ * hi ha escrit segueix sent el del CSS.
+ */
+export interface WarningOverlay {
+  /** Una `FeatureCollection`, tal com la vol MapLibre. */
+  geojson: {
+    type: 'FeatureCollection';
+    features: Array<{
+      type: 'Feature';
+      properties: { code: string; nom: string; level: WarningLevel; color: string; text: string };
+      geometry: { type: 'Polygon'; coordinates: Array<Array<[number, number]>> };
+    }>;
+  };
+  /** Quantes zones s'han pintat, per al peu. */
+  zones: number;
+  /** El nivell més alt que hi ha ara mateix. */
+  worst: WarningLevel | null;
+}
+
+const LEVEL_NAME: Record<WarningLevel, string> = {
+  verd: 'verd', groc: 'groc', taronja: 'taronja', vermell: 'vermell',
+};
+
+export async function warningOverlay(): Promise<WarningOverlay | null> {
+  const [warnings, zones] = await Promise.all([activeWarnings(), warningZones()]);
+  if (!zones?.zones.length) return null;
+
+  /* Els avisos de cada zona, del més greu al menys. */
+  const byZone = new Map<string, Warning[]>();
+  for (const w of warnings) {
+    for (const code of w.zoneCodes ?? []) {
+      if (!byZone.has(code)) byZone.set(code, []);
+      byZone.get(code)!.push(w);
+    }
+  }
+
+  const features: WarningOverlay['geojson']['features'] = [];
+  let worst: WarningLevel | null = null;
+
+  for (const zone of zones.zones) {
+    const list = byZone.get(zone.code);
+    if (!list?.length) continue;
+
+    const sorted = [...list].sort((a, b) => LEVEL_RANK[b.level] - LEVEL_RANK[a.level]);
+    const level = sorted[0].level;
+    if (!worst || LEVEL_RANK[level] > LEVEL_RANK[worst]) worst = level;
+
+    /*
+     * Un fenomen un sol cop, encara que arribi repetit dia a dia.
+     *
+     * AEMET emet un fitxer per dia i per zona: sense reduir-los, l'etiqueta
+     * d'una onada de calor de tres dies deia «calor, calor, calor».
+     */
+    const seen = new Set<string>();
+    const noms: string[] = [];
+    for (const w of sorted) {
+      if (seen.has(w.phenomenon)) continue;
+      seen.add(w.phenomenon);
+      noms.push(phenomenonName(w.phenomenon).toLowerCase());
+    }
+
+    const color = oklchToHex(CAP_OKLCH[level]);
+    for (const ring of zone.rings) {
+      features.push({
+        type: 'Feature',
+        properties: {
+          code: zone.code,
+          nom: zoneName(zone.desc),
+          level,
+          color,
+          text: `Avís ${LEVEL_NAME[level]} per ${noms.join(', ')}`,
+        },
+        // Els anells d'AEMET són un contorn exterior cadascun: no hi ha forats.
+        // Per això cada anell va al seu propi polígon i no com a segon anell
+        // d'un altre, que és el que vol dir el segon element d'un `Polygon`.
+        geometry: { type: 'Polygon', coordinates: [ring] },
+      });
+    }
+  }
+
+  if (!features.length) return null;
+  return {
+    geojson: { type: 'FeatureCollection', features },
+    zones: new Set(features.map((f) => f.properties.code)).size,
+    worst,
   };
 }

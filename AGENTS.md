@@ -62,10 +62,14 @@ Comprueba ambos proyectos con `npm run typecheck`.
 
 ## Código compartido entre scripts y aplicación
 
-Hay once ficheros que importan los dos lados: los scripts los cargan con extensión `.ts` y la
-aplicación con el alias `@/`. Diez **no importan nada**, y la condición para añadir uno es esa.
+Hay ficheros que importan los dos lados: los scripts los cargan con extensión `.ts` y la
+aplicación con el alias `@/`. La condición para añadir uno es que **no importe nada**.
 
-El noveno, `forecast-merge.ts`, sí importa —y es la excepción que ya describe la sección de
+La lista exacta la da `grep -rho "src/lib/[a-z-]*\.ts" scripts/ | sort -u`, y conviene sacarla de
+ahí en vez de contar los de la tabla: la tabla lleva los que hay que entender antes de tocar
+nada, no es un inventario, y un número escrito aquí se queda viejo a la primera.
+
+`forecast-merge.ts` sí importa —y es la excepción que ya describe la sección de
 arriba: importa con extensión `.ts` y **toda su cadena acaba en ficheros que no importan nada**.
 Está así porque duplicarlo sería tener dos predicciones distintas para el mismo sitio según
 quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los dos lados.
@@ -84,6 +88,8 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/climate-math.ts` | Qué es un mes comparable, qué es un año entero y cómo se saca una tendencia |
 | `src/lib/field.ts` | El recuadro del campo de lluvia, en píxeles del mosaico del radar |
 | `src/lib/webmap.ts` | La ventana, los zooms y la dirección del worker del mapa que se mueve |
+| `src/lib/warning-stack.ts` | Quin avís mana, quin acompanya i quin no diu res de nou |
+| `src/lib/warning-zones.ts` | On viu el contorn de les 21 zones de Meteoalerta, i per què va a part |
 
 ## Dónde viven los datos vivos
 
@@ -194,6 +200,7 @@ npm run check:jsonld      # que cada tipus de pàgina segueixi portant el seu ma
 npm run check:workflows   # claus repetides, `npm run` inexistents i workflows sense feines
 npm run test:colors       # que el color que rep el mapa sigui el que pinta el navegador
 npm run test:wind         # que el vent vagi cap on ha d'anar · amb `-- --api`, contra la marinada
+npm run test:warnings     # que la pila d'avisos d'un lloc no perdi mai cap avís
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
@@ -926,6 +933,45 @@ cuota para exactamente la misma información.
   tessel·les de 512 píxels són set píxels de costa. Queden 34 i 144 kB. Els municipis van
   a part i només els baixa qui encén la capa de temperatura: una pàgina baixa el que
   ensenya.
+
+- **Una variable CSS que no existeix no dona cap error: dona una declaració que el navegador
+  s'empassa.** `var(--bg)` no estava definida enlloc i es feia servir en sis llocs. El que es
+  veia al mapa interactiu és que el botó de la capa triada tenia **el text i el fons exactament
+  del mateix color** —mesurat amb `getComputedStyle`: `lab(11.8 -1.7 -7.0)` als dos— o sigui una
+  píndola negra amb la paraula «Pluja» a dins, invisible. A l'inspector no hi ha res a veure: la
+  propietat, senzillament, no hi és. La bona és `--paper`. Ara `npm run test:colors` compara
+  totes les `var(--…)` de `src/` amb les definides a `globals.css` i amb les que els components
+  posen en línia —`--rcycle` és una d'aquestes—, i no compta les que surten dins d'un comentari,
+  perquè mig projecte explica per què MapLibre no entén `var(--cap-orange)`.
+
+- **Quatre avisos alhora al mateix poble és el cas normal, no l'excepció.** El 8 de setembre de
+  2026, **3.548 de 4.048** ubicacions amb avís en tenien més d'un, i totes les targetes tenien el
+  mateix pes: calia llegir-les per saber quina manava. Ara mana la de nivell més alt i la resta
+  van a una línia desplegable.
+  **El que no es fa és ensenyar només el més alt**, i això es va mesurar abans de decidir-ho: cap
+  dels 34 avisos d'aquell dia en tapava cap altre. El nivell no és una escala d'importància
+  general sinó la probabilitat i el llindar **d'aquell fenomen**, i a Barcelona el taronja eren
+  40 mm en una hora i el groc 60 mm en dotze — dues coses que passen diferent i es preparen
+  diferent. Se'n descarta un només quan no diu res de nou: mateix fenomen, **mateixa magnitud**,
+  nivell més baix i hores completament dins de les de l'altre. Les quatre condicions hi han de
+  ser, i la de la magnitud és la que ho salva tot. `npm run test:warnings`.
+  Dos defectes que això va destapar i que es veien a la pàgina: **el llindar no deia en quant de
+  temps s'acumula** —«Pluja 100 mm» i «Pluja 20 mm» semblaven el mateix avís repetit quan són 100
+  mm en 12 h i 20 mm en 1 h— i **un llindar sense cap xifra és l'etiqueta repetida en castellà**,
+  que feia que la targeta en català digués «Tempesta Tormentas» (i el feed, també).
+  A `/avisos` no s'apila: allà els avisos són de llocs diferents i jerarquitzar-los seria dir una
+  cosa que no és.
+
+- **Els polígons de les zones d'avís hi eren i es llençaven.** El worker els feia servir per
+  saber quins pobles toca cada avís i després es quedava només amb els noms de zona, així que el
+  mapa que es pot moure no podia dibuixar-los. Són **21 zones i 912 punts en total** —contorns
+  deliberadament bastos, que és el que ha de ser: la zona *és* la unitat de l'avís— i no canvien
+  mai entre fitxers, comprovat. Van a `warnings-zones.json` i **no** dins de `warnings.json`,
+  que és el que llegeixen les 4.293 fitxes de poble sense dibuixar-ne cap: la mateixa regla que
+  parteix la predicció en 43 trossos. La clau és el **codi** (`692502`), no l'`areaDesc`: el nom
+  és prosa en castellà i el dia que li canviïn un guionet, emparellar per nom deixaria la zona
+  sense contorn sense donar cap error — el mapa sortiria sencer amb un tros menys pintat. El
+  codi acabat en `C` és la franja costanera i **se solapa** amb la de terra a posta.
 
 - **El camp de meduses porta diverses espècies separades per `;`.** Cada una és
   `espècie,abundància,talla`. Llegint només fins a la primera coma, a Castell-Platja d'Aro

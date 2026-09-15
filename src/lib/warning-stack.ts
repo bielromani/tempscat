@@ -70,7 +70,17 @@ export interface Warning {
   probability?: string;
   threshold?: string;
   web: string;
+  /** Els noms de les zones que cobreix, per al text. */
   zones: string[];
+  /**
+   * I els seus codis, per al mapa.
+   *
+   * `692502`, no «Pirineo de Lleida»: el contorn viu en un altre fitxer i es
+   * junta per aquí. El porquè és a `warning-zones.ts`. Pot faltar en avisos
+   * desats abans del 15 de setembre de 2026, i per això qui el llegeix ho té
+   * en compte.
+   */
+  zoneCodes?: string[];
   locationIds: string[];
   comarcaCodis: string[];
 }
