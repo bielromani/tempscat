@@ -92,6 +92,19 @@ export function zoneName(desc: string): string {
 }
 
 /**
+ * En quant de temps s'acumula el que mesura el llindar, si s'acumula.
+ *
+ * «Precipitación acumulada en 12 horas» → `12 h`. La temperatura màxima no
+ * n'acumula cap i torna null.
+ */
+function accumulationWindow(param: string): string | null {
+  const m = param.match(/en\s+(una?|\d+)\s+(hores?|horas?|minuts?|minutos?)/i);
+  if (!m) return null;
+  const n = /^\d+$/.test(m[1]) ? m[1] : '1';
+  return /^min/i.test(m[2]) ? `${n} min` : `${n} h`;
+}
+
+/**
  * El umbral, sin la etiqueta y con el signo de grado de verdad.
  *
  * AEMET manda el parámetro como `TA;Temperatura máxima;35 ºC`: un código, un
@@ -103,13 +116,37 @@ export function zoneName(desc: string): string {
  * Y el `º` de AEMET es el **ordinal masculino**, no el signo de grado. Son dos
  * caracteres distintos: el ordinal se dibuja más pequeño y más alto, y al lado
  * de un `°C` bien puesto se ve.
+ *
+ * ## La finestra d'acumulació sí que s'ha de dir
+ *
+ * Perquè sense ella dos avisos de pluja del mateix lloc es llegeixen com el
+ * mateix avís repetit. Agullana, el 16 de setembre de 2026, en tenia dos:
+ *
+ *     taronja  Pluja  100 mm en 12 h
+ *     groc     Pluja   20 mm en 1 h
+ *
+ * Sense la finestra sortien «Pluja 100 mm» i «Pluja 20 mm», i aleshores el groc
+ * sembla el taronja dit fluix i sobra. **No sobra**: un és una pluja llarga que
+ * omple rieres i l'altre és un xàfec que inunda un pas soterrat en una hora.
+ * Són dues coses diferents, es preparen diferent, i la diferència és justament
+ * la part que abans no es dibuixava.
+ *
+ * ## I un llindar sense número no és un llindar
+ *
+ * Els avisos de tempesta arriben amb `Tormentas · ` —el valor és buit— i
+ * agafant l'últim tros no buit sortia la paraula **en castellà** al costat del
+ * nom en català: «Tempesta Tormentas». Un valor sense cap xifra és l'etiqueta
+ * repetida, no una mesura, i el títol de la targeta ja diu el fenomen.
  */
 export function thresholdValue(threshold: string | undefined): string | null {
   if (!threshold) return null;
   const parts = threshold.split(/[;·]/).map((p) => p.trim()).filter(Boolean);
   const value = parts.at(-1);
-  if (!value) return null;
-  return value.replace(/º/g, '°').replace(/\s+/g, ' ');
+  if (!value || !/\d/.test(value)) return null;
+
+  const clean = value.replace(/º/g, '°').replace(/\s+/g, ' ');
+  const window = parts.length > 1 ? accumulationWindow(parts.slice(0, -1).join(' ')) : null;
+  return window ? `${clean} en ${window}` : clean;
 }
 
 /** «del 40 % al 70 %», que es como se escribe un rango en catalán. */

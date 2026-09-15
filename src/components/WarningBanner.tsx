@@ -1,5 +1,5 @@
 import { phenomenonName, probabilityText, thresholdValue, zoneName } from '@/lib/warning-labels';
-import type { WarningGroup, WarningLevel } from '@/lib/weather';
+import { stackWarnings, type WarningGroup, type WarningLevel } from '@/lib/weather';
 
 /**
  * Franja de avisos meteorológicos oficiales.
@@ -26,7 +26,18 @@ import type { WarningGroup, WarningLevel } from '@/lib/weather';
  *
  * Porque AEMET emite un fichero por día y por zona, y una ola de calor de tres
  * días son tres avisos iguales salvo la fecha. `groupWarnings()` los junta sin
- * perder el umbral de cada día. El porqué está en `src/lib/weather.ts`.
+ * perder el umbral de cada día. El porqué está en `src/lib/warning-stack.ts`.
+ *
+ * ## Uno manda y el resto acompañan
+ *
+ * Un lugar puede tener cuatro avisos a la vez, y lo normal es que tenga más de
+ * uno: el 8 de septiembre de 2026, **3.548 de 4.048**. Con cuatro tarjetas del
+ * mismo tamaño hay que leerlas todas para descubrir cuál importa.
+ *
+ * Así que el de nivel más alto va entero y los demás quedan a una línea, con su
+ * color y desplegables. **No se esconde ninguno**, y el porqué —medido, no
+ * supuesto— está en `warning-stack.ts`: sobre los avisos de aquel día, ni uno
+ * solo decía algo que otro ya dijera.
  */
 
 const LEVEL_STYLE: Record<WarningLevel, { bg: string; ink: string; label: string }> = {
@@ -99,89 +110,209 @@ function whenLine(g: WarningGroup): string {
   return `de ${dayShort(g.onset)} a ${dayLabel(g.expires)}`;
 }
 
-export function WarningBanner({ warnings }: { warnings: WarningGroup[] }) {
-  if (!warnings.length) return null;
+/** El peor de los días del grupo: si el viernes son 36 °C y el miércoles 35, el titular dice 36. */
+function worstThreshold(g: WarningGroup): { worst: string | null; perDay: boolean } {
+  const values = g.spans
+    .map((s) => thresholdValue(s.threshold))
+    .filter((v): v is string => v != null);
+  const worst = values.length
+    ? values.reduce((a, b) => (b.localeCompare(a, 'ca', { numeric: true }) > 0 ? b : a))
+    : null;
+  return { worst, perDay: g.spans.length > 1 && new Set(values).size > 1 };
+}
+
+/** La cabecera del que manda: la pastilla del nivel, el fenómeno y el umbral. */
+function Head({ g }: { g: WarningGroup }) {
+  const style = LEVEL_STYLE[g.level];
+  const { worst, perDay } = worstThreshold(g);
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <span
+        className="rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+        style={{ background: style.ink, color: style.bg }}
+      >
+        Avís {style.label}
+      </span>
+      <strong className="text-[15px] font-semibold">{phenomenonName(g.phenomenon)}</strong>
+      {worst && (
+        <span className="text-sm opacity-90">{perDay ? `fins a ${worst}` : worst}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Todo lo que dice un aviso menos su cabecera.
+ *
+ * Es lo mismo en el que manda y en los que acompañan: la diferencia entre ellos
+ * es cuánto hay que hacer para verlo, no qué se ve. Un aviso que solo estuviera
+ * entero en la tarjeta grande sería un aviso a medias en las otras.
+ */
+function Body({ g, showWhen = true }: { g: WarningGroup; showWhen?: boolean }) {
+  const { perDay } = worstThreshold(g);
+  const probability = probabilityText(g.probability);
+
+  return (
+    <>
+      <p className="mt-1.5 text-sm leading-snug opacity-95">
+        {g.zones.map(zoneName).join(', ')}
+      </p>
+
+      {/* Els que acompanyen ja porten la data a la línia que es veu plegada:
+          repetir-la en obrir-los fa dubtar de si són dues coses. */}
+      {(showWhen || probability) && (
+        <p className="tnum mt-1 text-xs opacity-80">
+          {showWhen && whenLine(g)}
+          {probability && `${showWhen ? ' · ' : ''}probabilitat ${probability}`}
+        </p>
+      )}
+
+      {/* Dia a dia només quan el llindar canvia: si els tres dies son
+          35 °C, repetir-ho tres vegades no afegeix res. */}
+      {perDay && (
+        <ul className="tnum mt-1.5 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-xs opacity-90">
+          {g.spans.map((s) => (
+            <li key={s.id}>
+              {dayShort(s.onset)} · {thresholdValue(s.threshold) ?? '—'}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/*
+        El text d'AEMET, sencer i en el seu idioma.
+        Va plegat i etiquetat: es informacio oficial i no es toca, pero
+        tampoc es fa passar per text nostre en una pagina en catala.
+      */}
+      {(g.official.descriptions.length > 0 || g.official.instructions.length > 0) && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs font-medium opacity-90">
+            Text oficial de l&apos;AEMET, en castellà
+          </summary>
+          <div className="mt-1 space-y-1 text-xs leading-snug opacity-90" lang="es">
+            <p className="font-medium">{g.official.event}</p>
+            {g.official.descriptions.map((d) => <p key={d}>{d}</p>)}
+            {g.official.instructions.map((i) => <p key={i}>{i}</p>)}
+          </div>
+        </details>
+      )}
+
+      <p className="mt-2 text-[11px] opacity-75">
+        Avís de l&apos;<strong className="font-semibold">Agència Estatal de Meteorologia</strong>.{' '}
+        <a href={g.web} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
+          Consulteu-lo a AEMET
+        </a>
+      </p>
+    </>
+  );
+}
+
+/**
+ * Com s'apilen.
+ *
+ * `lloc` és la franja d'una fitxa: tots els avisos són **del mateix punt**, així
+ * que n'hi ha un que mana i els altres l'acompanyen.
+ *
+ * `llista` és `/avisos`, que ensenya els de tot Catalunya. Allà no manen els
+ * uns sobre els altres: un groc del Segrià no és un afegit al taronja del
+ * Pirineu de Girona, és una altra cosa en un altre lloc. Apilar-los diria una
+ * jerarquia que no existeix i deixaria divuit zones a mitja línia sense dir ni
+ * quina zona són.
+ */
+export function WarningBanner({
+  warnings, variant = 'lloc',
+}: { warnings: WarningGroup[]; variant?: 'lloc' | 'llista' }) {
+  if (variant === 'llista') {
+    return (
+      <section aria-label="Avisos meteorològics oficials" className="mb-5 flex flex-col gap-2">
+        {warnings.map((g) => {
+          const style = LEVEL_STYLE[g.level];
+          return (
+            <div
+              key={g.key}
+              className="rounded-lg px-4 py-3"
+              style={{ background: style.bg, color: style.ink }}
+            >
+              <Head g={g} />
+              <Body g={g} />
+            </div>
+          );
+        })}
+      </section>
+    );
+  }
+
+  const stack = stackWarnings(warnings);
+  if (!stack) return null;
+
+  const leadStyle = LEVEL_STYLE[stack.lead.level];
 
   return (
     <section aria-label="Avisos meteorològics oficials" className="mb-5 flex flex-col gap-2">
-      {warnings.map((g) => {
-        const style = LEVEL_STYLE[g.level];
-        // El pitjor dels dies del grup: si el divendres son 36 °C i el
-        // dimecres 35, el titular ha de dir 36.
-        const values = g.spans.map((s) => thresholdValue(s.threshold)).filter((v): v is string => v != null);
-        const worst = values.length ? values.reduce((a, b) => (b.localeCompare(a, 'ca', { numeric: true }) > 0 ? b : a)) : null;
-        const perDay = g.spans.length > 1 && new Set(values).size > 1;
-        const probability = probabilityText(g.probability);
+      {/* El que mana, sencer i sense haver de tocar res. */}
+      <div
+        className="rounded-lg px-4 py-3"
+        style={{ background: leadStyle.bg, color: leadStyle.ink }}
+      >
+        <Head g={stack.lead} />
+        <Body g={stack.lead} />
+      </div>
 
-        return (
-          <div
-            key={g.key}
-            className="rounded-lg px-4 py-3"
-            style={{ background: style.bg, color: style.ink }}
-          >
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span
-                className="rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
-                style={{ background: style.ink, color: style.bg }}
-              >
-                Avís {style.label}
-              </span>
-              <strong className="text-[15px] font-semibold">{phenomenonName(g.phenomenon)}</strong>
-              {worst && (
-                <span className="text-sm opacity-90">
-                  {perDay ? `fins a ${worst}` : worst}
-                </span>
-              )}
-            </div>
+      {/*
+        Els altres.
 
-            <p className="mt-1.5 text-sm leading-snug opacity-95">
-              {g.zones.map(zoneName).join(', ')}
-            </p>
+        Una línia cadascun i amb el seu color oficial, perquè es vegi d'un cop
+        d'ull que n'hi ha més i de quin nivell són; el detall sencer és a un
+        clic i sense una sola línia de JavaScript. El que **no** es fa és
+        treure'n cap: el porquè, mesurat, és a `warning-stack.ts`.
+      */}
+      {stack.rest.length > 0 && (
+        <ul className="flex list-none flex-col gap-1.5 p-0">
+          {stack.rest.map((g) => {
+            const style = LEVEL_STYLE[g.level];
+            const { worst, perDay } = worstThreshold(g);
+            return (
+              <li key={g.key}>
+                <details
+                  className="rounded-lg border border-l-4 border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2 text-[var(--ink)]"
+                  style={{ borderLeftColor: style.bg }}
+                >
+                  {/*
+                    El contingut va **en línia** i no en un `flex`.
 
-            <p className="tnum mt-1 text-xs opacity-80">
-              {whenLine(g)}
-              {probability && ` · probabilitat ${probability}`}
-            </p>
-
-            {/* Dia a dia només quan el llindar canvia: si els tres dies son
-                35 °C, repetir-ho tres vegades no afegeix res. */}
-            {perDay && (
-              <ul className="tnum mt-1.5 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-xs opacity-90">
-                {g.spans.map((s) => (
-                  <li key={s.id}>
-                    {dayShort(s.onset)} · {thresholdValue(s.threshold) ?? '—'}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {/*
-              El text d'AEMET, sencer i en el seu idioma.
-              Va plegat i etiquetat: es informacio oficial i no es toca, pero
-              tampoc es fa passar per text nostre en una pagina en catala.
-            */}
-            {(g.official.descriptions.length > 0 || g.official.instructions.length > 0) && (
-              <details className="mt-2">
-                <summary className="cursor-pointer text-xs font-medium opacity-90">
-                  Text oficial de l&apos;AEMET, en castellà
-                </summary>
-                <div className="mt-1 space-y-1 text-xs leading-snug opacity-90" lang="es">
-                  <p className="font-medium">{g.official.event}</p>
-                  {g.official.descriptions.map((d) => <p key={d}>{d}</p>)}
-                  {g.official.instructions.map((i) => <p key={i}>{i}</p>)}
-                </div>
-              </details>
-            )}
-
-            <p className="mt-2 text-[11px] opacity-75">
-              Avís de l&apos;<strong className="font-semibold">Agència Estatal de Meteorologia</strong>.{' '}
-              <a href={g.web} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
-                Consulteu-lo a AEMET
-              </a>
-            </p>
-          </div>
-        );
-      })}
+                    Amb `display:flex` el `summary` perd el triangle i llavors
+                    res no diu que allò s'obri; posant el flex a dins, el bloc
+                    ocupa tota l'amplada i el triangle es queda sol en una
+                    línia. En línia, el triangle i el text van junts i el text
+                    segueix passant de ratlla quan no hi cap.
+                  */}
+                  <summary className="cursor-pointer leading-relaxed">
+                    <span
+                      className="mr-2 rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+                      style={{ background: style.bg, color: style.ink }}
+                    >
+                      {style.label}
+                    </span>
+                    <strong className="mr-2 text-sm font-semibold">
+                      {phenomenonName(g.phenomenon)}
+                    </strong>
+                    {worst && (
+                      <span className="mr-2 text-[13px] text-[var(--ink-2)]">
+                        {perDay ? `fins a ${worst}` : worst}
+                      </span>
+                    )}
+                    <span className="tnum text-xs text-[var(--muted)]">{whenLine(g)}</span>
+                  </summary>
+                  <div className="text-[var(--ink-2)]">
+                    <Body g={g} showWhen={false} />
+                  </div>
+                </details>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

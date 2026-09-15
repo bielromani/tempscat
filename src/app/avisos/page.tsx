@@ -98,7 +98,7 @@ export default async function AvisosPage() {
         <>
           <section className="mb-8">
             <h2 className="mb-3 text-lg font-semibold tracking-tight">Tots els avisos</h2>
-            <WarningBanner warnings={groups} />
+            <WarningBanner warnings={groups} variant="llista" />
           </section>
 
           <section>
