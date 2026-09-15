@@ -51,3 +51,4 @@ next-env.d.ts
 
 # El worker de MapLibre, copiat del paquet instal·lat a cada build.
 /public/maplibre/
+public/__cels.html

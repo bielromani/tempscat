@@ -90,6 +90,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/webmap.ts` | La ventana, los zooms y la dirección del worker del mapa que se mueve |
 | `src/lib/warning-stack.ts` | Quin avís mana, quin acompanya i quin no diu res de nou |
 | `src/lib/warning-zones.ts` | On viu el contorn de les 21 zones de Meteoalerta, i per què va a part |
+| `src/lib/sky.ts` | De la nuvolositat, l'hora i la lluna a les capes del cel del titular |
 
 ## Dónde viven los datos vivos
 
@@ -201,6 +202,8 @@ npm run check:workflows   # claus repetides, `npm run` inexistents i workflows s
 npm run test:colors       # que el color que rep el mapa sigui el que pinta el navegador
 npm run test:wind         # que el vent vagi cap on ha d'anar · amb `-- --api`, contra la marinada
 npm run test:warnings     # que la pila d'avisos d'un lloc no perdi mai cap avís
+npm run test:sky          # que el cel del titular digui el temps, i el contrast del text
+npm run cels              # els dotze cels de cop a /__cels.html, per mirar-los de costat
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
@@ -972,6 +975,38 @@ cuota para exactamente la misma información.
   és prosa en castellà i el dia que li canviïn un guionet, emparellar per nom deixaria la zona
   sense contorn sense donar cap error — el mapa sortiria sencer amb un tros menys pintat. El
   codi acabat en `C` és la franja costanera i **se solapa** amb la de terra a posta.
+
+- **El cel del titular es calcula, i tota la feina és que digui el temps sense tapar el
+  text.** El fons d'una fitxa surt de la nuvolositat, del codi de temps, dels mil·límetres de
+  l'hora, de l'altura del sol en aquell punt i d'aquell dia, i de la fase de la lluna. És CSS i
+  tres textures: **zero JavaScript**, que és la regla de les fitxes de lloc i aquí no hi ha
+  excepció. El càlcul viu a `src/lib/sky.ts` i el dibuix a `LocationHero.tsx`.
+  **El nom del temps no surt d'allà**: surt de `weather-codes.ts`, que és qui ja el diu a la
+  taula i al resum del dia. El disseny original en portava una funció pròpia amb els seus
+  llindars, i això hauria estat una segona descripció del mateix temps — el dia que algú en
+  toqués un, el titular i la taula de sota haurien dit coses diferents de la mateixa hora.
+  Quatre coses que van costar una volta cada una:
+  **Una capa de núvol que no es veu s'ha de no existir, i amagar-la no n'hi ha prou.** Amb
+  `opacity: 0` el navegador demana la imatge, això ja se sabia; el que no: amb `display: none`
+  **al pare**, Chrome també la demana. Mesurat amb el registre de xarxa damunt d'un cel serè,
+  les tres textures baixades i cap dibuixada — **149 kB** el dia que fa sol, que són la majoria.
+  Ara la capa no es renderitza.
+  **El contrast s'ha de mesurar on hi ha el text, i emparellat per alçada.** La primera versió
+  de `test:sky` agafava la parada més clara del degradat i la posava sota la franja més
+  transparent del vel: deia 1,83:1 per a una combinació que no existeix enlloc, perquè el cel
+  s'aclareix cap avall i el vel s'enfosqueix cap avall justament per compensar-se. I la segona
+  donava per fet que no hi havia text fins al 22 % de l'alçada, quan la ruta de navegació —dotze
+  píxels, o sigui **text petit**— cau al 6 %. Ara es mesura des del 5 % i contra el pitjor núvol
+  possible, que es pot saber: les tres textures arriben a **blanc pur amb alfa sencera**.
+  **Apujar el vel sencer arregla el contrast i es carrega el cel.** Amb el vel pla a 0,54, els
+  dotze estats posats de costat es veien igual de foscos: un migdia de juliol i un vespre de
+  novembre plovent, iguals. Un fons que no distingeix el temps no serveix de res. El reforç va
+  en un segon vel **en píxels i només a dalt** —0,30 fins als 150, fos als 300— perquè el text
+  de dalt sempre és als mateixos píxels de dalt; en tant per cent, un titular més alt el faria
+  caure en una franja més fluixa. `npm run cels` és el que ho va ensenyar, i per això existeix.
+  **El degradat porta `color-mix()` i per tant necessita un color pla a sota.** Si un navegador
+  no l'entén, la declaració sencera queda invàlida, el fons desapareix i queda **text blanc
+  damunt de blanc**. Amb un sòlid a sota, el pitjor cas és un cel d'un sol to.
 
 - **El camp de meduses porta diverses espècies separades per `;`.** Cada una és
   `espècie,abundància,talla`. Llegint només fins a la primera coma, a Castell-Platja d'Aro

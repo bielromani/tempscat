@@ -580,3 +580,85 @@ button:focus-visible,
   max-width: 100%;
   margin-inline: auto;
 }
+
+/* ── Targetes ───────────────────────────────────────────────────────────────
+
+   El bloc de dades del redisseny: fons de superfície, vora fina, cantonada de
+   16 px. Hi ha una classe i no una repetició de `rounded-lg border p-5` a
+   trenta components perquè el radi i la vora són **una decisió**, no un
+   detall de cada bloc: el dia que canviïn, han de canviar a tot arreu alhora.
+
+   `.source` és la línia de procedència, que tanca cada bloc de dades. No és
+   decoració: és el que distingeix aquest lloc, i per això té estil propi i
+   surt sempre igual.                                                        */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin-top: 20px;
+}
+
+.card-title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+
+.source {
+  margin-top: 12px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ── El cel del titular ─────────────────────────────────────────────────────
+
+   Les capes i el perquè de cada número viuen a `src/lib/sky.ts` i a
+   `src/components/LocationHero.tsx`. Aquí només hi ha el moviment, que ha
+   d'anar en una fulla d'estil perquè `@keyframes` no es pot escriure a
+   l'atribut `style`.
+
+   El desplaçament de cada capa de núvols és **exactament l'amplada de la seva
+   tessel·la**: 1280, 900 o 1900 píxels. Amb qualsevol altre número el bucle
+   salta cada volta, i el salt es veu com un tremolor del cel sencer un cop
+   cada tants minuts — prou espaiat perquè ningú no en trobi la causa.        */
+
+@keyframes cel-wisps { from { background-position: 0 0; } to { background-position: -1280px 0; } }
+@keyframes cel-far { from { background-position: 0 0; } to { background-position: -900px 0; } }
+@keyframes cel-near { from { background-position: 0 0; } to { background-position: -1900px 0; } }
+@keyframes cel-sheet { from { background-position: 0 0; } to { background-position: -1280px 0; } }
+
+/* Dues fogonades seguides i una de solitària més tard, com un llamp de debò. */
+@keyframes cel-bolt {
+  0%, 3.2% { opacity: 0; }
+  3.6% { opacity: 1; }
+  4.4% { opacity: 0.12; }
+  5% { opacity: 0.86; }
+  6.4% { opacity: 0; }
+  47% { opacity: 0; }
+  47.6% { opacity: 0.7; }
+  49% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes cel-rain { from { background-position: 0 0; } to { background-position: -140px 520px; } }
+
+/* Dos camps de punts per capa, amb períodes primers entre ells: amb un de sol
+   la retícula es veu de seguida. */
+@keyframes cel-snow-a { from { background-position: 0 0, 17px 23px; } to { background-position: 26px 620px, 43px 643px; } }
+@keyframes cel-snow-b { from { background-position: 0 0, 31px 12px; } to { background-position: -34px 620px, -3px 632px; } }
+@keyframes cel-snow-c { from { background-position: 0 0, 9px 37px; } to { background-position: 14px 620px, 23px 657px; } }
+
+@keyframes cel-swell { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.06); opacity: 0.88; } }
+@keyframes cel-flare { 0%, 100% { opacity: 0.5; transform: rotate(0deg) scale(1); } 50% { opacity: 0.8; transform: rotate(180deg) scale(1.1); } }
+@keyframes cel-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* Qui demana que no es mogui res, no veu moure's res. El cel segueix sent el
+   mateix cel: el que s'atura és la deriva, no el dibuix. */
+@media (prefers-reduced-motion: reduce) {
+  .cel-anim { animation: none !important; }
+}

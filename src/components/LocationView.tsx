@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Meteogram } from './Meteogram';
 import { WeatherIcon, WeatherIconSprite } from './WeatherIcon';
 import { WarningBanner } from './WarningBanner';
+import { LocationHero } from './LocationHero';
 import { NextHours } from '@/components/NextHours';
 import { HourlyTable } from './HourlyTable';
 import { SunMoon } from './SunMoon';
@@ -21,11 +22,10 @@ import { ResortBlock } from './ResortBlock';
 import { networkLabel, refApart, type Route } from '@/lib/routes';
 import { radarZoneOf } from '@/lib/radar-zones';
 import type { LocalRainData } from '@/lib/local-rain';
-import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { feelsCause, msToKmh, windCardinal } from '@/lib/variables';
-import { weatherCode } from '@/lib/weather-codes';
+import { temperatureColor } from '@/lib/scales';
+import { msToKmh, windCardinal } from '@/lib/variables';
 import {
-  aComarca, aName, ago, comarcaName, dateTiny, deComarca, deName, int, num, relativeDayTiny,
+  aComarca, aName, ago, comarcaName, dateTiny, deComarca, int, num, relativeDayTiny,
   signed, tempTiny,
 } from '@/lib/format';
 import { localNowHour, localToday } from '@/lib/weather';
@@ -42,34 +42,6 @@ import type { CameraNow } from '@/lib/cameras';
 import { shareAboveSnowLine, type ResortNearby } from '@/lib/mountain';
 import type { Comarca, Location } from '@/lib/territory';
 
-/**
- * Página de ubicación: la plantilla que sirve a 4.293 rutas.
- *
- * Orden deliberado — la respuesta primero, la profundidad después. El 90 % del
- * tráfico entra desde Google, mira si lloverá y se va; no debe pagar el coste
- * de lo que no usa. Todo lo caro va plegado, y nada de esto se hidrata en
- * cliente: no hay una sola línea de JavaScript en la página.
- */
-
-function Breadcrumbs({ items }: { items: Array<{ nom: string; path: string }> }) {
-  return (
-    <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
-      <ol className="flex flex-wrap items-center gap-1.5">
-        {items.map((it, i) => (
-          <li key={it.path} className="flex items-center gap-1.5">
-            {i > 0 && <span aria-hidden className="text-[var(--line)]">›</span>}
-            {i === items.length - 1 ? (
-              <span className="text-[var(--ink-2)]">{it.nom}</span>
-            ) : (
-              <Link href={it.path} className="no-underline hover:text-[var(--ink)]">{it.nom}</Link>
-            )}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
-
 /** Descripción del índice UV con el consejo que le corresponde. */
 function uvAdvice(uv: number): { label: string; color: string } {
   if (uv >= 11) return { label: 'extrem', color: 'var(--cap-red)' };
@@ -79,144 +51,111 @@ function uvAdvice(uv: number): { label: string; color: string } {
   return { label: 'baix', color: 'var(--good)' };
 }
 
-function Current({
-  current, loc, nowHour,
+/**
+ * Una data a hora decimal local: les 14:30 de Madrid són 14,5.
+ *
+ * Passa per `sv-SE` amb la zona horària posada i no per `getHours()`, que dona
+ * l'hora del servidor. A Vercel el servidor va en UTC, així que a l'agost el
+ * cel del titular sortiria dues hores endarrerit: a les nou del vespre encara
+ * seria de dia i a les set del matí encara seria de nit. Cap error, i un cel
+ * equivocat dues hores segueix semblant un cel.
+ */
+function decimalHour(d: Date | null | undefined): number | null {
+  if (!d) return null;
+  const hm = d.toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).slice(11, 16);
+  const [h, m] = hm.split(':').map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h + m / 60 : null;
+}
+
+/**
+ * «Ara mateix, tota la lectura»: les nou mesures en un sol lloc.
+ *
+ * Abans anaven escampades entre el termòmetre gran i el peu de procedència, en
+ * una llista de definicions de dues o tres columnes segons l'amplada. El número
+ * gran i d'on surt ara viuen al titular —`LocationHero`—, i aquí queda el que
+ * de debò és una taula: nou valors del mateix instant, comparables entre ells.
+ *
+ * Les caselles surten **del que aquesta estació mesura**, no d'una llista fixa.
+ * Nou forats amb guions serien nou maneres de dir que no ho sabem quan amb una
+ * n'hi ha prou: si no hi ha ratxa, no hi ha casella de ratxa.
+ */
+function NowGrid({
+  current, nowHour,
 }: {
   current: CurrentConditions;
-  loc: Location;
   nowHour: LocationForecast['hourly'][number] | null;
 }) {
-  const t = current.temperatureAdjusted;
-  const corrected = current.station.dAltM != null && Math.abs(current.station.dAltM) >= 25;
-
   /*
-   * El panel se pinta con la escala de temperatura, así que **todo** el texto
-   * de dentro deriva su color de esa misma temperatura, no de los tokens del
-   * tema. Mezclarlos fue un error real: en modo oscuro los tokens dan gris
-   * claro, y sobre un fondo cálido claro las etiquetas desaparecían.
+   * Cada casella diu **d'on surt**, i no és un detall de comptabilitat: la
+   * meitat les mesura l'estació i l'altra meitat les dona el model. Sense
+   * distingir-ho, la nuvolositat del model queda al costat de la humitat
+   * mesurada amb la mateixa cara, i el peu diria que tot és de l'estació.
    */
-  const ink = t != null ? temperatureInk(t) : 'var(--ink)';
-  const soft = t != null ? { color: ink, opacity: 0.72 } : { color: 'var(--muted)' };
-  const faint = t != null ? { color: ink, opacity: 0.62 } : { color: 'var(--muted)' };
+  const cells: Array<{ k: string; v: string; extra?: string; model?: boolean }> = [];
 
-  const code = nowHour?.weatherCode ?? null;
-  const sky = weatherCode(code);
-
-  const rows: Array<{ k: string; v: string; extra?: string }> = [];
   if (current.windSpeed != null) {
-    rows.push({
+    cells.push({
       k: 'Vent',
       v: `${msToKmh(current.windSpeed).toFixed(0)} km/h`,
       extra: current.windDirection != null ? windCardinal(current.windDirection) : undefined,
     });
   }
+  // La ratxa només quan diu alguna cosa que el vent mitjà no digui.
   if (current.windGust != null && current.windGust > (current.windSpeed ?? 0) * 1.4) {
-    rows.push({ k: 'Ratxa', v: `${msToKmh(current.windGust).toFixed(0)} km/h` });
+    cells.push({ k: 'Ratxa', v: `${msToKmh(current.windGust).toFixed(0)} km/h` });
   }
-  if (current.humidity != null) rows.push({ k: 'Humitat', v: `${Math.round(current.humidity)} %` });
-  if (nowHour?.dewPoint != null) rows.push({ k: 'Punt de rosada', v: `${nowHour.dewPoint.toFixed(0)} °C` });
-  if (current.precip24h != null) rows.push({ k: 'Pluja 24 h', v: `${num(current.precip24h, 1)} mm` });
-  if (current.pressure != null) rows.push({ k: 'Pressió', v: `${current.pressure.toFixed(0)} hPa` });
-  if (nowHour?.cloudCover != null) rows.push({ k: 'Nuvolositat', v: `${nowHour.cloudCover} %` });
+  if (current.humidity != null) cells.push({ k: 'Humitat', v: `${Math.round(current.humidity)} %` });
+  if (nowHour?.dewPoint != null) cells.push({ k: 'Punt de rosada', v: `${nowHour.dewPoint.toFixed(0)} °C`, model: true });
+  if (current.precip24h != null) cells.push({ k: 'Pluja 24 h', v: `${num(current.precip24h, 1)} mm` });
+  if (current.pressure != null) cells.push({ k: 'Pressió', v: `${current.pressure.toFixed(0)} hPa` });
+  if (nowHour?.cloudCover != null) cells.push({ k: 'Nuvolositat', v: `${nowHour.cloudCover} %`, model: true });
+  if (nowHour?.uvIndex != null && nowHour.uvIndex > 0) {
+    cells.push({ k: 'Índex UV', v: String(nowHour.uvIndex), extra: uvAdvice(nowHour.uvIndex).label, model: true });
+  }
   if (nowHour?.visibility != null && nowHour.visibility < 20000) {
-    rows.push({ k: 'Visibilitat', v: `${(nowHour.visibility / 1000).toFixed(0)} km` });
+    cells.push({ k: 'Visibilitat', v: `${(nowHour.visibility / 1000).toFixed(0)} km`, model: true });
   }
+
+  if (!cells.length) return null;
+  const fromModel = cells.filter((c) => c.model).map((c) => c.k);
 
   return (
-    <section
-      className="rounded-lg border p-5 sm:p-6"
-      style={{
-        background: t != null
-          ? `linear-gradient(135deg, ${temperatureColor(t)} 0%, ${temperatureColor(t - 3)} 100%)`
-          : 'var(--surface)',
-        borderColor: t != null ? 'transparent' : 'var(--line-soft)',
-        color: ink,
-      }}
-    >
-      <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
-        <div className="flex items-start gap-3">
-          {code != null && <WeatherIcon code={code} isDay={nowHour?.isDay ?? true} size={54} />}
-          <div>
-            <div className="flex items-baseline gap-2">
-              <span className="tnum text-6xl font-semibold tracking-tight sm:text-7xl" style={{ color: ink }}>
-                {num(t, 1)}
-              </span>
-              <span className="text-2xl" style={soft}>°C</span>
-            </div>
-            {code != null && <p className="mt-0.5 text-sm font-medium" style={soft}>{sky.caLong}</p>}
-            {/*
-              * La sensació, amb la causa quan es pot comprovar.
-              *
-              * «Sensació de 39 °C» sota un 32 no diu si és la humitat, el vent
-              * o el sol, i són tres coses diferents que es porten diferent: de
-              * la xafogor s'escapa a l'ombra i del vent no. La comprovació és a
-              * `feelsCause()`, i quan no en surt cap, es diu la xifra i prou.
-              */}
-            {current.apparent != null && t != null && (() => {
-              const cause = feelsCause(t, current.apparent, current.windSpeed ?? null);
-              if (!cause) return null;
-              const val = current.apparent.toFixed(0);
-              return (
-                <p className="text-sm" style={soft}>
-                  {cause === 'xafogor'
-                    ? `Xafogor: amb la humitat, se'n noten ${val} °C`
-                    : cause === 'vent'
-                      ? `Amb el vent, se'n noten ${val} °C`
-                      : `Sensació de ${val} °C`}
-                </p>
-              );
-            })()}
+    <section className="card" aria-label="Totes les mesures d'ara mateix">
+      <h2 className="card-title">Ara mateix, tota la lectura</h2>
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3.5 sm:grid-cols-3">
+        {cells.map((c) => (
+          <div key={c.k}>
+            <dt className="text-[12px] text-[var(--muted)]">{c.k}</dt>
+            <dd className="tnum mt-0.5 text-[17px] font-medium text-[var(--ink)]">
+              {c.v}
+              {c.extra && <span className="ml-1.5 text-[13px] font-normal text-[var(--ink-2)]">{c.extra}</span>}
+            </dd>
           </div>
-        </div>
-
-        <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm sm:grid-cols-3">
-          {rows.map((r) => (
-            <div key={r.k}>
-              <dt style={faint}>{r.k}</dt>
-              <dd className="tnum font-medium" style={{ color: ink }}>
-                {r.v}{r.extra && <span className="ml-1 font-normal" style={soft}>{r.extra}</span>}
-              </dd>
-            </div>
-          ))}
-          {nowHour?.uvIndex != null && nowHour.uvIndex > 0 && (
-            <div>
-              <dt style={faint}>Índex UV</dt>
-              <dd className="tnum font-medium" style={{ color: ink }}>
-                {nowHour.uvIndex}
-                <span className="ml-1 font-normal" style={soft}>{uvAdvice(nowHour.uvIndex).label}</span>
-              </dd>
-            </div>
-          )}
-        </dl>
-      </div>
-
+        ))}
+      </dl>
       {/*
-        Honestidad radical sobre la procedencia. Cumple la licencia CC-BY y, más
-        importante, es lo que ningún competidor hace: decir exactamente de qué
-        estación viene el número, a qué distancia y con cuánto desnivel.
+        La procedència completa és al titular; aquí només cal dir que és la
+        mateixa lectura, de quan, i **quines d'aquestes caselles no són seves**.
+
+        La llista es construeix del que hi ha i no s'escriu a mà: la primera
+        versió deia sempre «nuvolositat, punt de rosada, UV i visibilitat» i la
+        visibilitat només surt quan baixa de 20 km, o sigui que gairebé sempre
+        anomenava una casella que no hi era.
       */}
-      <hr className="mt-5 border-0 border-t" style={{ borderColor: ink, opacity: 0.18 }} />
-      <p className="mt-3 text-xs leading-relaxed" style={faint}>
-        Dada de l&apos;estació{' '}
-        {/* Enlace a la ficha de la estación: es donde están sus récords y su rosa
-            de vientos, y hasta ahora no había forma de llegar. */}
-        <Link
-          href={`/estacions/${current.station.codi}`}
-          className="font-medium underline decoration-1 underline-offset-2"
-          style={{ color: ink, opacity: 0.9 }}
-        >
-          {deName(current.station.nom)}
-        </Link>,
-        a {num(current.station.distKm, 1)} km
-        {current.station.dAltM != null && ` i ${signed(current.station.dAltM, 0, 'm')} de desnivell`}
-        {' · '}{ago(current.ageMin)}
-        {current.provisional && ' · lectura provisional, pendent de validació del Meteocat'}
-        {' · '}{current.source}
-        {corrected && current.temperature != null && (
+      <p className="source">
+        La mateixa lectura del titular · {ago(current.ageMin)} · {current.source}
+        {fromModel.length > 0 && (
           <>
-            <br />
-            Temperatura corregida pel desnivell: l&apos;estació marca {num(current.temperature, 1)} °C
-            a {loc.altitud != null && current.station.dAltM != null ? loc.altitud - current.station.dAltM : '?'} m.
+            {' · '}
+            {/* Només la inicial de la primera, que ve darrere d'un punt volat.
+                Abaixant-les totes sortia «índex uv», que és una sigla. */}
+            {`${fromModel[0][0].toLowerCase()}${fromModel[0].slice(1)}`}
+            {fromModel.length > 1 && (
+              fromModel.length === 2
+                ? ` i ${fromModel[1]}`
+                : `, ${fromModel.slice(1, -1).join(', ')} i ${fromModel.at(-1)}`
+            )}
+            , del model
           </>
         )}
       </p>
@@ -448,27 +387,22 @@ export function LocationView({
       {/* El sprite va una sola vez; los 48 iconos de la tabla horaria lo
           referencian con <use> en vez de repetir el dibujo entero. */}
       <WeatherIconSprite />
-      <Breadcrumbs items={breadcrumbs} />
 
-      <header className="mb-5">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{loc.nom}</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {loc.level !== 'municipi' && breadcrumbs.length > 2 && `${breadcrumbs[breadcrumbs.length - 2].nom} · `}
-          {comarcaLabel}
-          {loc.altitud != null && ` · ${loc.altitud} m`}
-          {loc.poblacio != null && loc.poblacio > 0 && ` · ${loc.poblacio.toLocaleString('ca-ES')} hab.`}
-        </p>
-      </header>
+      <LocationHero
+        loc={loc}
+        comarcaLabel={comarcaLabel}
+        breadcrumbs={breadcrumbs}
+        current={current}
+        nowHour={nowHour}
+        today={forecast?.daily[0] ?? null}
+        sunriseH={decimalHour(astro?.sunrise)}
+        sunsetH={decimalHour(astro?.sunset)}
+        moonPhase={astro?.moon.phase ?? 0}
+      />
 
       <WarningBanner warnings={warnings} />
 
-      {current ? (
-        <Current current={current} loc={loc} nowHour={nowHour} />
-      ) : (
-        <section className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5 text-sm text-[var(--muted)]">
-          Encara no hi ha observació disponible per a aquest punt.
-        </section>
-      )}
+      {current && <NowGrid current={current} nowHour={nowHour} />}
 
       {/* La interpretación va inmediatamente después del número grande: el
           termómetro es el gancho y la frase es la respuesta. */}
