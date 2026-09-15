@@ -615,6 +615,68 @@ button:focus-visible,
   color: var(--muted);
 }
 
+/* ── La capçalera, quan la pàgina porta cel ─────────────────────────────────
+
+   A les fitxes de lloc la barra del web va **a dins** del titular, damunt del
+   cel, i no com una franja blanca a sobre. Ho decideix la pròpia pàgina posant
+   `data-hero` al titular; la capçalera viu al `layout` i no se li pot passar
+   cap propietat, així que qui els connecta és `:has()`.
+
+   Es fa amb CSS i no amb un estat compartit per dues raons. La primera és que
+   no cal JavaScript per a una cosa que és d'aspecte. La segona és el que passa
+   el dia que un navegador no entengui `:has()`: **no passa res**. La regla no
+   s'aplica, la barra es queda on és ara —blanca i a sobre— i la pàgina segueix
+   sencera. Amb un estat compartit, el mateix error deixaria la barra blanca
+   damunt del cel amb el text blanc a sobre.
+
+   Les píndoles van damunt de vidre **fosc** i no de blanc translúcid: han
+   d'aguantar un cel de migdia al darrere, i un blanc translúcid damunt d'un
+   núvol és blanc damunt de blanc.                                            */
+
+body:has([data-hero]) > header {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 10;
+  background: transparent;
+  border-bottom-color: transparent;
+  color: oklch(99% 0 0);
+}
+
+body:has([data-hero]) > header a {
+  color: oklch(99% 0 0);
+}
+
+body:has([data-hero]) > header nav a {
+  opacity: 0.88;
+}
+
+body:has([data-hero]) > header nav a:hover {
+  opacity: 1;
+}
+
+/* El cercador de la capçalera, que és l'únic que hi porta fons propi. */
+body:has([data-hero]) > header input {
+  background: oklch(20% 0.02 250 / 0.42);
+  backdrop-filter: blur(8px);
+  border-color: oklch(99% 0 0 / 0.22);
+  color: oklch(99% 0 0);
+}
+
+body:has([data-hero]) > header input::placeholder {
+  color: oklch(99% 0 0 / 0.7);
+}
+
+/* La barra ja no ocupa lloc, així que el contingut arrenca a dalt de tot i el
+   titular deixa d'haver de pujar per tapar el buit que hi havia. */
+body:has([data-hero]) > main {
+  padding-top: 0;
+}
+
+body:has([data-hero]) [data-hero] {
+  margin-top: 0;
+}
+
 /* ── El cel del titular ─────────────────────────────────────────────────────
 
    Les capes i el perquè de cada número viuen a `src/lib/sky.ts` i a

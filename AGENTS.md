@@ -1001,9 +1001,41 @@ cuota para exactamente la misma información.
   **Apujar el vel sencer arregla el contrast i es carrega el cel.** Amb el vel pla a 0,54, els
   dotze estats posats de costat es veien igual de foscos: un migdia de juliol i un vespre de
   novembre plovent, iguals. Un fons que no distingeix el temps no serveix de res. El reforç va
-  en un segon vel **en píxels i només a dalt** —0,30 fins als 150, fos als 300— perquè el text
-  de dalt sempre és als mateixos píxels de dalt; en tant per cent, un titular més alt el faria
-  caure en una franja més fluixa. `npm run cels` és el que ho va ensenyar, i per això existeix.
+  en un segon vel **en píxels i només a dalt**, perquè el text de dalt sempre és als mateixos
+  píxels de dalt; en tant per cent, un titular més alt el faria caure en una franja més fluixa.
+  `npm run cels` és el que ho va ensenyar, i per això existeix.
+  I **tampoc pot ser una constant**: posat fix a 0,30, un migdia serè de 33 °C a Montblanc
+  sortia dibuixat com un capvespre. El que amenaça el text de dalt no és el cel —el cel sol dona
+  8:1— sinó les **textures de núvol**, que són clares i van justament per la part alta. Així que
+  `scrimTop` es calcula amb la cobertura i el brillo d'aquell moment: un dia serè en porta
+  **zero** i el cel es veu tal com es calcula. Es calibra a l'alçada del **text més amunt de
+  tots**, que des que la barra del web va dins del titular són els seus enllaços i no la ruta de
+  navegació — calibrat a la ruta, els enllaços queien a 3,84:1.
+
+- **La màxima del dia no pot sortir només de la predicció.** Montblanc ensenyava «33,7°» amb
+  «màx. 32°» just a sota: el model deia 32 i el termòmetre ja n'havia fet 33,7. Les dues xifres
+  eren correctes i juntes es contradeien, que és el pitjor cas perquè no hi ha res per arreglar
+  a cap de les dues. La màxima d'avui és, com a mínim, la que **ja s'ha fet**: es combina amb
+  `current.todayMax`, que és l'agregat de l'estació des de mitjanit. Igual la mínima, cap avall.
+
+- **Un límit de mesura dins d'una columna molt més ampla es llegeix com un error d'alineació.**
+  Els paràgrafs porten un topall de 64 caràcters —a 18 px, **552 px**— i les targetes no en
+  porten cap: dins dels 984 px de `main`, el text s'acabava a mig camí amb 432 px de blanc a la
+  dreta al costat de blocs que arribaven fins al final. Cada bloc per separat estava bé i junts
+  semblaven mal posats. La fitxa va ara en **una sola columna de 38 rem**, que és on la mesura
+  del text hi cap sencera; els onze blocs que necessiten més amplada ja porten `scroll-x` i es
+  desplacen, com ja feien al telèfon.
+
+- **La barra del web va dins del titular, i qui ho decideix és CSS i no un estat compartit.**
+  A les fitxes de lloc la capçalera se superposa al cel; ho connecta `body:has([data-hero])` a
+  `globals.css`, perquè la capçalera viu al `layout` i la pàgina no li pot passar res. Es fa
+  així per el que passa el dia que un navegador no entengui `:has()`: **no passa res** —la barra
+  es queda blanca i a sobre, i la pàgina segueix sencera—. Amb un estat compartit, el mateix
+  error deixaria la barra blanca amb el text blanc a sobre.
+  L'espai que la barra deixa de ocupar el reserva el titular **amb un estil en línia i no amb
+  una classe**: el valor és l'alçada d'una altra peça —92 px quan el cercador passa a la segona
+  línia, en un telèfon de 375— i escrit com `pt-[92px]` sembla una tria d'espaiat que ningú no
+  relacionarà amb la barra el dia que creixi.
   **El degradat porta `color-mix()` i per tant necessita un color pla a sota.** Si un navegador
   no l'entén, la declaració sencera queda invàlida, el fons desapareix i queda **text blanc
   damunt de blanc**. Amb un sòlid a sota, el pitjor cas és un cel d'un sol to.

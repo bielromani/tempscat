@@ -383,7 +383,24 @@ export function LocationView({
   const nowHour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
 
   return (
-    <article>
+    /*
+     * ── Una sola columna, i la mateixa per a tot ────────────────────────────
+     *
+     * La pàgina vivia dins dels 1.024 px de `main`, però els paràgrafs porten
+     * un límit de mesura —64 caràcters, que a 18 px són **552**— i les targetes
+     * no: el resultat eren blocs de text que s'acabaven a mig camí amb 432 px
+     * de blanc a la dreta, al costat de targetes que arribaven fins al final.
+     * Cada bloc per separat estava bé i junts semblaven mal alineats.
+     *
+     * Ara la columna és una: 38 rem, que és on la mesura del text hi cap
+     * sencera. Tot comparteix les dues vores.
+     *
+     * Els onze blocs que necessiten més amplada —el meteograma, la tira de les
+     * hores, la dels catorze dies, les taules— ja porten `scroll-x` i es
+     * desplacen, que és el que ja feien al telèfon. En un mòbil això no canvia
+     * res: allà la columna sempre ha estat l'amplada de la pantalla.
+     */
+    <article className="mx-auto max-w-[38rem]">
       {/* El sprite va una sola vez; los 48 iconos de la tabla horaria lo
           referencian con <use> en vez de repetir el dibujo entero. */}
       <WeatherIconSprite />

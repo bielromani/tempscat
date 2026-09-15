@@ -216,15 +216,16 @@ console.log('\nEl text blanc del titular, contra el pitjor cel i el pitjor núvo
   const VEIL_S = srgbLum(oklchToHex('oklch(19% 0.028 250)'));
 
   /*
-   * El segon vel, el de dalt, va en **píxels**: 0,30 fins als 150 i fos als
-   * 300. Per comprovar-lo cal una alçada de titular, i com que depèn del
+   * El segon vel, el de dalt, va en **píxels** i el seu valor el calcula
+   * `sky.ts` a partir de la cobertura i el brillo reals d'aquell moment: un dia
+   * serè en porta zero. Per comprovar-lo cal una alçada de titular, i com que depèn del
    * contingut es prova tot el rang que s'ha mesurat al navegador —d'un titular
    * curt sense estació a un de llarg amb nota de correcció—. Com més alt és el
    * titular, més amunt queda el text en tant per cent i més fluix hi és el
    * primer vel: el pitjor cas és el titular **més alt**, i per això es
    * comproven tots.
    */
-  const TOP = [[0, 0.30], [150, 0.26], [300, 0]];
+  const topStops = (a: number) => [[0, a], [150, a * 0.87], [300, 0]];
   const HEIGHTS = [340, 420, 500, 560, 640];
 
   const track = (stops: number[][], x: number) => {
@@ -243,12 +244,14 @@ console.log('\nEl text blanc del titular, contra el pitjor cel i el pitjor núvo
   /*
    * D'on cap avall hi ha text, **mesurat al navegador i no suposat**.
    *
-   * La ruta de navegació surt al 6,3 % de l'alçada del titular i és de 12
-   * píxels, o sigui text petit: 4,5:1. La primera versió d'això donava per fet
-   * que no hi havia text fins al 22 % i deia que tot passava; el que passava
-   * és que no s'estava mirant on hi ha el text.
+   * Des del 2 %: des que la barra del web va **dins** del titular, el text que
+   * surt més amunt són els seus enllaços, i són de 14 píxels. La ruta de
+   * navegació ve just a sota, al 6 %, amb 12.
+   *
+   * La primera versió donava per fet que no hi havia text fins al 22 % i deia
+   * que tot passava; el que passava és que no s'estava mirant on hi ha el text.
    */
-  const TEXT_FROM = 0.05;
+  const TEXT_FROM = 0.02;
 
   let worstSky = Infinity;
   let worstSkyAt = '';
@@ -280,7 +283,7 @@ console.log('\nEl text blanc del titular, contra el pitjor cel i el pitjor núvo
       for (const H of HEIGHTS) {
         for (let p = TEXT_FROM; p <= 1.0001; p += 0.02) {
           const alpha = track(VEIL, 1 - Math.min(1, p));
-          const top = track(TOP, Math.min(300, p * H));
+          const top = track(topStops(s.scrimTop), Math.min(300, p * H));
           const skyS = track(SKY_AT.map((a, i) => [a, sky4[i]]), Math.min(1, p));
 
           // Només el cel.

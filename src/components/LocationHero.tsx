@@ -5,6 +5,7 @@ import { weatherCode } from '@/lib/weather-codes';
 import { skyStyle, drawsRain, drawsSnow } from '@/lib/sky';
 import { ago, deName, num, signed } from '@/lib/format';
 import { feelsCause, msToKmh, windCardinal } from '@/lib/variables';
+import { WeatherIcon } from './WeatherIcon';
 
 /**
  * El titular d'una fitxa: el cel del lloc, i a sobre el que cal saber.
@@ -73,6 +74,22 @@ export function LocationHero({
   });
 
   const t = current?.temperatureAdjusted ?? nowHour?.temperature ?? null;
+
+  /*
+   * La màxima i la mínima del dia, **mesurades i previstes alhora**.
+   *
+   * Sortint només de la predicció, Montblanc ensenyava «33,7°» amb «màx. 32°»
+   * just a sota: el model deia 32 i el termòmetre ja n'havia fet 33,7. Les dues
+   * xifres eren correctes i juntes es contradeien, que és el pitjor dels casos
+   * perquè no hi ha res per arreglar a cap de les dues.
+   *
+   * La màxima d'avui és, com a mínim, la que ja s'ha fet: `todayMax` ve de
+   * l'agregat de l'estació des de mitjanit. Igual per la mínima, cap avall.
+   */
+  const dayMax = [today?.tMax, current?.todayMax].filter((v): v is number => v != null);
+  const dayMin = [today?.tMin, current?.todayMin].filter((v): v is number => v != null);
+  const tMax = dayMax.length ? Math.max(...dayMax) : null;
+  const tMin = dayMin.length ? Math.min(...dayMin) : null;
   const whole = t != null ? Math.trunc(t) : null;
   const decimal = t != null ? Math.abs(Math.round((t - Math.trunc(t)) * 10)) : null;
   const condition = nowHour?.weatherCode != null ? weatherCode(nowHour.weatherCode).caLong : null;
@@ -95,6 +112,11 @@ export function LocationHero({
 
   return (
     <div
+      /* `data-hero` és el que fa que la capçalera del web es posi a sobre del
+         cel en comptes de damunt d'una franja blanca. La regla és a
+         `globals.css`, i si un navegador no entén `:has()` no passa res: la
+         barra es queda com sempre. */
+      data-hero
       className="relative -mx-5 -mt-8 mb-6 overflow-hidden sm:mx-0 sm:mt-0 sm:rounded-2xl"
       style={{
         /*
@@ -310,38 +332,49 @@ export function LocationHero({
       />
 
       {/*
-        I un segon vel, **en píxels i no en percentatge**, només a dalt.
+        I un segon vel a dalt, **en píxels i només quan cal**.
 
-        El vel de sobre es mesura en tant per cent de l'alçada del titular, i a
-        l'última franja cedeix fins a 0,22 perquè allà hi va la barra de
-        navegació, que ja porta vidre fosc propi. Aquí, en canvi, a dalt de tot
-        hi ha la **ruta de navegació**: dotze píxels, o sigui text petit, que
-        demana 4,5:1. Mesurat al navegador, cau al 6 % de l'alçada, dins
-        d'aquella franja fluixa, i amb un núvol blanc opac al darrere es queda
-        en 4,17:1.
+        El vel de sobre va en tant per cent de l'alçada i a la franja de dalt
+        cedeix. Allà hi ha la ruta de navegació: dotze píxels, text petit, 4,5:1.
+        El que l'amenaça no és el cel —el cel sol dona 11:1— sinó les textures
+        de núvol, que són clares i van justament per la part alta.
 
-        El primer intent va ser apujar el vel sencer fins a 0,54, i **va
-        arreglar el contrast i es va carregar el cel**: amb els dotze estats
-        posats de costat, un migdia de juliol i un vespre de novembre plovent
-        es veien igual de foscos. Un fons que no distingeix el temps no serveix
-        de res, que és justament el motiu de calcular-lo.
-        
-        Així que el reforç va aquí i en píxels: tapa els primers 150, es fon als
-        300 i no toca la resta del cel. En píxels perquè el text de dalt sempre
-        és als mateixos píxels de dalt; en percentatge, un titular més alt
-        —una nota d'estació llarga— el faria caure en una franja més fluixa.
+        Per això `scrimTop` el calcula `sky.ts` amb la cobertura i el brillo
+        reals d'aquell moment, i **un dia serè val zero**. Posat fix a 0,30, un
+        migdia de 33 °C sortia dibuixat com un capvespre.
+
+        En píxels i no en tant per cent perquè el text de dalt sempre és als
+        mateixos píxels de dalt: amb un titular més alt —una nota d'estació
+        llarga— una franja en tant per cent li cauria més amunt.
       */}
-      <div
-        aria-hidden
-        className="absolute inset-x-0 top-0"
-        style={{
-          height: 300,
-          background: 'linear-gradient(to bottom, oklch(17% 0.02 250 / 0.30) 0px, oklch(17% 0.02 250 / 0.26) 150px, transparent 300px)',
-        }}
-      />
+      {sky.scrimTop > 0 && (
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0"
+          style={{
+            height: 300,
+            background: `linear-gradient(to bottom, oklch(17% 0.02 250 / ${sky.scrimTop}) 0px, `
+              + `oklch(17% 0.02 250 / ${(sky.scrimTop * 0.87).toFixed(3)}) 150px, transparent 300px)`,
+          }}
+        />
+      )}
 
       {/* ── El que es llegeix ──────────────────────────────────────────── */}
-      <div className="relative px-5 pb-5 pt-6 sm:px-7 sm:pb-6 sm:pt-8" style={{ color: 'oklch(99% 0 0)' }}>
+      {/*
+        L'espai de dalt el reserva el titular, no la barra.
+
+        La barra del web queda **fora del flux** quan la pàgina porta cel
+        —`position: absolute`, a `globals.css`— així que ja no ocupa lloc i el
+        que hi ha a sota se li posaria a sobre. Els 92 píxels són els que fa la
+        barra quan el cercador li passa a la segona línia, que és el que passa
+        en un telèfon de 375; en una pantalla ampla en fa 52 i la resta queda
+        com a aire, que és el que el disseny hi vol de totes maneres.
+
+        Va a l'estil en línia i no a una classe perquè el valor és una mesura
+        d'una altra peça: escrit com a `pt-[92px]` sembla una tria d'espaiat i
+        el dia que la barra creixi ningú no el relacionarà amb això.
+      */}
+      <div className="relative px-5 pb-5 sm:px-7 sm:pb-6" style={{ color: 'oklch(99% 0 0)', paddingTop: 96 }}>
         <nav aria-label="Ruta de navegació" className="text-[12px] uppercase tracking-[0.08em]">
           <ol className="flex flex-wrap items-center gap-x-1.5">
             {/* L'últim element de la ruta és aquesta mateixa pàgina i el seu
@@ -367,6 +400,12 @@ export function LocationHero({
           {comarcaLabel}
           {loc.altitud != null && ` · ${loc.altitud} m`}
           {loc.poblacio != null && loc.poblacio > 0 && ` · ${loc.poblacio.toLocaleString('ca-ES')} hab.`}
+          {/* Les coordenades hi van perquè són el que fa que aquesta pàgina
+              parli d'un punt i no d'un nom: tot el que hi ha a sota —quina
+              estació, quin punt de predicció, quina zona d'avís— es decideix
+              amb aquests dos números. */}
+          {loc.lat != null && loc.lon != null
+            && ` · ${num(loc.lat, 3)} N ${num(loc.lon, 3)} E`}
         </p>
 
         {whole != null ? (
@@ -380,11 +419,16 @@ export function LocationHero({
           <p className="mt-4 text-lg opacity-90">Encara no hi ha observació per a aquest punt.</p>
         )}
 
-        <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2 text-[17px] font-medium">
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-2 text-[17px] font-medium">
+          {/* La icona surt del mateix `sprite` que ja porta la pàgina per a la
+              taula horària: no n'afegeix cap dibuix nou. */}
+          {nowHour?.weatherCode != null && (
+            <WeatherIcon code={nowHour.weatherCode} isDay={sky.isDay} size={26} />
+          )}
           {condition && <span>{condition}</span>}
-          {today?.tMax != null && today?.tMin != null && (
+          {tMax != null && tMin != null && (
             <span className="tnum opacity-90">
-              · màx. {Math.round(today.tMax)}° mín. {Math.round(today.tMin)}°
+              · màx. {Math.round(tMax)}° mín. {Math.round(tMin)}°
             </span>
           )}
         </div>
@@ -398,16 +442,26 @@ export function LocationHero({
           del redisseny i no es perd en el canvi.
         */}
         {(() => {
-          const cause = current?.apparent != null && t != null
-            ? feelsCause(t, current.apparent, current.windSpeed ?? null)
-            : null;
-          const feels = cause && current?.apparent != null
-            ? cause === 'xafogor'
-              ? `Xafogor: amb la humitat, se'n noten ${current.apparent.toFixed(0)}°`
+          const ap = current?.apparent ?? null;
+          const cause = ap != null && t != null ? feelsCause(t, ap, current!.windSpeed ?? null) : null;
+          /*
+           * La sensació surt sempre que **digui un número diferent**.
+           *
+           * `feelsCause()` només en dona un quan la separació passa d'un grau, i
+           * aquesta targeta l'amagava del tot quan no n'hi havia: a Montblanc,
+           * amb 33,7 i sensació 34, no sortia. Però «34°» al costat de «33,7°»
+           * sí que és una dada — el que no ho seria és repetir el mateix enter.
+           *
+           * Quan la causa es pot comprovar, es diu: de la xafogor s'escapa a
+           * l'ombra i del vent no, i són dues coses diferents.
+           */
+          const feels = ap == null || t == null || Math.round(ap) === Math.round(t)
+            ? null
+            : cause === 'xafogor'
+              ? `Xafogor: amb la humitat, se'n noten ${ap.toFixed(0)}°`
               : cause === 'vent'
-                ? `Amb el vent, se'n noten ${current.apparent.toFixed(0)}°`
-                : `Sensació de ${current.apparent.toFixed(0)}°`
-            : null;
+                ? `Amb el vent, se'n noten ${ap.toFixed(0)}°`
+                : `Sensació de ${ap.toFixed(0)}°`;
           const wind = current?.windSpeed != null
             ? `vent ${msToKmh(current.windSpeed).toFixed(0)} km/h${
               current.windDirection != null ? ` del ${windCardinal(current.windDirection)}` : ''}`

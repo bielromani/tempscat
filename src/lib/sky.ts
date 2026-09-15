@@ -54,6 +54,7 @@
  * van per la part alta, que és justament on hi ha el nom.
  */
 import { weatherCode } from './weather-codes.ts';
+import { oklchToHex } from './scales.ts';
 
 /** Les cinc franges de llum. Quatre parades cadascuna, de dalt a baix. */
 const SKY_STOPS = {
@@ -125,6 +126,20 @@ export interface Sky {
   veilOpacity: string;
   veilImage: string;
 
+  /**
+   * Quant s'ha de reforçar el vel **a la franja de dalt**, on hi ha text petit.
+   *
+   * No és una constant, i aquesta és tota la gràcia: el que amenaça el text de
+   * dalt són les **textures de núvol**, que són clares i van justament per
+   * allà. Un dia serè no en té cap, i llavors això val zero i el cel es veu tal
+   * com és.
+   *
+   * La primera versió el posava fix a 0,30 «per si de cas», i el resultat va
+   * ser un migdia de sol amb 33 °C dibuixat com un capvespre. Un fons que no
+   * distingeix el temps no serveix de res.
+   */
+  scrimTop: number;
+
   rainOpacity: string;
   rainAngle: [string, string, string];
   snowOpacity: string;
@@ -164,6 +179,63 @@ function precipOf(code: number | null): { precip: Precip; thunder: boolean } {
     default:
       return { precip: 'none', thunder: false };
   }
+}
+
+
+/*
+ * ── El reforç de dalt, calculat i no posat a ull ──────────────────────────
+ *
+ * El vel de contrast es mesura en tant per cent de l'alçada del titular i a la
+ * franja de dalt cedeix, perquè allà el disseny hi posa la barra de navegació,
+ * que porta vidre fosc propi. Però a sobre de tot hi ha també la **ruta de
+ * navegació**: dotze píxels, o sigui text petit, que demana 4,5:1.
+ *
+ * El que amenaça aquell text no és el cel —el cel sol dona 11:1— sinó les
+ * **textures de núvol**, que són clares i van justament per la part alta. Així
+ * que el reforç que cal depèn de si n'hi ha, i de quant brillen.
+ *
+ * Amb un valor fix el cel es perd: un migdia serè de 33 °C sortia dibuixat com
+ * un capvespre perquè portava un reforç que no li feia cap falta. Ara un dia
+ * serè en porta **zero** i el cel es veu tal com es calcula.
+ */
+
+/** La lluminositat d'un color en sRGB, sense linearitzar: com componen els navegadors. */
+function srgbLum(css: string): number {
+  const hex = oklchToHex(css);
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return 0.5;
+  return (0.2126 * parseInt(hex.slice(1, 3), 16)
+    + 0.7152 * parseInt(hex.slice(3, 5), 16)
+    + 0.0722 * parseInt(hex.slice(5, 7), 16)) / 255;
+}
+
+const toSrgb = (v: number) => (v <= 0.00304 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
+
+/**
+ * L'alfa que té el vel de contrast a la franja on comença el text.
+ *
+ * Al 2 % de l'alçada, que és on cau la barra del web d'ençà que va **dins** del
+ * titular, i agafat una mica per sota del que hi ha de veritat perquè el reforç
+ * surti amb marge. Abans es calibrava al 6 %, on hi ha la ruta de navegació, i
+ * amb la barra a sobre del cel els seus enllaços queien a 3,84:1: estava
+ * calculat per a una franja que ja no era la de més amunt.
+ */
+const TEXT_TOP_VEIL = 0.26;
+/** El color del vel, que és pràcticament el mateix a totes les parades. */
+const VEIL_L = srgbLum('oklch(19% 0.028 250)');
+/** El sostre de lluminositat que encara dona 4,5:1 amb text blanc. */
+const MAX_BEHIND = toSrgb(1.05 / 4.5 - 0.05);
+
+function scrimFor(skyTopL: number, coverage: number, cloudL: number): number {
+  const behind = mix(skyTopL, cloudL, clamp01(coverage));
+  const withVeil = behind * (1 - TEXT_TOP_VEIL) + VEIL_L * TEXT_TOP_VEIL;
+  if (withVeil <= MAX_BEHIND) return 0;
+  /*
+   * Quant d'un vel de color `VEIL_L` cal per baixar de `withVeil` a
+   * `MAX_BEHIND`. Es limita a 0,46: per damunt d'això el titular deixaria de
+   * ser un cel, i si algun dia calgués més voldria dir que les textures s'han
+   * tornat més clares i el que s'ha d'arreglar són elles.
+   */
+  return Math.min(0.46, (withVeil - MAX_BEHIND) / (withVeil - VEIL_L));
 }
 
 export function skyStyle(input: SkyInput): Sky {
@@ -288,6 +360,27 @@ export function skyStyle(input: SkyInput): Sky {
   // El vent inclina la pluja, i cada capa se'n desvia per no fer ratlles paral·leles.
   const rainTilt = 97 + Math.min(14, intensity / 7);
 
+  /*
+   * Les quatre opacitats de núvol, que decideixen el reforç de dalt.
+   *
+   * Se solapen, així que la cobertura total és la probabilitat que **cap** no
+   * tapi, restada d'u. Sumant-les, un cel mig ennuvolat passaria de 1 i sortiria
+   * més fosc que un de tancat.
+   */
+  const wispO = clamp01(cover * 3.2) * (1 - smoothStep(0.5, 0.92, cover));
+  const farO = clamp01((cover - 0.06) * 2) * (1 - smoothStep(0.72, 1, cover) * 0.55);
+  const nearO = clamp01((cover - 0.24) * 1.9) * (1 - smoothStep(0.78, 1, cover) * 0.6);
+  const overO = clamp01((cover - 0.5) * 2.3);
+  const coverage = 1 - (1 - wispO) * (1 - farO) * (1 - nearO) * (1 - overO);
+
+  /*
+   * El pitjor núvol possible: les tres textures arriben a **blanc pur amb alfa
+   * sencera** —mesurat amb sharp damunt dels fitxers que se serveixen— així que
+   * el que en surt després del filtre és la seva pròpia lluminositat.
+   */
+  const cloudL = clamp01(bright);
+  const scrimTop = scrimFor(srgbLum(stops[0]), coverage, cloudL);
+
   return {
     isDay,
     precip,
@@ -320,16 +413,18 @@ export function skyStyle(input: SkyInput): Sky {
      * alts i cúmuls alhora, com el de veritat. Passant d'una capa a l'altra per
      * trams, la nuvolositat 0,49 i la 0,51 serien dos cels diferents.
      */
-    wispOpacity: Number((clamp01(cover * 3.2) * (1 - smoothStep(0.5, 0.92, cover))).toFixed(2)),
-    cloudFarOpacity: Number((clamp01((cover - 0.06) * 2) * (1 - smoothStep(0.72, 1, cover) * 0.55)).toFixed(2)),
-    cloudNearOpacity: Number((clamp01((cover - 0.24) * 1.9) * (1 - smoothStep(0.78, 1, cover) * 0.6)).toFixed(2)),
-    overcastOpacity: Number(clamp01((cover - 0.5) * 2.3).toFixed(2)),
+    wispOpacity: Number(wispO.toFixed(2)),
+    cloudFarOpacity: Number(farO.toFixed(2)),
+    cloudNearOpacity: Number(nearO.toFixed(2)),
+    overcastOpacity: Number(overO.toFixed(2)),
 
     /*
      * El vel de nuvolositat, que és el que fa que un cel de pluja sigui **fosc**
      * i no un gris clar. Sense ell el text blanc del titular hi perd el
      * contrast justament els dies de mal temps.
      */
+    scrimTop: Number(scrimTop.toFixed(3)),
+
     veilOpacity: (cover ** 1.9 * 0.72).toFixed(2),
     veilImage: `linear-gradient(180deg, oklch(${(mix(44, 80, dayness) - cover * 30).toFixed(0)}% 0.012 250) 0%, oklch(${(mix(38, 73, dayness) - cover * 28).toFixed(0)}% 0.014 250) 100%)`,
 
