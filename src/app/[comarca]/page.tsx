@@ -133,7 +133,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
 
       {sorted.length >= 3 && (
         <section className="mb-8 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+          <div className="card">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Ara mateix, el més fresc</p>
             <p className="mt-1">
               <Link href={sorted[0].m.path} className="text-lg font-semibold no-underline text-[var(--ink)]">
@@ -144,7 +144,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
               </span>
             </p>
           </div>
-          <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+          <div className="card">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Ara mateix, el més càlid</p>
             <p className="mt-1">
               <Link href={sorted[sorted.length - 1].m.path} className="text-lg font-semibold no-underline text-[var(--ink)]">

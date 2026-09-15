@@ -74,14 +74,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           * desplaçar-se: dues línies visibles valen més que una amagada.
           */}
         <header className="border-b border-[var(--line)] bg-[var(--surface)]">
-          <div className="mx-auto flex max-w-5xl flex-wrap items-baseline gap-x-6 gap-y-1 px-5 py-3">
+          <div className="mx-auto flex max-w-5xl items-center gap-x-3 px-5 py-3">
             <Link
               href="/"
               className="shrink-0 whitespace-nowrap font-semibold tracking-tight text-[var(--ink)] no-underline"
             >
               El temps
             </Link>
-            <nav aria-label="Principal" className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[var(--muted)]">
+
+            {/*
+              Els quatre enllaços, **només quan hi caben**.
+
+              En un telèfon de 375 px, «El temps» i quatre enllaços i el
+              cercador no caben en una línia: la fila passava a dues i el
+              cercador quedava sol a la segona, sota el menú. Ara al mòbil els
+              enllaços viuen dins del desplegable i la fila té tres peces —el
+              nom, el cercador i el menú— que és el que demana el disseny.
+            */}
+            <nav
+              aria-label="Principal"
+              className="hidden gap-x-5 text-sm text-[var(--muted)] sm:flex"
+            >
               {PRIMARY.map((l) => (
                 <Link key={l.href} href={l.href} className="no-underline hover:text-[var(--ink)]">
                   {l.label}
@@ -103,6 +116,52 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               * `/cerca?q=…`, que és una pàgina de veritat amb la seva adreça.
               */}
             <SiteSearch />
+
+            {/*
+              El menú, i **sense una línia de JavaScript**.
+
+              És un `<details>`: l'obre i el tanca el navegador. Un desplegable
+              amb estat de React hauria estat el segon component de client del
+              projecte, i per a una llista de quatre enllaços que ja són al peu
+              de cada pàgina.
+
+              Només surt al mòbil, perquè a partir de `sm` els enllaços ja es
+              veuen tots i un menú que repeteix el que hi ha al costat només
+              afegeix un clic.
+            */}
+            <details className="menu relative shrink-0 sm:hidden">
+              <summary
+                aria-label="Menú"
+                className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-[var(--line)] text-[var(--ink-2)]"
+              >
+                <span aria-hidden className="text-base leading-none">☰</span>
+              </summary>
+              <nav
+                aria-label="Seccions"
+                className="absolute right-0 top-11 z-20 w-56 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-2 shadow-[var(--shadow)]"
+              >
+                <ul className="m-0 list-none p-0">
+                  {PRIMARY.map((l) => (
+                    <li key={l.href}>
+                      <Link
+                        href={l.href}
+                        className="block rounded-md px-3 py-2 text-sm text-[var(--ink)] no-underline hover:bg-[var(--surface-2)]"
+                      >
+                        {l.label}
+                      </Link>
+                    </li>
+                  ))}
+                  <li>
+                    <Link
+                      href="/cerca"
+                      className="block rounded-md px-3 py-2 text-sm text-[var(--ink)] no-underline hover:bg-[var(--surface-2)]"
+                    >
+                      Cercar un lloc
+                    </Link>
+                  </li>
+                </ul>
+              </nav>
+            </details>
           </div>
         </header>
 

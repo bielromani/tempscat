@@ -195,7 +195,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
       </header>
 
       {/* ── El traçat ─────────────────────────────────────────────────── */}
-      <section className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
+      <section className="card">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
           <div>
             <dt className="text-xs text-[var(--muted)]">Distància</dt>
@@ -264,7 +264,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
         * germanes: ni quina va abans, ni quantes n'hi ha. Passa a 209 dels 683.
         */}
       {axis && (
-        <section className="mt-8 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
+        <section className="mt-8 card">
           <h2 className="text-lg font-semibold tracking-tight">
             Etapa {route.leg} de {axis.legs.length} del {axis.ref}
           </h2>
@@ -317,7 +317,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
 
       {/* La mare, quan això n'és una variant: «GR 11.18» penja de «GR 11». */}
       {parentAxis && (
-        <section className="mt-8 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
+        <section className="mt-8 card">
           <h2 className="text-lg font-semibold tracking-tight">
             Variant del {parentAxis.ref}
           </h2>
@@ -382,7 +382,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
 
       {/* ── Ara ── */}
       {current && nowUp != null && base && route.maxM != null && (
-        <section className="mt-4 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
+        <section className="mt-4 card">
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
             <p className="m-0">
               <span className="tnum text-4xl font-semibold tracking-tight text-[var(--ink)]">

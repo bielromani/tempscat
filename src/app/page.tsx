@@ -1,10 +1,24 @@
 import Link from 'next/link';
 import { SECTIONS } from '@/lib/nav';
 import { allComarques, buildSummary } from '@/lib/territory';
+import { rankings } from '@/lib/rankings';
+import { activeWarnings, groupWarnings } from '@/lib/weather';
+import { phenomenonName } from '@/lib/warning-labels';
+import { ago, num } from '@/lib/format';
 
-export const revalidate = 3600;
+/*
+ * Deu minuts, i no una hora.
+ *
+ * La portada ha passat de ser un índex a contestar quin temps fa, i els
+ * extrems d'ara mateix envelleixen com l'observació que els dona: amb una hora,
+ * la xifra de «el més càlid» podria ser de fa seixanta minuts amb el rètol
+ * dient que és d'ara. El que no envelleix —les seccions, les comarques— no
+ * costa res de tornar a escriure.
+ */
+export const revalidate = 600;
 
-export default function Home() {
+export default async function Home() {
+  const [rank, warnings] = await Promise.all([rankings(), activeWarnings()]);
   const comarques = allComarques();
   const summary = buildSummary() as {
     published: number;
@@ -30,20 +44,119 @@ export default function Home() {
         </p>
       </header>
 
-      <section className="mb-10 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[var(--line-soft)] bg-[var(--line-soft)] sm:grid-cols-4">
-        {[
-          { v: comarques.length, k: 'comarques' },
-          { v: summary.byLevel.municipi.published, k: 'municipis' },
-          { v: summary.byLevel.entitat_singular.published + summary.byLevel.nucli.published, k: 'nuclis i entitats' },
-          { v: summary.stations.operatives, k: 'estacions XEMA' },
-        ].map((s) => (
-          <div key={s.k} className="bg-[var(--surface)] p-4">
-            <p className="tnum text-2xl font-semibold tracking-tight text-[var(--accent)]">
-              {s.v.toLocaleString('ca-ES')}
+      {/*
+        ── Què fa ara mateix ──────────────────────────────────────────────────
+
+        La portada d'un web del temps ha de dir quin temps fa, i aquesta no en
+        deia cap: era un índex de seccions amb quatre comptadors de quantes
+        pàgines hi ha. Els números de sota segueixen sent certs i no són el que
+        ve a buscar ningú.
+
+        Tot el que hi ha aquí surt de dades que ja hi eren —`rankings()` ja
+        s'havia baixat l'observació sencera per a `/ranquings`— així que no hi
+        ha ni una lectura nova ni una unitat de quota.
+
+        Cada extrem porta **el seu lloc** i és un enllaç: la pregunta següent de
+        qui llegeix «el més càlid, 32,1°» és «on», i la resposta és una
+        pàgina.
+      */}
+      {rank && (
+        <section className="card mb-8" aria-label="El temps ara mateix a Catalunya">
+          <h2 className="card-title">Ara mateix a Catalunya</h2>
+          <ul className="mt-3 grid list-none grid-cols-2 gap-x-6 gap-y-3.5 p-0">
+            {([
+              ['El més càlid', rank.stations.nowWarmest[0], (v: number) => `${num(v, 1)} °C`],
+              ['El més fred', rank.stations.nowColdest[0], (v: number) => `${num(v, 1)} °C`],
+              ['Més pluja avui', rank.stations.rain[0], (v: number) => `${num(v, 1)} mm`],
+              /*
+               * La ratxa ja ve en km/h.
+               *
+               * `rankings()` la converteix quan la desa —`describe(s, Math.round(msToKmh(v)))`—
+               * i tornar-la a convertir aquí la multiplicava per 3,6 una segona
+               * vegada: el Monestir de Montserrat sortia a **180 km/h** una
+               * tarda de 37 °C. Ni un error, i un número que es pot llegir.
+               */
+              ['Ratxa més forta', rank.stations.gust[0], (v: number) => `${v.toFixed(0)} km/h`],
+            ] as const).map(([label, row, fmt]) => {
+              /* Una fila sense estació no s'escriu: un guió al costat d'una
+                 etiqueta és una manera de dir que no ho sabem que ocupa el
+                 mateix que dir-ho. */
+              if (!row) return null;
+              const name = row.placeNom ?? row.nom;
+              return (
+                /* L'etiqueta a dalt i la xifra a sota, i no als dos costats
+                   d'una mateixa línia: amb «Ratxa més forta» i «Monestir de
+                   Montserrat» a banda i banda, les dues es partien i la fila
+                   ocupava quatre línies per dir una cosa. */
+                <li key={label}>
+                  <p className="text-[12px] text-[var(--muted)]">{label}</p>
+                  <p className="tnum mt-0.5">
+                    <strong className="text-[17px] font-semibold text-[var(--ink)]">{fmt(row.value)}</strong>{' '}
+                    {row.path ? (
+                      <Link href={row.path} className="text-sm text-[var(--ink-2)]">{name}</Link>
+                    ) : (
+                      <span className="text-sm text-[var(--ink-2)]">{name}</span>
+                    )}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="source">
+            {rank.stations.total} estacions de la {rank.source}
+            {rank.ageMin != null && ` · ${ago(rank.ageMin)}`}. La pluja i la ratxa són d&apos;avui
+            des de mitjanit; la temperatura, de l&apos;última lectura.{' '}
+            <Link href="/ranquings">Totes les llistes</Link>.
+          </p>
+        </section>
+      )}
+
+      {/*
+        Els avisos, i només quan n'hi ha.
+
+        Una franja que digui «cap avís» cada dia és una franja que ningú no
+        llegeix el dia que en digui un.
+      */}
+      {(() => {
+        const groups = groupWarnings(warnings);
+        const worst = groups[0];
+        if (!worst) return null;
+        return (
+          <section className="card mb-8" aria-label="Avisos oficials vigents">
+            <h2 className="card-title">Avisos oficials</h2>
+            <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
+              Hi ha <strong className="font-semibold text-[var(--ink)]">
+                {groups.length} {groups.length === 1 ? 'avís' : 'avisos'}
+              </strong>{' '}
+              en vigor. El més alt és de nivell{' '}
+              <strong className="font-semibold text-[var(--ink)]">{worst.level}</strong>, per{' '}
+              {phenomenonName(worst.phenomenon).toLowerCase()}.{' '}
+              <Link href="/avisos">Consulteu-los tots</Link>.
             </p>
-            <p className="text-xs text-[var(--muted)]">{s.k}</p>
-          </div>
-        ))}
+            <p className="source">Agència Estatal de Meteorologia · avisos oficials.</p>
+          </section>
+        );
+      })()}
+
+      {/* Els números del territori. Segueixen sent certs; el que canvia és
+          que ja no són el primer que es veu. */}
+      <section className="card mb-10">
+        <h2 className="card-title">Què hi ha cobert</h2>
+        <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+          {[
+            { v: comarques.length, k: 'comarques' },
+            { v: summary.byLevel.municipi.published, k: 'municipis' },
+            { v: summary.byLevel.entitat_singular.published + summary.byLevel.nucli.published, k: 'nuclis i entitats' },
+            { v: summary.stations.operatives, k: 'estacions XEMA' },
+          ].map((s) => (
+            <div key={s.k}>
+              <dd className="tnum text-2xl font-semibold tracking-tight text-[var(--ink)]">
+                {s.v.toLocaleString('ca-ES')}
+              </dd>
+              <dt className="text-xs text-[var(--muted)]">{s.k}</dt>
+            </div>
+          ))}
+        </dl>
       </section>
 
       {/*
@@ -59,13 +172,13 @@ export default function Home() {
         */}
       {SECTIONS.map((g) => (
         <section key={g.title} className="mb-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">{g.title}</h2>
+          <h2 className="card-title mb-3">{g.title}</h2>
           <ul className="grid gap-3 sm:grid-cols-2">
             {g.links.map((l) => (
               <li key={l.href}>
                 <Link
                   href={l.href}
-                  className="block h-full rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4 no-underline hover:border-[var(--accent)]"
+                  className="block h-full card no-underline hover:border-[var(--accent)]"
                 >
                   <p className="font-semibold text-[var(--ink)]">{l.label}</p>
                   {l.blurb && <p className="mt-1 text-sm text-[var(--muted)]">{l.blurb}</p>}
@@ -76,7 +189,7 @@ export default function Home() {
         </section>
       ))}
 
-      <h2 className="mb-3 text-lg font-semibold tracking-tight">Comarques</h2>
+      <h2 className="card-title mb-3">Comarques</h2>
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {comarques.map((c) => (
           <li key={c.codi}>

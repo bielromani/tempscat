@@ -65,7 +65,7 @@ export function RainBlock({
       : 'no consta';
 
   return (
-    <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+    <div className="card">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
         <div>
           <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">15 dies</dt>

@@ -104,7 +104,7 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
           </figcaption>
         </figure>
       ) : (
-        <section className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
+        <section className="card">
           <h2 className="text-base font-semibold tracking-tight">Aquesta càmera està aturada</h2>
           <p className="mt-2 max-w-[60ch] text-sm leading-relaxed text-[var(--ink-2)]">
             Consta com a activa al catàleg de Ferrocarrils, però el fotograma que

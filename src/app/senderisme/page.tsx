@@ -164,7 +164,7 @@ export default async function SenderismePage() {
 
       {/* ── Isoterma ── */}
       {fz && (
-        <section className="mb-8 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+        <section className="mb-8 card">
           <h2 className="text-xs uppercase tracking-wide text-[var(--muted)]">
             La isoterma de zero graus, mesurada
           </h2>

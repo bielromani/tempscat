@@ -107,7 +107,7 @@ function PlaceList({ rows }: { rows: PlaceRow[] }) {
 
 function Block({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+    <section className="card">
       <h3 className="text-sm font-semibold tracking-tight text-[var(--ink)]">{title}</h3>
       {hint && <p className="mb-2 mt-0.5 text-xs text-[var(--muted)]">{hint}</p>}
       <div className={hint ? '' : 'mt-2'}>{children}</div>

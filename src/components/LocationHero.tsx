@@ -374,7 +374,7 @@ export function LocationHero({
         d'una altra peça: escrit com a `pt-[92px]` sembla una tria d'espaiat i
         el dia que la barra creixi ningú no el relacionarà amb això.
       */}
-      <div className="relative px-5 pb-5 sm:px-7 sm:pb-6" style={{ color: 'oklch(99% 0 0)', paddingTop: 96 }}>
+      <div className="relative px-5 pb-5 sm:px-7 sm:pb-6" style={{ color: 'oklch(99% 0 0)', paddingTop: 72 }}>
         <nav aria-label="Ruta de navegació" className="text-[12px] uppercase tracking-[0.08em]">
           <ol className="flex flex-wrap items-center gap-x-1.5">
             {/* L'últim element de la ruta és aquesta mateixa pàgina i el seu

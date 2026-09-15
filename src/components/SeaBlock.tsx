@@ -35,7 +35,7 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
             return (
               <li
                 key={b.code}
-                className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4"
+                className="card"
               >
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                   <span className="font-medium text-[var(--ink)]">{b.name}</span>
@@ -81,7 +81,7 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
           })}
         </ul>
       ) : (
-        <p className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4 text-sm text-[var(--ink-2)]">
+        <p className="card text-sm text-[var(--ink-2)]">
           Cap platja {nom.startsWith('l\'') ? 'd\'' : 'de '}{nom} té parte de les últimes
           dotze hores. Les posen els socorristes quan són de servei, i fora
           d&apos;horari o de temporada no se&apos;n publica cap de nova.
@@ -89,7 +89,7 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
       )}
 
       {now && (
-        <div className="mt-3 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+        <div className="mt-3 card">
           <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
             El mar, segons el model
           </p>

@@ -85,7 +85,7 @@ export function ComarcaCompare({ cmp, nom }: { cmp: ComarcaComparison; nom: stri
   return (
     <section>
       {now && (
-        <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+        <div className="card">
           <p className="text-[var(--ink)]">{positionSentence(now, nom, 'Ara mateix')}</p>
           <p className="mt-1 text-sm text-[var(--muted)]">
             {Math.abs(now.vsMedian) < 0.3
@@ -98,7 +98,7 @@ export function ComarcaCompare({ cmp, nom }: { cmp: ComarcaComparison; nom: stri
       )}
 
       {month && (
-        <div className="mt-3 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+        <div className="mt-3 card">
           <p className="text-[var(--ink)]">
             {positionSentence(month, nom, `Al llarg ${monthOf(cmp.monthNumber)}`)}
           </p>

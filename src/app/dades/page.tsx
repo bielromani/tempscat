@@ -30,7 +30,7 @@ function Endpoint({
   example?: string;
 }) {
   return (
-    <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+    <div className="card">
       <p className="font-mono text-sm text-[var(--ink)]">{path}</p>
       <p className="mt-1.5 text-sm leading-relaxed text-[var(--ink-2)]">{children}</p>
       {example && (

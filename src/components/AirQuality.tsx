@@ -91,7 +91,7 @@ export function AirQuality({ air, today }: Props) {
 
         <div className="space-y-3">
           {air.pollutants.length > 0 && (
-            <dl className="grid grid-cols-3 gap-x-4 gap-y-2 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4 text-sm sm:grid-cols-4">
+            <dl className="grid grid-cols-3 gap-x-4 gap-y-2 card text-sm sm:grid-cols-4">
               {air.pollutants.map((p) => (
                 <div key={p.slug}>
                   <dt className="text-xs text-[var(--muted)]" title={p.nom}>{p.curt}</dt>
@@ -104,7 +104,7 @@ export function AirQuality({ air, today }: Props) {
             </dl>
           )}
 
-          <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+          <div className="card">
             <DayProfile hourly={air.hourly} />
 
             {air.daily.length > 1 && (
@@ -132,7 +132,7 @@ export function AirQuality({ air, today }: Props) {
       </div>
 
       {air.pollen.length > 0 && (
-        <div className="mt-3 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+        <div className="mt-3 card">
           <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Pol·len a l&apos;aire</p>
           <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm">
             {air.pollen.map((p) => (

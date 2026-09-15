@@ -1040,6 +1040,35 @@ cuota para exactamente la misma información.
   no l'entén, la declaració sencera queda invàlida, el fons desapareix i queda **text blanc
   damunt de blanc**. Amb un sòlid a sota, el pitjor cas és un cel d'un sol to.
 
+- **El radi de les targetes es canvia al tema, no als cinquanta llocs que el fan servir.**
+  El sistema del redisseny demana 14–16 px i Tailwind en porta 8 a `rounded-lg`. Es toca a
+  `@theme inline` de `globals.css` —`--radius-md`, `--radius-lg`, `--radius-xl`— i amb això
+  canvien totes alhora. Anant bloc per bloc n'hi hauria quatre que es quedarien enrere i ningú
+  no ho veuria fins mesos després. El mateix amb la targeta: `.card` i `.card-title` i `.source`
+  a `globals.css`, i `.card-block` quan a més li cal el marge de separació —**`.card` no en
+  porta** perquè n'hi ha que viuen dins d'una graella, on un marge superior desquadra les files.
+
+- **Una conversió d'unitats feta dues vegades dona un número que es pot llegir.** La portada
+  nova ensenyava «Ratxa més forta · **180 km/h** · Monestir de Montserrat» una tarda de 37 °C.
+  `rankings()` ja desa la ratxa en km/h —`describe(s, Math.round(msToKmh(v)))`— i la portada hi
+  tornava a aplicar `msToKmh`: 50 × 3,6. Ni un error, ni una prova en roig, i un valor que
+  existeix de veritat en un temporal. Si un valor ve d'una funció que ja el prepara per
+  ensenyar-lo, **no se li torna a tocar la unitat**.
+
+- **La portada d'un web del temps ha de dir quin temps fa.** Era un índex de seccions amb quatre
+  comptadors de quantes pàgines hi ha: certs, i no el que ve a buscar ningú. Ara obre amb els
+  extrems d'ara mateix —el més càlid, el més fred, la ratxa— cadascun **amb el seu lloc i
+  enllaçat**, perquè la pregunta següent de qui llegeix «37,4 °C» és «on». Tot surt de
+  `rankings()`, que ja s'havia baixat l'observació sencera per a `/ranquings`: ni una lectura
+  nova ni una unitat de quota. I el `revalidate` baixa de 3.600 a 600, perquè ara la pàgina porta
+  dades que envelleixen.
+
+- **Al mòbil la barra són tres peces: el nom, el cercador i el menú.** Amb «El temps» i quatre
+  enllaços i el cercador no cabien en una línia de 375 px: la fila passava a dues i el cercador
+  quedava sol a la segona. Els enllaços viuen ara dins d'un desplegable que és un **`<details>`**
+  i per tant l'obre el navegador — un desplegable amb estat de React hauria estat el segon
+  component de client del projecte per a una llista de quatre enllaços que ja són al peu.
+
 - **El camp de meduses porta diverses espècies separades per `;`.** Cada una és
   `espècie,abundància,talla`. Llegint només fins a la primera coma, a Castell-Platja d'Aro
   —que en reporta tres— sortia la inofensiva i **quedava amagada la que pica**. `parseJellyfish()`

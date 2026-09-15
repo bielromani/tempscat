@@ -120,7 +120,7 @@ function NowGrid({
   const fromModel = cells.filter((c) => c.model).map((c) => c.k);
 
   return (
-    <section className="card" aria-label="Totes les mesures d'ara mateix">
+    <section className="card card-block" aria-label="Totes les mesures d'ara mateix">
       <h2 className="card-title">Ara mateix, tota la lectura</h2>
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3.5 sm:grid-cols-3">
         {cells.map((c) => (

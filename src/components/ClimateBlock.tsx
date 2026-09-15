@@ -287,7 +287,7 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
     <section className="flex flex-col gap-5">
       {/* ── Anomalía del mes ── */}
       {normal && (hasTemp || normal.precip != null) && (
-        <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5">
+        <div className="card">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
             Com va aquest {monthName}
           </h3>
@@ -565,7 +565,7 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
             D&apos;on ve el vent
           </h3>
-          <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+          <div className="card">
             <WindRose rose={history.rose} />
           </div>
           {stationHref && (
@@ -587,7 +587,7 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           {/* La caixa només si hi ha dibuix: `RecentChart` torna nul sense cinc
               dies de màxima i mínima, i quedava un requadre buit. */}
           {hasChart && (
-            <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+            <div className="card">
               <RecentChart daily={history.daily} />
             </div>
           )}

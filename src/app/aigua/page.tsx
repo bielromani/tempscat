@@ -143,7 +143,7 @@ export default async function AiguaPage() {
             <li
               key={r.code}
               id={`e-${r.code}`}
-              className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4"
+              className="card"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <span className="font-medium text-[var(--ink)]">{r.name}</span>
@@ -193,7 +193,7 @@ export default async function AiguaPage() {
       {drought && (
         <section className="mt-10">
           <h2 className="mb-3 text-lg font-semibold tracking-tight">Estat de sequera</h2>
-          <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+          <div className="card">
             {abnormal.length === 0 ? (
               <p className="text-[var(--ink)]">
                 Els {int(Object.keys(drought.byMunicipality).length)} municipis del registre

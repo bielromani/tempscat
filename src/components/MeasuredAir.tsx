@@ -21,7 +21,7 @@ export function MeasuredAir({ station }: { station: NearestAirStation }) {
   if (!shown.length) return null;
 
   return (
-    <div className="mt-3 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+    <div className="mt-3 card">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
           Mesurat en estació, el {dateShort(station.day)}

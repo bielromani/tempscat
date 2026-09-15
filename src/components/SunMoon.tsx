@@ -96,7 +96,7 @@ export function SunMoon({ astro }: { astro: Astronomy }) {
   const delta = astro.daylightDeltaMinutes;
 
   return (
-    <section className="grid gap-4 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-5 sm:grid-cols-2">
+    <section className="grid gap-4 card sm:grid-cols-2">
       <div>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">Sol</h3>
         <SunArc astro={astro} />

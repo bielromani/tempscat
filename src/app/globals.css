@@ -118,6 +118,19 @@
 }
 
 @theme inline {
+  /*
+   * Els radis del sistema.
+   *
+   * El disseny demana **14–16 px** a les targetes i Tailwind en porta 8 a
+   * `rounded-lg`. Es canvia aquí i no als cinquanta llocs que el fan servir:
+   * el radi és una decisió del sistema, no de cada bloc, i tocant-lo als
+   * cinquanta n'hi hauria quatre que es quedarien enrere sense que ningú ho
+   * veiés fins a mesos després.
+   */
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
   --color-paper: var(--paper);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
@@ -597,6 +610,16 @@ button:focus-visible,
   border: 1px solid var(--line-soft);
   border-radius: 16px;
   padding: 16px 18px;
+}
+
+/*
+ * El marge va a part.
+ *
+ * `.card` no en porta perquè n'hi ha que viuen dins d'una graella, on un marge
+ * superior desquadra les files. Qui vagi de bloc en bloc es posa `.card-block`,
+ * que és la targeta amb l'aire que la separa de l'anterior.
+ */
+.card-block {
   margin-top: 20px;
 }
 
@@ -613,6 +636,31 @@ button:focus-visible,
   font-size: 11.5px;
   line-height: 1.5;
   color: var(--muted);
+}
+
+/* ── El menú del mòbil ──────────────────────────────────────────────────────
+
+   És un `<details>` i per tant l'obre el navegador. El triangle per defecte no
+   hi pinta res: el que es veu és la icona de tres ratlles, i el triangle al
+   costat diria que allò s'obre dues vegades.                                 */
+
+.menu > summary { list-style: none; }
+.menu > summary::-webkit-details-marker { display: none; }
+.menu > summary::marker { content: ""; }
+
+/* Damunt del cel, la píndola del menú va sobre vidre fosc com el cercador.
+   El desplegable, en canvi, es queda opac i clar: és una llista d'enllaços i
+   ha de ser llegible, no transparent. */
+body:has([data-hero]) .menu > summary {
+  background: oklch(20% 0.02 250 / 0.42);
+  backdrop-filter: blur(8px);
+  border-color: oklch(99% 0 0 / 0.22);
+  color: oklch(99% 0 0);
+}
+
+body:has([data-hero]) .menu nav a {
+  color: var(--ink);
+  opacity: 1;
 }
 
 /* ── La capçalera, quan la pàgina porta cel ─────────────────────────────────

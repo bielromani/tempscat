@@ -50,7 +50,7 @@ export function WaterBlock({ water, nom }: { water: WaterNearby; nom: string }) 
 
       <div className="grid gap-3 sm:grid-cols-2">
         {reservoir && (
-          <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+          <div className="card">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
               L&apos;embassament més proper
             </p>
@@ -87,7 +87,7 @@ export function WaterBlock({ water, nom }: { water: WaterNearby; nom: string }) 
         )}
 
         {river && (
-          <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] p-4">
+          <div className="card">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
               L&apos;aforament més proper
             </p>
