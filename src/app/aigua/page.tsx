@@ -70,14 +70,14 @@ export default async function AiguaPage() {
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Aigua</span>
       </nav>
 
-      <header className="mb-6 max-w-[64ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           Com estan els embassaments
         </h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
@@ -192,7 +192,7 @@ export default async function AiguaPage() {
       {/* ── Sequía ── */}
       {drought && (
         <section className="mt-10">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Estat de sequera</h2>
+          <h2 className="mb-3 card-title">Estat de sequera</h2>
           <div className="card">
             {abnormal.length === 0 ? (
               <p className="text-[var(--ink)]">
@@ -239,7 +239,7 @@ export default async function AiguaPage() {
       {rivers.length > 0 && (
         <section className="mt-10">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold tracking-tight">Cabal dels rius</h2>
+            <h2 className="card-title">Cabal dels rius</h2>
             <p className="text-xs text-[var(--muted)]">{rivers.length} aforaments amb dada</p>
           </div>
 
@@ -275,7 +275,7 @@ export default async function AiguaPage() {
         </section>
       )}
 
-      <p className="mt-8 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+      <p className="mt-8 measure text-xs leading-relaxed text-[var(--muted)]">
         {res.source}. Els cabals són lectures de registre, sense validar, i els
         aforaments es veuen afectats per les preses de riu amunt: un cabal baix no
         vol dir sempre que plogui poc. Les coordenades originals són en UTM 31N i

@@ -132,7 +132,7 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
         </div>
       )}
 
-      <p className="mt-3 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+      <p className="mt-3 measure text-xs leading-relaxed text-[var(--muted)]">
         {sea.source}. La bandera la posa un socorrista mirant l&apos;aigua; l&apos;onatge
         del model cobreix les hores i els trams on no n&apos;hi ha.{' '}
         <Link href="/mar" className="text-[var(--ink-2)] no-underline hover:underline">

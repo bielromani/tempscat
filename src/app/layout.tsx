@@ -165,7 +165,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-8">{children}</main>
+        <main className="mx-auto w-full flex-1 px-5 py-8">{children}</main>
 
         <footer className="mt-16 border-t border-[var(--line)] bg-[var(--surface)]">
           <div className="mx-auto max-w-5xl px-5 py-10">
@@ -232,7 +232,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </li>
               </ul>
 
-              <p className="mt-6 max-w-[70ch] text-xs leading-relaxed">
+              <p className="mt-6 measure text-xs leading-relaxed">
                 Cada pàgina diu de quina estació surt el seu número, a quina distància
                 és i a quina hora es va prendre la lectura.{' '}
                 <Link href="/dades" className="text-[var(--ink-2)] no-underline hover:underline">
@@ -248,7 +248,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 .
               </p>
 
-              <p className="mt-3 max-w-[70ch] text-xs leading-relaxed">
+              <p className="mt-3 measure text-xs leading-relaxed">
                 La predicció és orientativa. Per a decisions de seguretat, consulteu
                 el Meteocat i Protecció Civil.
               </p>

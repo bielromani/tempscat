@@ -172,7 +172,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
           { nom: 'Itineraris', path: '/senderisme/rutes' },
           { nom: route.name, path: `/senderisme/rutes/${route.slug}` },
         ]))} />
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <Link href="/senderisme" className="no-underline hover:text-[var(--ink)]">Muntanya</Link>
@@ -182,8 +182,8 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
         <span className="text-[var(--ink-2)]">{route.name}</span>
       </nav>
 
-      <header className="mb-6 max-w-[64ch]">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{route.name}</h1>
+      <header className="page-head">
+        <h1 className="page-title">{route.name}</h1>
         <p className="mt-1.5 text-sm text-[var(--ink-2)]">
           {[
             refApart(route),
@@ -265,7 +265,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
         */}
       {axis && (
         <section className="mt-8 card">
-          <h2 className="text-lg font-semibold tracking-tight">
+          <h2 className="card-title">
             Etapa {route.leg} de {axis.legs.length} del {axis.ref}
           </h2>
           <p className="mt-1 text-sm leading-relaxed text-[var(--ink-2)]">
@@ -318,7 +318,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
       {/* La mare, quan això n'és una variant: «GR 11.18» penja de «GR 11». */}
       {parentAxis && (
         <section className="mt-8 card">
-          <h2 className="text-lg font-semibold tracking-tight">
+          <h2 className="card-title">
             Variant del {parentAxis.ref}
           </h2>
           <p className="mt-1 text-sm leading-relaxed text-[var(--ink-2)]">
@@ -341,7 +341,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
       */}
       {!axis && variants.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-2 text-lg font-semibold tracking-tight">
+          <h2 className="mb-2 card-title">
             {variants.length === 1 ? 'Una variant senyalitzada' : `${variants.length} variants senyalitzades`}
           </h2>
           <ul className="space-y-1.5">
@@ -366,10 +366,10 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
       {/* ── El temps, que és a què es ve ─────────────────────────────── */}
       {route.maxM != null && base && (nowUp != null || days.length > 0) && (
         <section className="mt-8">
-          <h2 className="mb-1 text-lg font-semibold tracking-tight">
+          <h2 className="mb-1 card-title">
             El temps a {int(route.maxM)} m
           </h2>
-          <p className="mb-4 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
+          <p className="mb-4 measure text-sm leading-relaxed text-[var(--ink-2)]">
             La temperatura ve del punt de predicció{' '}
             {route.nearest && (
               <>de <Link href={route.nearest.path} className="text-[var(--ink)]">{route.nearest.nom}</Link>{' '}</>
@@ -414,9 +414,9 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
       {/* ── Hora a hora, que és el que decideix a quina hora se surt ── */}
       {aheadHours >= 2 && route.maxM != null && (
         <section className="mt-6">
-          <h3 className="mb-2 text-base font-semibold tracking-tight">Hora a hora</h3>
+          <h3 className="mb-2 card-title">Hora a hora</h3>
           <NextHours hourly={hourlyUp} nowHour={nowHour} models={forecast?.models.length ?? 1} id="ruta" />
-          <p className="mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+          <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
             La temperatura és la de {int(route.maxM)} m; la pluja i el vent són els del
             punt de predicció, sense pujar. Amb {hoursText(hours)} de camí, el que
             decideix l&apos;hora de sortida és com estarà a mig matí i a mitja tarda, no
@@ -428,7 +428,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
       {/* ── El temps a l'altura de l'itinerari ────────────────────────── */}
       {days.length > 0 && route.maxM != null && base && (
         <section className="mt-6">
-          <h3 className="mb-2 text-base font-semibold tracking-tight">Els propers dies</h3>
+          <h3 className="mb-2 card-title">Els propers dies</h3>
 
           <div className="scroll-x">
             <table className="w-full border-collapse text-sm">
@@ -499,7 +499,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
             </table>
           </div>
 
-          <p className="mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+          <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
             La ratxa és la del punt de predicció, a {int(base.altitud ?? 0)} m, i{' '}
             <strong className="font-medium text-[var(--ink-2)]">no</strong> està
             pujada a la cota de l&apos;itinerari: en una carena el vent s&apos;accelera per la
@@ -513,7 +513,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
       {/* ── Per on va ─────────────────────────────────────────────────── */}
       {geo && geo.trace.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Per on va</h2>
+          <h2 className="mb-3 card-title">Per on va</h2>
           <RouteMap
             projection={mapBase.projection}
             trace={geo.trace}
@@ -526,13 +526,13 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
       {/* ── El perfil ─────────────────────────────────────────────────── */}
       {geo?.profile && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Com puja i com baixa</h2>
+          <h2 className="mb-3 card-title">Com puja i com baixa</h2>
           <ElevationProfile profile={geo.profile} km={route.km} />
         </section>
       )}
 
       {geo && !geo.profile && (
-        <p className="mt-8 max-w-[65ch] text-sm leading-relaxed text-[var(--muted)]">
+        <p className="mt-8 measure text-sm leading-relaxed text-[var(--muted)]">
           D&apos;aquest itinerari no se&apos;n publica el perfil d&apos;alçades. A
           OpenStreetMap la relació és un conjunt de vies sense ordre, i les
           d&apos;aquesta no s&apos;encadenen —hi ha branques o trams solts—, així que
@@ -542,7 +542,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
       )}
 
       {/* ── Enllaços ──────────────────────────────────────────────────── */}
-      <section className="mt-8 max-w-[64ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
+      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
         {route.website && (
           <p>
             Fitxa oficial de l&apos;itinerari:{' '}
@@ -570,7 +570,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
 
       {others.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             Altres itineraris {comarques.get(route.comarques[0])
               ? deComarca(comarques.get(route.comarques[0])!)
               : 'a prop'}

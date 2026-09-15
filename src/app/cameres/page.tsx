@@ -41,7 +41,7 @@ export default async function CameresPage() {
 
   if (!cams) {
     return (
-      <article className="max-w-[65ch]">
+      <article className="measure">
         <h1 className="text-3xl font-semibold tracking-tight">Càmeres de muntanya</h1>
         <p className="mt-4 leading-relaxed text-[var(--ink-2)]">
           Ara mateix no hi ha cap fotograma desat. Torneu-hi en una estona.
@@ -54,14 +54,14 @@ export default async function CameresPage() {
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Càmeres</span>
       </nav>
 
-      <header className="mb-6 max-w-[64ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           Com està la muntanya ara mateix
         </h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
@@ -128,8 +128,8 @@ export default async function CameresPage() {
       )}
 
       {cams.stale.length > 0 && (
-        <section className="mt-8 max-w-[65ch]">
-          <h2 className="text-lg font-semibold tracking-tight">
+        <section className="mt-8 measure">
+          <h2 className="card-title">
             {cams.stale.length === 1 ? 'Una càmera aturada' : `${cams.stale.length} càmeres aturades`}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">

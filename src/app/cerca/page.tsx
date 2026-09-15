@@ -34,14 +34,14 @@ export default async function CercaPage(
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Cercar</span>
       </nav>
 
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Cercar</h1>
-      <p className="mt-2 max-w-[62ch] text-[var(--ink-2)]">
+      <h1 className="page-title">Cercar</h1>
+      <p className="mt-2 measure text-[var(--ink-2)]">
         Pobles, nuclis i comarques; platges, embassaments i aforaments; estacions
         de mesura, estacions de muntanya, càmeres i itineraris senyalitzats. Tot
         alhora, en una sola llista.
@@ -61,7 +61,7 @@ export default async function CercaPage(
 
       {asked && q.trim().length >= MIN_QUERY && (
         results.hits.length === 0 ? (
-          <div className="mt-6 max-w-[62ch]">
+          <div className="mt-6 measure">
             <p className="text-[var(--ink-2)]">
               Cap resultat per a <strong className="font-medium text-[var(--ink)]">{q}</strong>.
             </p>
@@ -105,7 +105,7 @@ export default async function CercaPage(
       )}
 
       {!asked && (
-        <p className="mt-6 max-w-[62ch] text-sm leading-relaxed text-[var(--muted)]">
+        <p className="mt-6 measure text-sm leading-relaxed text-[var(--muted)]">
           No cal escriure els accents, ni els articles, ni les preposicions:
           «mollo» troba Molló i «cala fosca», Cala la Fosca. Les platges,
           els embassaments i els aforaments porten a la seva fila dins de la

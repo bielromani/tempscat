@@ -39,8 +39,8 @@ export default async function EstatPage() {
   const summary = buildSummary() as { builtAt: string; indexablePages: number; nomenclatorEdition: string };
 
   return (
-    <article className="max-w-[68ch]">
-      <h1 className="text-3xl font-semibold tracking-tight">Estat de les dades</h1>
+    <article data-wide className="measure">
+      <h1 className="page-title">Estat de les dades</h1>
       <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
         Quan es va actualitzar cada font per última vegada, i quina antiguitat
         té la dada més recent que en tenim. Serveix per saber, abans de fiar-se
@@ -114,7 +114,7 @@ export default async function EstatPage() {
           </table>
         </div>
 
-      <h2 className="mt-10 text-lg font-semibold tracking-tight">Per què l&apos;observació sempre porta retard</h2>
+      <h2 className="mt-10 card-title">Per què l&apos;observació sempre porta retard</h2>
       <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
         Les estacions de la XEMA prenen lectura cada mitja hora, i el portal de
         dades obertes de la Generalitat les publica amb un decalatge que hem
@@ -123,7 +123,7 @@ export default async function EstatPage() {
         pàgina porta l&apos;hora exacta de la lectura que ensenya.
       </p>
 
-      <h2 className="mt-8 text-lg font-semibold tracking-tight">Validació</h2>
+      <h2 className="mt-8 card-title">Validació</h2>
       <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
         El Meteocat valida les lectures <em>a posteriori</em>, així que les dades
         recents arriben sense marca de validació i surten etiquetades com a
@@ -131,7 +131,7 @@ export default async function EstatPage() {
         revisi.
       </p>
 
-      <h2 className="mt-8 text-lg font-semibold tracking-tight">Territori</h2>
+      <h2 className="mt-8 card-title">Territori</h2>
       <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
         {summary.indexablePages.toLocaleString('ca-ES')} rutes territorials,
         construïdes a partir del Nomenclàtor estadístic (edició {summary.nomenclatorEdition}),

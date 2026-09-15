@@ -145,15 +145,15 @@ export default async function MarPage() {
   }
 
   return (
-    <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+    <article data-wide>
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">El mar</span>
       </nav>
 
-      <header className="mb-6 max-w-[65ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           Es pot fer un bany?
         </h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
@@ -283,7 +283,7 @@ export default async function MarPage() {
       {/* ── Modelo, de norte a sur ── */}
       {strip.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             L&apos;aigua i l&apos;onatge, de nord a sud
           </h2>
           <div className="scroll-x">
@@ -327,10 +327,10 @@ export default async function MarPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">
+        <h2 className="mb-1 card-title">
           Totes les platges, poble a poble
         </h2>
-        <p className="mb-3 max-w-[65ch] text-sm leading-relaxed text-[var(--muted)]">
+        <p className="mb-3 measure text-sm leading-relaxed text-[var(--muted)]">
           Les {registry.length} platges del registre, amb el dia de l&apos;últim parte.
           La bandera només hi surt quan és de les últimes {FLAG_SHOW_HOURS} hores: la
           d&apos;abans-d&apos;ahir no diu res de com està l&apos;aigua avui.
@@ -388,8 +388,8 @@ export default async function MarPage() {
         </ListFilter>
       </section>
 
-      <section className="mt-8 max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--ink)]">
+      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
+        <h2 className="card-title">
           Què vol dir i què no
         </h2>
         <p>

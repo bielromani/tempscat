@@ -103,14 +103,14 @@ export default async function NeuPage() {
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Neu</span>
       </nav>
 
-      <header className="mb-6 max-w-[64ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           Quanta neu hi ha al Pirineu
         </h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
@@ -148,7 +148,7 @@ export default async function NeuPage() {
 
       {mountain && mountain.resorts.length > 0 && (
         <section className="mb-10">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             Les estacions d&apos;esquí
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -176,7 +176,7 @@ export default async function NeuPage() {
         </section>
       )}
 
-      <h2 className="mb-3 text-lg font-semibold tracking-tight">
+      <h2 className="mb-3 card-title">
         Gruix mesurat a les estacions de la XEMA
       </h2>
 
@@ -249,8 +249,8 @@ export default async function NeuPage() {
         </p>
       )}
 
-      <section className="mt-8 max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--ink)]">
+      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
+        <h2 className="card-title">
           Què vol dir i què no
         </h2>
         <p>

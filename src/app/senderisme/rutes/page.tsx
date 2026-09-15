@@ -49,7 +49,7 @@ export default function RutesPage() {
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <Link href="/senderisme" className="no-underline hover:text-[var(--ink)]">Muntanya</Link>
@@ -57,8 +57,8 @@ export default function RutesPage() {
         <span className="text-[var(--ink-2)]">Itineraris</span>
       </nav>
 
-      <header className="mb-6 max-w-[64ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           Itineraris senyalitzats
         </h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
@@ -79,8 +79,8 @@ export default function RutesPage() {
       */}
       {axes.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-1 text-lg font-semibold tracking-tight">Per codi, de punta a punta</h2>
-          <p className="mb-3 max-w-[62ch] text-sm text-[var(--muted)]">
+          <h2 className="mb-1 card-title">Per codi, de punta a punta</h2>
+          <p className="mb-3 measure text-sm text-[var(--muted)]">
             {int(axes.reduce((n, a) => n + a.legs.length, 0))} dels itineraris són{' '}
             <strong className="font-medium text-[var(--ink-2)]">etapes</strong> d’un
             recorregut més llarg. Aquí van seguides i en ordre de caminar-les.
@@ -164,8 +164,8 @@ export default function RutesPage() {
         </div>
       </ListFilter>
 
-      <section className="mt-8 max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--ink)]">
+      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
+        <h2 className="card-title">
           Com es llegeix això
         </h2>
         <p>

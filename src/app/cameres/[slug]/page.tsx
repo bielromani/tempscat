@@ -63,7 +63,7 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <Link href="/cameres" className="no-underline hover:text-[var(--ink)]">Càmeres</Link>
@@ -71,8 +71,8 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
         <span className="text-[var(--ink-2)]">{cam.name}</span>
       </nav>
 
-      <header className="mb-5 max-w-[64ch]">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{cam.name}</h1>
+      <header className="page-head">
+        <h1 className="page-title">{cam.name}</h1>
         <p className="mt-1.5 text-sm text-[var(--ink-2)]">
           {[
             cam.resort,
@@ -105,8 +105,8 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
         </figure>
       ) : (
         <section className="card">
-          <h2 className="text-base font-semibold tracking-tight">Aquesta càmera està aturada</h2>
-          <p className="mt-2 max-w-[60ch] text-sm leading-relaxed text-[var(--ink-2)]">
+          <h2 className="card-title">Aquesta càmera està aturada</h2>
+          <p className="mt-2 measure text-sm leading-relaxed text-[var(--ink-2)]">
             Consta com a activa al catàleg de Ferrocarrils, però el fotograma que
             serveix és el mateix des del {dateFull(cam.capturedLocal)} a les{' '}
             {hour(cam.capturedLocal)}, {ago(cam.ageMin)}.
@@ -114,7 +114,7 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
         </section>
       )}
 
-      <section className="mt-6 max-w-[64ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
+      <section className="mt-6 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
         {cam.nearest && (
           <p>
             El poble més proper amb fitxa és{' '}
@@ -146,7 +146,7 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
 
       {siblings.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-lg font-semibold tracking-tight">
+          <h2 className="card-title">
             Més càmeres {deWord(cam.resort)}
           </h2>
           <ul className="mt-3 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">

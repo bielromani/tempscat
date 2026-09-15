@@ -102,14 +102,14 @@ export default function DadesPage() {
           { nom: 'Dades obertes', path: '/dades' },
         ]),
       )} />
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Dades obertes</span>
       </nav>
 
-      <header className="mb-8 max-w-[62ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Dades obertes</h1>
+      <header className="page-head">
+        <h1 className="page-title">Dades obertes</h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
           Tot el que es veu en aquest web es pot llegir en JSON o en CSV, per a
           qualsevol dels 4.293 llocs. No cal clau, no cal registre i no hi ha
@@ -117,7 +117,7 @@ export default function DadesPage() {
         </p>
       </header>
 
-      <h2 className="mb-3 text-lg font-semibold tracking-tight">Punts d&apos;accés</h2>
+      <h2 className="mb-3 card-title">Punts d&apos;accés</h2>
       <div className="space-y-3">
         <Endpoint path="GET /api/lloc/{comarca}/{municipi}" example={EXAMPLE}>
           Observació, predicció horària i diària, franges del dia, finestres de
@@ -136,7 +136,7 @@ export default function DadesPage() {
         </Endpoint>
       </div>
 
-      <h2 className="mb-3 mt-8 text-lg font-semibold tracking-tight">Paràmetres</h2>
+      <h2 className="mb-3 mt-8 card-title">Paràmetres</h2>
       <div className="scroll-x">
         <table className="w-full border-collapse">
           <tbody>
@@ -166,10 +166,10 @@ export default function DadesPage() {
         </table>
       </div>
 
-      <h2 className="mb-3 mt-8 text-lg font-semibold tracking-tight">
+      <h2 className="mb-3 mt-8 card-title">
         Què hi trobareu que no hi és en altres llocs
       </h2>
-      <div className="max-w-[65ch] space-y-3 leading-relaxed text-[var(--ink-2)]">
+      <div className="measure space-y-3 leading-relaxed text-[var(--ink-2)]">
         <p>
           <strong className="font-medium text-[var(--ink)]">La procedència de cada número.</strong>{' '}
           Cada observació porta l&apos;estació d&apos;on surt, a quina distància
@@ -200,8 +200,8 @@ export default function DadesPage() {
         </p>
       </div>
 
-      <h2 className="mb-3 mt-8 text-lg font-semibold tracking-tight">Condicions</h2>
-      <div className="max-w-[65ch] space-y-3 leading-relaxed text-[var(--ink-2)]">
+      <h2 className="mb-3 mt-8 card-title">Condicions</h2>
+      <div className="measure space-y-3 leading-relaxed text-[var(--ink-2)]">
         <p>
           Les dades són <strong className="font-medium text-[var(--ink)]">CC-BY 4.0</strong>:
           es poden fer servir per a qualsevol cosa, també comercial, però{' '}

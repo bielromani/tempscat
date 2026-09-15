@@ -107,7 +107,7 @@ function PlaceList({ rows }: { rows: PlaceRow[] }) {
 
 function Block({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="card">
+    <section data-wide className="card">
       <h3 className="text-sm font-semibold tracking-tight text-[var(--ink)]">{title}</h3>
       {hint && <p className="mb-2 mt-0.5 text-xs text-[var(--muted)]">{hint}</p>}
       <div className={hint ? '' : 'mt-2'}>{children}</div>
@@ -136,14 +136,14 @@ export default async function RanquingsPage() {
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Rànquings</span>
       </nav>
 
-      <header className="mb-6 max-w-[62ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           Els extrems d&apos;avui a Catalunya
         </h1>
         <p className="mt-2 text-[var(--ink-2)]">
@@ -234,7 +234,7 @@ export default async function RanquingsPage() {
         </div>
       )}
 
-      <h2 className="mb-3 text-lg font-semibold tracking-tight">Extrems del dia</h2>
+      <h2 className="mb-3 card-title">Extrems del dia</h2>
       <div className="grid gap-3 lg:grid-cols-2">
         <Block title="Màximes més altes" hint="Des de la mitjanit d'avui">
           <StationList rows={r.stations.dayMax} unit="°C" colored empty="Encara no hi ha màximes del dia." />
@@ -259,8 +259,8 @@ export default async function RanquingsPage() {
         </Block>
       </div>
 
-      <h2 className="mb-1 mt-10 text-lg font-semibold tracking-tight">Als pobles</h2>
-      <p className="mb-3 max-w-[62ch] text-sm text-[var(--muted)]">
+      <h2 className="mb-1 mt-10 card-title">Als pobles</h2>
+      <p className="mb-3 measure text-sm text-[var(--muted)]">
         La llista de dalt són termòmetres; aquesta són poblacions. El valor
         s&apos;obté corregint la lectura de l&apos;estació de referència pel desnivell
         de cada municipi, així que és una{' '}

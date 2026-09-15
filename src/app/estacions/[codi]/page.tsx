@@ -110,7 +110,7 @@ export default async function EstacioPage({ params }: { params: Params }) {
           { nom: 'Estacions', path: '/estacions' },
           { nom: station.nom, path: `/estacions/${station.codi}` },
         ]))} />
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <Link href="/estacions" className="no-underline hover:text-[var(--ink)]">Estacions</Link>
@@ -118,8 +118,8 @@ export default async function EstacioPage({ params }: { params: Params }) {
         <span className="text-[var(--ink-2)]">{station.nom}</span>
       </nav>
 
-      <header className="mb-5">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{station.nom}</h1>
+      <header className="page-head">
+        <h1 className="page-title">{station.nom}</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Estació automàtica de la XEMA · codi {station.codi}
           {station.altitud != null && ` · ${int(station.altitud)} m`}
@@ -210,7 +210,7 @@ export default async function EstacioPage({ params }: { params: Params }) {
         La aclaración que separa esta página de la de un municipio. Va arriba y no
         en una nota al pie: es la diferencia entre un dato medido y uno calculado.
       */}
-      <p className="mt-4 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
+      <p className="mt-4 measure text-sm leading-relaxed text-[var(--ink-2)]">
         Aquestes xifres són <strong className="font-medium text-[var(--ink)]">la lectura del
         termòmetre</strong>, sense cap correcció: són d&apos;aquest punt, a{' '}
         {station.altitud != null ? `${int(station.altitud)} m` : 'la seva cota'}. A les
@@ -229,14 +229,14 @@ export default async function EstacioPage({ params }: { params: Params }) {
 
       {history?.rose && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">D&apos;on ve el vent</h2>
+          <h2 className="mb-3 card-title">D&apos;on ve el vent</h2>
           <WindRose rose={history.rose} />
         </section>
       )}
 
       {history && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Clima i rècords</h2>
+          <h2 className="mb-3 card-title">Clima i rècords</h2>
           <ClimateBlock
             history={history}
             station={{
@@ -260,10 +260,10 @@ export default async function EstacioPage({ params }: { params: Params }) {
       */}
       {(climateYears.length >= 5 || rainYears.length >= 5) && (
         <section id="anys" className="mt-8 scroll-mt-20">
-          <h2 className="mb-1 text-lg font-semibold tracking-tight">
+          <h2 className="mb-1 card-title">
             Com han anat els anys
           </h2>
-          <p className="mb-4 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
+          <p className="mb-4 measure text-sm leading-relaxed text-[var(--ink-2)]">
             {span.length} anys sencers mesurats aquí, de {span[0].year} a{' '}
             {span[span.length - 1].year}
             {climateYears.length < 5 ? ', de pluja: aquí no es mesura la temperatura' : ''}.
@@ -279,7 +279,7 @@ export default async function EstacioPage({ params }: { params: Params }) {
             monthly={monthly ?? []}
           />
 
-          <div className="mt-4 max-w-[65ch] space-y-2 text-xs leading-relaxed text-[var(--muted)]">
+          <div className="mt-4 measure space-y-2 text-xs leading-relaxed text-[var(--muted)]">
             <p>
               Hi entren els anys amb els dotze mesos mesurats, i els mesos amb{' '}
               {MONTH_MIN_DAYS} dies o més. Un mes amb quatre dies de dada no es pot
@@ -306,7 +306,7 @@ export default async function EstacioPage({ params }: { params: Params }) {
       )}
 
       <section className="mt-8">
-        <h2 className="mb-3 text-lg font-semibold tracking-tight">Fitxa tècnica</h2>
+        <h2 className="mb-3 card-title">Fitxa tècnica</h2>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Fact label="Codi XEMA">{station.codi}</Fact>
           <Fact label="Altitud">
@@ -340,7 +340,7 @@ export default async function EstacioPage({ params }: { params: Params }) {
         </div>
       </section>
 
-      <p className="mt-8 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+      <p className="mt-8 measure text-xs leading-relaxed text-[var(--muted)]">
         Dades del Servei Meteorològic de Catalunya (XEMA), via el portal de dades
         obertes de la Generalitat. Les normals i els rècords es calculen sobre la
         sèrie d&apos;aquesta mateixa estació, no sobre cap reanàlisi ni cap mitjana

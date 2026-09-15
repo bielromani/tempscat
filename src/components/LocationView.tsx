@@ -263,7 +263,7 @@ function DailyStrip({ daily, today }: { daily: LocationForecast['daily']; today:
         })}
       </ol>
       {daily.length > CONFIDENT_DAYS && (
-        <p className="mt-3 max-w-[68ch] text-xs leading-relaxed text-[var(--muted)]">
+        <p className="mt-3 measure text-xs leading-relaxed text-[var(--muted)]">
           Els dies que queden després de la ratlla són <strong className="font-medium text-[var(--ink-2)]">tendència,
           no predicció</strong>. Un model encerta força la setmana que ve i molt
           menys la següent, així que allà no hi ha mil·límetres —a dotze dies
@@ -392,15 +392,15 @@ export function LocationView({
      * de blanc a la dreta, al costat de targetes que arribaven fins al final.
      * Cada bloc per separat estava bé i junts semblaven mal alineats.
      *
-     * Ara la columna és una: 38 rem, que és on la mesura del text hi cap
-     * sencera. Tot comparteix les dues vores.
+     * Ara la columna és una i la posa `main` per a tot el web: 38 rem, que és
+     * on la mesura del text hi cap sencera. Tot comparteix les dues vores.
      *
      * Els onze blocs que necessiten més amplada —el meteograma, la tira de les
      * hores, la dels catorze dies, les taules— ja porten `scroll-x` i es
      * desplacen, que és el que ja feien al telèfon. En un mòbil això no canvia
      * res: allà la columna sempre ha estat l'amplada de la pantalla.
      */
-    <article className="mx-auto max-w-[38rem]">
+    <article>
       {/* El sprite va una sola vez; los 48 iconos de la tabla horaria lo
           referencian con <use> en vez de repetir el dibujo entero. */}
       <WeatherIconSprite />
@@ -458,7 +458,7 @@ export function LocationView({
         */}
       {forecast && forecast.hourly.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Les pròximes hores</h2>
+          <h2 className="mb-3 card-title">Les pròximes hores</h2>
           <NextHours
             hourly={forecast.hourly}
             nowHour={nowIso}
@@ -502,7 +502,7 @@ export function LocationView({
       */}
       {localRain && loc.lat != null && loc.lon != null && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Cap on va la pluja</h2>
+          <h2 className="mb-3 card-title">Cap on va la pluja</h2>
           <LocalRain
             frames={localRain.frames}
             grid={localRain.grid}
@@ -539,7 +539,7 @@ export function LocationView({
       {forecast && forecast.hourly.length > 0 && (
         <section className="mt-8">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold tracking-tight">Pròximes 48 hores</h2>
+            <h2 className="card-title">Pròximes 48 hores</h2>
             <p className="text-xs text-[var(--muted)]">
               {forecast.nModels > 1
                 ? `Consens de ${forecast.nModels} models de predicció`
@@ -570,7 +570,7 @@ export function LocationView({
                   llegir. El que cal saber és fins quin dia es pot confiar en el
                   número, i això és una frase, no una àrea ombrejada. */}
               {narrative?.uncertainty && (
-                <p className="mt-2 max-w-[70ch] text-xs leading-relaxed text-[var(--muted)]">
+                <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
                   {narrative.uncertainty}
                 </p>
               )}
@@ -585,7 +585,7 @@ export function LocationView({
 
       {forecast && forecast.daily.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Els pròxims dies</h2>
+          <h2 className="mb-3 card-title">Els pròxims dies</h2>
           <DailyStrip daily={forecast.daily} today={today} />
         </section>
       )}
@@ -594,7 +594,7 @@ export function LocationView({
       {(air || airStation) && (
         <section className="mt-8">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold tracking-tight">Qualitat de l&apos;aire</h2>
+            <h2 className="card-title">Qualitat de l&apos;aire</h2>
             {air && (
               <p className="text-xs text-[var(--muted)]">Model CAMS · cel·la de {air.cellKm} km</p>
             )}
@@ -608,21 +608,21 @@ export function LocationView({
 
       {sea && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">El mar</h2>
+          <h2 className="mb-3 card-title">El mar</h2>
           <SeaBlock sea={sea} nom={loc.nom} />
         </section>
       )}
 
       {water && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Aigua</h2>
+          <h2 className="mb-3 card-title">Aigua</h2>
           <WaterBlock water={water} nom={loc.nom} />
         </section>
       )}
 
       {routes.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             Itineraris senyalitzats {deComarca(comarca.nom)}
           </h2>
           <ul className="grid list-none gap-2 p-0 sm:grid-cols-2">
@@ -654,7 +654,7 @@ export function LocationView({
 
       {comparison && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             Com queda dins {deComarca(comparison.comarca.nom)}
           </h2>
           <ComarcaCompare cmp={comparison} nom={loc.nom} />
@@ -663,14 +663,14 @@ export function LocationView({
 
       {astro && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Sol i lluna</h2>
+          <h2 className="mb-3 card-title">Sol i lluna</h2>
           <SunMoon astro={astro} />
         </section>
       )}
 
       {resort && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             {resort.resort.name}, l’estació d’esquí més propera
           </h2>
           <ResortBlock
@@ -693,7 +693,7 @@ export function LocationView({
 
       {cameras.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             {cameras.length === 1 ? 'Una càmera a prop' : 'Càmeres a prop'}
           </h2>
           <CameraBlock cameras={cameras} />
@@ -701,10 +701,10 @@ export function LocationView({
       )}
 
       <section className="mt-8">
-        <h2 className="mb-2 text-lg font-semibold tracking-tight">
+        <h2 className="mb-2 card-title">
           Per què el temps {aName(loc.nom)} és diferent
         </h2>
-        <p className="max-w-[65ch] leading-relaxed text-[var(--ink-2)]">{description}</p>
+        <p className="measure leading-relaxed text-[var(--ink-2)]">{description}</p>
       </section>
 
       {/*
@@ -713,7 +713,7 @@ export function LocationView({
       */}
       {rain && current && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             L&apos;aigua que ha caigut
           </h2>
           <RainBlock
@@ -727,7 +727,7 @@ export function LocationView({
 
       {history && current && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Clima i rècords</h2>
+          <h2 className="mb-3 card-title">Clima i rècords</h2>
           <ClimateBlock
             history={history}
             station={current.station}
@@ -740,7 +740,7 @@ export function LocationView({
 
       {siblings.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">{siblingsLabel}</h2>
+          <h2 className="mb-3 card-title">{siblingsLabel}</h2>
           <LinkChips items={siblings.map((s) => ({
             href: s.path, label: s.nom, note: s.altitud != null ? `${s.altitud} m` : undefined,
           }))} />
@@ -749,7 +749,7 @@ export function LocationView({
 
       {neighbours.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">{neighboursLabel}</h2>
+          <h2 className="mb-3 card-title">{neighboursLabel}</h2>
           <LinkChips items={neighbours.map((n) => ({
             href: n.location.path, label: n.location.nom, note: `${n.distKm.toFixed(0)} km`,
           }))} />

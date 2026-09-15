@@ -58,14 +58,14 @@ export default async function NauticaPage() {
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Nàutica</span>
       </nav>
 
-      <header className="mb-6 max-w-[65ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           Es pot sortir a navegar?
         </h1>
         {stretches.length === 0 ? (
@@ -144,7 +144,7 @@ export default async function NauticaPage() {
 
       {stretches.length > 0 && (
         <section>
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             La costa, de nord a sud
           </h2>
           <div className="scroll-x">
@@ -229,7 +229,7 @@ export default async function NauticaPage() {
 
       {flags.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Banderes vigents</h2>
+          <h2 className="mb-3 card-title">Banderes vigents</h2>
           <p className="text-sm text-[var(--ink-2)]">
             {[...new Set(flags.map((b) => b.flag))]
               .map((f) => {
@@ -242,7 +242,7 @@ export default async function NauticaPage() {
               Platja a platja ›
             </Link>
           </p>
-          <p className="mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+          <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
             Les banderes són per al bany i es refereixen a la vora. No descriuen
             l&apos;estat del mar a una milla de la costa, que és el que recull la
             taula de dalt.
@@ -250,8 +250,8 @@ export default async function NauticaPage() {
         </section>
       )}
 
-      <section className="mt-8 max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--ink)]">
+      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
+        <h2 className="card-title">
           El període és el número que la gent es salta
         </h2>
         <p>

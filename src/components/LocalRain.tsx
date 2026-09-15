@@ -170,7 +170,7 @@ export function LocalRain({
         </ol>
       </div>
 
-      <figcaption className="mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+      <figcaption className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
         El punt blanc és {nom}, i cada quadre fa {HALF_KM * 2} km d&apos;ample. El
         primer és radar —gotes mesurades— i els altres, predicció.
         {/*

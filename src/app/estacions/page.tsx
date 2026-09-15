@@ -57,15 +57,15 @@ export default async function EstacionsPage() {
   const outline = mapOutline();
 
   return (
-    <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+    <article data-wide>
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Estacions</span>
       </nav>
 
-      <header className="mb-6 max-w-[64ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           Les estacions de la XEMA
         </h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">

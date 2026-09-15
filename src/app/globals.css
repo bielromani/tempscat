@@ -638,6 +638,93 @@ button:focus-visible,
   color: var(--muted);
 }
 
+/* ── L'amplada del web ──────────────────────────────────────────────────────
+
+   Una columna, i la mateixa per a tot. El text porta un límit de mesura i les
+   targetes no en portaven cap: dins d'una columna de 1.024 px, un paràgraf
+   s'acabava a mig camí amb 430 px de blanc a la dreta al costat d'un bloc que
+   arribava al final. Cada un per separat estava bé i junts semblaven mal
+   posats.
+
+   Les poques pàgines que **de veritat** necessiten amplada —un mapa del país,
+   una taula de dotze columnes— es marquen amb `data-wide` i recuperen els
+   1.024. Es fa amb `:has()` per no haver de passar res del `layout` a cada
+   pàgina; el dia que un navegador no l'entengui, el web sencer es queda a la
+   columna estreta, que és estret però correcte i igual a tot arreu.           */
+
+main {
+  max-width: 38rem;
+}
+
+body:has([data-wide]) > main {
+  max-width: 64rem;
+}
+
+/* ── La capçalera d'una pàgina ──────────────────────────────────────────────
+
+   Vint-i-dues pàgines escrivien això mateix a mà, i per tant amb números
+   diferents: el títol en **quatre mides** —24, 30, 36 i 48 px segons la
+   pàgina—, l'entradilla amb **set** mesures diferents i vint-i-una còpies de la
+   ruta de navegació. Cada una per separat estava bé; totes juntes és el que fa
+   que un lloc sembli fet a trossos.
+
+   Ara el tractament és un. El títol creix amb la finestra en comptes de saltar
+   en un punt de ruptura, i l'entradilla té **una** mesura per a tot el web.    */
+
+.crumbs {
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.crumbs a { color: inherit; text-decoration: none; }
+.crumbs a:hover { color: var(--ink); }
+
+.page-title {
+  font-size: clamp(1.75rem, 1.35rem + 1.7vw, 2.3rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+  color: var(--ink);
+}
+
+/*
+ * L'entradilla.
+ *
+ * `max-inline-size` i no `max-width` perquè és una mesura de text i el que
+ * limita és la línia, no la caixa. 62 caràcters és on es llegeix millor, i que
+ * sigui la mateixa a tot arreu és més important que quina sigui.
+ */
+.page-head {
+  margin-bottom: 26px;
+  max-inline-size: 62ch;
+}
+
+.page-head > p {
+  margin-top: 12px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+
+/*
+ * La mesura d'una línia de text, per a qualsevol bloc de prosa del web.
+ *
+ * Hi havia set valors diferents escampats —60, 62, 64, 65, 68 i 70 caràcters—
+ * i cap raó perquè un peu de pàgina es llegís en una línia més llarga que una
+ * entradilla. Ser la mateixa importa més que ser quina.
+ */
+.measure {
+  max-inline-size: 62ch;
+}
+
+/* El segon paràgraf d'una entradilla és sempre la lletra petita: la matisació,
+   l'avís d'endarreriment, d'on surt. Va més apagat sense haver-ho de dir a cada
+   pàgina. */
+.page-head > p + p {
+  font-size: 14px;
+  color: var(--muted);
+}
+
 /* ── El menú del mòbil ──────────────────────────────────────────────────────
 
    És un `<details>` i per tant l'obre el navegador. El triangle per defecte no

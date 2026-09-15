@@ -99,7 +99,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
     return (
       <article>
         <h1 className="text-3xl font-semibold tracking-tight">Radar de precipitació</h1>
-        <p className="mt-4 max-w-[60ch] text-[var(--muted)]">
+        <p className="mt-4 measure text-[var(--muted)]">
           Encara no hi ha cap imatge descarregada. El radar apareix tan aviat com
           el worker hagi corregut per primera vegada.
         </p>
@@ -238,15 +238,15 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
   const { ageMin, lastObserved } = data;
 
   return (
-    <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+    <article data-wide>
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Radar</span>
       </nav>
 
-      <header className="mb-4">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           On plou ara mateix
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
@@ -513,7 +513,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
           </ol>
         </nav>
 
-        <figcaption className="mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+        <figcaption className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
           {/*
             La frontera entre les dues meitats es diu al davant de tot.
 
@@ -557,8 +557,8 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         </figcaption>
       </figure>
 
-      <section className="mt-8 max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--ink)]">
+      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
+        <h2 className="card-title">
           Què veu i què no veu un radar
         </h2>
         <p>

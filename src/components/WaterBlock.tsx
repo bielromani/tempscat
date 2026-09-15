@@ -109,7 +109,7 @@ export function WaterBlock({ water, nom }: { water: WaterNearby; nom: string }) 
         )}
       </div>
 
-      <p className="mt-3 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+      <p className="mt-3 measure text-xs leading-relaxed text-[var(--muted)]">
         {water.source}. Són les estacions més properes dins de 25 km, no
         necessàriament el riu que passa pel poble: els aforaments estan on hi ha
         instrumentació, no on hi ha nuclis.

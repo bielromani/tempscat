@@ -96,7 +96,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
           ))}
         </ol>
         {models > 1 && hours.some((h) => (h.spread ?? 0) >= SPREAD_C) && (
-          <p className="mt-2 max-w-[62ch] text-xs leading-relaxed text-[var(--muted)]">
+          <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
             Les hores amb dues xifres a sota són aquelles en què els {models} models
             de predicció no coincideixen. El marge va del més fred al més càlid.
           </p>
@@ -133,7 +133,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
             );
           })}
         </ol>
-        <p className="mt-2 max-w-[62ch] text-xs leading-relaxed text-[var(--muted)]">
+        <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
           {anyRain
             ? 'A dalt, la probabilitat que plogui; a baix, quanta aigua. Són dues coses '
               + 'diferents: un 80 % amb 0,2 mm és plugim gairebé segur, i un 30 % amb 8 mm '
@@ -183,7 +183,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
             );
           })}
         </ol>
-        <p className="mt-2 max-w-[62ch] text-xs leading-relaxed text-[var(--muted)]">
+        <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
           En km/h. La fletxa assenyala cap on bufa el vent; la lletra de sota diu
           d&apos;on ve, que és la convenció meteorològica. La ratxa és el cop més
           fort de l&apos;hora, i sol ser el que decideix si una activitat a

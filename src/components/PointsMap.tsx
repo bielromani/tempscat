@@ -173,7 +173,7 @@ export function PointsMap({
       </svg>
 
       {footer && (
-        <figcaption className="mt-2 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+        <figcaption className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
           {footer}
         </figcaption>
       )}

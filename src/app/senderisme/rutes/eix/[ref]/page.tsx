@@ -74,7 +74,7 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
           { nom: 'Itineraris', path: '/senderisme/rutes' },
           { nom: axis.ref, path: `/senderisme/rutes/eix/${axis.slug}` },
         ]))} />
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <Link href="/senderisme" className="no-underline hover:text-[var(--ink)]">Muntanya</Link>
@@ -84,8 +84,8 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
         <span className="text-[var(--ink-2)]">{axis.ref}</span>
       </nav>
 
-      <header className="mb-6 max-w-[64ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{axis.ref}</h1>
+      <header className="page-head">
+        <h1 className="page-title">{axis.ref}</h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
           <strong className="font-semibold text-[var(--ink)]">
             {axis.legs.length} etapes
@@ -144,7 +144,7 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
         />
       </section>
 
-      <h2 className="mb-3 text-lg font-semibold tracking-tight">Les etapes, en ordre</h2>
+      <h2 className="mb-3 card-title">Les etapes, en ordre</h2>
       <ol className="mb-8 space-y-2">
         {axis.legs.map((r, i) => (
           <li key={r.slug}>
@@ -189,10 +189,10 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
 
       {variants.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-1 text-lg font-semibold tracking-tight">
+          <h2 className="mb-1 card-title">
             {variants.length === 1 ? 'Una variant senyalitzada' : `${variants.length} variants senyalitzades`}
           </h2>
-          <p className="mb-3 max-w-[62ch] text-sm text-[var(--muted)]">
+          <p className="mb-3 measure text-sm text-[var(--muted)]">
             Recorreguts alternatius amb codi propi: el número de després del punt
             és el que diu que són variants del {axis.ref}.
           </p>
@@ -215,7 +215,7 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
         </section>
       )}
 
-      <section className="max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--muted)]">
+      <section className="measure space-y-3 text-sm leading-relaxed text-[var(--muted)]">
         <p>
           A OpenStreetMap un itinerari llarg no és una relació sinó una per
           etapa, totes amb el mateix codi. L&apos;ordre d&apos;aquesta llista surt

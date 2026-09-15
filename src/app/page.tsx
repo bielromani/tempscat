@@ -29,8 +29,8 @@ export default async function Home() {
 
   return (
     <div>
-      <header className="mb-10 max-w-[62ch]">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+      <header className="page-head">
+        <h1 className="page-title">
           El temps a Catalunya, poble a poble
         </h1>
         <p className="mt-4 text-lg leading-relaxed text-[var(--ink-2)]">

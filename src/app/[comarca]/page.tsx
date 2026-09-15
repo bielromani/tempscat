@@ -60,14 +60,14 @@ export default async function ComarcaPage({ params }: { params: Params }) {
           { nom: 'Catalunya', path: '/' },
           { nom: c.nom, path: c.path },
         ]))} />
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">{c.nom}</span>
       </nav>
 
-      <header className="mb-6">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{c.nom}</h1>
+      <header className="page-head">
+        <h1 className="page-title">{c.nom}</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           {c.nMunicipis} municipis
           {c.poblacio > 0 && ` · ${c.poblacio.toLocaleString('ca-ES')} habitants`}
@@ -78,7 +78,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
       </header>
 
       {summary && summary.withData >= 3 && (
-        <p className="mb-6 max-w-[64ch] leading-relaxed text-[var(--ink-2)]">
+        <p className="mb-6 measure leading-relaxed text-[var(--ink-2)]">
           {/*
             Frase de observación, no de predicción: agregar el consenso de hasta
             68 municipios convertiría esta página de listado en la más cara del
@@ -158,7 +158,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
         </section>
       )}
 
-      <h2 className="mb-3 text-lg font-semibold tracking-tight">
+      <h2 className="mb-3 card-title">
         Municipis {deComarca(c.nom)}
       </h2>
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -200,7 +200,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
         </Link>.
       </p>
 
-      <p className="mt-6 max-w-[70ch] text-xs leading-relaxed text-[var(--muted)]">
+      <p className="mt-6 measure text-xs leading-relaxed text-[var(--muted)]">
         Temperatures de les estacions automàtiques de la XEMA més properes a cada
         municipi, corregides pel desnivell. {conTemp.length} de {municipis.length} municipis
         tenen lectura recent

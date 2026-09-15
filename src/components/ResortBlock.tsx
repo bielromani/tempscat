@@ -54,7 +54,7 @@ export function ResortBlock({
     /* L'ancora es perque el cercador hi pugui portar: /neu#e-la-molina. */
     <div id={`e-${resort.slug}`} className="card">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h3 className="text-base font-semibold tracking-tight text-[var(--ink)]">
+        <h3 className="card-title">
           {resort.name}
         </h3>
         <span

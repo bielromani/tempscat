@@ -37,15 +37,15 @@ export default async function MapaPage() {
   const coldest = withData.at(-1);
 
   return (
-    <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+    <article data-wide>
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Mapa</span>
       </nav>
 
-      <header className="mb-6 max-w-[65ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           On fa fred i on fa calor
         </h1>
         {warmest && coldest && warmest.code !== coldest.code ? (
@@ -82,7 +82,7 @@ export default async function MapaPage() {
 
       {withData.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             De la més càlida a la més freda
           </h2>
           <ol className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -100,8 +100,8 @@ export default async function MapaPage() {
         </section>
       )}
 
-      <section className="mt-8 max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--ink)]">
+      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
+        <h2 className="card-title">
           Què és exactament cada xifra
         </h2>
         <p>

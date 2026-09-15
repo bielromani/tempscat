@@ -661,7 +661,7 @@ export default function InteractiveMap({
           ref={fallbackBox}
           className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--paper)] p-6"
         >
-          <div className="max-w-[46ch] text-sm leading-relaxed text-[var(--ink-2)]">
+          <div className="measure text-sm leading-relaxed text-[var(--ink-2)]">
             {error ? (
               <p className="mb-2">
                 <strong className="text-[var(--ink)]">El mapa no ha arrencat.</strong>{' '}

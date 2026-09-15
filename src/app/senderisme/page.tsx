@@ -62,14 +62,14 @@ export default async function SenderismePage() {
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Senderisme</span>
       </nav>
 
-      <header className="mb-6 max-w-[65ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           Com està la muntanya
         </h1>
         {stations.length === 0 ? (
@@ -177,7 +177,7 @@ export default async function SenderismePage() {
               <>Per sota de l&apos;estació més baixa: fa zero graus arreu</>
             )}
           </p>
-          <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-[var(--ink-2)]">
+          <p className="mt-2 measure text-sm leading-relaxed text-[var(--ink-2)]">
             No surt d&apos;un model: és una regressió de la temperatura contra
             l&apos;altitud sobre les <span className="tnum">{fz.stations}</span> estacions que
             ara mateix donen les dues coses, de {int(fz.lowest)} a {int(fz.highest)} m. El
@@ -187,7 +187,7 @@ export default async function SenderismePage() {
             <span className="tnum">{num(fz.r2, 2)}</span> sobre 1.
           </p>
           {fz.metres == null && fz.beyond === 'amunt' && (
-            <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-[var(--muted)]">
+            <p className="mt-2 measure text-sm leading-relaxed text-[var(--muted)]">
               No se&apos;n dona la xifra: la recta creua el zero molt per damunt de
               l&apos;estació més alta, i el valor seria una extrapolació de
               quilòmetres per sobre de l&apos;últim termòmetre.
@@ -199,7 +199,7 @@ export default async function SenderismePage() {
       {/* ── Estacions d'alçada ── */}
       {stations.length > 0 && (
         <section>
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 card-title">
             Les estacions per damunt dels {int(MOUNTAIN_M)} metres
           </h2>
           <div className="scroll-x">
@@ -272,8 +272,8 @@ export default async function SenderismePage() {
         </section>
       )}
 
-      <section className="mt-8 max-w-[65ch] space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--ink)]">
+      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
+        <h2 className="card-title">
           Els llindars, i d&apos;on surten
         </h2>
         <p>

@@ -1069,6 +1069,29 @@ cuota para exactamente la misma información.
   i per tant l'obre el navegador — un desplegable amb estat de React hauria estat el segon
   component de client del projecte per a una llista de quatre enllaços que ja són al peu.
 
+- **Vint-i-dues pàgines escrivien la mateixa capçalera a mà, i per tant amb números
+  diferents.** El títol sortia en **quatre mides** —24, 30, 36 i 48 px segons la pàgina—, la
+  mesura del text en **set** —de 60 a 70 caràcters— i la ruta de navegació estava copiada
+  vint-i-una vegades. Cada pàgina per separat estava bé; el que es veia mirant-ne dues seguides
+  és que el lloc estava fet a trossos.
+  Ara hi ha tres classes a `globals.css` —`.crumbs`, `.page-title`, `.page-head`— més `.measure`
+  per a qualsevol bloc de prosa, i `.card-title` per als **51 encapçalaments de secció** que
+  anaven amb vuit combinacions diferents. El títol creix amb `clamp()` en comptes de saltar en un
+  punt de ruptura.
+  L'escombrada es va fer amb un script que **només toca les línies amb `<h2>`, `<h3>` o `<h4>`**:
+  la mateixa classe en un `<p>` vol dir una altra cosa, i canviar-la seria canviar el que
+  significa. I es va haver de repetir sencera perquè la primera passada va petar a mig camí —el
+  servidor de desenvolupament tenia un fitxer bloquejat— i va deixar la meitat dels fitxers
+  fets: un script d'escombrada ha de dir quants n'ha tocat, o no hi ha manera de saber si ha
+  acabat.
+
+- **L'amplada la posa `main` i les excepcions es marquen, no al revés.** Una sola columna de
+  38 rem per a tot el web, i les poques pàgines que de veritat necessiten amplada —un mapa del
+  país, una llista de dotze columnes— porten `data-wide` i recuperen els 64 rem. Ho connecta
+  `body:has([data-wide]) > main`, per no haver de passar res del `layout` a cada pàgina. Si un
+  navegador no entén `:has()`, el web sencer es queda a la columna estreta: estret però correcte
+  i igual a tot arreu.
+
 - **El camp de meduses porta diverses espècies separades per `;`.** Cada una és
   `espècie,abundància,talla`. Llegint només fins a la primera coma, a Castell-Platja d'Aro
   —que en reporta tres— sortia la inofensiva i **quedava amagada la que pica**. `parseJellyfish()`

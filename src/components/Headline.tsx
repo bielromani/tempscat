@@ -92,7 +92,7 @@ export function Headline({ narrative }: { narrative: Narrative }) {
 
   return (
     <section className="mt-5">
-      <div className="max-w-[64ch]">
+      <div className="measure">
         <p className="text-lg leading-snug text-[var(--ink)]">
           {today}
           {change && <span className="font-medium"> {change}</span>}
@@ -115,7 +115,7 @@ export function Headline({ narrative }: { narrative: Narrative }) {
       {/* Las advertencias van después de la tira, no antes: primero la respuesta
           y el panorama, luego los matices. Y en prosa, como el resto del sitio. */}
       {notes.length > 0 && (
-        <p className="mt-3 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
+        <p className="mt-3 measure text-sm leading-relaxed text-[var(--ink-2)]">
           {notes.join(' ')}
         </p>
       )}

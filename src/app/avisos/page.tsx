@@ -56,14 +56,14 @@ export default async function AvisosPage() {
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <span className="text-[var(--ink-2)]">Avisos</span>
       </nav>
 
-      <header className="mb-6 max-w-[64ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           Avisos oficials vigents
         </h1>
         {warnings.length === 0 ? (
@@ -97,12 +97,12 @@ export default async function AvisosPage() {
       {warnings.length > 0 && (
         <>
           <section className="mb-8">
-            <h2 className="mb-3 text-lg font-semibold tracking-tight">Tots els avisos</h2>
+            <h2 className="mb-3 card-title">Tots els avisos</h2>
             <WarningBanner warnings={groups} variant="llista" />
           </section>
 
           <section>
-            <h2 className="mb-3 text-lg font-semibold tracking-tight">Per comarca</h2>
+            <h2 className="mb-3 card-title">Per comarca</h2>
             <ul className="grid gap-2 sm:grid-cols-2">
               {byComarca.map(({ c, list }) => (
                 <li
@@ -130,8 +130,8 @@ export default async function AvisosPage() {
         </>
       )}
 
-      <section className="mt-10 max-w-[65ch]">
-        <h2 className="mb-2 text-lg font-semibold tracking-tight">Rebre&apos;ls sense entrar</h2>
+      <section className="mt-10 measure">
+        <h2 className="mb-2 card-title">Rebre&apos;ls sense entrar</h2>
         <p className="text-sm leading-relaxed text-[var(--ink-2)]">
           Els avisos es publiquen també com a <strong className="font-medium text-[var(--ink)]">feed</strong> i
           com a <strong className="font-medium text-[var(--ink)]">calendari</strong>, de tot Catalunya o
@@ -166,7 +166,7 @@ export default async function AvisosPage() {
         </p>
       </section>
 
-      <p className="mt-8 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+      <p className="mt-8 measure text-xs leading-relaxed text-[var(--muted)]">
         Els avisos s&apos;assignen a les comarques per geometria i no pel nom de
         la zona: els polígons de l&apos;AEMET no segueixen els límits comarcals, i
         emparellar-los pel nom donaria avisos a municipis que no en tenen.

@@ -134,7 +134,7 @@ export default async function MapaInteractiuPage() {
   const firstForecast = frames.find((f) => f.kind === 'forecast');
 
   return (
-    <article>
+    <article data-wide>
       <JsonLd data={breadcrumbLd([
         { nom: 'Catalunya', path: '/' },
         { nom: 'Mapa', path: '/mapa' },
@@ -142,7 +142,7 @@ export default async function MapaInteractiuPage() {
       ])}
       />
 
-      <nav aria-label="Ruta de navegació" className="mb-5 text-sm text-[var(--muted)]">
+      <nav aria-label="Ruta de navegació" className="crumbs">
         <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
         <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
         <Link href="/mapa" className="no-underline hover:text-[var(--ink)]">Mapa</Link>
@@ -150,8 +150,8 @@ export default async function MapaInteractiuPage() {
         <span className="text-[var(--ink-2)]">Interactiu</span>
       </nav>
 
-      <header className="mb-6 max-w-[65ch]">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="page-head">
+        <h1 className="page-title">
           El mapa, de prop
         </h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
@@ -277,8 +277,8 @@ export default async function MapaInteractiuPage() {
         )}
       />
 
-      <section className="mt-8 max-w-[65ch] text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="mb-2 text-base font-semibold text-[var(--ink)]">
+      <section className="mt-8 measure text-sm leading-relaxed text-[var(--ink-2)]">
+        <h2 className="card-title mb-2">
           D’on surt cada cosa
         </h2>
         <p>
