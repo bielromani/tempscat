@@ -673,6 +673,22 @@ cuota para exactamente la misma información.
   els fitxers que ho llancen tot**. Ara hi ha `npm run check:workflows`, el primer pas de
   tots: claus repetides, tabuladors, `npm run` que no existeixen i workflows sense feines.
 
+- **El camp que fa sobreviure un error a la volta bona no va funcionar mai fora d'un
+  portàtil.** `recordFreshness` arrossega `lastError` llegint l'entrada anterior **del
+  disc**, i el comentari deia que no passava res perquè «el pitjor que pot passar és
+  perdre el rastre d'un error vell». A GitHub Actions el disc arrenca **sempre** buit:
+  no era el pitjor cas, era l'únic. És la tercera vegada que la mateixa trampa surt
+  —ja hi havia `pullSnapshot()` i l'empremta del camp de pluja— i aquesta va passar
+  desapercebuda perquè el codi **sí que existia** i en local funcionava.
+  El que es veia des de fora és exactament el que fa una font que falla una vegada de
+  cada cent: arriba el correu de «Run failed», deu minuts després la volta següent va
+  bé i publica una entrada neta, i a `/estat` no queda res. La pàgina ja sabia
+  ensenyar-ho —«últim ensopec el...»—; el que no arribava mai era la dada.
+  Ara `syncState(source)` es porta **la pròpia** entrada del magatzem abans de començar.
+  Només la seva: portar el registre sencer és el que feia que dos workers simultanis
+  s'esborressin l'entrada l'un a l'altre. I si un worker deixa de passar-li el seu nom,
+  això torna a no fer res **sense donar cap error**.
+
 - **Un comptador de dies que s'incrementa és un doble recompte esperant el seu torn.** El
   registre d'encert acumula sumatoris, així que un dia puntuat dues vegades —un
   `workflow_dispatch` a mà damunt de l'horari, o unes quantes proves seguides— infla `n` i fa

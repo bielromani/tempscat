@@ -411,7 +411,7 @@ async function main() {
   // El comptador de quota i el registre de frescor viuen al magatzem:
   // sense això, cada execució automàtica començaria de zero i en
   // publicaria un amb una sola entrada. Abans de construir el guardià.
-  await syncState();
+  await syncState('forecast-refresh');
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 

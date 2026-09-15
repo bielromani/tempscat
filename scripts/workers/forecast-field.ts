@@ -372,7 +372,7 @@ async function loadRing(
 }
 
 async function main() {
-  await syncState();
+  await syncState('forecast-field');
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 

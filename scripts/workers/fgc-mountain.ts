@@ -334,7 +334,7 @@ function liftStats(rows: LiftRow[]): LiftStats | null {
 }
 
 async function main() {
-  await syncState();
+  await syncState('fgc-mountain');
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 

@@ -105,7 +105,7 @@ function plusDays(iso: string, n: number): string {
 const emptyTally = (): Tally => ({ n: 0, sumError: 0, sumAbs: 0 });
 
 async function main() {
-  await syncState();
+  await syncState('forecast-verify');
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 

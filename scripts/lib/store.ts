@@ -302,10 +302,15 @@ export function recordFreshness(entry: FreshnessEntry): void {
   /*
    * L'últim error sobreviu a les execucions bones. Veure `lastError`.
    *
-   * Es llegeix del disc i no del magatzem a posta: si el contenidor arrenca
-   * buit, el pitjor que passa és perdre el rastre d'un error vell, i pagar una
-   * petició de xarxa a cada volta de cada worker per conservar-lo no val la
-   * pena. Qui falla dues vegades ho torna a escriure.
+   * Es llegeix del disc, i **això només funciona perquè `syncState()` hi ha
+   * deixat abans l'entrada anterior del magatzem**. Aquí hi havia escrit que
+   * llegir del disc ja estava bé perquè «el pitjor que passa és perdre el
+   * rastre d'un error vell» — i a GitHub Actions el disc arrenca **sempre**
+   * buit, o sigui que no era el pitjor cas: era l'únic. El camp no va funcionar
+   * mai fora d'un portàtil.
+   *
+   * Si algun dia un worker deixa de passar-li el seu nom a `syncState()`, això
+   * torna a no fer res i no dona cap error.
    */
   let previous: FreshnessEntry | null = null;
   if (existsSync(dest)) {
@@ -478,7 +483,7 @@ function assertConfiguredForCI(): void {
  * predicción, que son las únicas que gastan de verdad, van a hora y media unas
  * de otras.
  */
-export async function syncState(): Promise<void> {
+export async function syncState(source?: string): Promise<void> {
   assertConfiguredForCI();
 
   const base = process.env.DATA_BASE_URL?.replace(/[/]$/, '');
@@ -502,16 +507,45 @@ export async function syncState(): Promise<void> {
    * Los contadores, uno por fuente. Si uno no se puede leer **se lanza**: la
    * alternativa es empezar el día creyendo que no se ha gastado nada, y eso
    * acaba en un `429` a media tarde con media Catalunya sin predicción.
-   *
-   * El registro de frescura ya no se trae: cada worker escribe **solo su
-   * propia** entrada, así que no necesita saber nada de las de los demás. Eso
-   * es justamente lo que arregló que dos workers simultáneos se borraran la
-   * entrada el uno al otro.
    */
   try {
     await Promise.all(Object.keys(DAILY_LIMITS).map((src) => bring(`${quotaShard(src)}.json`)));
   } catch (err) {
     throw new Error(`No s'ha pogut llegir el comptador de quota: ${err}`);
+  }
+
+  /*
+   * I la **pròpia** entrada de frescor, que és la que fa sobreviure `lastError`.
+   *
+   * ## Per què torna a portar-se, i per què només la seva
+   *
+   * Es va deixar de portar el registre sencer perquè dos workers simultanis
+   * s'esborraven l'entrada l'un a l'altre, i allò estava bé: cada un escriu
+   * només la seva. Però `recordFreshness` llegeix l'entrada anterior **del
+   * disc** per arrossegar-hi `lastError`, i a GitHub Actions el disc arrenca
+   * buit. O sigui que aquell camp, que existeix justament perquè un error
+   * sobrevisqui a la volta bona, **no ha funcionat mai on calia**: només al
+   * portàtil de qui el va escriure.
+   *
+   * El que es veia des de fora és el que passa quan una font falla una vegada
+   * de cada cent: arriba el correu de «Run failed», deu minuts després la volta
+   * següent va bé i publica una entrada neta, i a `/estat` no queda res. L'única
+   * còpia del motiu tornava a ser el registre d'Actions, que demana un
+   * testimoni i caduca — exactament el que es va arreglar el 13 de setembre per
+   * als workers que moren, i que seguia sense arreglar per als que es
+   * recuperen.
+   *
+   * És una petició per volta de worker i no reintrodueix el problema de la
+   * col·lisió, perquè cada un llegeix i escriu **el seu propi** tros. I si no es
+   * pot llegir no es planta: perdre el rastre d'un error vell no val aturar una
+   * ingesta.
+   */
+  if (source) {
+    try {
+      await bring(`${freshnessShard(source)}.json`);
+    } catch (err) {
+      console.warn(`No s'ha pogut llegir la frescor anterior de ${source}: ${err}`);
+    }
   }
 }
 

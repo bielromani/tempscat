@@ -299,7 +299,7 @@ async function roundshotCam(pageUrl: string): Promise<string> {
 }
 
 async function main() {
-  await syncState();
+  await syncState('cameras');
   const quota = new QuotaGuard(DAILY_LIMITS);
   const started = Date.now();
 
