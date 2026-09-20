@@ -29,7 +29,13 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
  * la primera vez que alguien —o Googlebot— las pide.
  */
 export const dynamicParams = true;
-export const revalidate = 1800;
+/*
+ * Una hora, por lo mismo que la ficha de municipio, y el porqué está allí
+ * entero: con la XEMA llegando 45-65 min tarde, media hora reconstruía la
+ * página dos veces con la misma lectura. Estas ~3.300 son, además, las que más
+ * pesan en la cuenta: son las que menos visitas tienen cada una.
+ */
+export const revalidate = 3600;
 
 type Params = Promise<{ comarca: string; municipi: string; entitat: string }>;
 

@@ -33,7 +33,12 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
  * exacto.
  */
 export const dynamicParams = false;
-export const revalidate = 1800;
+/*
+ * Una hora, igual que las fichas de lugar. Aquí el argumento es aún más claro:
+ * esta página es la lectura cruda de un termómetro que publica cada media hora
+ * y llega con 45-65 min de retraso, así que no hay nada que refrescar antes.
+ */
+export const revalidate = 3600;
 
 type Params = Promise<{ codi: string }>;
 

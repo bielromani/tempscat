@@ -32,13 +32,32 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
  */
 export const dynamicParams = true;
 /*
- * 30 minutos, no 3 horas.
+ * Una hora, y media hora era comprar una frescura que no existe.
  *
- * La predicción se refresca cada 8-12 h, pero el bloque de condiciones actuales
- * se genera con la página: con 3 horas de ventana, el índice UV y el estado del
- * cielo que se muestran podían ser de hace tres horas. La observación de la
- * XEMA llega con 45-65 min de retraso, así que media hora es la cadencia que le
- * corresponde.
+ * El razonamiento anterior decía «la observación de la XEMA llega con 45-65 min
+ * de retraso, así que media hora es la cadencia que le corresponde», y es
+ * exactamente al revés: **si el dato tarda 45 minutos en existir, una ventana de
+ * 30 reconstruye la página dos veces con la misma lectura**. La segunda no
+ * añadía un solo número nuevo.
+ *
+ * Lo que sí añadía era la factura. Medido en septiembre de 2026, con las cifras
+ * de la propia plataforma: 1.047.191 lecturas y 2.108.560 escrituras de ISR
+ * —el doble exacto, que son el HTML y la carga RSC de cada regeneración— y
+ * 29,19 GB de salida contra un techo de 10. Sale a 28 kB por lectura, que es lo
+ * que pesa esta página comprimida: o sea que **prácticamente cada visita
+ * regeneraba la ficha entera**.
+ *
+ * Con 4.293 fichas y menos de una visita diaria por ficha, ISR juega en contra:
+ * su trato es repartir una regeneración entre muchos lectores, y aquí no hay
+ * muchos lectores por página. Peor aún, el que paga la regeneración es el que se
+ * lleva la copia vieja —ISR sirve primero y refresca después—, así que la
+ * ventana corta no solo costaba más: hacía que casi todo el mundo viera el dato
+ * caducado.
+ *
+ * Esto no arregla eso último, solo deja de pagar por ello. Lo que lo arregla es
+ * sacar las cifras vivas del HTML y pedirlas al almacén desde el navegador, que
+ * es una decisión con precio —el JavaScript que las fichas no tienen— y está
+ * pendiente.
  *
  * Se estudió aislar ese bloque en su propio segmento cacheado y **se descartó
  * con el cronómetro delante**: un render completo cuesta 9-14 ms en caliente y
@@ -46,7 +65,7 @@ export const dynamicParams = true;
  * de Next 16 es `cacheComponents`, que cambia el comportamiento por defecto de
  * toda la aplicación. Sesenta milisegundos en segundo plano no lo pagan.
  */
-export const revalidate = 1800;
+export const revalidate = 3600;
 
 type Params = Promise<{ comarca: string; municipi: string }>;
 
