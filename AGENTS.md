@@ -207,6 +207,53 @@ npm run cels              # els dotze cels de cop a /__cels.html, per mirar-los 
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 ```
 
+## Cómo se trabaja: en una rama, y se fusiona por lotes
+
+**Un despliegue de este proyecto pesa casi 1 GB.** No es una fuga: es lo que
+ocupan las 1.326 páginas que el build pregenera, a ~1,2 MB cada una —el HTML, su
+carga RSC, y otra vez la carga RSC dentro de `.segments/`, que Next 16 escribe
+por duplicado—. Medido el 20 de septiembre de 2026 sobre `.next/server/app`:
+
+```
+956 MB   .next/server/app        1.326 páginas
+299 MB     senderisme/           los 683 itinerarios
+104 MB     estacions/            las 189 estaciones
+```
+
+Con el plan gratuito de Vercel eso son **diez despliegues al mes**, y cada push
+a `main` es uno. Durante el rediseño se hicieron unos noventa: 90,54 GB de un
+techo de 10, y la cuenta entera —con los otros tres proyectos dentro— se paró.
+
+Así que:
+
+- **Se trabaja en una rama.** `main` es lo que está publicado, no un diario.
+- **Antes de empujar nada, `npm run check`**: los workflows, el lockfile, los dos
+  proyectos de TypeScript, el lint y las pruebas. Es lo mismo que corre `ci.yml`
+  **menos el build**, que se queda fuera a propósito: necesita llegar al almacén
+  y detrás de un proxy corporativo se cae por tiempo de espera. Lo hace el CI.
+- **La rama se fusiona por lotes**, no arreglo a arreglo. Un pull request lanza
+  `ci.yml` entero —build incluido— y la fusión produce **un** despliegue.
+- **Los despliegues de previsualización están apagados**, en
+  **Settings → Build and Deployment → Ignored Build Step**, con el preajuste
+  **«Only build production»**. Sin eso, ramificar **empeora** la cuenta en vez de
+  arreglarla: cada push a la rama construiría igual, y serían más despliegues, no
+  menos.
+
+  Dos cosas de ese ajuste que no son evidentes. La primera: **los códigos de
+  salida van al revés** de lo que parece —`exit 0` cancela el build y `exit 1` lo
+  deja pasar—, así que un script escrito «a lo natural» construye justo lo que
+  querías saltarte. El preajuste evita tener que acordarse. La segunda: un build
+  cancelado **sigue contando como despliegue** para el límite diario y para los
+  turnos de construcción; lo que no genera es salida, que es lo que ocupa el
+  gigabyte.
+
+  Vive fuera del repositorio, así que no hay manera de que una prueba lo note. Si
+  un día vuelven a aparecer despliegues de previsualización, es esto.
+
+Lo que de verdad lo arreglaría es que una ficha no pese 571 kB —de los cuales el
+**62 % es la carga RSC**, que es el mismo contenido escrito otra vez para poder
+hidratar—. Mientras siga así, cada mejora del sitio cuesta un gigabyte.
+
 ## Cómo se escribe lo que lee el usuario
 
 El razonamiento va en el código; en la página va lo que el lector necesita saber.
