@@ -112,7 +112,7 @@ import { slugify } from '../lib/catalan.ts';
 import { madridToUtc } from '../lib/madrid.ts';
 import {
   CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, pullSnapshot, recordFreshness, reportFailure,
-  syncState, writeSnapshot,
+  syncState, unmarkForPublish, writeSnapshot,
 } from '../lib/store.ts';
 import type { Camera, CamerasData } from '../../src/lib/camera-types.ts';
 
@@ -521,12 +521,46 @@ async function main() {
    * Va després de la conservació de fitxes, així que només salta quan de debò
    * s'han perdut càmeres i no hi havia res anterior per conservar.
    */
+  /*
+   * I quan salta, **no es publica i se surt bé**. Abans es llançava.
+   *
+   * La decisió de no publicar era bona i es queda; el que no ho era és
+   * comunicar-la petant. Del 25 al 27 de setembre de 2026 aquest workflow va
+   * fallar **22 de 72 voltes** —un terç— sempre per aquí: les càmeres de FGC
+   * tenen hores en què mitja estació no contesta, i cada una d'aquelles hores
+   * era un correu de «Run failed» per una cosa que no és una avaria nostra ni
+   * es pot arreglar des d'aquí. És la regla que ja va deixar escrita la XVPCA:
+   * que una font no publiqui no s'ha de comportar com si fos una avaria, i
+   * llançar només es justifica quan el que es publicaria seria fals. Aquí no es
+   * publica res.
+   *
+   * Qui avisa si dura és el rètol d'endarreriment de `/estat`, que es mesura
+   * contra la data de la dada: amb la instantània anterior intacta, es va
+   * posant vermell tot sol a partir de 150 minuts.
+   *
+   * I les imatges noves **surten de la cua**. Cada una es marca per pujar a
+   * mesura que es reescala, i sense treure-les `publish()` les pujaria igual al
+   * costat de la fitxa vella: una foto de les 14 h amb l'hora de les 12 a sota.
+   * El que feia `reportFailure()` fins ara, de fet, era exactament això.
+   */
   const had = previous?.data.cameras.length ?? 0;
   if (had && cameras.length < had * MIN_SHARE_OF_PREVIOUS) {
-    throw new Error(
-      `Nomes s'han pogut fer ${cameras.length} cameres de les ${had} de la volta anterior. `
-      + 'No es publica: la instantania d’abans es millor que una a la qual li falta un terç.',
-    );
+    const why = `Nomes s'han pogut fer ${cameras.length} cameres de les ${had} de la volta anterior. `
+      + 'No es publica: la instantania d’abans es millor que una a la qual li falta un terç.';
+    console.warn(why);
+    const dropped = unmarkForPublish('cameres/');
+    recordFreshness({
+      source: 'cameras',
+      lastSuccessAt: '',
+      lastDataTs: null,
+      stalenessLimitMin: 150,
+      rows: cameras.length,
+      apiCalls: chosen.length * 2 + 1,
+      error: why,
+    });
+    const pub = await publish();
+    if (!pub.skipped) console.log(`Motiu publicat (${pub.uploaded} fitxers; ${dropped} imatges retirades de la cua)`);
+    return;
   }
 
   // Slugs repetidos: dos cámaras con el mismo nombre en la misma estación

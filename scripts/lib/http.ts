@@ -15,6 +15,14 @@ export interface FetchOptions {
    */
   method?: 'GET' | 'POST';
   body?: string;
+  /**
+   * Estats que no són un error sinó una resposta, i es tornen tal qual.
+   *
+   * Per al magatzem: un 404 vol dir «encara no existeix», que el primer dia
+   * d'una font és l'estat normal. Sense això, `fetchWithRetry` el convertiria
+   * en una excepció i qui crida no podria distingir-lo d'un magatzem caigut.
+   */
+  passStatus?: number[];
 }
 
 const UA = 'meteo-catalunya/0.1 (proyecto de datos abiertos; contacto en el repositorio)';
@@ -27,7 +35,7 @@ const UA = 'meteo-catalunya/0.1 (proyecto de datos abiertos; contacto en el repo
  */
 export async function fetchWithRetry(url: string, opts: FetchOptions = {}): Promise<Response> {
   const {
-    retries = 4, backoffMs = 600, timeoutMs = 60_000, headers = {}, method, body,
+    retries = 4, backoffMs = 600, timeoutMs = 60_000, headers = {}, method, body, passStatus = [],
   } = opts;
 
   let lastError: unknown;
@@ -51,7 +59,7 @@ export async function fetchWithRetry(url: string, opts: FetchOptions = {}): Prom
           headers: { 'User-Agent': UA, ...headers },
           signal: controller.signal,
         });
-        if (res.ok) return res;
+        if (res.ok || passStatus.includes(res.status)) return res;
         if (res.status >= 400 && res.status < 500 && res.status !== 429) {
           throw new Error(`HTTP ${res.status} en ${url.slice(0, 120)}… (no se reintenta)`);
         }

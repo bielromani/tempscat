@@ -4,6 +4,7 @@ import { putObject, s3Config } from './s3.ts';
 import {
   FRESHNESS_SOURCES, QUOTA_DIR, freshnessShard, quotaShard,
 } from '../../src/lib/shards.ts';
+import { fetchWithRetry } from './http.ts';
 import { ROOT } from './paths.ts';
 
 /**
@@ -28,6 +29,34 @@ export const CACHE = join(ROOT, 'data', 'cache');
  * planta**, así que ese 403 pararía la ingesta entera.
  */
 const USER_AGENT = 'tempscat.cat/1.0 (+https://tempscat.cat)';
+
+/**
+ * Llegir del magatzem, amb reintents.
+ *
+ * Cada worker en fa quatre o cinc lectures en arrencar —els comptadors de
+ * quota, la seva entrada de frescor, la instantània anterior— i n'hi ha que
+ * corren cada deu minuts. Anaven amb un `fetch` nu, sense reintent ni temps
+ * d'espera, així que **un sol tall de xarxa de GitHub Actions a R2 matava la
+ * volta sencera**: «TypeError: fetch failed», que és un error de xarxa i no una
+ * resposta. Mesurat del 25 al 27 de setembre de 2026: era el motiu de l'últim
+ * ensopec de sis fonts a `/estat` i d'un bon tros dels correus de «Run failed».
+ *
+ * El 404 es torna com a resposta i no com a error: una font que encara no
+ * existeix és l'estat normal del primer dia, i qui crida ha de poder-lo
+ * distingir d'un magatzem que no respon. Tota la resta —xarxa, 5xx, 429— es
+ * reintenta, i si al final no hi ha manera, **es llança igual que abans**: la
+ * raó per llançar segueix sent la mateixa, només deixa de ser la primera
+ * picada de mosquit.
+ */
+function readFromStore(url: string): Promise<Response> {
+  return fetchWithRetry(url, {
+    retries: 3,
+    backoffMs: 1500,
+    timeoutMs: 20_000,
+    headers: { 'User-Agent': USER_AGENT },
+    passStatus: [404],
+  });
+}
 
 function ensure() {
   if (!existsSync(CACHE)) mkdirSync(CACHE, { recursive: true });
@@ -93,6 +122,24 @@ const pending = new Set<string>();
 /** Marca un fichero suelto (una tesela de radar) para que se suba también. */
 export function markForPublish(relativePath: string): void {
   pending.add(relativePath.split(sep).join('/'));
+}
+
+/**
+ * Treu de la cua el que es va marcar i al final no s'ha de pujar.
+ *
+ * Per al worker que decideix **no publicar** després d'haver anat marcant
+ * fitxers per el camí: les càmeres marquen cada imatge a mesura que la
+ * reescalen, i si al final no n'hi ha prou, `cameres.json` no es reescriu. Sense
+ * treure-les, `publish()` pujaria les imatges noves al costat de la fitxa vella
+ * —una foto de les 14 h amb la data de les 12 a sota— i el missatge que diu
+ * «no es publica» mentiria.
+ */
+export function unmarkForPublish(prefix: string): number {
+  let n = 0;
+  for (const p of pending) {
+    if (p.startsWith(prefix)) { pending.delete(p); n++; }
+  }
+  return n;
 }
 
 /**
@@ -233,7 +280,7 @@ export async function pullSnapshot<T>(name: string): Promise<Snapshot<T> | null>
   const base = process.env.DATA_BASE_URL?.replace(/[/]$/, '');
   if (!base) return readSnapshot<T>(name);
 
-  const res = await fetch(`${base}/${name}.json`, { headers: { 'user-agent': USER_AGENT } });
+  const res = await readFromStore(`${base}/${name}.json`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`no s'ha pogut llegir ${name} de l'emmagatzematge: HTTP ${res.status}`);
   return await res.json() as Snapshot<T>;
@@ -317,8 +364,23 @@ export function recordFreshness(entry: FreshnessEntry): void {
     try { previous = JSON.parse(readFileSync(dest, 'utf8')) as FreshnessEntry; } catch { previous = null; }
   }
 
+  /*
+   * Una volta que falla no esborra l'última que va anar bé.
+   *
+   * `reportFailure` i els camins que decideixen no publicar passen
+   * `lastSuccessAt: ''` i `lastDataTs: null`, perquè en aquella volta no n'hi ha
+   * cap. Amb el `...entry` a seques, això **sobreescrivia** l'èxit anterior, i
+   * `/estat` ensenyava la font com si no hagués funcionat mai —«— — error», que
+   * és el que en sortia per a la XVPCA— quan la instantània d'abans seguia sent
+   * bona i es continuava servint amb la seva data. Una font que no s'actualitza
+   * ha de sortir **endarrerida**, que és el rètol que la fa posar-se vermella a
+   * poc a poc; no desconeguda.
+   */
+  const failed = Boolean(entry.error);
   const stored: FreshnessEntry = {
     ...entry,
+    lastSuccessAt: failed && !entry.lastSuccessAt ? (previous?.lastSuccessAt ?? '') : entry.lastSuccessAt,
+    lastDataTs: failed && entry.lastDataTs == null ? (previous?.lastDataTs ?? null) : entry.lastDataTs,
     lastError: entry.error ?? previous?.lastError,
     lastErrorAt: entry.error ? new Date().toISOString() : previous?.lastErrorAt,
   };
@@ -492,7 +554,7 @@ export async function syncState(source?: string): Promise<void> {
   ensure();
 
   const bring = async (name: string) => {
-    const res = await fetch(`${base}/${name}`, { headers: { 'user-agent': USER_AGENT } });
+    const res = await readFromStore(`${base}/${name}`);
     if (res.status === 404) return;   // primer día: aún no existe
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     // Los contadores viven en `quota/`, y en un servidor de integración

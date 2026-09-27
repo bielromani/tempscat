@@ -18,7 +18,7 @@
  * I al final es passa sobre la instantània publicada de debò: totes les
  * ubicacions amb avís, una per una.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   LEVEL_RANK, groupWarnings, stackWarnings, thresholdParam,
@@ -163,8 +163,21 @@ console.log('\nQuan sí que en sobra un, i quan no:\n');
 
 // ── La propietat que ho aguanta tot ────────────────────────────────────────
 console.log('\nSobre la instantània publicada, ubicació per ubicació:\n');
-{
-  const snap = JSON.parse(readFileSync(join(ROOT, 'data', 'cache', 'warnings.json'), 'utf8')) as { data: Warning[] };
+/*
+ * Aquesta meitat necessita dades vives, i al CI no n'hi ha.
+ *
+ * `data/cache/` no es versiona, així que a GitHub Actions el fitxer no existeix
+ * i el `readFileSync` petava amb ENOENT. Va passar del 15 al 27 de setembre de
+ * 2026 **sense que ningú ho veiés**: `Comprovacions` en vermell a cada push de
+ * `main`, enterrat entre els correus de «Run failed» dels workers. Els casos de
+ * dalt són els que proven la regla i corren sempre; això només la passa per
+ * damunt del que hi ha publicat, que és una comprovació de portàtil.
+ */
+const SNAP = join(ROOT, 'data', 'cache', 'warnings.json');
+if (!existsSync(SNAP)) {
+  console.log('  Sense data/cache/warnings.json: la comprovació sobre la instantània es salta.');
+} else {
+  const snap = JSON.parse(readFileSync(SNAP, 'utf8')) as { data: Warning[] };
   const perLloc = new Map<string, Warning[]>();
   for (const a of snap.data) {
     for (const id of a.locationIds) {
