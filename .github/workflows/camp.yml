@@ -1,15 +1,19 @@
-name: Camp de pluja del radar
+name: Camp de vent del mapa
 
+# El camp de vent de `/mapa/interactiu`. Fins al 29 de setembre de 2026 també
+# pintava el camp de pluja que feia de futur del radar, i d'aquí el nom del
+# fitxer; aquell ja no es fa.
+#
 # Cada hora, i no perquè la dada canviï cada hora.
 #
-# La predicció es refresca quatre cops al dia, i mentre el camp es pintava
-# només allà passava això: el worker pinta les dotze hores següents, la pàgina
-# només ensenya les que encara no han passat, i **el futur del radar s'anava
+# La predicció es refresca quatre cops al dia, i mentre el camp es calculava
+# només allà passava això: el worker fa les dotze hores següents, la pàgina
+# només ensenya les que encara no han passat, i **el futur del mapa s'anava
 # encongint al llarg del dia**. Amb l'últim refresc a les 17:00 UTC, a les set
 # del matí següent quedaven dues hores de futur i a les nou, cap.
 #
-# Repintant cada hora, la finestra sempre són dotze. No costa quota: les
-# imatges surten de la predicció que ja tenim, i la malla del voltant es demana
+# Tornant-lo a fer cada hora, la finestra sempre són dotze. No costa quota: les
+# graelles surten de la predicció que ja tenim, i la malla del voltant es demana
 # un cop al dia i es reaprofita.
 #
 # I no costa gairebé escriptures: entre una volta i la següent onze de les

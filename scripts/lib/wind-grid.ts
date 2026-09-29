@@ -16,13 +16,13 @@
  * interpolen els dos per separat, i es torna a compondre al final. Així dos
  * vents oposats es cancel·len, que és el que fa l'aire de debò.
  *
- * ## La ponderació és la mateixa que la del camp de pluja
+ * ## La ponderació és la de Shepard modificada
  *
- * `(1 − d/r)² / d²`, la de Shepard modificada. El `1/d²` sol té un problema que
- * al mapa es veu de seguida: **un punt aïllat pinta un disc uniforme del seu
- * valor amb la vora tallada**, perquè si és l'únic que contribueix la mitjana
- * ponderada és ell mateix valgui el que valgui la distància. Va passar amb la
- * pluja al mar, a llunes de 30 km. El factor `(1 − d/r)²` apaga el pes en
+ * `(1 − d/r)² / d²`. El `1/d²` sol té un problema que al mapa es veu de
+ * seguida: **un punt aïllat pinta un disc uniforme del seu valor amb la vora
+ * tallada**, perquè si és l'únic que contribueix la mitjana ponderada és ell
+ * mateix valgui el que valgui la distància. Va passar amb el camp de pluja que
+ * es pintava fins al setembre de 2026: el mar sortia a llunes de 30 km. El factor `(1 − d/r)²` apaga el pes en
  * arribar al radi i el disc es fon en comptes d'acabar-se.
  */
 import { windComponents } from '../../src/lib/wind.ts';
@@ -41,8 +41,8 @@ export interface GridBox { west: number; east: number; south: number; north: num
 /**
  * Fins on arriba un punt, en quilòmetres.
  *
- * Quaranta, i no els 45 de la pluja: un camp de vent és molt més suau que un
- * de precipitació —no hi ha res equivalent a la vora d'un ruixat— i un radi
+ * Quaranta, i no els 45 que feia servir el camp de pluja: un camp de vent és
+ * molt més suau que un de precipitació —no hi ha res equivalent a la vora d'un ruixat— i un radi
  * llarg no hi perd detall, hi guanya continuïtat. Amb menys, la malla de fora
  * (un punt cada 25 km) deixaria caselles sense cap veí.
  */
@@ -150,7 +150,7 @@ export function windGrid(
         /*
          * Cap punt a l'abast: es queda en calma i **no s'estira el més
          * proper**. Estirar-lo seria dibuixar el que no sabem, que és el que
-         * es va decidir no fer amb la pluja. Amb el voltant demanat, això no
+         * es va decidir no fer mai en cap camp. Amb el voltant demanat, això no
          * hauria de passar mai; si passa, el worker ho diu.
          */
         empty++;

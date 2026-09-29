@@ -94,15 +94,13 @@ jobs:
         if: success()
         run: npm run worker:forecast -- --tiers=${{ steps.pla.outputs.tiers }} --fill
 
-      # El camp de pluja del radar, que surt d'aquesta mateixa predicció.
+      # El camp de vent del mapa, que surt d'aquesta mateixa predicció.
       #
-      # Va aquí i no en un workflow propi perquè no té rellotge propi: les
-      # imatges només canvien quan canvia la predicció. Amb un cron a part
-      # es tornarien a pintar dotze imatges idèntiques cada hora, i R2 cobra
-      # per operació.
+      # `camp.yml` ja el torna a fer cada hora; va també aquí perquè la
+      # predicció nova arribi al mapa quan existeix, i no a la volta següent.
       #
-      # I va **després** del recobriment: pintant abans, un lot perdut sortiria
-      # al mapa com una comarca sense pluja, que és pitjor que sortir tard.
-      - name: Pintar el camp de pluja
+      # I va **després** del recobriment: fent-lo abans, un lot perdut sortiria
+      # al mapa com una comarca sense vent, que és pitjor que sortir tard.
+      - name: Calcular el camp de vent
         if: success()
         run: npm run worker:field

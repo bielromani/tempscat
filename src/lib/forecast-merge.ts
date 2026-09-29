@@ -136,8 +136,7 @@ export function mergeHourly(
      *
      * Es el único sitio del proyecto donde las horas se casan con los valores,
      * y por eso el arreglo va aquí y no en cada página: las frases, la tabla
-     * horaria, el resumen diario y el campo de lluvia del radar salen todos de
-     * esta función.
+     * horaria y el resumen diario salen todos de esta función.
      */
     const pick = (slug: VariableSlug): number[] => {
       const j = VARIABLES[slug].precedingHour ? i + 1 : i;

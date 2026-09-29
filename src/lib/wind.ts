@@ -93,7 +93,18 @@ export interface WindHour {
   iso: string;
   /** El nom del fitxer, sense sufix: `AAAAMMDDHH`. */
   name: string;
-  /** L'empremta, per no tornar a pujar la que ja hi ha. Com al camp de pluja. */
+  /**
+   * L'empremta de la graella, per no tornar a pujar la que ja hi ha.
+   *
+   * El worker corre cada hora i entre dues voltes **onze de les dotze hores
+   * són idèntiques**: la predicció no ha canviat i només n'entra una de nova
+   * per la cua. Amb l'empremta al costat, compara i puja només el que ha
+   * canviat.
+   *
+   * Va aquí i no es compara amb el fitxer del disc perquè a GitHub Actions
+   * **el disc arrenca buit**: allà «no hi és» i «no l'he sabut llegir» són el
+   * mateix, i la comparació sortiria sempre negativa.
+   */
   hash?: string;
   /** La velocitat més alta de l'hora, en m/s. Per al peu del mapa. */
   maxMs: number;

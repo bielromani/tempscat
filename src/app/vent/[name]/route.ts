@@ -18,7 +18,8 @@ import { WIND_DIR } from '@/lib/wind';
  *
  * És un segment d'URL que acaba concatenat en una ruta de l'emmagatzematge, i
  * sense validar-lo un `..%2f` llegeix el que no ha de llegir. El format és
- * exactament `AAAAMMDDHH.png`, com el del camp de pluja.
+ * exactament `AAAAMMDDHH.png` i no `\d+`: així, el dia que la pàgina en demani
+ * un amb una altra forma, se sap de seguida en comptes de rebre un 404 mut.
  *
  * ## I caduca d'aquí a un any
  *

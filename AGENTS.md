@@ -27,7 +27,8 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/build/routes.json` | Índice de los 683: nombre, código, km, cotas, comarcas. **Se versiona** |
 | `data/build/routes/<slug>.json` | Trazado y perfil de alturas de uno. Solo lo lee su ficha |
 | `data/cache/base/` | Teselas del mapa base del ICGC, ya en WebP. Las sirve una route handler |
-| `data/cache/field/` | El campo de lluvia de la predicción, una imagen por hora. **Ya no se enseña**: ver «El futuro del radar» |
+| `data/cache/wind/` | El viento previsto de las doce horas siguientes, una rejilla u/v por hora en PNG. Lo mueve `/mapa/interactiu` |
+| `data/cache/field/` | Solo `voltant.json`: la predicción de viento de 129 puntos de fuera de Catalunya, que lee únicamente el worker del viento. El campo de lluvia que daba nombre a la carpeta **ya no se hace**: ver «El futuro del radar» |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
@@ -86,7 +87,6 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/forecast-merge.ts` | De los modelos a una serie, y de la serie al resumen por días |
 | `src/lib/search-match.ts` | Cómo se parece lo que se escribe en el buscador al nombre de un sitio |
 | `src/lib/climate-math.ts` | Qué es un mes comparable, qué es un año entero y cómo se saca una tendencia |
-| `src/lib/field.ts` | El recuadro del campo de lluvia, en píxeles del mosaico del radar |
 | `src/lib/webmap.ts` | La ventana, los zooms y la dirección del worker del mapa que se mueve |
 | `src/lib/warning-stack.ts` | Quin avís mana, quin acompanya i quin no diu res de nou |
 | `src/lib/warning-zones.ts` | On viu el contorn de les 21 zones de Meteoalerta, i per què va a part |
@@ -186,7 +186,7 @@ npm run worker:forecast   # predicció · accepta --tiers=A,B,C i --fill
 npm run worker:history    # rècords i normals, un cop al dia
 npm run worker:cameres    # cameres de muntanya de FGC, cada hora
 npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
-npm run worker:field      # el camp de pluja del radar · cada hora, i al final de `prediccio.yml`
+npm run worker:field      # el camp de vent del mapa · cada hora, i al final de `prediccio.yml`
 npm run worker:verify     # quant encerta cada model, contra la XEMA · un cop al dia
 ```
 
@@ -385,18 +385,29 @@ cuota para exactamente la misma información.
   en pasos de 6— pero **no está en su API**: se vende por contrato bilateral, y sus condiciones
   de uso prohiben expresamente «difondre a tercers», así que un web público entra en tarifa de
   difusión. Comprobado contra su documentación en septiembre de 2026; el detalle y los precios
-  están en el hoja de ruta. Lo que sí tenemos es **nuestra propia predicción**: 3.190 puntos, uno
-  cada 3,2 km, hora a hora, que `forecast-field.ts` pinta como un campo sobre el mismo mosaico.
-  Se concatena a los marcos del radar y hereda la animación, el rótulo de la hora y la barra sin
-  una línea más —toda la página cuenta grupos—, pero **no hereda el nombre**: la leyenda dice
-  dónde acaba el radar y empieza el modelo, antes que ninguna otra cosa.
-  **Desde el 29 de septiembre de 2026 no se enseña en ninguna parte**, ni en `/radar`, ni en
-  `/mapa/interactiu`, ni en la ficha: el usuario lo vio feo y el radar volvió a ser solo pasado y
-  presente. Dónde lloverá lo dicen las horas de la ficha, en milímetros. El worker **sigue
-  corriendo** porque del mismo anillo de puntos sale el viento de `/mapa/interactiu`; lo que ya
-  no lee nadie son las imágenes de lluvia y `precipField()`. Si se quiere ahorrar, eso es lo que
-  sobra, no el worker.
+  están en el hoja de ruta. Lo que sí teníamos es **nuestra propia predicción**: 3.190 puntos, uno
+  cada 3,2 km, hora a hora, que `forecast-field.ts` pintaba como un campo sobre el mismo mosaico
+  y se concatenaba a los marcos del radar, con una leyenda que decía dónde acababa el radar y
+  empezaba el modelo.
+  **Desde el 29 de septiembre de 2026 no se enseña en ninguna parte, y ya no se hace.** El
+  usuario lo vio feo y el radar volvió a ser solo pasado y presente, en `/radar`, en
+  `/mapa/interactiu` y en la ficha; dónde lloverá lo dicen las horas de la ficha, en milímetros.
+  Las imágenes se quedaron sin lector, así que el worker dejó de pintarlas y de publicarlas, y se
+  borraron `precipField()`, `src/lib/field.ts` y la ruta `/camp/`. El worker **sigue
+  corriendo**, con el mismo nombre, porque del mismo recorrido sale el viento de
+  `/mapa/interactiu`; del anillo de fuera ya solo se pide el viento. Quitar la lluvia **no ahorra
+  cuota** —ver «El vent amb partícules»—: ahorra, en cada vuelta, las escrituras en R2 de las
+  imágenes que cambian y de su índice, y más de la mitad del tiempo del worker. Lo que ya estaba
+  en R2 bajo `field/` lo puede borrar alguien a mano, **menos `field/voltant.json`**, que es el
+  anillo y sigue en uso.
+  Y una trampa que salió al hacerlo: **quitar los marcos de predicción apagó también el viento
+  de `/mapa/interactiu`**, sin ningún error. La página solo le pasa la capa al mapa si cada hora
+  del viento coincide con un marco de la barra; con la barra solo de radar, que es pasado, no
+  coincide ninguna, el botón «Vent» no se pinta y las partículas no salen. Qué hacer con eso está
+  en `docs/12`, «Lo que falta».
 - **La pluja del model s'acabava dins del mapa, i això no es llegeix com «aquí no en sabem».**
+  (El campo de lluvia ya no se hace desde el 29 de septiembre de 2026. Queda el anillo, que
+  ahora solo pide viento, y las lecciones de dibujo, que valen para cualquier campo.)
   Los 3.190 puntos son de Catalunya, así que el campo de lluvia se cortaba en seco en la raya de
   la frontera y en la costa, con medio encuadre en blanco. Se arregló **sin inventar nada**: no
   se estira el valor del punto más cercano —eso sería dibujar lo que no sabemos— sino que se le
@@ -419,7 +430,9 @@ cuota para exactamente la misma información.
   desvanecimiento del último punto caería **dentro** del mapa y parecería que la lluvia se acaba
   en el marco.
 - **El campo se repinta cada hora, y comparar con el disco para no repetir escrituras no
-  funciona.** Se pintaba solo cuando se refrescaba la predicción —cuatro veces al día— y como la
+  funciona.** (Desde el 29 de septiembre de 2026 lo que se rehace cada hora es solo el
+  viento, con la misma comparación contra el índice publicado.) Se pintaba solo cuando se
+  refrescaba la predicción —cuatro veces al día— y como la
   página únicamente enseña las horas que no han pasado, **el futuro del radar se iba encogiendo**:
   con el último refresco a las 17:00 UTC, a las nueve de la mañana siguiente no quedaba ninguna.
   Ahora hay `camp.yml` cada hora. Entre dos vueltas once de las doce imágenes son idénticas, así
@@ -952,6 +965,17 @@ cuota para exactamente la misma información.
   ha de portar la llista de variables a dins**, o el dia que se n'hi afegeix una, el
   tros vell segueix valent i el voltant es queda sense la nova fins que la predicció es
   refresqui sola.
+  El 29 de setembre de 2026 se'n va treure la pluja, quan el camp de pluja es va deixar
+  de fer, i pel mateix terra **no es va estalviar res**: dues variables també valen 1 per
+  punt, i el voltant segueix costant 129 unitats al dia. Com que la llista és a
+  l'empremta, la primera volta sense pluja va tornar a demanar el voltant una vegada.
+  **El voltant s'alinea amb la sèrie de dins per l'hora, no per la posició.** La seva sèrie
+  comença les zero hores del dia en què es demana, i la de dins pot ser d'un altre dia.
+  `windGrid` llegeix per posició, i el vent del voltant hi entrava així: el camp de pluja
+  sí que el buscava per hora, i el de vent no, sense que es notés, perquè gairebé sempre
+  comencen el mateix dia. Ara les sèries del voltant es tornen a escriure sobre les hores
+  de dins abans d'entrar-hi. Comprovat amb un voltant desplaçat un dia: les hores que
+  cobreix surten idèntiques, byte a byte, i les que no, en calma i amb avís.
   **La direcció no es pot interpolar, i el signe no es pot deduir.** Entre 350° i 10° la
   mitjana dona 180°: vent del sud exactament on bufa del nord. Es descompon en u i v
   abans d'interpolar. I la conversió —`u = −v·sinθ`, `v = −v·cosθ`, amb θ **d'on ve** el

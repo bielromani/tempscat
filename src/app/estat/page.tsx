@@ -19,7 +19,7 @@ const LABELS: Record<string, string> = {
   'xema-history': 'Rècords i normals (XEMA)',
   'air-quality': 'Qualitat de l’aire i pol·len (CAMS)',
   'radar': 'Radar de precipitació (RainViewer)',
-  'forecast-field': 'Camp de pluja del radar (Open-Meteo)',
+  'forecast-field': 'Camp de vent del mapa (Open-Meteo)',
   'forecast-verify': 'Encert dels models, comprovat contra la XEMA',
   'water': 'Embassaments, cabals i sequera (ACA)',
   'air-stations': 'Qualitat de l’aire mesurada (XVPCA)',
