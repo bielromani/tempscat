@@ -9,7 +9,7 @@
  * no importen res: la contracció del rumb i la pressió al nivell del mar.
  */
 import { addDays, dryStreakOf, withMeasuredRain, type RainDay } from '../src/lib/recent-rain.ts';
-import { fromDirection } from '../src/lib/format.ts';
+import { fromDirection, instantOf } from '../src/lib/format.ts';
 import { seaLevelPressure } from '../src/lib/variables.ts';
 
 let bad = 0;
@@ -87,6 +87,14 @@ check("de l'O (oest)", fromDirection('O'), "de l'O");
 // A Lilla, 967 hPa a l'Espluga de Francolí (~490 m) amb 23,7 °C.
 check('967 hPa a 490 m són uns 1.023 al nivell del mar', Math.round(seaLevelPressure(967, 490, 23.7)), 1023);
 check('a nivell del mar no es toca', Math.round(seaLevelPressure(1019, 0, 22)), 1019);
+
+// ── Marques de temps sense zona ────────────────────────────────────────────
+// Les d'Open-Meteo són hora de Madrid i no ho diuen. `/estat` les llegia com a UTC.
+const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16);
+check('sense zona és hora de Madrid, a l\'estiu', iso(instantOf('2026-09-29T00:00')), '2026-09-28T22:00');
+check('i a l\'hivern', iso(instantOf('2026-12-01T00:00')), '2026-11-30T23:00');
+check('amb Z no es toca', iso(instantOf('2026-09-29T11:00:00Z')), '2026-09-29T11:00');
+check('amb -00:00 tampoc', iso(instantOf('2026-09-15T09:30:30-00:00')), '2026-09-15T09:30');
 
 if (bad) {
   console.error(`\n${bad} ${bad === 1 ? 'fallada' : 'fallades'}.`);

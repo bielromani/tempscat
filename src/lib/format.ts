@@ -62,6 +62,50 @@ function deMes(m: number): string {
   return /^[aeiouàèéíòóú]/i.test(nom) ? `d'${nom}` : `de ${nom}`;
 }
 
+// ── Hora local de Madrid → instante ─────────────────────────────────────────
+
+/**
+ * Hora local de Madrid → instante, sin biblioteca y sin restar horas a mano.
+ *
+ * Restar «dos horas en verano y una en invierno» es lo que se rompe el domingo
+ * del cambio, y se rompe en silencio: la hora sale plausible y es de otra. Aquí
+ * se supone que la hora leída es UTC, se pregunta qué hora marca ese instante
+ * en Madrid, y la diferencia es el desplazamiento que hay que quitar.
+ *
+ * Se repite una vez porque en la madrugada del cambio el desplazamiento del
+ * instante supuesto y el del real no son el mismo.
+ *
+ * Vivía en `scripts/lib/madrid.ts`, donde la aplicación no llega; está aquí
+ * porque `/estat` la necesita también, y `madrid.ts` la reexporta: una copia.
+ */
+export function madridToUtc(y: number, mo: number, d: number, h: number, mi: number): Date {
+  const wall = Date.UTC(y, mo - 1, d, h, mi);
+  let guess = wall;
+  for (let i = 0; i < 2; i++) {
+    const asMadrid = new Date(guess)
+      .toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
+      .replace(' ', 'T');
+    const offset = Date.parse(`${asMadrid}Z`) - guess;
+    guess = wall - offset;
+  }
+  return new Date(guess);
+}
+
+/**
+ * Una marca de temps → mil·lisegons, digui o no de quina zona és.
+ *
+ * Les fonts no les desen igual: unes porten zona —`…Z`, `…-00:00`— i altres no
+ * —`2026-09-29T00:00`, l'hora local d'Open-Meteo, o una data sola—. `Date.parse`
+ * llegeix les segones com a hora **del servidor**, que a Vercel és UTC, i a
+ * `/estat` la predicció sortia amb dues hores menys d'antiguitat de les que
+ * tenia. Sense zona vol dir hora de Madrid, que és el que escriuen.
+ */
+export function instantOf(ts: string): number {
+  if (/(?:[zZ]|[+-]\d\d:\d\d)$/.test(ts)) return Date.parse(ts);
+  const n = (a: number, b: number) => Number(ts.slice(a, b)) || 0;
+  return madridToUtc(n(0, 4), n(5, 7), n(8, 10), n(11, 13), n(14, 16)).getTime();
+}
+
 // ── Horas ───────────────────────────────────────────────────────────────────
 
 /** 08:00 — la hora sola, para columnas de tabla. */

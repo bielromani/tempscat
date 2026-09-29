@@ -22,6 +22,7 @@ import {
 import type {
   CurrentConditions, DailyPoint, HourlyPoint, LocationForecast,
 } from './forecast-types';
+import { instantOf } from './format';
 import type { TileGrid } from './mercator';
 import type { Location } from './territory';
 import { LEVEL_RANK, type Warning } from './warning-stack';
@@ -922,7 +923,7 @@ export async function freshness(): Promise<Array<
       };
     }
     const ageMin = entry.lastDataTs
-      ? Math.round((Date.now() - Date.parse(entry.lastDataTs)) / 60_000)
+      ? Math.round((Date.now() - instantOf(entry.lastDataTs)) / 60_000)
       : null;
     const exp = entry.credentialExpiresAt;
     const keyDaysLeft = exp
