@@ -1,6 +1,7 @@
 import { msToKmh } from './variables.ts';
 import { dailySummaryCode, weatherCode } from './weather-codes.ts';
 import { num, relativeDay } from './format.ts';
+import { LEVEL_RANK } from './warning-stack.ts';
 import type { CurrentConditions, HourlyPoint, LocationForecast } from './forecast-types.ts';
 
 /**
@@ -27,10 +28,78 @@ import type { CurrentConditions, HourlyPoint, LocationForecast } from './forecas
  *     componente deje de ser puro.
  *
  * Los imports llevan la extensión `.ts` explícita a propósito: este fichero lo
- * carga también `scripts/test-narrative.ts` con Node, y Node la exige. Sus cuatro
+ * carga también `scripts/test-narrative.ts` con Node, y Node la exige. Sus cinco
  * dependencias son ficheros que no importan nada, así que la cadena se corta ahí
  * y no arrastra `node:fs`. Ver `src/lib/forecast-types.ts`.
  */
+
+// ── Avisos oficiales ────────────────────────────────────────────────────────
+
+/**
+ * Un aviso oficial de lluvia o de tormenta, con las horas ya en hora de Madrid.
+ *
+ * `from` y `to` son `AAAA-MM-DDTHH` y las dos van incluidas, con el mismo
+ * convenio que la serie horaria: la hora `T` es el tramo de `T` a `T+1`. Un aviso
+ * que AEMET emite hasta las 17:59:59 acaba en la hora `17`.
+ *
+ * La conversión desde el CAP la hace `rainWarningsOf()` en `weather.ts`: este
+ * fichero no lee el reloj ni zonas horarias.
+ */
+export interface RainWarning {
+  level: 'groc' | 'taronja' | 'vermell';
+  /** `PR` pluja, `TO` tempesta. */
+  phenomenon: 'PR' | 'TO';
+  from: string;
+  to: string;
+}
+
+/** Los avisos que tocan alguna hora del tramo. Comparación de cadenas: van en el mismo formato. */
+function warningsOver(warnings: RainWarning[], from: string, to: string): RainWarning[] {
+  const a = from.slice(0, 13);
+  const b = to.slice(0, 13);
+  return warnings.filter((w) => w.from <= b && w.to >= a);
+}
+
+/** El que manda: el nivel más alto y, a igualdad, el de lluvia antes que el de tormenta. */
+function strongest(warnings: RainWarning[]): RainWarning {
+  return warnings.reduce((a, b) => {
+    const d = LEVEL_RANK[b.level] - LEVEL_RANK[a.level];
+    if (d !== 0) return d > 0 ? b : a;
+    return a.phenomenon === 'PR' ? a : b;
+  });
+}
+
+function warningPhrase(w: RainWarning): string {
+  return `avís ${w.level} per ${w.phenomenon === 'PR' ? 'pluja' : 'tempesta'}`;
+}
+
+/**
+ * El nombre del cielo sin el adjetivo de intensidad, cuando hay aviso.
+ *
+ * «Pluja feble» y «Ruixats febles» son la intensidad **del punto de rejilla del
+ * modelo**, y un modelo no resuelve la tormenta que descarga en un valle y no en
+ * el de al lado. El 29 de septiembre de 2026 la ficha de Malgrat decía «Pluja
+ * feble» debajo de un aviso naranja de 150 mm en doce horas y con el radar en
+ * rojo encima del pueblo: las dos cosas eran ciertas y juntas se leían como que
+ * una de las dos mentía. Con aviso, el nombre se queda en «Pluja» o «Ruixats» y
+ * la intensidad la dice el aviso.
+ *
+ * Null cuando el código no es de lluvia —la tormenta, la nieve y el cielo no
+ * llevan una intensidad que el aviso contradiga— y cuando ya es lluvia fuerte
+ * (65, 82): «Pluja forta» debajo de un aviso dice lo mismo que el aviso.
+ */
+export function unratedRainLabel(code: number | null): string | null {
+  if (code == null || code === 65 || code === 82) return null;
+  const { group } = weatherCode(code);
+  if (group === 'showers') return 'Ruixats';
+  if (group === 'rain' || group === 'drizzle') return 'Pluja';
+  return null;
+}
+
+/** Si algún aviso de lluvia o tormenta cubre esta hora de la serie. */
+export function rainWarnedAt(warnings: RainWarning[], time: string): boolean {
+  return warningsOver(warnings, time, time).length > 0;
+}
 
 // ── Franjas del día ─────────────────────────────────────────────────────────
 
@@ -322,10 +391,47 @@ function rangePhrase(from: string, to: string, today: string): string {
  *  3. **Continua.** El tramo es plano: se dice cuánto dura y con qué intensidad.
  *  4. **Intermitente.** Varios tramos: se listan y se nombra el peor.
  */
-function rainSentence(windows: RainWindow[], today: string): string | null {
+function rainSentence(
+  windows: RainWindow[],
+  today: string,
+  warnings: RainWarning[] = [],
+): string | null {
   if (!windows.length) return null;
 
   const storm = (w: RainWindow) => (w.thunder ? ', amb tempesta' : '');
+
+  /*
+   * Con aviso oficial encima, el modelo no pone el adjetivo.
+   *
+   * Un aviso de lluvia de AEMET en Catalunya empieza en 15-20 mm en una hora,
+   * que en la escala de más arriba ya es «forta». Si el punto de rejilla dice
+   * «feble» o «moderada» —o plugim, que «no arriba a mullar el terra»— la frase
+   * contradice el aviso que el lector acaba de leer justo encima. Se dice lo que
+   * da el modelo aquí, en milímetros, y que el aviso cubre esas horas.
+   *
+   * Si el propio modelo ya ve lluvia fuerte, no hay contradicción y la frase de
+   * siempre vale: solo se le añade el aviso.
+   */
+  const over = windows.flatMap((w) => warningsOver(warnings, w.from, w.to));
+  if (over.length) {
+    const lead = strongest(over);
+    const worst = windows.reduce((a, b) => (b.peak.mm > a.peak.mm ? b : a));
+    const weak = worst.intensity === 'feble' || worst.intensity === 'moderada';
+    const tail = `Hi ha ${warningPhrase(lead)} a la zona`;
+
+    if (weak) {
+      const total = Math.round(windows.reduce((s2, w) => s2 + w.mm, 0) * 10) / 10;
+      const when = windows.length === 1
+        ? (windows[0].hours === 1
+          ? `Un ruixat ${atPhrase(windows[0].from, today)}`
+          : `Pluja ${rangePhrase(windows[0].from, windows[0].to, today)}`)
+        : `Ruixats intermitents, ${windows.map((w) => rangePhrase(w.from, w.to, today)).join(' i ')}`;
+      return `${when}${storm(worst)}: aquí el model en preveu ${num(total, 1)} mm. `
+        + `${tail}, i en alguns punts en pot caure molta més.`;
+    }
+    const plain = rainSentence(windows, today);
+    return plain ? `${plain} ${tail}.` : null;
+  }
 
   if (windows.length === 1) {
     const w = windows[0];
@@ -504,6 +610,15 @@ export interface Narrative {
   /** Lo que hay que tener en cuenta, en prosa y solo con umbrales citables. */
   notes: string[];
   windows: RainWindow[];
+  /**
+   * Un aviso oficial de lluvia o tormenta cubre la hora en curso.
+   *
+   * Lo usa el titular del cielo para no escribir «Pluja feble» debajo de un
+   * aviso: ver `unratedRainLabel()`.
+   */
+  rainWarnedNow: boolean;
+  /** Los avisos de lluvia y tormenta con los que se ha escrito, para la tabla horaria. */
+  rainWarnings: RainWarning[];
 }
 
 /**
@@ -613,12 +728,17 @@ function yesterdayPhrase(
  * Va inmediatamente después del panel de condiciones actuales: el número grande
  * es el gancho y esta frase es la interpretación. Antes había un salto directo
  * del termómetro al meteograma, y ahí es donde se perdía la gente.
+ *
+ * `warnings` son los avisos oficiales de lluvia y tormenta de este lugar. Sin
+ * ellos la frase describe el punto de rejilla como si no hubiera aviso, que es
+ * lo que hacía: ver `rainSentence()`.
  */
 export function narrativeFor(
   forecast: LocationForecast | null,
   current: CurrentConditions | null,
   nowHour: string,
   today: string,
+  warnings: RainWarning[] = [],
 ): Narrative | null {
   if (!forecast || !forecast.daily.length) return null;
 
@@ -627,8 +747,15 @@ export function narrativeFor(
   const windows = rainWindows(forecast.hourly, nowHour);
   const parts = dayParts(forecast.hourly, nowHour, today);
 
+  // Las 24 horas que miran las ventanas de lluvia, para los avisos que caen dentro.
+  const from = Math.max(0, forecast.hourly.findIndex((h) => h.time.slice(0, 13) === nowHour));
+  const horizon = forecast.hourly[Math.min(forecast.hourly.length - 1, from + 23)]?.time ?? nowHour;
+  const warned24 = warningsOver(warnings, nowHour, horizon);
+  const warnedToday = warningsOver(warnings, nowHour, `${today}T23`);
+
   // ── Frase 1: el día ──
   const sky = weatherCode(d0.weatherCode);
+  const skyName = (warnedToday.length && unratedRainLabel(d0.weatherCode)) || sky.caLong;
   const max = expectedMax(d0.tMax, current?.todayMax ?? null);
   // La mínima del día ya ha pasado casi siempre, así que si la medida es más
   // baja que la prevista, manda la medida.
@@ -637,7 +764,7 @@ export function narrativeFor(
     : current?.todayMin ?? d0.tMin;
 
   const bits: string[] = [];
-  if (sky.code >= 0) bits.push(sky.caLong.toLowerCase());
+  if (sky.code >= 0) bits.push(skyName.toLowerCase());
   if (max.value != null) {
     bits.push(max.alreadyReached
       ? `ja s'han fet ${num(max.value, 1)} °C`
@@ -652,7 +779,20 @@ export function narrativeFor(
     : 'Avui no hi ha prou dades per resumir el dia.';
 
   // ── Frase 2: lo que condiciona el día ──
-  let change: string | null = rainSentence(windows, today);
+  let change: string | null = rainSentence(windows, today, warnings);
+  /*
+   * Un aviso que el modelo no ve aquí también se dice.
+   *
+   * La tarjeta del aviso va justo encima, y un «avui, cel serè» debajo se lee
+   * como que una de las dos cosas se equivoca. No se equivoca ninguna: el aviso
+   * es de la zona y la tormenta puede caer en el pueblo de al lado. Eso es lo
+   * que hay que decir.
+   */
+  if (!change && warned24.length) {
+    const lead = strongest(warned24);
+    change = `Hi ha ${warningPhrase(lead)} a la zona ${rangePhrase(lead.from, lead.to, today)}, `
+      + 'tot i que aquí el model no hi preveu pluja.';
+  }
   if (!change && d0.snowLevel != null) {
     change = `Nevarà per damunt dels ${d0.snowLevel} m.`;
   } else if (!change && d0.gustMax != null && msToKmh(d0.gustMax) >= 62) {
@@ -682,5 +822,7 @@ export function narrativeFor(
     parts,
     notes: dayNotes(forecast.hourly, nowHour, today),
     windows,
+    rainWarnedNow: rainWarnedAt(warnings, nowHour),
+    rainWarnings: warnings,
   };
 }

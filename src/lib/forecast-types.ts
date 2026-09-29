@@ -48,6 +48,13 @@ export interface CurrentConditions {
   yesterdayMax: number | null;
   yesterdayMin: number | null;
   yesterdayPrecip: number | null;
+  /**
+   * El día natural de Madrid al que pertenecen `today*`, `AAAA-MM-DD`.
+   *
+   * El del agregado y no el del reloj: una instantánea de las 23:50 servida a las
+   * 00:10 trae la lluvia de ayer en `todayPrecip`. Ver `recent-rain.ts`.
+   */
+  aggregatesDay: string;
   source: string;
 }
 

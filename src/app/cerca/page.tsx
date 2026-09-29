@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MIN_QUERY, search } from '@/lib/search';
 import { KIND_LABEL } from '@/lib/search-kinds';
+import { publishedPlaces } from '@/lib/territory';
 import { SiteSearch } from '@/components/SiteSearch';
 
 /**
@@ -17,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Cercar un poble, una platja o una estació',
   description:
-    'Cerca entre les 4.293 poblacions de Catalunya, les comarques, les platges, '
+    `Cerca entre les ${publishedPlaces().toLocaleString('ca-ES')} poblacions de Catalunya, les comarques, les platges, `
     + 'els embassaments, les estacions automàtiques, les càmeres de muntanya i '
     + 'els itineraris senyalitzats.',
   alternates: { canonical: '/cerca' },

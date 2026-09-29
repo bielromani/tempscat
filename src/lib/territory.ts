@@ -411,6 +411,18 @@ export function buildSummary(): Record<string, unknown> {
 }
 
 /**
+ * Cuántos lugares tienen ficha: municipios, entidades y núcleos. **No** las comarcas.
+ *
+ * La cifra de los documentos, 4.293, son las rutas territoriales y cuenta las 43
+ * comarcas. En el texto público se llamaba igual «4.293 poblacions» mientras la
+ * portada, que sí lee el fichero, decía 4.250: el mismo sitio con dos números en
+ * dos páginas. El texto sale de aquí para que no pueda volver a pasar.
+ */
+export function publishedPlaces(): number {
+  return (buildSummary() as { published: number }).published;
+}
+
+/**
  * Les poblacions publicades que cauen dins d'un rectangle.
  *
  * Serveix per posar noms a un mapa de detall. Van ordenades per població, que

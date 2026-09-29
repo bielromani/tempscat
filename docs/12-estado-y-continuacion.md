@@ -116,6 +116,20 @@ Vercel. El porqué y los números, en `AGENTS.md`.
 
 De paso, `/estat` ya no borra la hora del último éxito cuando una ejecución falla.
 
+**Credibilidad: que una ficha no se contradiga (29 sep, rama `credibilitat`).** Salió de una
+auditoría de la web publicada un día de avisos naranja. `npm run check:coherence`, nuevo, dio
+**75 contradicciones en 20 fichas** de producción; con la rama, **0 en 40**. Lo arreglado:
+- La frase y el cielo del titular ya no dicen «feble» debajo de un aviso de lluvia o tormenta
+  que cubre esas horas (`narrativeFor` recibe los avisos; `test:narrative` lo comprueba).
+- El bloque de lluvia y los «dies sense pluja» incluyen lo medido hoy y ayer
+  (`src/lib/recent-rain.ts`, `test:rain`). Lilla decía 16,6 mm hoy y «fa més de 45 dies».
+- Las fichas de un solo modelo —nueve de cada diez— ya no hablan de «consens».
+- La presión se da reducida al nivel del mar (967 hPa en Lilla eran 1.023).
+- Contracciones: «de l'ESE», «dels Hostalets», «al Perelló», «Dins de la Conca», y los
+  meses con `monthOf()` —el 1 de octubre habría salido «dies de octubre» en todas—.
+- Una sola cifra de lugares en todo el sitio (4.250; el 4.293 contaba las comarcas).
+- `/estat`, en hora de Madrid, y el mensaje técnico de cada fallo, plegado.
+
 **Almacén.** `DATA_BASE_URL` = `https://dades.tempscat.cat` en Vercel (los tres entornos), en
 GitHub Actions y en `.env.local`. Antes de cambiarlo se comprobó que el dominio nuevo sirve
 exactamente lo mismo que `r2.dev`: contenido y ETag idénticos, los mismos 404, `304` en las
@@ -165,7 +179,14 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    barrido de estilos, pero nadie las ha mirado en un móvil.
 7. **Reescribir los textos** para que el sitio suene a portal profesional. Las reglas de tono
    están en `AGENTS.md`, «Cómo se escribe lo que lee el usuario».
-8. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa) · el buscador
+8. **Lo que quedó de la rama `credibilitat`:** los rótulos de los iconos hora a hora (el
+   `<title>` y el `aria-label` de `WeatherIcon`) siguen diciendo «Pluja feble» bajo un aviso;
+   la antigüedad de `/estat` lee con `Date.parse` las marcas sin zona —las de Open-Meteo, que
+   son hora local— como si fueran UTC, y en Vercel salen dos horas cortas; la descripción
+   general del sitio (`layout.tsx`) promete «consens multimodel», que es cierto en el 11 % de
+   los puntos. Y `check:coherence` no lo lanza ningún workflow: se pasa a mano después de
+   cada fusión, como `check:jsonld`.
+9. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa) · el buscador
    del móvil podría ser una pastilla «⌕ Cercar» · el trazador de Next avisa de que
    `join(LOCAL, path)` en `cache-store.ts` engancha los 5.525 ficheros de `data/cache/`; hoy no
    pasa nada porque no se versiona, y es una trampa esperando a que alguien lo haga.

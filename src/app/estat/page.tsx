@@ -26,6 +26,23 @@ const LABELS: Record<string, string> = {
   'fgc-mountain': 'Neu i obertura d’estacions (FGC)',
 };
 
+/**
+ * Una marca de temps, en hora de Madrid.
+ *
+ * Les fonts no les desen igual: unes porten zona —`…Z`, `…-00:00`, instants en
+ * UTC— i altres no —`2026-09-29T00:00`, que ja és l'hora local d'Open-Meteo, o
+ * només una data—. La pàgina les tallava totes igual, així que la del radar
+ * sortia a les 12:10 quan la fitxa de qualsevol poble deia 14:10. Només es
+ * converteix la que diu de quina zona és: convertir les altres les mouria dues
+ * hores en l'altra direcció.
+ */
+function localStamp(ts: string): string {
+  if (/(?:[zZ]|[+-]\d\d:\d\d)$/.test(ts)) {
+    return new Date(ts).toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).slice(0, 16);
+  }
+  return ts.slice(0, 16).replace('T', ' ');
+}
+
 function age(minutes: number | null): string {
   if (minutes == null) return '—';
   if (minutes < 60) return `${minutes} min`;
@@ -43,7 +60,7 @@ export default async function EstatPage() {
       <h1 className="page-title">Estat de les dades</h1>
       <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
         Quan es va actualitzar cada font per última vegada, i quina antiguitat
-        té la dada més recent que en tenim. Serveix per saber, abans de fiar-se
+        té la dada més recent que en tenim, en hora de Catalunya. Serveix per saber, abans de fiar-se
         d&apos;una xifra del lloc, si la font que hi ha al darrere està al dia.
       </p>
 
@@ -64,7 +81,7 @@ export default async function EstatPage() {
                 <tr key={s.source} className="border-b border-[var(--line-soft)]">
                   <td className="py-2.5 pr-4 text-[var(--ink)]">{LABELS[s.source] ?? s.source}</td>
                   <td className="tnum py-2.5 pr-4 text-[var(--ink-2)]">
-                    {s.lastDataTs ? s.lastDataTs.slice(0, 16).replace('T', ' ') : '—'}
+                    {s.lastDataTs ? localStamp(s.lastDataTs) : '—'}
                   </td>
                   <td className="tnum py-2.5 pr-4 text-[var(--ink-2)]">{age(s.ageMin)}</td>
                   <td className="py-2.5">
@@ -83,11 +100,19 @@ export default async function EstatPage() {
                       cosa que es pot mirar: el registre d'Actions caduca i
                       demana autenticacio, i aixo no.
                     */}
+                    {/*
+                      El missatge és el del worker, en l'idioma de la llibreria
+                      que ha fallat —«fetch failed», «Fallo tras 5 intentos»—, i
+                      no li diu res a qui mira si la font està al dia. Va plegat:
+                      qui el necessita per saber què va passar l'obre.
+                    */}
                     {!s.error && s.lastError && s.lastErrorAt && (
-                      <span className="mt-0.5 block text-[11px] text-[var(--muted)]">
-                        últim ensopec el {s.lastErrorAt.slice(0, 16).replace('T', ' ')}:{' '}
-                        {s.lastError.slice(0, 90)}
-                      </span>
+                      <details className="mt-0.5 text-[11px] text-[var(--muted)]">
+                        <summary className="cursor-pointer">
+                          últim ensopec el {localStamp(s.lastErrorAt)}
+                        </summary>
+                        <span className="mt-0.5 block font-mono">{s.lastError.slice(0, 200)}</span>
+                      </details>
                     )}
                     {/*
                       I quan caduca la clau, si en té una que caduqui.

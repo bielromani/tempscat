@@ -1,4 +1,4 @@
-import { aName, deName } from './format';
+import { aName, deComarca, deName, ordinal } from './format';
 import type { Comarca, Location } from './territory';
 
 /**
@@ -78,7 +78,7 @@ function contextSentence(loc: Location, comarca: Comarca, siblings: Location[]):
   if (rank === total) {
     return `És el nucli més baix del municipi, dels ${total} que en té.`;
   }
-  return `És el ${rank}è nucli més enlairat dels ${total} del municipi.`;
+  return `És el ${ordinal(rank)} nucli més enlairat dels ${total} del municipi.`;
 }
 
 function comarcaSentence(loc: Location, comarca: Comarca): string | null {
@@ -87,7 +87,7 @@ function comarcaSentence(loc: Location, comarca: Comarca): string | null {
   if (range < 200) return null;
   const pos = (loc.altitud - comarca.altitudMin) / range;
   const where = pos > 0.75 ? 'a la part alta' : pos < 0.25 ? 'a la part baixa' : 'a la franja mitjana';
-  return `Dins de ${comarca.nom}, que va dels ${comarca.altitudMin} als ${comarca.altitudMax} m, `
+  return `Dins ${deComarca(comarca.nom)}, que va dels ${comarca.altitudMin} als ${comarca.altitudMax} m, `
     + `queda ${where} de la comarca.`;
 }
 

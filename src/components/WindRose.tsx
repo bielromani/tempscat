@@ -1,5 +1,5 @@
 import { msToKmh } from '@/lib/variables';
-import { int, num } from '@/lib/format';
+import { directionPrep, int, num } from '@/lib/format';
 import type { WindRose as WindRoseData } from '@/lib/weather';
 
 /**
@@ -159,7 +159,7 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
       <figcaption className="min-w-[16rem] flex-1 text-sm leading-relaxed text-[var(--ink-2)]">
         {rose.prevailing && (
           <p>
-            Les ratxes més fortes de cada dia vénen del{' '}
+            Les ratxes més fortes de cada dia vénen {directionPrep(rose.prevailing.label)}
             <strong className="font-medium text-[var(--ink)]">{rose.prevailing.label}</strong>{' '}
             en el {(rose.prevailing.share * 100).toFixed(0)} % dels dies.
           </p>

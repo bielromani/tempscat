@@ -2,7 +2,7 @@ import { temperatureColor } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
 import { weatherSpriteHref } from './WeatherIcon';
-import { hour, num, relativeDay } from '@/lib/format';
+import { fromDirection, hour, num, relativeDay } from '@/lib/format';
 import type { HourlyPoint } from '@/lib/weather';
 
 /**
@@ -336,7 +336,7 @@ export function Meteogram({
                     fill={kmh >= 40 ? 'var(--bad)' : 'var(--ink-2)'}
                     opacity={kmh < 5 ? 0.3 : 0.85}
                   >
-                    <title>{`${hour(d.time)} · ${kmh.toFixed(0)} km/h del ${windCardinal(d.windDirection)}`}</title>
+                    <title>{`${hour(d.time)} · ${kmh.toFixed(0)} km/h ${fromDirection(windCardinal(d.windDirection))}`}</title>
                   </path>
                 </g>
                 {i % 6 === 1 && (

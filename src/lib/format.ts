@@ -169,6 +169,23 @@ export function deName(nom: string): string {
   }
 }
 
+/**
+ * «del NNO», «de l'ESE»: d'on ve el vent, amb la contracció que toca.
+ *
+ * El rumb abreujat es llegeix sencer —«del nord-nord-oest», «de l'est-sud-est»—
+ * i per tant contrau com el nom del punt cardinal: els que comencen per E (est)
+ * o per O (oest) van amb apòstrof. La fitxa va publicar «vent del ESE» en totes
+ * les que el tenien, i és la mateixa falta que «de el Prat».
+ */
+export function fromDirection(cardinal: string): string {
+  return `${directionPrep(cardinal)}${cardinal}`;
+}
+
+/** Només la preposició, per quan el rumb va marcat a part: «de l'» o «del ». */
+export function directionPrep(cardinal: string): string {
+  return /^[EO]/.test(cardinal) ? "de l'" : 'del ';
+}
+
 /** «al Prat de Llobregat», «a l'Aldea», «a Amposta». */
 export function aName(nom: string): string {
   const { article, rest } = splitArticle(nom);

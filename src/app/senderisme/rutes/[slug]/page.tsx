@@ -14,7 +14,7 @@ import { currentFor, forecastFor, localNowHour, localToday, tempAtAltitude } fro
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { NextHours } from '@/components/NextHours';
 import { shareAboveSnowLine } from '@/lib/mountain';
-import { ago, comarcaName, dateShort, deComarca, int, num, relativeDayTiny, temp } from '@/lib/format';
+import { ago, comarcaName, dateShort, deComarca, deName, fromDirection, int, num, relativeDayTiny, temp } from '@/lib/format';
 import { weatherCode } from '@/lib/weather-codes';
 import { External } from '@/components/External';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
@@ -398,13 +398,13 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
                   && `${temp(current.temperature, 0)} a ${int(base.altitud ?? 0)} m`,
                 current.windSpeed != null
                   && `vent ${int(msToKmh(current.windSpeed))} km/h`
-                  + (current.windDirection != null ? ` del ${windCardinal(current.windDirection)}` : ''),
+                  + (current.windDirection != null ? ` ${fromDirection(windCardinal(current.windDirection))}` : ''),
                 current.humidity != null && `${int(current.humidity)} % d’humitat`,
               ].filter(Boolean).join(' · ')}
             </p>
           </div>
           <p className="mt-2 text-xs text-[var(--muted)]">
-            Mesurat a l&apos;estació de {current.station.nom}, a{' '}
+            Mesurat a l&apos;estació {deName(current.station.nom)}, a{' '}
             {num(current.station.distKm, 1)} km{isNow ? `, ${ago(current.ageMin)}` : ''}.
             {current.provisional && ' Dada provisional.'}
           </p>

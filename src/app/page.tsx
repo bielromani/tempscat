@@ -103,7 +103,7 @@ export default async function Home() {
             })}
           </ul>
           <p className="source">
-            {rank.stations.total} estacions de la {rank.source}
+            {rank.stations.total} estacions · {rank.source}
             {rank.ageMin != null && ` · ${ago(rank.ageMin)}`}. La pluja i la ratxa són d&apos;avui
             des de mitjanit; la temperatura, de l&apos;última lectura.{' '}
             <Link href="/ranquings">Totes les llistes</Link>.
@@ -146,7 +146,13 @@ export default async function Home() {
           {[
             { v: comarques.length, k: 'comarques' },
             { v: summary.byLevel.municipi.published, k: 'municipis' },
-            { v: summary.byLevel.entitat_singular.published + summary.byLevel.nucli.published, k: 'nuclis i entitats' },
+            // Les 11 entitats col·lectives també hi són: sense elles, 947 i 3.292 no
+            // sumaven els 4.250 llocs que diu la frase de dalt.
+            {
+              v: summary.byLevel.entitat_singular.published + summary.byLevel.nucli.published
+                + (summary.byLevel.entitat_colectiva?.published ?? 0),
+              k: 'nuclis i entitats',
+            },
             { v: summary.stations.operatives, k: 'estacions XEMA' },
           ].map((s) => (
             <div key={s.k}>

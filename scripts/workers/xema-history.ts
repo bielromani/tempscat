@@ -32,6 +32,7 @@ import {
 } from '../lib/store.ts';
 import { CLIMATE_DIR, climateShard, historyShard } from '../../src/lib/shards.ts';
 import { windCardinal } from '../../src/lib/variables.ts';
+import { dryStreakOf } from '../../src/lib/recent-rain.ts';
 import { PROGRESS_MIN_DAYS, monthProgressOf, rainProgressOf } from '../../src/lib/climate-math.ts';
 import type { MonthProgress, RainProgress, StationMonth } from '../../src/lib/climate-math.ts';
 import type { Station } from '../04-fetch-stations.ts';
@@ -859,13 +860,12 @@ async function main() {
        * estación que no mide precipitación acumulaba una racha seca de 398 días
        * —el Port de Barcelona, visto en el registro— y eso no es una sequía: es
        * que allí no hay pluviómetro.
+       *
+       * La regla vive en `recent-rain.ts` porque la página la vuelve a aplicar
+       * con los dos días que esta serie aún no tiene: con dos copias, un día el
+       * umbral de aquí y el de la ficha dejarían de ser el mismo.
        */
-      let dryStreak = 0;
-      for (let i = daily.length - 1; i >= 0; i--) {
-        const mm = daily[i].precip;
-        if (mm == null || mm >= 0.2) break;
-        dryStreak++;
-      }
+      const dryStreak = dryStreakOf(daily);
 
       const c = (pred: (d: DailyRecord) => boolean) => ({
         month: count(daily, monthStart, pred),

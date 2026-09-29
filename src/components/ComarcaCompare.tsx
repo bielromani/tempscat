@@ -26,6 +26,23 @@ function positionSentence(r: Ranking, nom: string, when: string): string {
     : `${when}, ${nom} és el ${ordinal(r.rank)} punt més fresc dels ${r.total} de la comarca.`;
 }
 
+/**
+ * On queda per altitud, dit des de l'extrem més proper.
+ *
+ * Deia «el 30è punt més enlairat dels 30», que vol dir el més baix i obliga a
+ * fer la resta. I sense el total: les frases de temperatura compten només els
+ * punts amb lectura —29 a Malgrat— i aquesta tots —30—, i dos «dels N»
+ * diferents en el mateix bloc semblaven un error.
+ */
+function altitudeSentence(a: { rank: number; total: number }): string {
+  if (a.rank === 1) return 'És el punt més enlairat de la comarca.';
+  if (a.rank === a.total) return 'És el punt més baix de la comarca.';
+  const fromBottom = a.total - a.rank + 1;
+  return fromBottom < a.rank
+    ? `Per altitud, és el ${ordinal(fromBottom)} punt més baix de la comarca.`
+    : `Per altitud, és el ${ordinal(a.rank)} punt més enlairat de la comarca.`;
+}
+
 function Strip({ r, unit }: { r: Ranking; unit: string }) {
   return (
     <ol className="mt-3 flex gap-1.5 overflow-x-auto">
@@ -112,8 +129,7 @@ export function ComarcaCompare({ cmp, nom }: { cmp: ComarcaComparison; nom: stri
 
       {cmp.altitude && (
         <p className="mt-3 text-xs text-[var(--muted)]">
-          Per altitud és el {ordinal(cmp.altitude.rank)} punt més enlairat dels{' '}
-          {cmp.altitude.total} de la comarca.
+          {altitudeSentence(cmp.altitude)}
         </p>
       )}
 

@@ -23,7 +23,7 @@ import { networkLabel, refApart, type Route } from '@/lib/routes';
 import { radarZoneOf } from '@/lib/radar-zones';
 import type { LocalRainData } from '@/lib/local-rain';
 import { temperatureColor } from '@/lib/scales';
-import { msToKmh, windCardinal } from '@/lib/variables';
+import { msToKmh, seaLevelPressure, windCardinal } from '@/lib/variables';
 import {
   aComarca, aName, ago, comarcaName, dateTiny, deComarca, int, num, relativeDayTiny,
   signed, tempTiny,
@@ -40,7 +40,7 @@ import type { NearestAirStation } from '@/lib/air-stations';
 import type { SeaNearby } from '@/lib/sea';
 import type { CameraNow } from '@/lib/cameras';
 import { shareAboveSnowLine, type ResortNearby } from '@/lib/mountain';
-import type { Comarca, Location } from '@/lib/territory';
+import { stationByCodi, type Comarca, type Location } from '@/lib/territory';
 
 /** Descripción del índice UV con el consejo que le corresponde. */
 function uvAdvice(uv: number): { label: string; color: string } {
@@ -80,10 +80,12 @@ function decimalHour(d: Date | null | undefined): number | null {
  * n'hi ha prou: si no hi ha ratxa, no hi ha casella de ratxa.
  */
 function NowGrid({
-  current, nowHour,
+  current, nowHour, stationAltitude,
 }: {
   current: CurrentConditions;
   nowHour: LocationForecast['hourly'][number] | null;
+  /** Per reduir la pressió al nivell del mar. Ver `seaLevelPressure()`. */
+  stationAltitude: number | null;
 }) {
   /*
    * Cada casella diu **d'on surt**, i no és un detall de comptabilitat: la
@@ -107,7 +109,16 @@ function NowGrid({
   if (current.humidity != null) cells.push({ k: 'Humitat', v: `${Math.round(current.humidity)} %` });
   if (nowHour?.dewPoint != null) cells.push({ k: 'Punt de rosada', v: `${nowHour.dewPoint.toFixed(0)} °C`, model: true });
   if (current.precip24h != null) cells.push({ k: 'Pluja 24 h', v: `${num(current.precip24h, 1)} mm` });
-  if (current.pressure != null) cells.push({ k: 'Pressió', v: `${current.pressure.toFixed(0)} hPa` });
+  if (current.pressure != null) {
+    // Reduïda quan es pot; si no, dita pel que és. Un número de pressió sense
+    // dir a quina altura és el que feia llegir 967 hPa com un temporal.
+    const reduced = stationAltitude != null && current.temperature != null
+      ? seaLevelPressure(current.pressure, stationAltitude, current.temperature)
+      : null;
+    cells.push(reduced != null
+      ? { k: 'Pressió', v: `${reduced.toFixed(0)} hPa`, extra: 'nivell del mar' }
+      : { k: "Pressió a l'estació", v: `${current.pressure.toFixed(0)} hPa` });
+  }
   if (nowHour?.cloudCover != null) cells.push({ k: 'Nuvolositat', v: `${nowHour.cloudCover} %`, model: true });
   if (nowHour?.uvIndex != null && nowHour.uvIndex > 0) {
     cells.push({ k: 'Índex UV', v: String(nowHour.uvIndex), extra: uvAdvice(nowHour.uvIndex).label, model: true });
@@ -376,7 +387,11 @@ export function LocationView({
    * zona de bolets és Torredembarra»: ordenar aparells quan la pregunta és sobre
    * boscos. La pregunta es fa d'un lloc, i aquí és on hi ha el lloc.
    */
-  const rain = history ? rainConditionsOf(history, today) : null;
+  const rain = history
+    ? rainConditionsOf(history, today, current && {
+      day: current.aggregatesDay, today: current.todayPrecip, yesterday: current.yesterdayPrecip,
+    })
+    : null;
   // La comarca se nombra con su artículo: és «l'Alt Camp», no «Alt Camp».
   const comarcaLabel = comarcaName(comarca.nom);
   const zone = radarZoneOf(comarca.codi);
@@ -415,11 +430,18 @@ export function LocationView({
         sunriseH={decimalHour(astro?.sunrise)}
         sunsetH={decimalHour(astro?.sunset)}
         moonPhase={astro?.moon.phase ?? 0}
+        rainWarned={narrative?.rainWarnedNow ?? false}
       />
 
       <WarningBanner warnings={warnings} />
 
-      {current && <NowGrid current={current} nowHour={nowHour} />}
+      {current && (
+        <NowGrid
+          current={current}
+          nowHour={nowHour}
+          stationAltitude={stationByCodi(current.station.codi)?.altitud ?? null}
+        />
+      )}
 
       {/* La interpretación va inmediatamente después del número grande: el
           termómetro es el gancho y la frase es la respuesta. */}
@@ -577,7 +599,12 @@ export function LocationView({
             </section>
 
             <section className="panel scroll-x">
-              <HourlyTable hourly={forecast.hourly} hours={48} today={today} />
+              <HourlyTable
+                hourly={forecast.hourly}
+                hours={48}
+                today={today}
+                rainWarnings={narrative?.rainWarnings}
+              />
             </section>
           </div>
         </section>
@@ -734,6 +761,7 @@ export function LocationView({
             month={Number(today.slice(5, 7))}
             today={today}
             stationHref={`/estacions/${current.station.codi}`}
+            dryStreak={rain?.dryStreak}
           />
         </section>
       )}
@@ -756,7 +784,13 @@ export function LocationView({
         </section>
       )}
 
-      {forecast && !forecast.skillWeighted && (
+      {/*
+        Només quan hi ha consens. Nou de cada deu fitxes porten un sol model
+        —ver `PLAN_BY_TIER` al worker de predicció— i allà la capçalera del
+        gràfic ja diu «Un sol model de predicció»: parlar al peu del pes dels
+        models en «aquest consens» contradeia la mateixa pàgina.
+      */}
+      {forecast && !forecast.skillWeighted && forecast.nModels > 1 && (
         <p className="mt-10 rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-4 py-3 text-xs leading-relaxed text-[var(--muted)]">
           Els models pesen igual en aquest consens: cap no compta més que un
           altre pel que hagi encertat abans.

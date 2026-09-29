@@ -3,7 +3,7 @@ import { msToKmh } from './variables';
 import { weatherCode } from './weather-codes';
 import { narrativeFor } from './narrative';
 import {
-  airQualityFor, currentFor, forecastFor, localNowHour, localToday, warningsFor,
+  airQualityFor, currentFor, forecastFor, localNowHour, localToday, rainWarningsOf, warningsFor,
 } from './weather';
 import { comarcaOf, locationById, type Location } from './territory';
 import { phenomenonName } from './warning-labels';
@@ -60,7 +60,7 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
   ]);
   const nowHour = localNowHour();
   const today = localToday();
-  const narrative = narrativeFor(forecast, current, nowHour, today);
+  const narrative = narrativeFor(forecast, current, nowHour, today, rainWarningsOf(warnings));
 
   const sources: string[] = [];
   if (current) sources.push(current.source);

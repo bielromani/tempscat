@@ -25,6 +25,8 @@ import type {
 import type { TileGrid } from './mercator';
 import type { Location } from './territory';
 import { LEVEL_RANK, type Warning } from './warning-stack';
+import type { RainWarning } from './narrative';
+import type { MeasuredRain } from './recent-rain';
 import { WARNING_ZONES_SHARD, type WarningZones } from './warning-zones';
 
 /**
@@ -190,7 +192,32 @@ export async function currentFor(loc: Location): Promise<CurrentConditions | nul
     yesterdayMax: adjust(obs.yesterday?.tMax ?? null, dAlt),
     yesterdayMin: adjust(obs.yesterday?.tMin ?? null, dAlt),
     yesterdayPrecip: obs.yesterday?.precip ?? null,
+    // El worker calcula la mitjanit en començar i escriu la instantània uns
+    // segons després: la data d'escriptura és la del dia que ha agregat.
+    aggregatesDay: madridDay(snap.fetchedAt),
     source: snap.source,
+  };
+}
+
+/** Un instant ISO → el dia natural de Madrid, `AAAA-MM-DD`. */
+function madridDay(iso: string): string {
+  return new Date(iso).toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).slice(0, 10);
+}
+
+/**
+ * La pluja que la sèrie diària encara no té, d'una observació crua.
+ *
+ * Per a la fitxa de l'estació, que llegeix l'observació sense passar per
+ * `currentFor()`. La fitxa d'un lloc la treu de `CurrentConditions`.
+ */
+export async function measuredRainOf(codi: string): Promise<MeasuredRain | null> {
+  const snap = await snapshot<RawObservation[]>('xema-current');
+  const obs = snap?.data.find((o) => o.station === codi);
+  if (!snap || !obs) return null;
+  return {
+    day: madridDay(snap.fetchedAt),
+    today: obs.today?.precip ?? null,
+    yesterday: obs.yesterday?.precip ?? null,
   };
 }
 
@@ -359,6 +386,32 @@ export async function warningsFor(loc: Location): Promise<Warning[]> {
   return snap.data
     .filter((w) => w.locationIds.includes(loc.id) && Date.parse(w.expires) > now)
     .sort((a, b) => LEVEL_RANK[b.level] - LEVEL_RANK[a.level]);
+}
+
+/**
+ * Els avisos de pluja i de tempesta d'un lloc, amb les hores en hora de Madrid.
+ *
+ * És el que necessita `narrativeFor()` per no escriure «sempre feble» sota un
+ * avís taronja. Les hores del CAP porten el desplaçament (`+02:00`) i es
+ * converteixen de veritat, com a `WarningBanner`: tallar la cadena donaria bé
+ * mentre AEMET emeti en hora local, i el dia que emetés en UTC la frase
+ * situaria l'avís dues hores fora de lloc sense que res fallés.
+ *
+ * El verd no hi entra: no és un avís, i a la pàgina no s'ensenya.
+ */
+export function rainWarningsOf(warnings: Warning[]): RainWarning[] {
+  const local = (iso: string) => new Date(iso)
+    .toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
+    .replace(' ', 'T')
+    .slice(0, 13);
+  return warnings
+    .filter((w) => (w.phenomenon === 'PR' || w.phenomenon === 'TO') && w.level !== 'verd')
+    .map((w) => ({
+      level: w.level as RainWarning['level'],
+      phenomenon: w.phenomenon as RainWarning['phenomenon'],
+      from: local(w.onset),
+      to: local(w.expires),
+    }));
 }
 
 /**

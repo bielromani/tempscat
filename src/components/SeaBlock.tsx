@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { windCardinal } from '@/lib/variables';
-import { ago, hour, num } from '@/lib/format';
+import { ago, deName, hour, num } from '@/lib/format';
 import {
   douglas, flagReasonText, flagStyle, parseJellyfish, FLAG_CURRENT_HOURS, FLAG_SHOW_HOURS,
   type SeaNearby,
@@ -82,7 +82,7 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
         </ul>
       ) : (
         <p className="card text-sm text-[var(--ink-2)]">
-          Cap platja {nom.startsWith('l\'') ? 'd\'' : 'de '}{nom} té parte de les últimes
+          Cap platja {deName(nom)} té parte de les últimes
           dotze hores. Les posen els socorristes quan són de servei, i fora
           d&apos;horari o de temporada no se&apos;n publica cap de nova.
         </p>

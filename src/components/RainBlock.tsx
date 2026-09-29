@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { int, num, ordinal } from '@/lib/format';
+import { deName, int, num, ordinal } from '@/lib/format';
 import type { RainConditions } from '@/lib/conditions';
 import type { RainProgress } from '@/lib/climate-math';
 import type { StationRef } from '@/lib/territory';
@@ -82,7 +82,10 @@ export function RainBlock({
           </dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">Últim ruixat</dt>
+          {/* El llindar va a l'etiqueta. «Últim ruixat: fa 38 dies» i, més avall,
+              «fa 11 dies que no hi plou» semblaven dues respostes a la mateixa
+              pregunta; són dues preguntes, 5 mm i 0,2 mm. */}
+          <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">Últim dia de més de 5 mm</dt>
           <dd className="text-xl font-semibold text-[var(--ink)]">{lastShower}</dd>
         </div>
         <div>
@@ -147,14 +150,14 @@ export function RainBlock({
       )}
 
       <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-        Mesurada a l&apos;estació de{' '}
+        Mesurada a l&apos;estació{' '}
         {stationHref
           ? (
             <Link href={stationHref} className="font-medium text-[var(--ink-2)] no-underline hover:underline">
-              {station.nom}
+              {deName(station.nom)}
             </Link>
           )
-          : <strong className="font-medium text-[var(--ink-2)]">{station.nom}</strong>},
+          : <strong className="font-medium text-[var(--ink-2)]">{deName(station.nom)}</strong>},
         a {num(station.distKm, 1)} km
         {station.dAltM != null && Math.abs(station.dAltM) >= 25
           && ` i ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivell`}.
