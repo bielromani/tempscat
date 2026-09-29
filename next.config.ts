@@ -1,4 +1,17 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { NextConfig } from 'next';
+
+/*
+ * Les 43 comarques, per acotar una capçalera a les fitxes de nucli.
+ *
+ * `/:a/:b/:c` també casaria `/senderisme/rutes/<slug>` i `/api/lloc/<c>/<m>`,
+ * que tenen la seva pròpia memòria cau. Amb el primer tram limitat als slugs de
+ * comarca només hi entren les ~3.300 fitxes de nucli.
+ */
+const COMARQUES = (JSON.parse(readFileSync(join(process.cwd(), 'data', 'build', 'comarques.json'), 'utf8')) as Array<{ slug: string }>)
+  .map((c) => c.slug)
+  .join('|');
 
 const nextConfig: NextConfig = {
   /*
@@ -56,6 +69,29 @@ const nextConfig: NextConfig = {
         source: '/relleu-:version.png',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      /*
+       * Les fitxes de nucli es generen a cada petició i el CDN de Vercel les
+       * guarda deu minuts. Prova de 48 hores, des del 29 de setembre de 2026.
+       *
+       * Amb ISR, una fitxa amb menys d'una visita diària se serveix gairebé
+       * sempre caducada: mesurat aquell dia, 20 de 40 sortien amb 1,3 a 5,8
+       * hores —el sostre era el darrer desplegament, que buida la memòria cau—
+       * i la resta es generaven en aquell moment. I la regeneració la paga
+       * qui s'endú la còpia vella.
+       *
+       * Deu minuts perquè la XEMA arriba cada mitja hora i amb 45-65 minuts de
+       * retard: més curt no afegiria cap número nou. `Vercel-CDN-Cache-Control`
+       * i no `Cache-Control` perquè només el llegeix el CDN de Vercel: el
+       * navegador no guarda res i torna a preguntar. Si la prova convenç, la
+       * fitxa de municipi va igual; si no, es treu aquesta regla i el
+       * `force-dynamic` de la pàgina de nucli.
+       */
+      {
+        source: `/:comarca(${COMARQUES})/:municipi/:entitat`,
+        headers: [
+          { key: 'Vercel-CDN-Cache-Control', value: 'max-age=600' },
         ],
       },
     ];

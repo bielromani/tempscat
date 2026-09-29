@@ -150,6 +150,25 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
 
 **Con fecha:**
 
+0. **~1 de octubre — revisar la prueba de frescura de los núcleos (48 h).** Desde el lote
+   `frescor`, las ~3.300 fichas de núcleo ya no usan ISR: se generan en cada petición
+   (`force-dynamic`) y el CDN de Vercel las guarda 10 min (`Vercel-CDN-Cache-Control`, en
+   `next.config.ts`). Las de municipio siguen con ISR y sirven de comparación.
+   - **El punto de partida**, medido el 29 de septiembre sobre 40 fichas al azar: 20 salían
+     de la caché con 1,3 a 5,8 h de antigüedad —y el techo era el último despliegue, que
+     vacía la caché de ISR— y 14 se generaban en el momento en 0,7-2,2 s. La cabecera de
+     ISR que pone Next es `stale-while-revalidate` de **un año**.
+   - **Lo primero que hay que comprobar**, nada más desplegar: pedir dos veces el mismo
+     núcleo. Si la segunda da `x-vercel-cache: HIT` con `age` por debajo de 600, el CDN
+     respeta la cabecera aunque Next añada `Cache-Control: private`. Si da `MISS` las dos
+     veces, no la respeta y cada visita renderiza: la prueba sigue siendo válida —datos
+     frescos— pero cuesta más, y hay que mirarlo antes de las 48 h.
+   - **A las 48 h, en Vercel → Usage**, comparar con los dos días anteriores: invocaciones
+     y duración de funciones, escrituras y lecturas de ISR y Fast Origin Transfer.
+   - **Si convence**, la ficha de municipio va igual (otra regla de cabecera para
+     `/:comarca/:municipi` y `force-dynamic`), y el despliegue adelgaza: dejan de
+     pregenerarse. **Si no**, se quitan la regla y el `force-dynamic`; `fichaData()` se
+     queda, que es independiente.
 1. **6 de octubre — apagar `r2.dev`.** R2 → bucket → Settings → *Public Development URL* →
    **Disable**, y comprobar la web y `/estat`. Es la única prueba de que nada sigue leyendo la
    dirección vieja: las dos sirven lo mismo, así que desde fuera no se distinguen.
