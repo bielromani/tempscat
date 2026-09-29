@@ -4,8 +4,12 @@
 decisiones ya tomadas y —sobre todo— **las trampas que ya nos han costado horas**. Casi todas
 son fallos que no dan error: dan datos plausibles y equivocados.
 
-Última actualización: 31 de agosto de 2026, después de añadir calidad del aire, radar,
-ránquings y comparativa comarcal.
+Última actualización: **29 de septiembre de 2026**, después del rediseño, de la pausa de la
+cuenta de Vercel y del cambio del almacén a `dades.tempscat.cat`.
+
+> La lista de trampas **más completa y al día** es la sección «Rarezas de las fuentes» de
+> `AGENTS.md`, que se carga sola en cada sesión. La de este documento es la de agosto y se
+> queda como está; lo nuevo va allí.
 
 ---
 
@@ -13,9 +17,11 @@ ránquings y comparativa comarcal.
 
 Basta con abrir Claude Code en `C:\Users\bromani\Desktop\Altres\Meteo` y decir:
 
-> Lee `docs/12-estado-y-continuacion.md` y sigue con lo pendiente de la fase 1.
+> Lee `docs/12-estado-y-continuacion.md` y sigue con lo pendiente.
 
-`AGENTS.md` se carga solo en cada sesión y ya contiene las restricciones técnicas duras.
+`AGENTS.md` se carga solo en cada sesión y ya contiene las restricciones técnicas duras,
+incluido **cómo se trabaja** (rama, `npm run check`, fusión por lotes). Léelo antes de empujar
+nada a `main`.
 
 ---
 
@@ -39,82 +45,136 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 | | |
 |---|---|
 | Fase 0 · territorio | ✅ completada y validada |
-| Fase 1 · ingesta y páginas | 🟡 funcional, faltan piezas (ver abajo) |
-| Fase 2 · SEO e indexación | ⬜ no empezada |
+| Fase 1 · ingesta y páginas | ✅ en producción en **tempscat.cat**, con el rediseño completo |
+| Fase 2 · SEO e indexación | 🟡 sitemaps, `robots.txt`, canónicas y JSON-LD hechos; **falta dar de alta Search Console** |
+| Fase 4 · verificación de modelos | 🟡 `worker:verify` acumulando desde septiembre; no sirve hasta tener ~60 días |
+
+**Dónde vive cada cosa en producción:**
+
+| | Dónde | Notas |
+|---|---|---|
+| La web | **Vercel, plan Pro** | desde el 20 sep 2026; ver «La cuenta de Vercel» abajo |
+| Los datos vivos | **Cloudflare R2**, leído por `https://dades.tempscat.cat` | dominio propio desde el 29 sep; antes `pub-…r2.dev` |
+| La ingesta | GitHub Actions, disparada por un cron de Cloudflare | `cloudflare/scheduler/worker.js` |
+| El DNS | Cloudflare | |
 
 **Territorio construido** (`data/build/`, versionado):
 
-- 43 comarcas · 947 municipios · 2.759 entidades singulares · 533 núcleos = **4.293 rutas**,
-  más `/radar`, `/ranquings` y `/estat`
+- 43 comarcas · 947 municipios · 2.759 entidades singulares · 533 núcleos = **4.293 rutas**
 - 6.769 ubicaciones no publican, cada una con su motivo registrado
 - 947 + 43 polígonos, 5.424 relaciones de colindancia real, 3.190 puntos de predicción
-- 245 estaciones XEMA (189 operativas)
+- 245 estaciones XEMA (189 operativas) · 683 itinerarios señalizados
 
-**Datos vivos** (`data/cache/`, no versionado, se regenera con los workers):
+**Datos vivos:** el inventario al día —qué trozo es cada cosa y por qué está partido— es
+`src/lib/shards.ts`. Una lista escrita aquí se quedaría vieja a la primera.
 
-| Fichero | Qué es | Cadencia |
-|---|---|---|
-| `xema-current.json` | Observación de 188 estaciones, con los extremos del día natural | 10 min |
-| `forecast/c**.json` + `index.json` | 3.190 puntos × 19 variables × 168 h, **partido en 43 trozos** de 0,1 a 2 MB | 12–24 h |
-| `warnings.json` | Avisos CAP de AEMET | 15 min |
-| `xema-history.json` | Récords y normales de 189 estaciones | 24 h |
-| `air-quality.json` | 372 celdas de 0,1° × 18 variables × 72 h | 12 h |
-| `radar.json` + `radar/` | 7 marcos de radar × 4 teselas de 512 px · 200 KB | 10 min |
-| `cameres.json` + `cameres/` | 24 cámaras de FGC × 2 tamaños de JPEG · 2 MB | 1 h |
-| `muntanya.json` | 6 estaciones de esquí, 9 estaciones meteo de 1.664 a 2.537 m, 181 pistas | 1 h |
-| `freshness.json`, `quota.json` | Estado de las fuentes y consumo | — |
-
-**Medido**: 402 páginas prerenderizadas, TTFB 21 ms en caliente, página de municipio de 38 KB
-por la red, **cero JavaScript propio**.
+**Medido el 20 de septiembre de 2026:** el build pregenera **1.326 páginas** y cada despliegue
+pesa **~1 GB**. La ficha de Malgrat pesa **570–700 kB** sin comprimir, y el **62 %** es la carga
+RSC —el mismo contenido escrito otra vez para hidratar—. Hay **tres** `'use client'`
+(`SiteSearch`, `RadarScrubber`, `InteractiveMap`) y ninguno en una ficha de lugar.
 
 ---
 
-## Ya hecho en esta tanda
+## Hecho en septiembre
 
-- ✅ **Calidad del aire y polen.** `scripts/workers/air-quality.ts` + bloque en cada ficha. AQI
-  europeo con los colores oficiales de la EEA, el contaminante que manda, siete contaminantes,
-  perfil de 24 h, máximo de los próximos tres días y polen por especie con los umbrales de la
-  Red Española de Aerobiología. Cuota aparte: 670 unidades por refresco.
-- ✅ **Radar de precipitación** en `/radar`, **sin una línea de JavaScript**: las teselas y los
-  polígonos del ICGC comparten proyección, así que van en el mismo SVG. El marco se elige por
-  URL (`?t=…`), así que cada instante tiene su enlace compartible.
-- ✅ **Ránquings** en `/ranquings`: extremos de ahora, máximas y mínimas del día natural,
-  amplitud térmica, lluvia y rachas — más una clasificación de municipios corregida por altitud,
-  separada y etiquetada como estimación.
-- ✅ **Comparativa comarcal** en cada ficha: posición ahora y en el mes en curso, con la tira de
-  siete vecinos y los extremos de la comarca.
-- ✅ **Legibilidad.** `src/lib/format.ts` centraliza fechas, horas, números y las contracciones
-  del catalán. Meteograma rehecho: iconos de cielo, marca de «ara», extremos de cada día
-  rotulados, probabilidad de lluvia visible aunque sean 0 mm, unidades en los ejes y leyenda.
+**Rediseño (15 sep).**
+- El titular de cada ficha es el **cielo calculado** del lugar (`src/lib/sky.ts` +
+  `LocationHero.tsx`), CSS puro, con el velo del texto calculado según la nubosidad y el brillo.
+  Pruebas: `npm run test:sky`; los doce cielos de golpe con `npm run cels`.
+- Sistema de diseño en `globals.css` (`.card`, `.card-title`, `.crumbs`, `.page-title`,
+  `.page-head`, `.measure`) aplicado a las 24 páginas. Una sola columna de 38 rem; `data-wide`
+  en las pocas que necesitan anchura.
+- Barra del móvil: «El temps» + buscador + menú (un `<details>`, sin JavaScript).
+- Portada que abre con el tiempo de ahora —los extremos del país— en vez de con un índice.
 
-- ✅ **Cámaras de montaña** en `/cameres` y en las fichas de los pueblos que las tienen a menos
-  de 25 km. Las 24 publicables del catálogo de FGC, bajadas y reescaladas por un worker cada
-  hora: la página no hace ni una petición a los cinco dominios de terceros a los que apuntan las
-  URL originales. Dos tamaños —400 px para la reja, 1.280 para la ficha— y la hora de captura en
-  cada imagen.
+**Avisos.** Manda el más grave y solo se descarta el que no dice nada nuevo
+(`src/lib/warning-stack.ts`, `npm run test:warnings`). Las 21 zonas de Meteoalerta se dibujan en
+el mapa interactivo (`warnings-zones.json`).
 
-- ✅ **Nieve y estaciones de esquí.** Las seis estaciones de FGC con lo que comunican —abierto,
-  espesor, calidad, última nevada, porcentaje de pistas y remontes—, el catálogo técnico de 181
-  pistas y 55 remontes, y **nueve estaciones meteorológicas propias de 1.664 a 2.537 m**, que es
-  donde la XEMA tiene menos. En `/neu` y en la ficha de los pueblos a menos de 30 km, donde
-  además se compara la cota de nieve prevista con el desnivel esquiable.
+**La cuenta de Vercel (20 sep).** El plan gratuito entero —tempscat más otros tres proyectos
+del usuario— se **pausó**: tempscat gastó 29 GB de Fast Origin Transfer (techo 10), 2,1 millones
+de escrituras de ISR (techo 200.000) y 90 GB de almacenamiento de despliegues (techo 10). La
+causa: **casi cada visita regeneraba la ficha entera**, porque con 4.293 fichas y menos de una
+visita diaria por ficha ISR no amortiza nada. Se arregló con:
+- el plan **Pro**;
+- un `robots.txt` que bloquea 26 recolectores de IA y de SEO y las 6 rutas de imágenes;
+- `revalidate` de 1800 a **3600** en las fichas: la XEMA llega con 45-65 min de retraso, así
+  que media hora reconstruía la página dos veces con la misma lectura.
 
-## Lo que falta para cerrar la fase 1
+Resultado medido en los ocho días siguientes: **~$0,30 al día**, unos $9 por ciclo, dentro de
+los $20 incluidos y **$0 de extra**. La transferencia de origen pasó de 29 GB a $0,10.
 
-Por orden de valor. Ninguna necesita nada del usuario.
+**Forma de trabajar.** `main` es lo publicado. Se trabaja en una rama, se pasa
+`npm run check` y se fusiona por lotes; los despliegues de previsualización están apagados en
+Vercel. El porqué y los números, en `AGENTS.md`.
 
-1. **Ficha de estación** (`/estacions/[codi]`, 245 rutas). `xema-history.json` ya tiene todo:
-   récords, normales, serie de 45 días. Falta rosa de vientos.
-2. ~~**Aislar el bloque «ara mateix»**~~ — medido y descartado: con la predicción ya partida,
-   un render completo cuesta 73–229 ms en frío y 9–14 ms en caliente. Ver `docs/13`, punto 11.
-3. ~~**Partir `forecast.json`**~~ — hecho. Un fichero por comarca en `data/cache/forecast/`.
-   El arranque en frío pasa de 275 ms y 132 MB de montículo a 6 ms y 2,9 MB.
-4. **Calidad del aire *medida*, no modelada.** La XVPCA publica los detectores automáticos en el
-   portal de datos abiertos (dataset `tasf-thgu`): ~130 estaciones reales frente a un modelo de
-   11 km. Es exactamente el mismo argumento que ya se usa con la XEMA frente a la predicción. El
-   bloque de aire debería enseñar la medida cuando haya una cerca y el modelo cuando no.
-5. **Nowcast del radar.** RainViewer lo publica, el worker ya lo guarda y la página ya lo
-   etiqueta distinto — pero hoy la lista viene vacía porque no llueve. Falta verlo con lluvia.
+**Los correos de «Run failed» (29 sep, PR #1).** Eran tres cosas y ninguna era una avería:
+- las cámaras de FGC que a ratos no contestan ya no hacen fallar la ejecución;
+- las lecturas del almacén reintentan (`fetchWithRetry`, con `passStatus: [404]`);
+- el CI estaba en rojo en `main` **desde el 15 de septiembre** sin que nadie lo viera:
+  `test:warnings` leía `data/cache/`, que en GitHub Actions no existe.
+
+De paso, `/estat` ya no borra la hora del último éxito cuando una ejecución falla.
+
+**Almacén.** `DATA_BASE_URL` = `https://dades.tempscat.cat` en Vercel (los tres entornos), en
+GitHub Actions y en `.env.local`. Antes de cambiarlo se comprobó que el dominio nuevo sirve
+exactamente lo mismo que `r2.dev`: contenido y ETag idénticos, los mismos 404, `304` en las
+peticiones condicionales, y el borde de Cloudflare guarda las imágenes 60 s —lo que se sube con
+`max-age=60`— aunque la cabecera que manda hacia abajo diga 14.400: la aplicación no la lee.
+
+### Antes, en agosto
+
+Calidad del aire y polen, radar sin JavaScript, ránquings, comparativa comarcal, cámaras de
+montaña, nieve y estaciones de esquí, ficha de estación, calidad del aire medida (XVPCA), campo
+de lluvia del modelo como futuro del radar, mapa interactivo con viento de partículas, e
+itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, y sus trampas en
+`AGENTS.md`.
+
+---
+
+## Lo que falta, por orden
+
+**Con fecha:**
+
+1. **6 de octubre — apagar `r2.dev`.** R2 → bucket → Settings → *Public Development URL* →
+   **Disable**, y comprobar la web y `/estat`. Es la única prueba de que nada sigue leyendo la
+   dirección vieja: las dos sirven lo mismo, así que desde fuera no se distinguen.
+2. **~20 de octubre, fin del ciclo — Pro o gratuito.** Se decide mirando las **unidades** de
+   Usage contra los techos del plan gratuito, no los dólares. Y hay una pregunta que manda más
+   que las cuotas: el plan gratuito **prohíbe el uso comercial**, y en la misma cuenta está
+   NuptialNode (invitaciones de boda).
+3. **Hacia el 16 de octubre, `credencials.yml` empezará a fallar** avisando de que la clave de
+   AEMET caduca el **30 de noviembre**. Es a propósito: 45 días de margen. Se renueva gratis en
+   `opendata.aemet.es`, y hay que actualizar `AEMET_API_KEY` y `AEMET_API_KEY_EXPIRES` en
+   GitHub. `credencials.yml` no se ha lanzado nunca a mano.
+
+**La decisión grande, pendiente del usuario:**
+
+4. **Caparazón estático + cifras vivas pedidas a R2 desde el navegador.** Arreglaría de una vez
+   tres cosas: que la ficha salga **caducada** —ISR sirve la copia vieja y regenera por detrás, y
+   con una visita al día casi todo el mundo ve la vieja—, el **peso** (el 62 % es carga RSC) y el
+   **coste**. Tiene dos precios, y los decide el usuario: rompe la regla de «cero JavaScript en
+   las fichas» y saca los números del HTML que lee el buscador.
+
+**Sin decisión pendiente:**
+
+5. **Pregenerar menos en el build** (los 683 itinerarios y las 189 estaciones), para bajar el
+   gigabyte de cada despliegue. Los ~3.300 núcleos ya se generan bajo demanda.
+6. **Revisar a ojo las fichas de detalle** después del rediseño: `/estacions/<codi>`,
+   `/cameres/<slug>`, `/senderisme/rutes/<slug>`, `/[comarca]` y la de núcleo. Recibieron el
+   barrido de estilos, pero nadie las ha mirado en un móvil.
+7. **Reescribir los textos** para que el sitio suene a portal profesional. Las reglas de tono
+   están en `AGENTS.md`, «Cómo se escribe lo que lee el usuario».
+8. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa) · el buscador
+   del móvil podría ser una pastilla «⌕ Cercar» · el trazador de Next avisa de que
+   `join(LOCAL, path)` en `cache-store.ts` engancha los 5.525 ficheros de `data/cache/`; hoy no
+   pasa nada porque no se versiona, y es una trampa esperando a que alguien lo haga.
+
+**Del usuario, fuera del código:** dar de alta Search Console.
+
+**Externo, no es nuestro:** la XVPCA no publica días completos desde el 24 de septiembre, y
+AEMET se cae a ratos (el 23 de septiembre, 16 ejecuciones en rojo). Esos correos siguen
+llegando a propósito.
 
 ---
 
@@ -330,41 +390,19 @@ Esta es la parte que más tiempo ahorra. **Todas son reales, todas costaron enco
   pesan igual y la página lo dice.
 - **Los avisos oficiales no se reescriben ni se recolorean.** Los verdes no se muestran.
 - **La astronomía se calcula, no se pide.** Cuota cero y da lo que ninguna API ofrece.
-- **Cero JavaScript propio en las páginas territoriales.** El mapa, cuando llegue, no autocarga.
+- **Cero JavaScript propio en las páginas territoriales.** El mapa que se mueve vive en su
+  propia dirección, `/mapa/interactiu`, y `/mapa` sigue siendo un SVG de servidor. Esta regla
+  es la que la decisión 4 de «Lo que falta» pondría en cuestión.
 
 ---
 
 ## Comandos
 
-```bash
-npm run data:all          # reconstruye el territorio desde cero, ~35 min
-npm run data:validate     # criterios de aceptación de la fase 0
-npm run typecheck         # aplicación y scripts, son dos proyectos
-npm run build
-npm run start
-```
-
-Workers:
+La lista completa y al día está en `AGENTS.md`, sección «Comandos». Los dos que más importan:
 
 ```bash
-npm run worker:xema       # observación, cada 10 min
-npm run worker:radar      # radar RainViewer, cada 10 min
-npm run worker:warnings   # avisos AEMET, cada 15 min · necesita .env.local
-npm run worker:air        # calidad del aire y polen, cada 12 h
-npm run worker:forecast   # predicción · acepta --tiers=A,B,C y --fill
-npm run worker:history    # récords y normales, una vez al día
-
-npm run workers:frequent  # xema + radar, los de 10 min
-npm run workers:daily     # history + air
-```
-
-Pruebas:
-
-```bash
-npm run test              # los tres de abajo
-npm run test:catalan      # topónimos, slugs y emparejamiento
-npm run test:astronomy    # sol y luna contra valores conocidos
-npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
+npm run check    # la puerta de antes de empujar: workflows, lockfile, tipos, lint y pruebas
+npm run build    # desde el ordenador del trabajo falla por el proxy al leer R2; lo hace el CI
 ```
 
 ---
@@ -373,8 +411,11 @@ npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 
 `.env.local` (ignorado por git; la plantilla es `.env.example`):
 
-- **`AEMET_API_KEY`** — configurada. **Caduca el 9 de diciembre de 2026.** Se renueva gratis y
-  al instante en `opendata.aemet.es`. El worker falla con un mensaje claro cuando toque.
+- **`AEMET_API_KEY`** — configurada. **Caduca el 30 de noviembre de 2026**, que es lo que dice
+  `AEMET_API_KEY_EXPIRES` y lo que enseña `/estat`. Se renueva gratis y al instante en
+  `opendata.aemet.es`. `credencials.yml` avisa con 45 días de margen.
+- **`R2_*` y `DATA_BASE_URL`** — las cuatro de escritura del almacén y la de lectura, que
+  desde el 29 de septiembre es `https://dades.tempscat.cat`.
 - `SOCRATA_APP_TOKEN` — opcional, sube el throughput del portal de datos abiertos.
 - `OPENWEATHER_API_KEY` — opcional, solo para teselas del mapa. Sin pedir todavía.
 
@@ -386,8 +427,11 @@ npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
 |---|---|
 | `forecast.json` de 42 MB en el bundle de Vercel | **Resuelto.** 43 trozos por comarca; el mayor, 2 MB |
 | Discrepancia de hidratación en producción por un `<title>` de SVG con tres hijos | **Resuelto** en `WindRose`. React descartaba el HTML servido y rehacía el árbol en el navegador, sin dar ningún error visible |
-| 167 KB de runtime de React y Next en cada página territorial | **Sin resolver, y probablemente sin arreglo dentro del App Router.** No lo pone ningún componente nuestro: no hay un solo `'use client'`. Medido en `AGENTS.md` |
+| 167 KB de runtime de React y Next en cada página territorial | **Sin resolver, y probablemente sin arreglo dentro del App Router.** No lo pone ningún componente nuestro: los tres `'use client'` que hay no están en las fichas. Medido en `AGENTS.md` |
+| Una ficha pesa 570–700 kB y cada despliegue ~1 GB | **Abierto.** El 62 % es carga RSC. Ver «Lo que falta», 4 y 5 |
+| La ficha se sirve caducada a quien la visita | **Abierto.** Es cómo funciona ISR con pocas visitas por página. Ver «Lo que falta», 4 |
+| El plan gratuito de Vercel no cabe | **Mitigado** con el plan Pro y el arreglo del 20 de septiembre. Decisión el ~20 de octubre |
 | Sin base de datos: todo son ficheros | Deliberado. Migración escrita en `db/migrations/001` |
-| El token de AEMET caduca cada 90 días | Contemplado, sin automatizar |
-| Índice de indexación (fase 2) sin empezar | El riesgo real del proyecto es el *index bloat* |
-| Sin verificación de modelos | Fase 4. Necesita 60 días de histórico acumulado |
+| El token de AEMET caduca cada 90 días | **Automatizado:** `credencials.yml` falla con 45 días de margen, y `/estat` enseña la fecha |
+| Indexación (fase 2) | Sitemaps partidos por tipo y JSON-LD comprobado con `check:jsonld`. Falta Search Console. El riesgo real sigue siendo el *index bloat* |
+| Sin verificación de modelos | **En marcha:** `worker:verify` acumula desde septiembre. Sirve a partir de ~60 días |
