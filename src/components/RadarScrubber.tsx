@@ -93,10 +93,18 @@ export function RadarScrubber({
   const span = Math.max(1, frames.length - 1);
 
   return (
-    <div ref={box} className="mt-3">
-      <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <span className="tnum text-xl font-semibold text-[var(--ink)]">{hhmm(frame.local)}</span>
-        <span className="text-xs text-[var(--muted)]">
+    <div ref={box} className="mt-4">
+      {/*
+        L'hora, només per al lector de pantalla.
+
+        A la pantalla ja la diu, i en gran, el rètol de l'hora de la pàgina
+        (`.rtime`), que segueix el radio marcat —i aquesta barra el marca—, i
+        que a més s'anima amb la reproducció, cosa que aquesta xifra no fa.
+        Dues hores iguals a un pam l'una de l'altra semblaven dues coses.
+      */}
+      <div className="mb-1 flex items-baseline justify-between gap-3">
+        <span className="sr-only tnum">{hhmm(frame.local)}</span>
+        <span className="text-[12.5px] text-[var(--muted)]">
           {frame.kind === 'forecast'
             ? 'predicció, no radar'
             : frame.kind === 'nowcast'

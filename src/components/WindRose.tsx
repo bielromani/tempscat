@@ -73,7 +73,7 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
     + `en ${((rose.prevailing?.share ?? 0) * 100).toFixed(0)} % dels ${int(rose.days)} dies de sèrie.`;
 
   return (
-    <figure className="m-0 flex flex-wrap items-start gap-6">
+    <figure className="m-0 flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
       <svg
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         width={SIZE} height={SIZE}
@@ -156,46 +156,46 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
         >{rings[rings.length - 1].label}</text>
       </svg>
 
-      <figcaption className="min-w-[16rem] flex-1 text-sm leading-relaxed text-[var(--ink-2)]">
+      <figcaption className="min-w-[16rem] max-w-[36rem] flex-1">
         {rose.prevailing && (
-          <p>
+          <p className="text-[15px] leading-relaxed text-[var(--ink-2)]">
             Les ratxes més fortes de cada dia vénen {directionPrep(rose.prevailing.label)}
-            <strong className="font-medium text-[var(--ink)]">{rose.prevailing.label}</strong>{' '}
+            <strong className="font-semibold text-[var(--ink)]">{rose.prevailing.label}</strong>{' '}
             en el {(rose.prevailing.share * 100).toFixed(0)} % dels dies.
           </p>
         )}
-        <ul className="mt-2 space-y-1">
+        <ul className="rows mt-3">
           {[...rose.sectors]
             .filter((s) => s.days > 0)
             .sort((a, b) => b.share - a.share)
             .slice(0, 4)
             .map((s) => (
-              <li key={s.deg} className="flex items-baseline justify-between gap-3">
-                <span className="flex items-baseline gap-2">
+              <li key={s.deg}>
+                <span className="row-main flex items-center gap-2">
                   <span
                     aria-hidden
                     className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
                     style={{ background: gustColor(s.gustMean != null ? msToKmh(s.gustMean) : null) }}
                   />
-                  <span className="font-medium text-[var(--ink)]">{s.label}</span>
+                  <span className="text-[15px] font-semibold text-[var(--ink)]">{s.label}</span>
                 </span>
-                <span className="tnum text-xs text-[var(--muted)]">
-                  {(s.share * 100).toFixed(0)} %
+                <span className="tnum text-right text-[13px] text-[var(--muted)]">
+                  <strong className="font-semibold text-[var(--ink)]">{(s.share * 100).toFixed(0)} %</strong>
                   {s.gustMean != null && ` · ${msToKmh(s.gustMean).toFixed(0)} km/h de mitjana`}
                   {s.gustMax != null && ` · fins a ${num(msToKmh(s.gustMax), 0)}`}
                 </span>
               </li>
             ))}
         </ul>
-        <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-          Cada dia compta una vegada, per la direcció de la seva ratxa màxima, sobre{' '}
+        <p className="source">
+          Cada dia compta una vegada, per la direcció de la seva ratxa màxima:{' '}
           {int(rose.days)} dies de sèrie, mesurats{' '}
           <strong className="font-medium text-[var(--ink-2)]">a {rose.heightM} m</strong>
-          {rose.heightM < 10 && ' — les estacions de muntanya mesuren més baix, '
-            + 'perquè a 10 m el pal no aguanta el gel, i allà el vent es mesura més fluix'}. El radi va amb l&apos;arrel quadrada de la
-          freqüència, perquè l&apos;ull compara àrees i no radis. I això diu d&apos;on
-          ve el vent fort, no la freqüència de les brises fluixes: la marinada de
-          cada tarda d&apos;estiu hi surt poc perquè poques vegades és la ratxa del dia.
+          {rose.heightM < 10 && ' (a muntanya el pal és més baix perquè a 10 m no '
+            + 'aguanta el gel, i allà el vent es mesura més fluix)'}. El radi va amb
+          l&apos;arrel quadrada de la freqüència, perquè l&apos;ull compara àrees.
+          Diu d&apos;on ve el vent fort, no la freqüència de les brises: la
+          marinada hi surt poc perquè poques vegades és la ratxa del dia.
         </p>
       </figcaption>
     </figure>

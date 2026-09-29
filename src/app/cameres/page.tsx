@@ -2,8 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { allCameras, cameraImage, CAMERA_SHOW_HOURS } from '@/lib/cameras';
 import { ListFilter, groupsOf } from '@/components/ListFilter';
-import { ago, dateFull, int } from '@/lib/format';
+import { aName, ago, dateFull, int } from '@/lib/format';
 import { External } from '@/components/External';
+import { CameraCard } from '@/components/CameraBlock';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
+import { PageHero, Section } from '@/components/PageHero';
 
 /**
  * Les càmeres de muntanya.
@@ -25,6 +28,12 @@ import { External } from '@/components/External';
  * La reja es de miniaturas de 400 píxeles —diez kilobytes cada una, y con carga
  * diferida— y el fotograma grande solo lo baja quien entra en una cámara. Es la
  * regla de `shards.ts` aplicada a las imágenes: una página baja lo que enseña.
+ *
+ * ## La de la cabecera es la misma miniatura
+ *
+ * A la derecha del título va la cámara más reciente, y va **en la miniatura**,
+ * no en el fotograma grande: es el mismo fichero que la primera tarjeta de la
+ * reja, así que el navegador lo baja una vez y la cabecera no cuesta nada.
  */
 export const revalidate = 900;
 
@@ -39,131 +48,166 @@ export const metadata: Metadata = {
 export default async function CameresPage() {
   const cams = await allCameras();
 
+  const trail = [
+    { nom: 'Catalunya', path: '/' },
+    { nom: 'Càmeres', path: '/cameres' },
+  ];
+
   if (!cams) {
     return (
-      <article className="measure">
-        <h1 className="text-3xl font-semibold tracking-tight">Càmeres de muntanya</h1>
-        <p className="mt-4 leading-relaxed text-[var(--ink-2)]">
-          Ara mateix no hi ha cap fotograma desat. Torneu-hi en una estona.
-        </p>
+      <article>
+        <JsonLd data={graph(breadcrumbLd(trail))} />
+        <PageHero
+          crumbs={trail}
+          eyebrow="Càmeres de muntanya"
+          icon="partly-cloudy-day"
+          title="Com està la muntanya ara mateix"
+          lead="Ara mateix no hi ha cap fotograma desat. Torneu-hi en una estona."
+        />
       </article>
     );
   }
 
   const groups = groupsOf(cams.list, (c) => ({ key: c.resort, label: c.resort }));
+  const latest = cams.list[0] ?? null;
+  const resorts = new Set(cams.list.map((c) => c.resort)).size;
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="crumbs">
-        <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
-        <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
-        <span className="text-[var(--ink-2)]">Càmeres</span>
-      </nav>
+      <JsonLd data={graph(breadcrumbLd(trail))} />
 
-      <header className="page-head">
-        <h1 className="page-title">
-          Com està la muntanya ara mateix
-        </h1>
-        <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
-          {cams.list.length === 0 ? (
-            <>
-              Cap de les {cams.total} càmeres del catàleg de Ferrocarrils no ha enviat
-              cap fotograma en les últimes {CAMERA_SHOW_HOURS} hores.
-            </>
-          ) : (
-            <>
-              Fotogrames de {cams.list.length}{' '}
-              {cams.list.length === 1 ? 'càmera' : 'càmeres'} de Ferrocarrils al Pirineu
-              i al Montsec, cada un amb l’hora en què es va prendre. No són imatges en
-              directe: s’actualitzen un cop per hora.
-            </>
-          )}
-        </p>
-      </header>
+      <PageHero
+        crumbs={trail}
+        eyebrow="Càmeres de muntanya"
+        icon="partly-cloudy-day"
+        title="Com està la muntanya ara mateix"
+        lead={cams.list.length === 0 ? (
+          <>
+            Cap de les {cams.total} càmeres del catàleg de Ferrocarrils no ha enviat
+            cap fotograma en les últimes {CAMERA_SHOW_HOURS} hores.
+          </>
+        ) : (
+          <>
+            Fotogrames de {cams.list.length}{' '}
+            {cams.list.length === 1 ? 'càmera' : 'càmeres'} de Ferrocarrils al Pirineu
+            i al Montsec, cada un amb l&apos;hora en què es va prendre.
+          </>
+        )}
+        stats={cams.list.length > 0 ? [
+          {
+            label: 'Càmeres',
+            icon: 'partly-cloudy-day',
+            value: int(cams.list.length),
+            unit: `de ${cams.total}`,
+            sub: 'amb fotograma de les últimes hores',
+          },
+          {
+            label: 'Estacions',
+            icon: 'snow',
+            value: int(resorts),
+            sub: 'de muntanya amb imatge',
+          },
+          cams.stale.length > 0 && {
+            label: 'Aturades',
+            icon: 'not-available',
+            value: int(cams.stale.length),
+            sub: <a href="#aturades">sense fotograma nou</a>,
+          },
+        ] : undefined}
+        note="No són imatges en directe: es desen un cop per hora."
+        aside={latest && (
+          /* Al mòbil no: seria la mateixa imatge que la primera de la reixa, just a sota. */
+          <section className="card hidden lg:block" aria-label="La càmera amb el fotograma més recent">
+            <p className="card-label">
+              <img src="/icons/w/clear-day.svg" width={22} height={22} alt="" />
+              La més recent
+            </p>
+            <Link href={`/cameres/${latest.slug}`} className="block no-underline">
+              <img
+                src={cameraImage(latest, 'thumb')}
+                width={400}
+                height={225}
+                decoding="async"
+                alt={`Fotograma de la càmera ${latest.name}, ${aName(latest.resort)}`}
+                className="block aspect-video h-auto w-full rounded-[14px] bg-[var(--surface-2)] object-cover"
+              />
+              <span className="mt-2.5 block text-[15px] font-semibold text-[var(--ink)]">{latest.name}</span>
+              <span className="block text-[13px] text-[var(--muted)]">
+                {[latest.resort, latest.altitudM != null && `${int(latest.altitudM)} m`, ago(latest.ageMin)]
+                  .filter(Boolean).join(' · ')}
+              </span>
+            </Link>
+          </section>
+        )}
+      />
 
       {cams.list.length > 0 && (
-        <ListFilter id="fc" groups={groups} legend="Filtra per estació" allLabel="Totes les estacions">
-          <ul className="grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
-            {cams.list.map((c) => (
-              <li key={c.id} data-lf={c.resort}>
-                <Link
-                  href={`/cameres/${c.slug}`}
-                  className="block overflow-hidden rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] no-underline"
-                >
-                  {/* Amplada i alçada posades: sense elles la reja salta quan
-                      arriben les imatges, i van amb carrega diferida perque
-                      ningu baixa vint-i-quatre fotogrames per veure’n tres. */}
-                  <img
-                    src={cameraImage(c, 'thumb')}
-                    width={400}
-                    height={225}
-                    loading="lazy"
-                    decoding="async"
-                    alt={`Fotograma de la càmera ${c.name}, a ${c.resort}`}
-                    className="block h-auto w-full bg-[var(--surface-2)]"
+        <Section id="totes" title={`Les ${cams.list.length} càmeres`}>
+          <ListFilter id="fc" groups={groups} legend="Filtra per estació" allLabel="Totes les estacions">
+            {/* Dues columnes també al mòbil: d'una en una, dinou fotogrames eren deu pantalles. */}
+            <ul className="card-grid cols-4 max-sm:grid-cols-2! max-sm:gap-2.5!">
+              {cams.list.map((c) => (
+                <li key={c.id} data-lf={c.resort}>
+                  <CameraCard
+                    camera={c}
+                    meta={[
+                      c.resort,
+                      c.altitudM != null && `${int(c.altitudM)} m`,
+                      c.panoramic && 'panoràmica',
+                    ]}
                   />
-                  <div className="p-3">
-                    <span className="block font-medium text-[var(--ink)]">{c.name}</span>
-                    <span className="block text-xs text-[var(--muted)]">
-                      {[
-                        c.resort,
-                        c.altitudM != null && `${int(c.altitudM)} m`,
-                        c.panoramic && 'panoràmica',
-                      ].filter(Boolean).join(' · ')}
-                    </span>
-                    {/* El color només quan la imatge no és d’ara: una hora
-                        d’antiguitat en una càmera de muntanya no és cap avis. */}
-                    <span
-                      className="mt-1.5 block text-[11px]"
-                      style={{ color: c.current ? 'var(--muted)' : 'var(--ink-2)' }}
-                    >
-                      {c.current ? ago(c.ageMin) : `última imatge ${ago(c.ageMin)}`}
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </ListFilter>
+                </li>
+              ))}
+            </ul>
+          </ListFilter>
+          <p className="source">
+            Imatges de {cams.attribution} ({cams.license}), del conjunt{' '}
+            <External
+              href="https://dadesobertes.fgc.cat/explore/dataset/webcams-actives-tim/"
+              className="text-[var(--ink-2)]"
+            >
+              «Webcams dels equipaments turístics»
+            </External>
+            . Es desen un cop per hora i es retiren passades {CAMERA_SHOW_HOURS} hores
+            sense fotograma nou.
+          </p>
+        </Section>
       )}
 
       {cams.stale.length > 0 && (
-        <section className="mt-8 measure">
-          <h2 className="card-title">
-            {cams.stale.length === 1 ? 'Una càmera aturada' : `${cams.stale.length} càmeres aturades`}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
-            Consten com a actives al catàleg de Ferrocarrils, però el fotograma que
-            serveixen no ha canviat des de la data indicada.
-          </p>
-          <ul className="mt-3 list-none space-y-1.5 p-0 text-sm">
-            {cams.stale.map((c) => (
-              <li key={c.id} className="flex flex-wrap items-baseline justify-between gap-x-3">
-                <span className="text-[var(--ink-2)]">
-                  {c.resort} · {c.name}
-                </span>
-                <span className="tnum text-xs text-[var(--muted)]">
-                  {dateFull(c.capturedLocal)} · {ago(c.ageMin)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Section
+          id="aturades"
+          title={cams.stale.length === 1 ? 'Una càmera aturada' : `${cams.stale.length} càmeres aturades`}
+        >
+          <div className="card">
+            <p className="text-[13.5px] leading-relaxed text-[var(--muted)]">
+              Consten com a actives al catàleg de Ferrocarrils, però el fotograma que
+              serveixen no ha canviat des de la data indicada.
+            </p>
+            <ul className="rows mt-3">
+              {cams.stale.map((c) => (
+                <li key={c.id}>
+                  <Link href={`/cameres/${c.slug}`} className="row-main">
+                    <span className="row-title">{c.name}</span>
+                    <span className="row-sub">{c.resort}</span>
+                  </Link>
+                  <span className="tnum shrink-0 text-right text-[13px] text-[var(--muted)]">
+                    {dateFull(c.capturedLocal)}
+                    <span className="block text-[12px]">{ago(c.ageMin)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Section>
       )}
 
-      <footer className="mt-8 border-t border-[var(--line-soft)] pt-4 text-xs leading-relaxed text-[var(--muted)]">
-        <p>
-          Imatges de {cams.attribution} ({cams.license}), del conjunt{' '}
-          <External
-            href="https://dadesobertes.fgc.cat/explore/dataset/webcams-actives-tim/"
-            className="text-[var(--ink-2)]"
-          >
-            «Webcams dels equipaments turístics»
-          </External>
-          . Es desen un cop per hora i es retiren passades {CAMERA_SHOW_HOURS} hores
-          sense fotograma nou.
+      {cams.list.length === 0 && (
+        <p className="source">
+          Imatges de {cams.attribution} ({cams.license}). Es desen un cop per hora i es
+          retiren passades {CAMERA_SHOW_HOURS} hores sense fotograma nou.
         </p>
-      </footer>
+      )}
     </article>
   );
 }

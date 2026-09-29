@@ -4,8 +4,11 @@ import { radar, type RadarFrame } from '@/lib/weather';
 import { allComarques, comarcaPathsOn, municipisOfComarca, relief } from '@/lib/territory';
 import { project } from '@/lib/mercator';
 import { radarZones } from '@/lib/radar-zones';
-import { ago, hour, dateLong } from '@/lib/format';
+import { ago, dateLong, hour, hourSpoken } from '@/lib/format';
 import { RadarScrubber } from '@/components/RadarScrubber';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
+import { PageHero } from '@/components/PageHero';
+import { Fold } from '@/components/Fold';
 
 /**
  * Radar de precipitación.
@@ -95,14 +98,22 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
   const data = await radar();
   const { t, zona } = await searchParams;
 
+  const trail = [
+    { nom: 'Catalunya', path: '/' },
+    { nom: 'Radar', path: '/radar' },
+  ];
+
   if (!data) {
     return (
-      <article>
-        <h1 className="text-3xl font-semibold tracking-tight">Radar de precipitació</h1>
-        <p className="mt-4 measure text-[var(--muted)]">
-          Encara no hi ha cap imatge descarregada. El radar apareix tan aviat com
-          el worker hagi corregut per primera vegada.
-        </p>
+      <article data-wide>
+        <JsonLd data={graph(breadcrumbLd(trail))} />
+        <PageHero
+          crumbs={trail}
+          eyebrow="Radar de pluja"
+          icon="rain"
+          title="On plou ara mateix"
+          lead="Encara no hi ha cap imatge de radar."
+        />
       </article>
     );
   }
@@ -137,6 +148,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
 
   const zones = radarZones(grid, full);
   const view = zones.find((z) => z.key === zona) ?? full;
+  const aspect = (view.w / view.h).toFixed(4);
 
   /*
    * La animación: dos `@keyframes` y un retardo por marco.
@@ -210,41 +222,39 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
 
   return (
     <article data-wide>
-      <nav aria-label="Ruta de navegació" className="crumbs">
-        <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
-        <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
-        <span className="text-[var(--ink-2)]">Radar</span>
-      </nav>
+      <JsonLd data={graph(breadcrumbLd(trail))} />
 
-      <header className="page-head">
-        <h1 className="page-title">
-          On plou ara mateix
-        </h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {/*
-            * Un marc de model no es pot anunciar com una imatge de radar.
-            *
-            * Els tres tipus van pel mateix carril —tota la pàgina compta
-            * grups— i aquest text es va quedar amb dues branques: la del
-            * `nowcast` i «la resta». Amb el futur concatenat, «la resta» va
-            * passar a incloure'l, i el capçal d'una hora de predicció deia
-            * «Imatge del radar de dimecres a les 10:00» d'un dibuix que no ha
-            * vist cap radar. La frase que ho desmentia era el peu, tres
-            * pantalles avall.
-            */}
-          {frame.kind === 'nowcast' ? (
+      <PageHero
+        crumbs={trail}
+        eyebrow="Radar de pluja"
+        icon="rain"
+        title="On plou ara mateix"
+        lead={(
+          /*
+           * Un marc de model no es pot anunciar com una imatge de radar.
+           *
+           * Els tres tipus van pel mateix carril —tota la pàgina compta
+           * grups— i aquest text es va quedar amb dues branques: la del
+           * `nowcast` i «la resta». Amb el futur concatenat, «la resta» va
+           * passar a incloure'l, i el capçal d'una hora de predicció deia
+           * «Imatge del radar de dimecres a les 10:00» d'un dibuix que no ha
+           * vist cap radar. La frase que ho desmentia era el peu, tres
+           * pantalles avall.
+           */
+          frame.kind === 'nowcast' ? (
             <>
-              Previsió immediata per a {hour(frame.local)} — no és una imatge
+              Previsió immediata per a {hourSpoken(frame.local)}: no és una imatge
               observada, és una extrapolació del moviment dels ecos.
             </>
           ) : (
             <>
-              Imatge del radar de {dateLong(frame.local)} a {hour(frame.local)}
-              {ageMin != null && frame.time === lastObserved?.time && ` · ${ago(ageMin)}`}
+              Imatge del radar de {dateLong(frame.local)}, a{' '}
+              <strong className="tnum">{hourSpoken(frame.local)}</strong>
+              {ageMin != null && frame.time === lastObserved?.time && <>, {ago(ageMin)}</>}.
             </>
-          )}
-        </p>
-      </header>
+          )
+        )}
+      />
 
       {/*
         La durada del cicle va a la figura i no al mapa.
@@ -253,8 +263,21 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         heretava, `animation: rframe var(--rcycle)…` es quedava sense valor i
         **tota la drecera** era invàlida: el rètol no s'animava i no hi havia
         cap error enlloc, només un `animation-name: none` a l'inspector.
+
+        A l'escriptori, el mapa a l'esquerra i els controls a la dreta.
+        `.radar` és una columna flex a `globals.css`, que no porta capa, i una
+        utilitat de Tailwind sí: per això `lg:grid!` porta el signe d'important,
+        que és l'única manera que una utilitat guanyi una regla sense capa. La
+        primera columna fa exactament l'amplada del mapa —la mateixa fórmula
+        que `.rmap`, amb el `--raspect` de la zona—, així que el mapa no queda
+        centrat amb dos buits als costats i els controls agafen la resta.
+        Les regles de germans no en saben res: miren l'ordre del DOM, no la
+        graella.
       */}
-      <figure className="m-0 radar" style={{ ['--rcycle' as string]: `${cycleS}s` }}>
+      <figure
+        className="radar card m-0 lg:grid! lg:grid-cols-[minmax(0,calc(60vh*var(--raspect)))_minmax(16rem,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start lg:gap-x-8"
+        style={{ ['--rcycle' as string]: `${cycleS}s`, ['--raspect' as string]: aspect }}
+      >
         {/*
           * Els controls van primer i germans del mapa: `~` no surt del pare.
           *
@@ -275,12 +298,12 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         <style dangerouslySetInnerHTML={{ __html: css }} />
 
         <div
-          className="rmap overflow-hidden rounded-lg border border-[var(--line-soft)]"
+          className="rmap overflow-hidden rounded-2xl border border-[var(--line-soft)] lg:col-start-1 lg:row-span-3 lg:row-start-1"
           style={{
             background: 'var(--surface-2)',
             // La relació d'aspecte de la zona, perquè el CSS pugui limitar
             // l'alçada sense retallar. El perquè, a `globals.css`.
-            ['--raspect' as string]: (view.w / view.h).toFixed(4),
+            ['--raspect' as string]: aspect,
           }}
         >
           <svg
@@ -386,42 +409,55 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
 
         {/* Reproduir i els instants. Les etiquetes són els controls; els radios
             queden invisibles però enfocables, i el focus es pinta a l'etiqueta. */}
-        <div className="rbar mt-3">
-          <label htmlFor="rplay" className="rplay-btn">
-            <span className="rplay-on">Reprodueix les 2 hores</span>
-            <span className="rplay-off">Atura</span>
-          </label>
+        <div className="rbar mt-4 lg:col-start-2 lg:row-start-1 lg:mt-0">
+          <p className="card-label">
+            {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+            <img src="/icons/w/rain.svg" width={22} height={22} alt="" />
+            Les dues últimes hores
+          </p>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            {/*
+              L'hora del marc que s'està veient.
 
-          {/*
-            L'hora del marc que s'està veient.
+              Reproduint, la seqüència no deia de quan era cada imatge: es veia
+              passar la pluja sense saber si allò era de fa dues hores o de fa
+              deu minuts, que és la meitat del que un radar explica.
 
-            Reproduint, la seqüència no deia de quan era cada imatge: es veia
-            passar la pluja sense saber si allò era de fa dues hores o de fa
-            deu minuts, que és la meitat del que un radar explica.
+              No cal gens de JavaScript. Els instants són N i les etiquetes són
+              N, apilades a la mateixa cel·la d'una graella, i cada una porta
+              **la mateixa animació i el mateix retard** que el seu marc del
+              mapa: quan s'encén la imatge s'encén el seu rètol. Parat, mana el
+              radio triat, com a tot arreu d'aquesta pàgina.
 
-            No cal gens de JavaScript. Els instants són N i les etiquetes són
-            N, apilades a la mateixa cel·la d'una graella, i cada una porta
-            **la mateixa animació i el mateix retard** que el seu marc del
-            mapa: quan s'encén la imatge s'encén el seu rètol. Parat, mana el
-            radio triat, com a tot arreu d'aquesta pàgina.
-
-            Apilades i no en fila perquè totes ocupen la cel·la 1/1: l'amplada
-            la posa la més ampla i el rètol no balla en canviar d'hora.
-          */}
-          <span className="rtime tnum" aria-live="off">
-            {frames.map((f, i) => (
-              <span key={f.time} style={{ animationDelay: `${(i * SLOT_S).toFixed(2)}s` }}>
-                {hour(f.local)}
-              </span>
-            ))}
-          </span>
+              Apilades i no en fila perquè totes ocupen la cel·la 1/1: l'amplada
+              la posa la més ampla i el rètol no balla en canviar d'hora.
+            */}
+            <span
+              className="rtime tnum"
+              aria-live="off"
+              // En gran: és l'hora de la imatge que es veu, i la primera cosa que
+              // es busca al costat d'un radar. `.rtime` porta mida i marge al full
+              // global, sense capa, i per això va en línia.
+              style={{ marginLeft: 0, fontSize: 34, fontWeight: 650, letterSpacing: '-0.02em', lineHeight: 1 }}
+            >
+              {frames.map((f, i) => (
+                <span key={f.time} style={{ animationDelay: `${(i * SLOT_S).toFixed(2)}s` }}>
+                  {hour(f.local)}
+                </span>
+              ))}
+            </span>
+            <label htmlFor="rplay" className="rplay-btn">
+              <span className="rplay-on">Reprodueix les 2 hores</span>
+              <span className="rplay-off">Atura</span>
+            </label>
+          </div>
 
           {/* La barra arrossegable. Substitueix les pastilles quan hi ha
               JavaScript; sense, no es dibuixa i les pastilles es queden. */}
           <RadarScrubber frames={frames} current={current} />
 
-          <nav aria-label="Instants disponibles" className="rf-chips scroll-x mt-2">
-            <ol className="flex min-w-max gap-1.5">
+          <nav aria-label="Instants disponibles" className="rf-chips mt-3">
+            <ol className="flex flex-wrap gap-1.5">
               {frames.map((f) => (
                 <li key={f.time}>
                   <label htmlFor={`rf-${f.time}`} className="rf-chip tnum">
@@ -435,8 +471,11 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         </div>
 
         {/* Les zones sí van per URL: cada una es pot compartir. */}
-        <nav aria-label="Zones" className="scroll-x mt-3">
-          <ol className="flex min-w-max gap-1.5">
+        <nav aria-label="Zones" className="mt-5 lg:col-start-2 lg:row-start-2">
+          <p className="mb-2 text-[12.5px] font-semibold uppercase tracking-[0.04em] text-[var(--muted)]">
+            Zones
+          </p>
+          <ol className="chips">
             {zones.map((z) => {
               const active = z.key === view.key;
               return (
@@ -444,12 +483,10 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
                   <Link
                     href={z.key === 'ca' ? '/radar' : `/radar?zona=${z.key}`}
                     aria-current={active ? 'true' : undefined}
-                    className="block rounded-md border px-2.5 py-1.5 text-xs no-underline"
-                    style={{
-                      borderColor: active ? 'var(--accent)' : 'var(--line-soft)',
-                      background: active ? 'var(--accent-soft)' : 'var(--surface)',
-                      color: active ? 'var(--ink)' : 'var(--ink-2)',
-                    }}
+                    // La triada, com el botó de capa del mapa que es mou: plena.
+                    style={active
+                      ? { background: 'var(--ink)', borderColor: 'var(--ink)', color: 'var(--paper)', fontWeight: 600 }
+                      : undefined}
                   >
                     {z.label}
                   </Link>
@@ -459,9 +496,9 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
           </ol>
         </nav>
 
-        <figcaption className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
+        <figcaption className="mt-4 text-[13px] leading-relaxed text-[var(--muted)] lg:col-start-2 lg:row-start-3">
           {frames.some((f) => f.kind === 'nowcast') && (
-            <>Els instants marcats amb un punt són previsió immediata, no observació. </>
+            <p className="mb-2">Els instants marcats amb un punt són previsió immediata, no observació.</p>
           )}
           {/*
             * Una cosa que es veu de seguida i decebria sense avisar: ampliar
@@ -470,62 +507,68 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
             * gran. El que sí guanya definició és el que hi va a sobre: les
             * fronteres i els noms són vectors.
             */}
-          Les zones amplien la mateixa imatge — un píxel de radar són uns 460
-          metres i ampliant-la no n’apareixen més —, però les fronteres i els
-          noms que hi van a sobre sí que s’afinen.{' '}
-          <Link href="/mapa/interactiu">
-            Al mapa que es pot moure
-          </Link>{' '}
-          la mateixa seqüència va damunt de la cartografia de l’ICGC, amb els
-          camins i els pobles a sota. El radar segueix acabant-se al mateix lloc.
+          <p>
+            Les zones amplien la mateixa imatge: un píxel de radar són uns 460
+            metres, i ampliant-la no n’apareixen més. Sí que s’afinen les
+            fronteres i els noms.{' '}
+            <Link href="/mapa/interactiu" className="text-[var(--accent)] no-underline hover:underline">
+              Al mapa que es pot moure
+            </Link>
+            , la mateixa seqüència va damunt de la cartografia de l’ICGC.
+          </p>
+          <p className="source">
+            Radar: {data.source}, una imatge cada deu minuts. Límits comarcals:
+            Institut Cartogràfic i Geològic de Catalunya. Relleu: {terrain.source}.
+          </p>
         </figcaption>
       </figure>
 
-      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="card-title">
-          Què veu i què no veu un radar
-        </h2>
-        <p>
-          Un radar meteorològic no mesura la pluja que arriba a terra: mesura les
-          gotes que hi ha <em>a l&apos;aire</em> a uns quants centenars de metres
-          d&apos;altura. Els dos no coincideixen sempre, i saber en què es
-          diferencien evita la meitat dels malentesos.
-        </p>
-        <p>
-          <strong className="font-medium text-[var(--ink)]">A l&apos;estiu, ecos que no mullen.</strong>{' '}
-          Amb la capa baixa seca, la pluja s&apos;evapora abans de tocar el sòl. El
-          radar pinta blau i al carrer no cau res: no és un error de l&apos;aparell,
-          és evaporació.
-        </p>
-        <p>
-          <strong className="font-medium text-[var(--ink)]">Al Pirineu, valls cegues.</strong>{' '}
-          El relleu tapa el feix, i hi ha fondalades que el radar simplement no
-          il·lumina. L&apos;absència d&apos;eco no és absència de pluja.
-        </p>
-        <p>
-          <strong className="font-medium text-[var(--ink)]">A l&apos;hivern, neu i pluja es confonen.</strong>{' '}
-          Quan els flocs es fonen just per sobre del terra, la capa de fusió
-          reflecteix moltíssim i el radar exagera la intensitat. Per saber si
-          nevarà, la cota de neu de cada fitxa és més fiable que aquesta imatge.
-        </p>
-        <p className="text-[var(--muted)]">
-          Imatges de {data.source}. Límits comarcals de l&apos;Institut Cartogràfic
-          i Geològic de Catalunya. Les tessel·les es descarreguen cada deu minuts
-          i les serveix aquest mateix domini: la vostra visita no arriba a cap
-          tercer.
-        </p>
-        {/*
-          * L'atribució que demana la font del relleu, tal com la demana.
-          *
-          * No és una fórmula que ens haguem inventat: és la cadena exacta que
-          * exigeix l'EU-DEM, i va aquí perquè la imatge del relleu es publica
-          * dins d'aquesta pàgina.
-          */}
-        <p className="text-[var(--muted)]">
-          El relleu surt de {terrain.source}, calculat un sol cop.{' '}
-          <span lang="en">{terrain.attribution}</span>
-        </p>
-      </section>
+      <Fold title="Què veu i què no veu un radar" summary="Gotes a l’aire, que no sempre són pluja a terra">
+        <div className="card prose">
+          <p>
+            Un radar no mesura la pluja que arriba a terra: mesura les gotes que
+            hi ha <em>a l&apos;aire</em>, a uns quants centenars de metres
+            d&apos;altura, i no sempre coincideixen.
+          </p>
+          <p>
+            <strong>A l&apos;estiu, ecos que no mullen.</strong> Amb la capa baixa
+            seca, la pluja s&apos;evapora abans de tocar a terra: el radar pinta
+            blau i al carrer no cau res.
+          </p>
+          <p>
+            <strong>Al Pirineu, valls cegues.</strong> El relleu tapa el feix, i hi
+            ha fondalades que el radar no veu. Sense eco no vol dir sense pluja.
+          </p>
+          <p>
+            <strong>A l&apos;hivern, neu i pluja es confonen.</strong> Quan els flocs
+            es fonen just per sobre del terra, el radar exagera la intensitat. Per
+            saber si nevarà, la cota de neu de cada fitxa és més fiable que aquesta
+            imatge.
+          </p>
+        </div>
+      </Fold>
+
+      <Fold title="D’on surt la imatge" summary={`${data.source}, ICGC i EU-DEM`}>
+        <div className="card prose">
+          <p>
+            Imatges de {data.source}. Límits comarcals de l&apos;Institut
+            Cartogràfic i Geològic de Catalunya. Les tessel·les es descarreguen
+            cada deu minuts i les serveix aquest mateix domini: la vostra visita
+            no arriba a cap tercer.
+          </p>
+          {/*
+            * L'atribució que demana la font del relleu, tal com la demana.
+            *
+            * No és una fórmula que ens haguem inventat: és la cadena exacta que
+            * exigeix l'EU-DEM, i va aquí perquè la imatge del relleu es publica
+            * dins d'aquesta pàgina.
+            */}
+          <p>
+            El relleu surt de {terrain.source}, calculat un sol cop.{' '}
+            <span lang="en">{terrain.attribution}</span>
+          </p>
+        </div>
+      </Fold>
     </article>
   );
 }

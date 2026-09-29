@@ -188,7 +188,7 @@ export default async function Home() {
                  * aquí la multiplicava per 3,6 una segona vegada: el Monestir de
                  * Montserrat sortia a **180 km/h** una tarda de 37 °C.
                  */
-                ['Ratxa màxima', 'wind', rank.stations.gust[0], (v: number) => `${v.toFixed(0)} km/h`],
+                ['Ratxa ara', 'wind', rank.stations.gust[0], (v: number) => `${v.toFixed(0)} km/h`],
               ] as const).map(([label, icon, row, fmt]) => {
                 // Una fila sense estació no s'escriu.
                 if (!row) return null;
@@ -210,8 +210,8 @@ export default async function Home() {
             </ul>
             <p className="source">
               {rank.stations.total} estacions del Meteocat
-              {rank.ageMin != null && ` · lectura ${ago(rank.ageMin)}`}. La pluja i la ratxa
-              compten des de mitjanit.{' '}
+              {rank.ageMin != null && ` · lectura ${ago(rank.ageMin)}`}. La pluja compta des de
+              mitjanit; la ratxa és la de l&apos;última lectura.{' '}
               <Link href="/ranquings" className="text-[var(--accent)]">Totes les llistes</Link>.
             </p>
           </div>

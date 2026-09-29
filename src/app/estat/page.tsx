@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { freshness } from '@/lib/weather';
 import { buildSummary } from '@/lib/territory';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
+import { PageHero, Section } from '@/components/PageHero';
 
 export const revalidate = 300;
 
@@ -51,118 +53,197 @@ function age(minutes: number | null): string {
   return `${Math.floor(h / 24)} dies`;
 }
 
+type Source = Awaited<ReturnType<typeof freshness>>[number];
+type State = 'missing' | 'error' | 'stale' | 'ok';
+
+const stateOf = (s: Source): State =>
+  s.missing ? 'missing' : s.error ? 'error' : s.stale ? 'stale' : 'ok';
+
+const STATE: Record<State, { label: string; color: string }> = {
+  missing: { label: 'mai executada', color: 'var(--muted)' },
+  error: { label: 'error', color: 'var(--bad)' },
+  stale: { label: 'endarrerida', color: 'var(--warn)' },
+  ok: { label: 'al dia', color: 'var(--good)' },
+};
+
+/** Els noms de les fonts d'una llista, per a l'entradilla. */
+const names = (list: Source[]) => list.map((s) => LABELS[s.source] ?? s.source).join(', ');
+
 export default async function EstatPage() {
   const sources = await freshness();
   const summary = buildSummary() as { builtAt: string; indexablePages: number; nomenclatorEdition: string };
 
+  const by = (st: State) => sources.filter((s) => stateOf(s) === st);
+  const ok = by('ok');
+  const stale = by('stale');
+  const failed = by('error');
+  const missing = by('missing');
+
+  const trail = [
+    { nom: 'Catalunya', path: '/' },
+    { nom: 'Estat de les dades', path: '/estat' },
+  ];
+
   return (
-    <article data-wide className="measure">
-      <h1 className="page-title">Estat de les dades</h1>
-      <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
-        Quan es va actualitzar cada font per última vegada, i quina antiguitat
-        té la dada més recent que en tenim, en hora de Catalunya. Serveix per saber, abans de fiar-se
-        d&apos;una xifra del lloc, si la font que hi ha al darrere està al dia.
-      </p>
+    <article data-wide>
+      <JsonLd data={graph(breadcrumbLd(trail))} />
 
-      {/* Sempre les nou fonts: una que no hagi publicat mai ha de sortir
-          dient-ho, no desapareixer del panel. Veure src/lib/shards.ts. */}
-        <div className="scroll-x mt-8">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)]">
-                <th className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Font</th>
-                <th className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Dada més recent</th>
-                <th className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Antiguitat</th>
-                <th className="border-b border-[var(--line)] py-2 font-semibold">Estat</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sources.map((s) => (
-                <tr key={s.source} className="border-b border-[var(--line-soft)]">
-                  <td className="py-2.5 pr-4 text-[var(--ink)]">{LABELS[s.source] ?? s.source}</td>
-                  <td className="tnum py-2.5 pr-4 text-[var(--ink-2)]">
-                    {s.lastDataTs ? localStamp(s.lastDataTs) : '—'}
-                  </td>
-                  <td className="tnum py-2.5 pr-4 text-[var(--ink-2)]">{age(s.ageMin)}</td>
-                  <td className="py-2.5">
-                    {s.missing ? (
-                      <span className="font-medium" style={{ color: 'var(--muted)' }}>mai executada</span>
-                    ) : s.error ? (
-                      <span className="font-medium" style={{ color: 'var(--bad)' }}>error</span>
-                    ) : s.stale ? (
-                      <span className="font-medium" style={{ color: 'var(--warn)' }}>endarrerida</span>
-                    ) : (
-                      <span className="font-medium" style={{ color: 'var(--good)' }}>al dia</span>
-                    )}
-                    {/*
-                      L'ultim ensopec, encara que ara vagi be.
-                      Es el que converteix un correu de «Run failed» en una
-                      cosa que es pot mirar: el registre d'Actions caduca i
-                      demana autenticacio, i aixo no.
-                    */}
-                    {/*
-                      El missatge és el del worker, en l'idioma de la llibreria
-                      que ha fallat —«fetch failed», «Fallo tras 5 intentos»—, i
-                      no li diu res a qui mira si la font està al dia. Va plegat:
-                      qui el necessita per saber què va passar l'obre.
-                    */}
-                    {!s.error && s.lastError && s.lastErrorAt && (
-                      <details className="mt-0.5 text-[11px] text-[var(--muted)]">
-                        <summary className="cursor-pointer">
-                          últim ensopec el {localStamp(s.lastErrorAt)}
-                        </summary>
-                        <span className="mt-0.5 block font-mono">{s.lastError.slice(0, 200)}</span>
-                      </details>
-                    )}
-                    {/*
-                      I quan caduca la clau, si en té una que caduqui.
-                      Una font que depèn d'una clau de noranta dies no està
-                      «al dia» del tot si li'n queden quatre: el dia que mori,
-                      el bloc desapareix de les fitxes i el web surt sencer.
-                      Qui avisa a temps és el workflow setmanal; això només
-                      posa la data on es pot veure sense entrar enlloc.
-                    */}
-                    {s.credentialExpiresAt && s.keyDaysLeft != null && (
-                      <span
-                        className="mt-0.5 block text-[11px]"
-                        style={{ color: s.keyDaysLeft <= 45 ? 'var(--warn)' : 'var(--muted)' }}
-                      >
-                        {s.keyDaysLeft < 0
-                          ? `clau caducada el ${s.credentialExpiresAt}`
-                          : `clau vàlida fins al ${s.credentialExpiresAt} · ${s.keyDaysLeft} dies`}
-                      </span>
-                    )}
-                  </td>
+      <PageHero
+        crumbs={trail}
+        eyebrow="Les fonts del web"
+        icon="barometer"
+        title="Estat de les dades"
+        lead={(
+          <>
+            {ok.length === sources.length
+              ? <>Les <strong>{sources.length} fonts</strong> estan al dia.</>
+              : <><strong>{ok.length} de les {sources.length} fonts</strong> estan al dia.</>}
+            {stale.length > 0 && <> {stale.length === 1 ? 'Va endarrerida' : 'Van endarrerides'}: {names(stale)}.</>}
+            {failed.length > 0 && <> Amb error: {names(failed)}.</>}
+          </>
+        )}
+        stats={[
+          { label: 'Al dia', value: String(ok.length), sub: `de ${sources.length} fonts` },
+          { label: 'Endarrerides', value: String(stale.length) },
+          { label: 'Amb error', value: String(failed.length) },
+          missing.length > 0 && { label: 'Mai executades', value: String(missing.length) },
+        ]}
+        note={(
+          <>
+            Quan es va actualitzar cada font i quina antiguitat té la dada més
+            recent, en hora de Catalunya. Abans de fiar-vos d&apos;una xifra, mireu
+            si la font que hi ha al darrere està al dia.
+          </>
+        )}
+        aside={(
+          <section className="card" aria-label="Territori">
+            <p className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/barometer.svg" width={22} height={22} alt="" />
+              Territori
+            </p>
+            <ul className="rows">
+              <li>
+                <span className="row-main"><span className="row-title">Rutes territorials</span></span>
+                <span className="row-value">{summary.indexablePages.toLocaleString('ca-ES')}</span>
+              </li>
+              <li>
+                <span className="row-main"><span className="row-title">Nomenclàtor estadístic</span></span>
+                <span className="row-value">edició {summary.nomenclatorEdition}</span>
+              </li>
+              <li>
+                <span className="row-main"><span className="row-title">Última construcció</span></span>
+                <span className="row-value">{summary.builtAt.slice(0, 10)}</span>
+              </li>
+            </ul>
+            <p className="source">
+              Construïdes a partir del Nomenclàtor, els límits administratius de
+              l&apos;ICGC i les metadades de la XEMA.
+            </p>
+          </section>
+        )}
+      />
+
+      {/* Sempre les tretze fonts: una que no hagi publicat mai ha de sortir
+          dient-ho, no desaparèixer del panell. Veure src/lib/shards.ts. */}
+      <Section id="fonts" title="Font per font">
+        <div className="card">
+          <div className="scroll-x">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Font</th>
+                  <th scope="col" className="hidden sm:table-cell">Dada més recent</th>
+                  <th scope="col" className="num hidden sm:table-cell">Antiguitat</th>
+                  <th scope="col">Estat</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sources.map((s) => {
+                  const st = STATE[stateOf(s)];
+                  return (
+                    <tr key={s.source}>
+                      <td className="sm:min-w-[11rem]">
+                        <span className="font-medium text-[var(--ink)]">{LABELS[s.source] ?? s.source}</span>
+                        {/* Al mòbil les quatre columnes no hi caben i l'estat quedava
+                            fora de la pantalla: la data i l'antiguitat van aquí, a sota
+                            del nom, i les seves columnes s'amaguen. */}
+                        <span className="tnum mt-0.5 block text-xs text-[var(--muted)] sm:hidden">
+                          <span className="whitespace-nowrap">{s.lastDataTs ? localStamp(s.lastDataTs) : '—'}</span>
+                          {' · '}<span className="whitespace-nowrap">{age(s.ageMin)}</span>
+                        </span>
+                      </td>
+                      <td className="tnum hidden whitespace-nowrap sm:table-cell">{s.lastDataTs ? localStamp(s.lastDataTs) : '—'}</td>
+                      <td className="num hidden whitespace-nowrap sm:table-cell">{age(s.ageMin)}</td>
+                      <td className="min-w-[8.5rem]">
+                        <span className="inline-flex items-center gap-2 font-semibold" style={{ color: st.color }}>
+                          <span aria-hidden className="inline-block size-2 rounded-full" style={{ background: st.color }} />
+                          {st.label}
+                        </span>
+                        {/*
+                          L'ultim ensopec, encara que ara vagi be.
+                          Es el que converteix un correu de «Run failed» en una
+                          cosa que es pot mirar: el registre d'Actions caduca i
+                          demana autenticacio, i aixo no.
+                        */}
+                        {/*
+                          El missatge és el del worker, en l'idioma de la llibreria
+                          que ha fallat —«fetch failed», «Fallo tras 5 intentos»—, i
+                          no li diu res a qui mira si la font està al dia. Va plegat:
+                          qui el necessita per saber què va passar l'obre.
+                        */}
+                        {!s.error && s.lastError && s.lastErrorAt && (
+                          <details className="mt-1 text-[11.5px] text-[var(--muted)]">
+                            <summary className="cursor-pointer hover:text-[var(--ink-2)]">
+                              últim ensopec el {localStamp(s.lastErrorAt)}
+                            </summary>
+                            <span className="mt-0.5 block break-words font-mono">{s.lastError.slice(0, 200)}</span>
+                          </details>
+                        )}
+                        {/*
+                          I quan caduca la clau, si en té una que caduqui.
+                          Una font que depèn d'una clau de noranta dies no està
+                          «al dia» del tot si li'n queden quatre: el dia que mori,
+                          el bloc desapareix de les fitxes i el web surt sencer.
+                          Qui avisa a temps és el workflow setmanal; això només
+                          posa la data on es pot veure sense entrar enlloc.
+                        */}
+                        {s.credentialExpiresAt && s.keyDaysLeft != null && (
+                          <span
+                            className="mt-1 block text-[11.5px]"
+                            style={{ color: s.keyDaysLeft <= 45 ? 'var(--warn)' : 'var(--muted)' }}
+                          >
+                            {s.keyDaysLeft < 0
+                              ? `clau caducada el ${s.credentialExpiresAt}`
+                              : `clau vàlida fins al ${s.credentialExpiresAt} · ${s.keyDaysLeft} dies`}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
+      </Section>
 
-      <h2 className="mt-10 card-title">Per què l&apos;observació sempre porta retard</h2>
-      <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
-        Les estacions de la XEMA prenen lectura cada mitja hora, i el portal de
-        dades obertes de la Generalitat les publica amb un decalatge que hem
-        mesurat entre <strong className="font-medium text-[var(--ink)]">45 i 65 minuts</strong>.
-        És el temps que triga la lectura a arribar al portal. Per això cada
-        pàgina porta l&apos;hora exacta de la lectura que ensenya.
-      </p>
-
-      <h2 className="mt-8 card-title">Validació</h2>
-      <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
-        El Meteocat valida les lectures <em>a posteriori</em>, així que les dades
-        recents arriben sense marca de validació i surten etiquetades com a
-        provisionals. Un valor provisional pot canviar quan el Meteocat el
-        revisi.
-      </p>
-
-      <h2 className="mt-8 card-title">Territori</h2>
-      <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
-        {summary.indexablePages.toLocaleString('ca-ES')} rutes territorials,
-        construïdes a partir del Nomenclàtor estadístic (edició {summary.nomenclatorEdition}),
-        els límits administratius de l&apos;ICGC i les metadades de la XEMA.
-        Última construcció: {summary.builtAt.slice(0, 10)}.
-      </p>
+      <Section id="retard" title="Per què l'observació sempre porta retard">
+        <div className="card prose">
+          <p>
+            Les estacions de la XEMA prenen lectura cada mitja hora, i el portal de
+            dades obertes de la Generalitat les publica amb un decalatge d&apos;entre{' '}
+            <strong>45 i 65 minuts</strong>. Per això cada pàgina porta l&apos;hora
+            exacta de la lectura que ensenya.
+          </p>
+          <h3>Validació</h3>
+          <p>
+            El Meteocat valida les lectures <em>a posteriori</em>: les recents
+            arriben sense marca de validació i surten com a provisionals. Un valor
+            provisional pot canviar quan el Meteocat el revisi.
+          </p>
+        </div>
+      </Section>
     </article>
   );
 }

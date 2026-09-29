@@ -235,9 +235,17 @@ export function WarningBanner({
      * Vint-i-dos blocs taronja seguits —el 29 de setembre de 2026— eren una
      * paret on no es distingia on acabava un avís i començava l'altre. El color
      * segueix sent l'oficial i segueix sent el primer que es veu de cada un.
+     *
+     * A l'ample de l'escriptori van en dues columnes: cada targeta ocupa mitja
+     * línia de text, i en una sola columna eren dotze franges de mil píxels amb
+     * el contingut a l'esquerra. `items-start` perquè obrir el text oficial
+     * d'una no estiri la del costat.
      */
     return (
-      <section aria-label="Avisos meteorològics oficials" className="mb-5 flex flex-col gap-2.5">
+      <section
+        aria-label="Avisos meteorològics oficials"
+        className="mb-5 grid grid-cols-1 items-start gap-2.5 lg:grid-cols-2"
+      >
         {warnings.map((g) => {
           const style = LEVEL_STYLE[g.level];
           return (

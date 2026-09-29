@@ -73,7 +73,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
       <section className="panel scroll-x">
         <ol className="flex min-w-max gap-1">
           {hours.map((h, i) => (
-            <li key={h.time} className="w-[68px] shrink-0 rounded-md px-1 py-2 text-center">
+            <li key={h.time} className={`w-[60px] shrink-0 rounded-2xl px-1 py-2 text-center${i === 0 ? ' bg-[var(--accent-soft)]' : ''}`}>
               <p className="text-[11px] text-[var(--muted)]">{i === 0 ? 'ara' : hour(h.time)}</p>
               <div className="my-1 flex justify-center">
                 <WeatherIcon code={h.weatherCode} isDay={h.isDay} size={30} />
@@ -96,7 +96,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
           ))}
         </ol>
         {models > 1 && hours.some((h) => (h.spread ?? 0) >= SPREAD_C) && (
-          <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
+          <p className="source measure">
             Les hores amb dues xifres a sota són aquelles en què els {models} models
             de predicció no coincideixen. El marge va del més fred al més càlid.
           </p>
@@ -110,7 +110,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
             const mm = h.precipitation ?? 0;
             const prob = h.precipProbability;
             return (
-              <li key={h.time} className="w-[68px] shrink-0 px-1 text-center">
+              <li key={h.time} className={`w-[60px] shrink-0 rounded-2xl px-1 pt-2 pb-1 text-center${i === 0 ? ' bg-[var(--accent-soft)]' : ''}`}>
                 <p className="tnum text-[11px] text-[var(--muted)]">
                   {prob != null ? `${prob} %` : ' '}
                 </p>
@@ -133,11 +133,10 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
             );
           })}
         </ol>
-        <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
+        <p className="source measure">
           {anyRain
-            ? 'A dalt, la probabilitat que plogui; a baix, quanta aigua. Són dues coses '
-              + 'diferents: un 80 % amb 0,2 mm és plugim gairebé segur, i un 30 % amb 8 mm '
-              + 'és un ruixat poc probable però important si arriba.'
+            ? 'A dalt, la probabilitat que plogui; a baix, quanta aigua, en mm. Un 80 % amb '
+              + '0,2 mm és plugim gairebé segur; un 30 % amb 8 mm, un ruixat poc probable però fort.'
             : 'Cap hora amb pluja prevista. La probabilitat surt igualment: un 20 % no és zero.'}
         </p>
       </section>
@@ -149,7 +148,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
             const kmh = h.windSpeed != null ? msToKmh(h.windSpeed) : null;
             const gust = h.windGust != null ? msToKmh(h.windGust) : null;
             return (
-              <li key={h.time} className="w-[68px] shrink-0 px-1 py-2 text-center">
+              <li key={h.time} className={`w-[60px] shrink-0 rounded-2xl px-1 py-2 text-center${i === 0 ? ' bg-[var(--accent-soft)]' : ''}`}>
                 <p className="text-[11px] text-[var(--muted)]">{i === 0 ? 'ara' : hour(h.time)}</p>
                 {h.windDirection != null ? (
                   <div className="my-1 flex justify-center" title={`Ve ${fromDirection(windCardinal(h.windDirection))}`}>
@@ -183,11 +182,9 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
             );
           })}
         </ol>
-        <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
-          En km/h. La fletxa assenyala cap on bufa el vent; la lletra de sota diu
-          d&apos;on ve, que és la convenció meteorològica. La ratxa és el cop més
-          fort de l&apos;hora, i sol ser el que decideix si una activitat a
-          l&apos;exterior és practicable.
+        <p className="source measure">
+          En km/h. La fletxa assenyala cap on bufa el vent, i la lletra de sota,
+          d&apos;on ve. La ratxa és el cop més fort de l&apos;hora.
         </p>
       </section>
     </div>

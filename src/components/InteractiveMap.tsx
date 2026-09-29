@@ -564,10 +564,25 @@ export default function InteractiveMap({
 
   const f = frames[i];
 
+  /*
+   * L'hora del vent que es veu, per al rètol de dalt.
+   *
+   * El vent no va marc a marc com la pluja: la pàgina en passa l'hora més
+   * propera a l'última imatge del radar, i l'efecte de dalt cau a la primera
+   * quan no troba la del marc. El rètol ha de dir **aquella** hora, no la del
+   * marc de radar que hi ha sota: «22:40 predicció» damunt del vent de les
+   * 0 h seria dir d'on surt un número que no és el que es veu.
+   */
+  const windShown = wind ? (wind.hours.find((h) => h.time === f?.time) ?? wind.hours[0]) : null;
+
   return (
-    <figure className="my-6">
+    <figure className="m-0">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Què s'ensenya al mapa" className="flex gap-1">
+        <div
+          role="group"
+          aria-label="Què s'ensenya al mapa"
+          className="flex gap-1 rounded-full border border-[var(--glass-line)] bg-[var(--glass)] p-1"
+        >
           {([
             ['radar', 'Pluja'],
             ['temperatura', 'Temperatura'],
@@ -576,14 +591,20 @@ export default function InteractiveMap({
             <button
               key={k}
               type="button"
-              // L'aturada va aquí i no a l'efecte: canviar d'estat dins d'un
-              // efecte encadena un segon dibuix, i el lint hi és per això.
-              onClick={() => { setCapa(k); if (k === 'temperatura') setPlaying(false); }}
+              /*
+               * L'aturada va aquí i no a l'efecte: canviar d'estat dins d'un
+               * efecte encadena un segon dibuix, i el lint hi és per això.
+               *
+               * S'atura en sortir de la pluja, no només en anar a la
+               * temperatura: el vent és una hora sola, i cada pas de
+               * l'animació li tornaria a sembrar les partícules.
+               */
+              onClick={() => { setCapa(k); if (k !== 'radar') setPlaying(false); }}
               aria-pressed={capa === k}
-              className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+              className={`rounded-full px-3.5 py-1 text-sm transition-colors ${
                 capa === k
-                  ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]'
-                  : 'border-[var(--line)] text-[var(--ink-2)] hover:border-[var(--ink-2)]'
+                  ? 'bg-[var(--ink)] font-semibold text-[var(--paper)]'
+                  : 'text-[var(--ink-2)] hover:bg-[var(--accent-soft)] hover:text-[var(--ink)]'
               }`}
             >
               {text}
@@ -603,15 +624,15 @@ export default function InteractiveMap({
             type="button"
             onClick={() => setAvisos((v) => !v)}
             aria-pressed={avisos}
-            className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+            className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
               avisos
-                ? 'border-[var(--cap-orange)] text-[var(--ink)]'
-                : 'border-[var(--line)] text-[var(--muted)] hover:border-[var(--ink-2)]'
+                ? 'border-[var(--line)] bg-[var(--glass)] text-[var(--ink)]'
+                : 'border-[var(--glass-line)] text-[var(--muted)] hover:border-[var(--line)]'
             }`}
           >
             <span
               aria-hidden
-              className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+              className={`mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-middle ${avisos ? '' : 'opacity-40'}`}
               style={{ background: `var(--cap-${
                 { verd: 'green', groc: 'yellow', taronja: 'orange', vermell: 'red' }[warnings.worst ?? 'groc']
               })` }}
@@ -620,13 +641,14 @@ export default function InteractiveMap({
           </button>
         ) : null}
 
-        {capa !== 'temperatura' && frames.length > 1 ? (
+        {/* La barra només mou la pluja: el vent és una hora sola. */}
+        {capa === 'radar' && frames.length > 1 ? (
           <>
             <button
               type="button"
               onClick={() => setPlaying((p) => !p)}
               aria-pressed={playing}
-              className="rounded-full border border-[var(--line)] px-3 py-1 text-sm text-[var(--ink-2)] hover:border-[var(--ink-2)]"
+              className="rounded-full border border-[var(--glass-line)] bg-[var(--glass)] px-3.5 py-1.5 text-sm text-[var(--ink-2)] transition-colors hover:border-[var(--line)] hover:text-[var(--ink)]"
             >
               {playing ? '❚❚ Atura' : '▶ Anima'}
             </button>
@@ -638,17 +660,17 @@ export default function InteractiveMap({
                 max={frames.length - 1}
                 value={i}
                 onChange={(e) => { setPlaying(false); setI(Number(e.target.value)); }}
-                className="w-full accent-[var(--ink)]"
+                className="w-full accent-[var(--accent)]"
               />
             </label>
           </>
         ) : null}
       </div>
 
-      <div className="relative overflow-hidden rounded-lg border border-[var(--line)]">
+      <div className="relative overflow-hidden rounded-[22px] border border-[var(--glass-line)]">
         <div
           ref={box}
-          className="h-[min(72vh,620px)] w-full bg-[#cfdae4]"
+          className="h-[min(72vh,640px)] w-full bg-[#cfdae4]"
           // El mapa el dibuixa MapLibre en un `canvas`: per a qui llegeix amb
           // un lector de pantalla no hi ha res a dir, i el que sí que porta
           // informació —les xifres, el peu, la llista de comarques— és text de
@@ -673,14 +695,16 @@ export default function InteractiveMap({
         </div>
 
         {!ready && !error ? (
-          <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-[var(--paper)]/90 px-2.5 py-1 text-sm text-[var(--muted)] shadow-sm">
+          <p className="pointer-events-none absolute left-3 top-3 rounded-full bg-[var(--paper)]/90 px-3 py-1 text-sm text-[var(--ink-2)] shadow-sm">
             S’està carregant el mapa…
           </p>
         ) : null}
 
         {ready && !error && capa !== 'temperatura' && f ? (
-          <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-[var(--paper)]/90 px-2.5 py-1 text-sm tabular-nums shadow-sm">
-            <span className="font-semibold">{f.label}</span>
+          <p className="pointer-events-none absolute left-3 top-3 rounded-full bg-[var(--paper)]/90 px-3 py-1 text-sm tabular-nums text-[var(--ink)] shadow-sm">
+            <span className="font-semibold">
+              {capa === 'vent' && windShown ? `${windShown.name.slice(8, 10)}:00` : f.label}
+            </span>
             <span className="ml-2 text-[var(--muted)]">
               {capa === 'vent'
                 ? 'predicció'
@@ -690,7 +714,7 @@ export default function InteractiveMap({
         ) : null}
 
         {ready && !error && capa === 'temperatura' ? (
-          <p className="pointer-events-none absolute left-3 top-3 rounded-md bg-[var(--paper)]/90 px-2.5 py-1 text-sm tabular-nums shadow-sm">
+          <p className="pointer-events-none absolute left-3 top-3 rounded-full bg-[var(--paper)]/90 px-3 py-1 text-sm tabular-nums text-[var(--ink)] shadow-sm">
             {loadingTemp ? (
               <span className="text-[var(--muted)]">S’estan baixant els municipis…</span>
             ) : hover ? (
@@ -709,7 +733,7 @@ export default function InteractiveMap({
         ) : null}
       </div>
 
-      <figcaption className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
+      <figcaption className="mt-3 max-w-[62rem] text-sm leading-relaxed text-[var(--muted)]">
         {capa === 'radar' ? radarLegend : capa === 'vent' ? windLegend : temperatureLegend}
         {/*
           El peu dels avisos només surt quan la capa és encesa.
