@@ -27,7 +27,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/build/routes.json` | Índice de los 683: nombre, código, km, cotas, comarcas. **Se versiona** |
 | `data/build/routes/<slug>.json` | Trazado y perfil de alturas de uno. Solo lo lee su ficha |
 | `data/cache/base/` | Teselas del mapa base del ICGC, ya en WebP. Las sirve una route handler |
-| `data/cache/field/` | El campo de lluvia de la predicción, una imagen por hora. Es el **futuro** del radar |
+| `data/cache/field/` | El campo de lluvia de la predicción, una imagen por hora. **Ya no se enseña**: ver «El futuro del radar» |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
@@ -390,6 +390,12 @@ cuota para exactamente la misma información.
   Se concatena a los marcos del radar y hereda la animación, el rótulo de la hora y la barra sin
   una línea más —toda la página cuenta grupos—, pero **no hereda el nombre**: la leyenda dice
   dónde acaba el radar y empieza el modelo, antes que ninguna otra cosa.
+  **Desde el 29 de septiembre de 2026 no se enseña en ninguna parte**, ni en `/radar`, ni en
+  `/mapa/interactiu`, ni en la ficha: el usuario lo vio feo y el radar volvió a ser solo pasado y
+  presente. Dónde lloverá lo dicen las horas de la ficha, en milímetros. El worker **sigue
+  corriendo** porque del mismo anillo de puntos sale el viento de `/mapa/interactiu`; lo que ya
+  no lee nadie son las imágenes de lluvia y `precipField()`. Si se quiere ahorrar, eso es lo que
+  sobra, no el worker.
 - **La pluja del model s'acabava dins del mapa, i això no es llegeix com «aquí no en sabem».**
   Los 3.190 puntos son de Catalunya, así que el campo de lluvia se cortaba en seco en la raya de
   la frontera y en la costa, con medio encuadre en blanco. Se arregló **sin inventar nada**: no
@@ -422,8 +428,9 @@ cuota para exactamente la misma información.
   mirándolo la comparación sale siempre negativa y se subirían las doce cada hora. Escrito
   primero con `existsSync`, iba bien en local y no habría hecho nada en producción. Cada hora
   lleva su `hash` en el índice. Medido: primera vuelta 14 ficheros, segunda 2.
-- **Un mapa pequeño no puede llevar el país entero dentro.** El bloque «Cap on va la pluja» de
-  la ficha son cuatro cuadros de 100 km —el último radar y las tres horas siguientes— y la
+- **Un mapa pequeño no puede llevar el país entero dentro.** (El bloque se retiró el 29 de
+  septiembre de 2026; la regla vale para cualquier mapa pequeño.) El bloque «Cap on va la pluja» de
+  la ficha eran cuatro cuadros de 100 km —el último radar y las tres horas siguientes— y la
   primera versión volcaba las 43 comarcas en cada uno: **320 kB de coordenadas, cuatro veces**,
   247 kB en gzip añadidos a una página que pesa 72. Dos arreglos, y los dos hacen falta:
   `comarcaPathsNear()` se queda con los trazos cuya caja toca la ventana —6 de 130 en el
@@ -431,7 +438,7 @@ cuota para exactamente la misma información.
   Quedan **19 kB**. La ventana la calcula `windowOf()` una vez y la usan los dos lados: quien
   elige qué fronteras se envían y quien recorta el dibujo. Con dos cálculos, un día se enviarían
   las de un trozo y se recortaría otro.
-- **El bloque de la ficha solo sale cuando la predicción de ese punto da lluvia**, y la puerta la
+- **El bloque de la ficha solo salía cuando la predicción de ese punto daba lluvia** (retirado con el anterior), y la puerta la
   mira la predicción y no el radar: un eco a cien kilómetros que se va hacia Francia no hace que
   la ficha de un pueblo de Ponent tenga que enseñar un mapa. Un mapa de lluvia sin lluvia no es
   información, es ruido en 4.293 páginas. Y el primer cuadro **siempre tiene más color que los
@@ -1167,6 +1174,40 @@ cuota para exactamente la misma información.
   les 4.250 fitxes: `de ${monthName}` feia «dies de octubre». Topònims amb `deName()` i
   `aName()`, comarques amb `deComarca()`, mesos amb `monthOf()`, rumbs amb
   `fromDirection()`. El comprovador busca aquestes formes a l'HTML servit.
+
+- **El redisseny «Cel» (29 de setembre de 2026): un sol tema, i és fosc.** Tot el web porta el
+  color del cel —blau de nit, targetes de vidre— i ja no hi ha tema clar. Les variables de
+  `:root` a `globals.css` són les de sempre (`--paper`, `--ink`, `--line`…) amb valors nous, així
+  que els components que ja les llegien no s'han tocat. Els colors CAP dels avisos **no s'hi
+  mouen**: `test:colors` els compara amb `scales.ts` i falla si algú els «adapta» al tema.
+  La marca és **tempscat** (`Logo.tsx`, `src/app/icon.svg`), la lletra Inter servida pel mateix
+  web amb `next/font`, i les icones del temps són **Meteocons** (MIT, a `public/icons/w` i
+  `w-anim`): `<img>` estàtiques, zero JavaScript, i l'animada només per a qui no demana moviment
+  reduït.
+  La fitxa són ara tres peces: el cel del lloc **a tota l'amplada** (`.hero-bleed`, que surt de
+  `main` amb `calc(50% - 50vw)` i per això el `body` porta `overflow-x: clip`); dues columnes
+  amb el resum, les 24 hores (`HourStrip`), els 14 dies (`DailyList`) i les rajoles del detall
+  (`DetailTiles`); i els blocs plegats. Quatre coses que no són evidents:
+  **El primer bloc després del cel hi puja a sobre** amb `[data-hero] + *` i un marge negatiu:
+  si hi ha avisos és la franja d'avisos, i si no, la graella. No ho posis a la graella.
+  **«El temps a» i el nom van dins del mateix `h1`, i la preposició porta l'article.** Escrit
+  «El temps a» damunt de «els Albans i Cal Xeret», es llegia «El temps a els Albans» — el
+  comprovador ho va trobar el primer dia. `aNameParts()` a `format.ts` parteix «als» i «Albans i
+  Cal Xeret».
+  **La 1 és l'única hora en singular.** El Prat deia «fins demà a les 1 h». Les hores en punt
+  amb article surten de `theHour()`, i `check:coherence` busca «les 1 h» a l'HTML servit.
+  **Canviar el marcatge d'una fitxa vol dir revisar `check-coherence.ts`.** Les seves regles
+  busquen frases concretes —«Pluja 24 h», «· màx.», «Pressió 1.019 hPa»— i **una regla que
+  deixa de casar no falla: calla**. Amb el redisseny en van deixar de casar quatre, i el
+  comprovador hauria donat verd sense mirar res.
+
+- **Un avís vigent i pluja del model a unes altres hores.** Amb un groc per pluja fins a les
+  22 h, l'Albagés deia «Plugim demà de les 16 a les 18 h […]: no arriba a mullar el terra» i res
+  de l'avís: el model només veia pluja l'endemà, fora de la finestra de l'avís, i la frase de
+  pluja no se n'assabentava. Ara `narrative.ts` diu primer l'avís —«tot i que aquí el model no
+  hi preveu pluja en aquestes hores»— i la pluja del model després, en mil·límetres i sense
+  adjectiu. I «no arriba a mullar el terra» ja només surt per sota d'1 mm en tot el tram: vuit
+  hores de 0,3 mm són 2,7 mm, i això mulla.
 
 
 <!-- BEGIN:nextjs-agent-rules -->

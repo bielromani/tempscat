@@ -143,6 +143,25 @@ escritorio con tema claro la barra del web era **texto blanco sobre blanco** fue
 cielo; ahora cabe dentro. Y la portada abre con el buscador grande, los avisos y el mapa
 de temperaturas por comarca, en vez de con un índice y cuatro contadores.
 
+**Rediseño «Cel» (29 sep, misma rama `producte`, PR #4).** El usuario eligió entre dos
+maquetas la dirección A: todo el sitio con el color del cielo —azul de noche, tarjetas de
+cristal—, un solo tema, marca **tempscat** con logo propio, Inter y los iconos Meteocons.
+- **La ficha:** el cielo del lugar a todo el ancho, y debajo dos columnas: el resumen, las
+  próximas 24 horas en tira con la salida y la puesta del sol, los 14 días en lista con barra
+  de temperaturas, y baldosas de viento, humedad, lluvia, UV, sol, presión, aire y mar. El
+  resto, plegado como antes.
+- **La portada:** título, buscador y accesos rápidos al lado del mapa; las cuatro capitales
+  ahora; la franja de avisos; los extremos; y todas las secciones con su icono.
+- **Fuera la lluvia futura**, a petición del usuario: ni en `/radar`, ni en el mapa
+  interactivo, ni el bloque «Cap on va la pluja» de la ficha. El worker del campo sigue
+  porque también da el viento del mapa interactivo (ver `AGENTS.md`).
+- `/avisos` deja de ser una pared de bloques naranjas: tarjetas de cristal con el color oficial
+  en el borde y en la pastilla.
+- Textos: el titular ya no escribe «El temps a els Albans» ni «a les 1 h»; el plugim solo
+  «no arriba a mullar el terra» por debajo de 1 mm; un aviso vigente se dice aunque el
+  modelo vea la lluvia a otras horas; y la descripción del lugar ya no repite la estación
+  que dice el titular.
+
 **Almacén.** `DATA_BASE_URL` = `https://dades.tempscat.cat` en Vercel (los tres entornos), en
 GitHub Actions y en `.env.local`. Antes de cambiarlo se comprobó que el dominio nuevo sirve
 exactamente lo mismo que `r2.dev`: contenido y ETag idénticos, los mismos 404, `304` en las
