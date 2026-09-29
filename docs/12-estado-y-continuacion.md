@@ -170,11 +170,9 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
      de la caché con 1,3 a 5,8 h de antigüedad —y el techo era el último despliegue, que
      vacía la caché de ISR— y 14 se generaban en el momento en 0,7-2,2 s. La cabecera de
      ISR que pone Next es `stale-while-revalidate` de **un año**.
-   - **Lo primero que hay que comprobar**, nada más desplegar: pedir dos veces el mismo
-     núcleo. Si la segunda da `x-vercel-cache: HIT` con `age` por debajo de 600, el CDN
-     respeta la cabecera aunque Next añada `Cache-Control: private`. Si da `MISS` las dos
-     veces, no la respeta y cada visita renderiza: la prueba sigue siendo válida —datos
-     frescos— pero cuesta más, y hay que mirarlo antes de las 48 h.
+   - **Comprobado al desplegar (29 sep, 16:55):** el CDN respeta la cabecera aunque Next
+     añada `Cache-Control: private`. Dos peticiones al mismo núcleo dan `MISS` y luego `HIT`
+     con `age` 0-1. El navegador sigue recibiendo `private` y no guarda nada.
    - **A las 48 h, en Vercel → Usage**, comparar con los dos días anteriores: invocaciones
      y duración de funciones, escrituras y lecturas de ISR y Fast Origin Transfer.
    - **Si convence**, la ficha de municipio va igual (otra regla de cabecera para
