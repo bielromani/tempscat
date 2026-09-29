@@ -13,23 +13,22 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
  * Página de entidad singular o núcleo. ~3.300 rutas.
  *
  * Es la razón de ser del proyecto: competir por "el temps a Lilla" en lugar de
- * por "el tiempo en Barcelona". Ninguna se prerenderiza en el build; se generan
- * la primera vez que alguien —o Googlebot— las pide.
+ * por "el tiempo en Barcelona". Ninguna se prerenderiza en el build.
  */
-export const dynamicParams = true;
 /*
- * Una hora, por lo mismo que la ficha de municipio, y el porqué está allí
- * entero: con la XEMA llegando 45-65 min tarde, media hora reconstruía la
- * página dos veces con la misma lectura. Estas ~3.300 son, además, las que más
- * pesan en la cuenta: son las que menos visitas tienen cada una.
+ * Se genera en cada petición, sin ISR, y el CDN de Vercel la guarda diez
+ * minutos: la regla está en `next.config.ts`. Es una prueba de 48 horas desde
+ * el 29 de septiembre de 2026, y el porqué también está allí.
+ *
+ * Con ISR estas ~3.300 eran las peores: las que menos visitas tienen cada una,
+ * así que casi todo el mundo se llevaba la copia vieja —de horas— mientras su
+ * visita pagaba la nueva para el siguiente, que a lo mejor no llegaba.
+ * Generarla aquí cuesta lo mismo en renders y el que la paga es el que la ve.
+ * Medido con `next start`: 350-500 ms en frío con `fichaData()`.
  */
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 type Params = Promise<{ comarca: string; municipi: string; entitat: string }>;
-
-export async function generateStaticParams() {
-  return [];
-}
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { comarca, municipi, entitat } = await params;
