@@ -11,7 +11,6 @@ import { camerasNear } from './cameras';
 import { resortNear } from './mountain';
 import { routesNear } from './routes';
 import { narrativeFor } from './narrative';
-import { localRainFor } from './local-rain';
 import type { Location } from './territory';
 
 /**
@@ -39,18 +38,14 @@ import type { Location } from './territory';
  * Les dues pàgines portaven la mateixa llista copiada. El dia que una en
  * guanyés una lectura i l'altra no, la fitxa d'un nucli i la del seu municipi
  * ensenyarien blocs diferents sense que res fallés.
- *
- * La pluja local depèn de la predicció, així que arrenca quan aquesta arriba i
- * no quan han acabat totes les altres.
  */
 export async function fichaData(loc: Location) {
-  const forecastP = forecastFor(loc);
   const [
     current, forecast, history, warnings, air, comparison,
-    water, airStation, sea, cameras, resort, localRain,
+    water, airStation, sea, cameras, resort,
   ] = await Promise.all([
     currentFor(loc),
-    forecastP,
+    forecastFor(loc),
     historyFor(loc),
     warningsFor(loc),
     airQualityFor(loc),
@@ -60,7 +55,6 @@ export async function fichaData(loc: Location) {
     seaNear(loc),
     camerasNear(loc),
     resortNear(loc),
-    forecastP.then((f) => localRainFor(f, loc.lat, loc.lon)),
   ]);
 
   return {
@@ -78,6 +72,5 @@ export async function fichaData(loc: Location) {
     cameras,
     resort,
     routes: routesNear(loc),
-    localRain,
   };
 }

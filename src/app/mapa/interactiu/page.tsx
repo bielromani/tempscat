@@ -4,8 +4,7 @@ import InteractiveMap, { type MapFrame } from '@/components/InteractiveMap';
 import { TemperatureLegend } from '@/components/TemperatureMap';
 import { JsonLd, breadcrumbLd } from '@/components/JsonLd';
 import { municipalTemperatures, warningOverlay } from '@/lib/map';
-import { precipField, radar, windField } from '@/lib/weather';
-import { tileXToLon, tileYToLat } from '@/lib/mercator';
+import { radar, windField } from '@/lib/weather';
 import { hour, num } from '@/lib/format';
 import { MAP_NATIVE_MAX_ZOOM } from '@/lib/webmap';
 
@@ -26,7 +25,7 @@ import { MAP_NATIVE_MAX_ZOOM } from '@/lib/webmap';
  *
  * ## Què hi ha, i què no
  *
- * Hi ha la pluja —el radar i, a continuació, la nostra predicció—, la
+ * Hi ha la pluja del radar —les dues últimes hores—, la
  * temperatura municipi a municipi, el vent i **els avisos de l'AEMET**.
  *
  * Els avisos van per **zona de Meteoalerta** i no per comarca, i aquesta és
@@ -51,22 +50,19 @@ export const metadata: Metadata = {
 };
 
 export default async function MapaInteractiuPage() {
-  const [rad, field, air, temps, warnings] = await Promise.all([
+  const [rad, air, temps, warnings] = await Promise.all([
     radar(),
-    precipField(),
     windField(),
     municipalTemperatures(),
     warningOverlay(),
   ]);
 
   /*
-   * Els marcs, en ordre: primer el radar i després la predicció.
+   * Els marcs del radar, i només ells: passat i present.
    *
-   * Els dos jocs viuen en el mateix mosaic —el camp es pinta en píxels de les
-   * tessel·les del radar a posta— però arriben de maneres diferents: el radar
-   * són quatre tessel·les i el camp és una imatge sola. Per això aquí es fa
-   * l'únic pas que els iguala: donar-li al camp els seus quatre cantons en
-   * graus, que és el que MapLibre necessita per posar-lo al seu lloc.
+   * Fins al 29 de setembre de 2026 la barra seguia amb la predicció pintada
+   * com un camp. Es va treure, com a `/radar`: un model no es mou com un eco,
+   * i en passar del present al futur semblava que la pluja saltés.
    */
   const frames: MapFrame[] = [];
 
@@ -81,57 +77,10 @@ export default async function MapaInteractiuPage() {
     }
   }
 
-  /*
-   * El camp només entra si el seu mosaic és **el mateix** que el del radar.
-   *
-   * Els seus píxels es compten des de la tessel·la `(x0, y0)` de la graella del
-   * radar, i el zoom i la mida els posa el worker del camp pel seu compte. Avui
-   * són els mateixos —z7 i 512— i per això la comptabilitat surt: el cantó
-   * nord-oest calculat cau exactament a 0,0000 / 43,0689, que és on diu la
-   * graella. El dia que un dels dos canviï, aquesta mateixa aritmètica posaria
-   * la pluja **desplaçada damunt d'un país que seguiria sortint bé**, que és el
-   * tipus d'error que aquí no es veu fins que algú compara amb la finestra.
-   *
-   * Així que es comprova, i si no quadra no s'ensenya el futur: val més un
-   * radar que s'acaba que una predicció posada on no toca.
-   */
-  const sameMosaic = !!rad && !!field
-    && field.mosaic.z === rad.grid.z
-    && field.mosaic.tile === rad.grid.size;
-
-  if (rad && field && sameMosaic) {
-    const { z, tile } = field.mosaic;
-    const { x, y, w, h } = field.box;
-    // El píxel (0,0) del mosaic és el cantó de la tessel·la (x0, y0).
-    const lon = (px: number) => tileXToLon(rad.grid.x0 + px / tile, z);
-    const lat = (py: number) => tileYToLat(rad.grid.y0 + py / tile, z);
-
-    const seen = new Set(frames.map((f) => f.time));
-    for (const hr of field.hours) {
-      // Una hora que xoqui amb un marc de radar no entra: el radar ha mesurat
-      // aquell instant i la predicció només l'endevinava.
-      if (seen.has(hr.time)) continue;
-      frames.push({
-        time: hr.time,
-        label: hour(`${hr.iso}:00`),
-        kind: 'forecast',
-        // Amb `.webp`: la ruta demana el nom sencer, i sense ell torna un 404
-        // que no es veu — el marc queda buit i sembla que no hi plou.
-        image: `/camp/${hr.name}.webp`,
-        corners: [
-          [lon(x), lat(y)],
-          [lon(x + w), lat(y)],
-          [lon(x + w), lat(y + h)],
-          [lon(x), lat(y + h)],
-        ],
-      });
-    }
-  }
 
   frames.sort((a, b) => a.time - b.time);
 
   const lastPast = frames.filter((f) => f.kind === 'past').at(-1);
-  const firstForecast = frames.find((f) => f.kind === 'forecast');
 
   return (
     <article data-wide>
@@ -180,20 +129,10 @@ export default async function MapaInteractiuPage() {
         total={temps.total}
         radarLegend={(
           <>
-            {lastPast && firstForecast ? (
+            {lastPast ? (
               <>
-                Fins a les <strong className="tnum">{lastPast.label}</strong> és el
-                radar: gotes mesurades a l’aire. A partir de les{' '}
-                <strong className="tnum">{firstForecast.label}</strong> ja no hi ha
-                cap radar al darrere — és la nostra predicció, mil·límetres previstos
-                a terra. Són dues coses diferents i el primer quadre sempre té més
-                color que els altres.
-              </>
-            ) : lastPast ? (
-              <>
-                Radar de precipitació fins a les{' '}
-                <strong className="tnum">{lastPast.label}</strong>. Avui no hi ha
-                predicció per encadenar-hi.
+                Radar de precipitació de les dues últimes hores, fins a les{' '}
+                <strong className="tnum">{lastPast.label}</strong>.
               </>
             ) : (
               'Encara no hi ha cap imatge de radar.'

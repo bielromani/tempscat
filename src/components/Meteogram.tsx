@@ -1,7 +1,7 @@
 import { temperatureColor } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
-import { weatherSpriteHref } from './WeatherIcon';
+import { weatherIconSrc } from './WeatherIcon';
 import { fromDirection, hour, num, relativeDay } from '@/lib/format';
 import type { HourlyPoint } from '@/lib/weather';
 
@@ -221,14 +221,14 @@ export function Meteogram({
           {data.map((d, i) => {
             if (i % 3 !== 1 || d.weatherCode == null) return null;
             return (
-              <use
+              <image
                 key={`i${i}`}
-                href={weatherSpriteHref(d.weatherCode, d.isDay)}
+                href={weatherIconSrc(d.weatherCode, d.isDay)}
                 x={x(i) - ICON / 2} y={ICON_Y} width={ICON} height={ICON}
                 opacity={nowIdx > i ? 0.45 : 1}
               >
                 <title>{`${hour(d.time)} · ${weatherCode(d.weatherCode).caLong}`}</title>
-              </use>
+              </image>
             );
           })}
 

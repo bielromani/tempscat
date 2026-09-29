@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Inter } from 'next/font/google';
+import { Logo } from '@/components/Logo';
 import { IS_PRODUCTION, SITE_URL } from '@/lib/site';
 import { PRIMARY, SECTIONS } from '@/lib/nav';
 import { SiteSearch } from '@/components/SiteSearch';
@@ -8,16 +10,26 @@ import { External } from '@/components/External';
 import { JsonLd, graph } from '@/components/JsonLd';
 import { absolute } from '@/lib/site';
 
+/*
+ * Inter, i servida pel mateix web.
+ *
+ * `globals.css` ja demanava «Inter Tight» des del principi, però no es carregava
+ * enlloc i el navegador queia a la del sistema: Segoe UI a Windows, San
+ * Francisco al Mac. Amb `next/font` el fitxer es baixa al build i surt del
+ * nostre domini: cap petició a Google i cap salt de text en carregar.
+ */
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'El temps a Catalunya, poble a poble',
+    default: 'El temps a Catalunya · tempscat',
     template: '%s',
   },
   description:
     'Predicció i observació real per a totes les comarques, municipis i nuclis de població de Catalunya, amb dades del Meteocat i consens multimodel.',
   alternates: { canonical: '/' },
-  openGraph: { locale: 'ca_ES', type: 'website', siteName: 'El temps a Catalunya' },
+  openGraph: { locale: 'ca_ES', type: 'website', siteName: 'tempscat' },
   /*
    * Un preview no se indexa. Vercel da una URL nueva a cada despliegue de
    * prueba, y sin esto acabarías con cuarenta copias del sitio compitiendo
@@ -30,7 +42,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ca">
+    <html lang="ca" className={inter.variable}>
       <body className="min-h-screen flex flex-col">
         {/*
           * Qui és aquest lloc i com s'hi busca, un cop i per a tot el web.
@@ -47,7 +59,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <JsonLd data={graph(
           {
             '@type': 'WebSite',
-            name: 'El temps a Catalunya',
+            name: 'tempscat',
+            alternateName: 'El temps a Catalunya',
             url: absolute('/'),
             inLanguage: 'ca',
             potentialAction: {
@@ -61,104 +74,61 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           },
         )} />
         {/*
-          * La capçalera porta quatre enllaços, no quinze.
+          * La capçalera porta cinc enllaços, no quinze.
           *
           * Abans n'hi havia quinze en una barra que es desbordava i
           * s'arrossegava en horitzontal. Això no és navegació: és un calaix on
-          * les coses desapareixen — a partir del cinquè ningú les troba, i al
-          * mòbil ni se sospita que hi són.
+          * les coses desapareixen. Els cinc que queden són els que es
+          * consulten cada dia; la resta viu al peu, agrupada, i a la portada.
           *
-          * Els quatre que queden són els que es consulten cada dia. La resta
-          * viu al peu, agrupada, i a la portada, explicada. I si la finestra és
-          * estreta, la fila **passa a la línia de sota** en comptes de
-          * desplaçar-se: dues línies visibles valen més que una amagada.
+          * No porta fons: va damunt del cel de la pàgina, i a les fitxes, damunt
+          * del cel del lloc (ver `body:has([data-hero])` a `globals.css`).
           */}
-        <header className="border-b border-[var(--line)] bg-[var(--surface)]">
-          <div className="mx-auto flex max-w-5xl items-center gap-x-3 px-5 py-3">
-            <Link
-              href="/"
-              className="shrink-0 whitespace-nowrap font-semibold tracking-tight text-[var(--ink)] no-underline"
-            >
-              El temps
+        <header className="site-top">
+          <div className="mx-auto flex h-16 max-w-[70rem] items-center gap-x-6 px-5">
+            <Link href="/" aria-label="tempscat, a la portada" className="shrink-0 no-underline">
+              <Logo id="top" />
             </Link>
 
             {/*
-              Els quatre enllaços, **només quan hi caben**.
-
-              En un telèfon de 375 px, «El temps» i quatre enllaços i el
-              cercador no caben en una línia: la fila passava a dues i el
-              cercador quedava sol a la segona, sota el menú. Ara al mòbil els
-              enllaços viuen dins del desplegable i la fila té tres peces —el
-              nom, el cercador i el menú— que és el que demana el disseny.
+              Els enllaços, **només quan hi caben**. Al mòbil viuen dins del
+              desplegable i la fila té tres peces: la marca, el cercador i el
+              menú.
             */}
-            <nav
-              aria-label="Principal"
-              className="hidden gap-x-5 text-sm text-[var(--muted)] sm:flex"
-            >
+            <nav aria-label="Principal" className="site-nav hidden md:flex">
               {PRIMARY.map((l) => (
-                <Link key={l.href} href={l.href} className="no-underline hover:text-[var(--ink)]">
-                  {l.label}
-                </Link>
+                <Link key={l.href} href={l.href}>{l.label}</Link>
               ))}
             </nav>
 
             {/*
               * El cercador va a la capçalera, i per tant a totes les pàgines.
               *
-              * És l'únic component de client del projecte. La regla de zero
-              * JavaScript propi és de les pàgines territorials i segueix sent
-              * certa —cap de les 4.293 fitxes en canvia—, però aquest quadre hi
-              * és a totes, així que el cost s'ha de dir: el runtime de React ja
-              * hi era i ja hidratava, i això hi afegeix el seu propi codi i
-              * prou. El perquè i el que s'ha descartat, a `SiteSearch.tsx`.
-              *
-              * Sense JavaScript continua sent el formulari d'abans: Enter obre
-              * `/cerca?q=…`, que és una pàgina de veritat amb la seva adreça.
+              * És un component de client, i el cost es va mesurar abans de
+              * posar-lo —el perquè és a `SiteSearch.tsx`—. Sense JavaScript
+              * continua sent un formulari: Enter obre `/cerca?q=…`.
               */}
             <SiteSearch />
 
             {/*
-              El menú, i **sense una línia de JavaScript**.
-
-              És un `<details>`: l'obre i el tanca el navegador. Un desplegable
-              amb estat de React hauria estat el segon component de client del
-              projecte, i per a una llista de quatre enllaços que ja són al peu
-              de cada pàgina.
-
-              Només surt al mòbil, perquè a partir de `sm` els enllaços ja es
-              veuen tots i un menú que repeteix el que hi ha al costat només
-              afegeix un clic.
+              El menú, **sense una línia de JavaScript**: és un `<details>` i
+              l'obre el navegador. Només al mòbil, on els enllaços no hi caben.
             */}
-            <details className="menu relative shrink-0 sm:hidden">
+            <details className="menu relative shrink-0 md:hidden">
               <summary
                 aria-label="Menú"
-                className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-[var(--line)] text-[var(--ink-2)]"
+                className="flex size-10 cursor-pointer items-center justify-center rounded-full text-[var(--ink)]"
               >
-                <span aria-hidden className="text-base leading-none">☰</span>
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                  <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
               </summary>
-              <nav
-                aria-label="Seccions"
-                className="absolute right-0 top-11 z-20 w-56 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-2 shadow-[var(--shadow)]"
-              >
+              <nav aria-label="Seccions" className="menu-panel">
                 <ul className="m-0 list-none p-0">
                   {PRIMARY.map((l) => (
-                    <li key={l.href}>
-                      <Link
-                        href={l.href}
-                        className="block rounded-md px-3 py-2 text-sm text-[var(--ink)] no-underline hover:bg-[var(--surface-2)]"
-                      >
-                        {l.label}
-                      </Link>
-                    </li>
+                    <li key={l.href}><Link href={l.href}>{l.label}</Link></li>
                   ))}
-                  <li>
-                    <Link
-                      href="/cerca"
-                      className="block rounded-md px-3 py-2 text-sm text-[var(--ink)] no-underline hover:bg-[var(--surface-2)]"
-                    >
-                      Cercar un lloc
-                    </Link>
-                  </li>
+                  <li><Link href="/cerca">Cercar un lloc</Link></li>
                 </ul>
               </nav>
             </details>
@@ -167,35 +137,42 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <main className="mx-auto w-full flex-1 px-5 py-8">{children}</main>
 
-        <footer className="mt-16 border-t border-[var(--line)] bg-[var(--surface)]">
-          <div className="mx-auto max-w-5xl px-5 py-10">
-            {/* El mapa del lloc sencer. És aquí on han d'aparèixer les pàgines
-                que no caben a dalt, agrupades pel que va a buscar la gent. */}
-            <nav aria-label="Mapa del lloc" className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {SECTIONS.map((g) => (
-                <div key={g.title}>
-                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                    {g.title}
-                  </h2>
-                  <ul className="space-y-1.5">
-                    {g.links.map((l) => (
-                      <li key={l.href}>
-                        <Link href={l.href} className="text-sm text-[var(--ink-2)] no-underline hover:text-[var(--ink)]">
-                          {l.label}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </nav>
+        <footer className="site-foot">
+          <div className="mx-auto max-w-[70rem] px-5 py-12">
+            <div className="grid gap-10 lg:grid-cols-[1.4fr_3fr]">
+              <div>
+                <Link href="/" aria-label="tempscat, a la portada" className="no-underline">
+                  <Logo id="foot" />
+                </Link>
+                <p className="mt-3 max-w-xs text-sm leading-relaxed text-[var(--muted)]">
+                  El temps de cada poble de Catalunya, amb la seva altitud i
+                  l&apos;estació que el mesura.
+                </p>
+              </div>
+              {/* El mapa del lloc sencer: aquí hi ha les pàgines que no caben a dalt. */}
+              <nav aria-label="Mapa del lloc" className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                {SECTIONS.map((g) => (
+                  <div key={g.title}>
+                    <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                      {g.title}
+                    </h2>
+                    <ul className="space-y-1.5">
+                      {g.links.map((l) => (
+                        <li key={l.href}>
+                          <Link href={l.href} className="text-sm text-[var(--ink-2)] no-underline hover:text-[var(--ink)]">
+                            {l.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </nav>
+            </div>
 
             {/*
               * L'atribució no és un formalisme: la CC-BY l'exigeix, i dir d'on
               * ve cada número és la millor decisió de producte del lloc.
-              *
-              * Abans eren sis paràgrafs seguits que ningú llegia. Ara és una
-              * llista, que és el que és.
               */}
             <div className="mt-10 border-t border-[var(--line-soft)] pt-6 text-sm text-[var(--muted)]">
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide">D&apos;on surten les dades</h2>
@@ -230,13 +207,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <strong className="font-medium text-[var(--ink-2)]">ICGC</strong> — límits administratius i
                   topònims
                 </li>
+                <li>
+                  <strong className="font-medium text-[var(--ink-2)]">Meteocons</strong>, de Bas Milius — icones
+                  del temps, llicència MIT
+                </li>
               </ul>
 
-              <p className="mt-6 measure text-xs leading-relaxed">
+              <p className="mt-6 max-w-2xl text-xs leading-relaxed">
                 Cada pàgina diu de quina estació surt el seu número, a quina distància
                 és i a quina hora es va prendre la lectura.{' '}
                 <Link href="/dades" className="text-[var(--ink-2)] no-underline hover:underline">
-                  Tot això es pot llegir en JSON i en CSV
+                  Tot es pot llegir en JSON i en CSV
                 </Link>
                 . El codi és a{' '}
                 <External
@@ -245,12 +226,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 >
                   GitHub
                 </External>
-                .
-              </p>
-
-              <p className="mt-3 measure text-xs leading-relaxed">
-                La predicció és orientativa. Per a decisions de seguretat, consulteu
-                el Meteocat i Protecció Civil.
+                . La predicció és orientativa: per a decisions de seguretat,
+                consulteu el Meteocat i Protecció Civil.
               </p>
             </div>
           </div>

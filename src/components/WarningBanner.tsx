@@ -121,8 +121,13 @@ function worstThreshold(g: WarningGroup): { worst: string | null; perDay: boolea
   return { worst, perDay: g.spans.length > 1 && new Set(values).size > 1 };
 }
 
-/** La cabecera del que manda: la pastilla del nivel, el fenómeno y el umbral. */
-function Head({ g }: { g: WarningGroup }) {
+/**
+ * La cabecera del que manda: la pastilla del nivel, el fenómeno y el umbral.
+ *
+ * Sobre el color del nivel la pastilla va invertida; sobre el cristal de la
+ * lista, con el color del nivel de fondo, que es el que se reconoce.
+ */
+function Head({ g, onGlass = false }: { g: WarningGroup; onGlass?: boolean }) {
   const style = LEVEL_STYLE[g.level];
   const { worst, perDay } = worstThreshold(g);
 
@@ -130,7 +135,7 @@ function Head({ g }: { g: WarningGroup }) {
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <span
         className="rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
-        style={{ background: style.ink, color: style.bg }}
+        style={onGlass ? { background: style.bg, color: style.ink } : { background: style.ink, color: style.bg }}
       >
         Avís {style.label}
       </span>
@@ -224,17 +229,24 @@ export function WarningBanner({
   warnings, variant = 'lloc',
 }: { warnings: WarningGroup[]; variant?: 'lloc' | 'llista' }) {
   if (variant === 'llista') {
+    /*
+     * A la llista, el color va al marge i a la pastilla, no al fons.
+     *
+     * Vint-i-dos blocs taronja seguits —el 29 de setembre de 2026— eren una
+     * paret on no es distingia on acabava un avís i començava l'altre. El color
+     * segueix sent l'oficial i segueix sent el primer que es veu de cada un.
+     */
     return (
-      <section aria-label="Avisos meteorològics oficials" className="mb-5 flex flex-col gap-2">
+      <section aria-label="Avisos meteorològics oficials" className="mb-5 flex flex-col gap-2.5">
         {warnings.map((g) => {
           const style = LEVEL_STYLE[g.level];
           return (
             <div
               key={g.key}
-              className="rounded-lg px-4 py-3"
-              style={{ background: style.bg, color: style.ink }}
+              className="rounded-2xl border border-[var(--glass-line)] border-l-[6px] bg-[var(--glass)] px-4 py-3 text-[var(--ink)]"
+              style={{ borderLeftColor: style.bg }}
             >
-              <Head g={g} />
+              <Head g={g} onGlass />
               <Body g={g} />
             </div>
           );

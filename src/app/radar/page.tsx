@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { precipField, radar, type RadarFrame } from '@/lib/weather';
+import { radar, type RadarFrame } from '@/lib/weather';
 import { allComarques, comarcaPathsOn, municipisOfComarca, relief } from '@/lib/territory';
 import { project } from '@/lib/mercator';
 import { radarZones } from '@/lib/radar-zones';
-import { ago, hour, dateLong, int } from '@/lib/format';
+import { ago, hour, dateLong } from '@/lib/format';
 import { RadarScrubber } from '@/components/RadarScrubber';
 
 /**
@@ -110,44 +110,15 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
   const { grid, tiles } = data;
 
   /*
-   * Passat i futur, en una sola línia de temps.
+   * Només passat i present.
    *
-   * Els marcs del radar són observació i s'acaben ara. El futur no el pot
-   * donar el radar —la font pública torna `nowcast: []` i la del Meteocat no
-   * es pot servir en un web públic—, però la pregunta de qui obre aquesta
-   * pàgina no és «on plou» sinó «plourà aquí», i això sí que ho tenim: la
-   * predicció a 3.190 punts, hora a hora, pintada com un camp pel worker
-   * `forecast-field.ts`.
-   *
-   * Es concatenen i prou. Tota la maquinària de la pàgina compta grups, així
-   * que el futur hereta l'animació, el rètol de l'hora, la barra i els
-   * enllaços sense una sola línia més. El que **no** hereta és el nom: cada
-   * marc de futur porta la seva marca i la pàgina diu que és un model.
+   * Fins al 29 de setembre de 2026 la línia de temps seguia endavant amb la
+   * predicció pintada com un camp (`forecast-field.ts`). Es va treure: un
+   * model no es mou com un eco de radar, i a la pantalla semblava que la pluja
+   * saltava d'un lloc a un altre en passar del present al futur. El que diu
+   * si plourà aquí és la predicció de cada fitxa, en hores i mil·límetres.
    */
-  const fieldData = await precipField();
-  const fieldBox = fieldData?.box ?? { x: 0, y: 0, w: 0, h: 0 };
-  /*
-   * `time` és l'`id` del radio de cada marc, i dos marcs no en poden compartir
-   * cap. El radar arriba fins a l'hora en curs i el camp comença a la següent,
-   * així que no s'haurien de trepitjar mai — però el dia que es trepitgin, el
-   * navegador es quedaria amb el primer radio i les regles de l'altre marc
-   * l'apuntarien a ell, sense que res fallés. Va passar amb els dotze marcs de
-   * futur compartint `rf-null`.
-   */
-  const taken = new Set(data.frames.map((f) => f.time));
-  const frames: Array<RadarFrame & { field?: string }> = [
-    ...data.frames,
-    ...(fieldData?.hours ?? [])
-      .filter((h) => !taken.has(h.time))
-      .map((h) => ({
-        time: h.time,
-        local: `${h.iso}:00`,
-        kind: 'forecast' as const,
-        field: h.name,
-      })),
-  ];
-
-  const hasField = (fieldData?.hours.length ?? 0) > 0;
+  const frames: RadarFrame[] = data.frames;
   const asked = t ? frames.findIndex((f) => String(f.time) === t) : -1;
   /*
    * Sense `?t=`, el marc que s'ensenya és **l'última observació**, no l'últim
@@ -261,12 +232,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
             * vist cap radar. La frase que ho desmentia era el peu, tres
             * pantalles avall.
             */}
-          {frame.kind === 'forecast' ? (
-            <>
-              Pluja prevista per a {dateLong(frame.local)} a {hour(frame.local)} — no
-              és una imatge de radar, és el que diu el model per a aquella hora.
-            </>
-          ) : frame.kind === 'nowcast' ? (
+          {frame.kind === 'nowcast' ? (
             <>
               Previsió immediata per a {hour(frame.local)} — no és una imatge
               observada, és una extrapolació del moviment dels ecos.
@@ -370,40 +336,20 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
                    */
                   style={{ animationDelay: `${(i * SLOT_S).toFixed(2)}s` }}
                 >
-                  {/*
-                    Un marc de futur és una imatge, i un de passat, tessel·les.
-
-                    Van tots dos dins del mateix `<g>` i de la mateixa llista
-                    perquè tota la maquinària de la pàgina compta grups: els
-                    retards de l'animació, el `nth-of-type` que encén el marc
-                    triat, el rètol de l'hora i la barra. Barrejant-los aquí,
-                    el passat i el futur són una sola línia de temps i no hi ha
-                    cap segon mecanisme que es pugui desincronitzar del primer.
-                  */}
-                  {f.field ? (
+                  {tiles.map((tile) => (
                     <image
-                      href={`/camp/${f.field}.webp`}
-                      x={fieldBox.x}
-                      y={fieldBox.y}
-                      width={fieldBox.w}
-                      height={fieldBox.h}
+                      key={`${tile.x}_${tile.y}`}
+                      href={`/radar/t/${f.time}/${grid.z}_${tile.x}_${tile.y}.png`}
+                      x={(tile.x - grid.x0) * grid.size}
+                      y={(tile.y - grid.y0) * grid.size}
+                      width={grid.size}
+                      height={grid.size}
+                      // Sense això el navegador suavitza les tessel·les i l'eco
+                      // —que ja ve interpolat per RainViewer— perd la poca vora
+                      // que li queda.
+                      style={{ imageRendering: 'auto' }}
                     />
-                  ) : (
-                    tiles.map((tile) => (
-                      <image
-                        key={`${tile.x}_${tile.y}`}
-                        href={`/radar/t/${f.time}/${grid.z}_${tile.x}_${tile.y}.png`}
-                        x={(tile.x - grid.x0) * grid.size}
-                        y={(tile.y - grid.y0) * grid.size}
-                        width={grid.size}
-                        height={grid.size}
-                        // Sense això el navegador suavitza les tessel·les i l'eco
-                        // —que ja ve interpolat per RainViewer— perd la poca vora
-                        // que li queda.
-                        style={{ imageRendering: 'auto' }}
-                      />
-                    ))
-                  )}
+                  ))}
                 </g>
               ))}
             </g>
@@ -514,28 +460,6 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         </nav>
 
         <figcaption className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
-          {/*
-            La frontera entre les dues meitats es diu al davant de tot.
-
-            A partir d'aquí la línia de temps porta dues coses que no són la
-            mateixa: darrere, gotes mesurades per un radar; davant, el que diu
-            un model. Es veuen seguides i s'assemblen, i per això la primera
-            frase de la llegenda és quina és quina — no una nota al peu.
-          */}
-          {hasField && (
-            <>
-              <strong className="font-medium text-[var(--ink-2)]">
-                Fins a {hour(frames[lastPast].local)} és radar; a partir
-                de {hour(frames[lastPast + 1].local)} és predicció.
-              </strong>{' '}
-              El radar mesura gotes que hi ha ara; la predicció és un model, i
-              a partir d’unes hores encerta millor si plourà que quant. Damunt
-              de Catalunya surt dels {int(fieldData?.points ?? 0)} punts de
-              predicció, un cada 3,2 km; el mar, França i l’Aragó van amb una
-              malla molt més ampla, d’un punt cada 25 km, i per tant amb menys
-              detall.{' '}
-            </>
-          )}
           {frames.some((f) => f.kind === 'nowcast') && (
             <>Els instants marcats amb un punt són previsió immediata, no observació. </>
           )}

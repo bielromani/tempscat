@@ -1,222 +1,258 @@
 import Link from 'next/link';
 import { SECTIONS } from '@/lib/nav';
-import { allComarques, buildSummary } from '@/lib/territory';
+import { allComarques, buildSummary, locationByPath, type Location } from '@/lib/territory';
 import { rankings } from '@/lib/rankings';
-import { activeWarnings, groupWarnings } from '@/lib/weather';
+import {
+  activeWarnings, currentFor, forecastFor, groupWarnings, localNowHour, localToday,
+} from '@/lib/weather';
 import { phenomenonName } from '@/lib/warning-labels';
-import { ago, num } from '@/lib/format';
+import { weatherCode } from '@/lib/weather-codes';
+import { ago, dateLong, num } from '@/lib/format';
 import { SiteSearch } from '@/components/SiteSearch';
+import { WeatherIcon } from '@/components/WeatherIcon';
 import { TemperatureLegend, TemperatureMap } from '@/components/TemperatureMap';
 import { temperatureMap } from '@/lib/map';
 
 /*
  * Deu minuts, i no una hora.
  *
- * La portada ha passat de ser un índex a contestar quin temps fa, i els
- * extrems d'ara mateix envelleixen com l'observació que els dona: amb una hora,
- * la xifra de «el més càlid» podria ser de fa seixanta minuts amb el rètol
- * dient que és d'ara. El que no envelleix —les seccions, les comarques— no
- * costa res de tornar a escriure.
+ * La portada contesta quin temps fa, i els extrems i les capitals d'ara mateix
+ * envelleixen com l'observació que els dona: amb una hora, la xifra de «el més
+ * càlid» podria ser de fa seixanta minuts amb el rètol dient que és d'ara.
  */
 export const revalidate = 600;
 
-export default async function Home() {
-  const [rank, warnings, map] = await Promise.all([rankings(), activeWarnings(), temperatureMap()]);
-  const comarques = allComarques();
-  const summary = buildSummary() as {
-    published: number;
-    indexablePages: number;
-    byLevel: Record<string, { total: number; published: number }>;
-    stations: { total: number; operatives: number };
+/**
+ * Les quatre capitals, amb el temps d'ara.
+ *
+ * És el que mira gairebé tothom que obre un web del temps sense buscar res:
+ * com està la seva ciutat o la més propera. Són quatre trossos de predicció
+ * —el Barcelonès en fa 77 kB i els altres tres, entre 570 i 770— que es llegeixen
+ * al servidor com a molt un cop cada deu minuts: al lector no li arriba res
+ * d'això, només les quatre targetes.
+ */
+const CAPITALS = ['/barcelones/barcelona', '/girones/girona', '/segria/lleida', '/tarragones/tarragona'];
+
+/** Els accessos ràpids de sota el cercador: les capitals i dos llocs de muntanya. */
+const QUICK = [
+  ...CAPITALS,
+  '/val-d-aran/vielha-e-mijaran/vielha',
+  '/cerdanya/puigcerda',
+];
+
+async function capitalNow(loc: Location) {
+  const [current, forecast] = await Promise.all([currentFor(loc), forecastFor(loc, 48)]);
+  const nowIso = localNowHour();
+  const hour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
+  const today = forecast?.daily[0] ?? null;
+  // Com al titular de la fitxa: la màxima d'avui és, com a mínim, la que ja s'ha fet.
+  const maxs = [today?.tMax, current?.todayMax].filter((v): v is number => v != null);
+  const mins = [today?.tMin, current?.todayMin].filter((v): v is number => v != null);
+  return {
+    loc,
+    temp: current?.temperature ?? hour?.temperature ?? null,
+    code: hour?.weatherCode ?? null,
+    isDay: hour?.isDay ?? true,
+    tMax: maxs.length ? Math.max(...maxs) : null,
+    tMin: mins.length ? Math.min(...mins) : null,
   };
+}
+
+export default async function Home() {
+  const capitals = CAPITALS.map((p) => locationByPath(p)).filter((l): l is Location => l != null);
+  const [rank, warnings, map, caps] = await Promise.all([
+    rankings(),
+    activeWarnings(),
+    temperatureMap(),
+    Promise.all(capitals.map(capitalNow)),
+  ]);
+  const quick = QUICK.map((p) => locationByPath(p)).filter((l): l is Location => l != null);
+  const comarques = allComarques();
+  const summary = buildSummary() as { published: number };
+  const groups = groupWarnings(warnings);
+  const worst = groups[0];
+  const day = dateLong(localToday());
 
   return (
-    <div>
-      <header className="page-head">
-        <h1 className="page-title">
-          El temps a Catalunya, poble a poble
-        </h1>
-        <p className="mt-4 text-lg leading-relaxed text-[var(--ink-2)]">
-          Predicció i observació real per a{' '}
-          <strong className="font-semibold text-[var(--ink)]">
-            {summary.published.toLocaleString('ca-ES')} llocs
-          </strong>
-          , no només els municipis: també els nuclis i les entitats de
-          població, cadascun amb la seva altitud i l&apos;estació que li toca.
-        </p>
+    <div data-wide className="home">
+      <div className="home-top">
+        <header className="home-intro">
+          <p className="home-date">{day.charAt(0).toUpperCase() + day.slice(1)}</p>
+          <h1 className="home-title">El temps a Catalunya</h1>
+          <p className="home-lead">
+            Predicció i observació per a {summary.published.toLocaleString('ca-ES')} pobles
+            i nuclis, cadascun amb la seva altitud i l&apos;estació que el mesura.
+          </p>
+          {/*
+            El cercador, al davant: és el que fa gairebé tothom que arriba a la
+            portada. No afegeix JavaScript —el component ja és a la barra de
+            totes les pàgines— i sense JavaScript és un formulari.
+          */}
+          <div className="mt-6">
+            <SiteSearch variant="page" />
+          </div>
+          <ul className="chips mt-4" aria-label="Accessos ràpids">
+            {quick.map((l) => (
+              <li key={l.path}><Link href={l.path}>{l.nom}</Link></li>
+            ))}
+          </ul>
+        </header>
+
         {/*
-          El cercador, al davant. És el que fa gairebé tothom que arriba a la
-          portada: buscar el seu poble. A la capçalera és una píndola petita; aquí
-          és el primer que es veu. No afegeix JavaScript —el component ja és a
-          totes les pàgines, a la barra— i sense JavaScript és un formulari.
+          El mapa de temperatures, el SVG de servidor de 10 kB, sense
+          JavaScript. Cada comarca ja és un enllaç: embolicar-lo en un altre en
+          faria d'aniuats, que no és HTML vàlid.
         */}
-        <div className="mt-5">
-          <SiteSearch variant="page" />
-        </div>
-      </header>
-
-      {/*
-        Els avisos, i només quan n'hi ha.
-
-        Una franja que digui «cap avís» cada dia és una franja que ningú no
-        llegeix el dia que en digui un.
-      */}
-      {(() => {
-        const groups = groupWarnings(warnings);
-        const worst = groups[0];
-        if (!worst) return null;
-        return (
-          <section className="card mb-8" aria-label="Avisos oficials vigents">
-            <h2 className="card-title">Avisos oficials</h2>
-            <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
-              Hi ha <strong className="font-semibold text-[var(--ink)]">
-                {groups.length} {groups.length === 1 ? 'avís' : 'avisos'}
-              </strong>{' '}
-              en vigor. El més alt és de nivell{' '}
-              <strong className="font-semibold text-[var(--ink)]">{worst.level}</strong>, per{' '}
-              {phenomenonName(worst.phenomenon).toLowerCase()}.{' '}
-              <Link href="/avisos">Consulteu-los tots</Link>.
+        {map.comarques.some((c) => c.temperature != null) && (
+          <section className="card home-map" aria-labelledby="h-mapa">
+            <h2 id="h-mapa" className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
+              Ara a Catalunya
+            </h2>
+            <TemperatureMap data={map} />
+            <TemperatureLegend
+              span={map.min != null && map.max != null ? { min: map.min, max: map.max } : undefined}
+            />
+            <p className="card-foot">
+              <Link href="/mapa">Les comarques, de la més càlida a la més freda ›</Link>
             </p>
-            <p className="source">Agència Estatal de Meteorologia · avisos oficials.</p>
           </section>
-        );
-      })()}
+        )}
+      </div>
+
+      {caps.length > 0 && (
+        <ul className="capitals" aria-label="Les quatre capitals, ara">
+          {caps.map((c) => (
+            <li key={c.loc.path}>
+              <Link href={c.loc.path} className="capital">
+                <span className="capital-name">{c.loc.nom}</span>
+                <span className="capital-temp tnum">{c.temp != null ? `${Math.round(c.temp)}°` : '—'}</span>
+                {c.code != null && <WeatherIcon code={c.code} isDay={c.isDay} size={52} className="capital-icon" />}
+                <span className="capital-cond tnum">
+                  {[
+                    c.code != null && weatherCode(c.code).ca,
+                    c.tMax != null && c.tMin != null && `${Math.round(c.tMax)}° / ${Math.round(c.tMin)}°`,
+                  ].filter(Boolean).join(' · ')}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/*
-        ── Què fa ara mateix ──────────────────────────────────────────────────
+        Els avisos, i només quan n'hi ha. Una franja que digui «cap avís» cada
+        dia és una franja que ningú no llegeix el dia que en digui un.
+      */}
+      {worst && (
+        <Link href="/avisos" className={`home-warn is-${worst.level}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+          <img
+            src={`/icons/w/code-${worst.level === 'vermell' ? 'red' : worst.level === 'taronja' ? 'orange' : 'yellow'}.svg`}
+            width={30}
+            height={30}
+            alt=""
+          />
+          <span>
+            <strong>
+              {groups.length} {groups.length === 1 ? 'avís' : 'avisos'} en vigor
+            </strong>
+            {' '}· el més alt, {worst.level} per {phenomenonName(worst.phenomenon).toLowerCase()}.{' '}
+            <u>Vegeu-los tots</u>
+          </span>
+        </Link>
+      )}
 
-        La portada d'un web del temps ha de dir quin temps fa, i aquesta no en
-        deia cap: era un índex de seccions amb quatre comptadors de quantes
-        pàgines hi ha. Els números de sota segueixen sent certs i no són el que
-        ve a buscar ningú.
+      {/*
+        ── Els extrems d'ara ─────────────────────────────────────────────────
 
-        Tot el que hi ha aquí surt de dades que ja hi eren —`rankings()` ja
-        s'havia baixat l'observació sencera per a `/ranquings`— així que no hi
-        ha ni una lectura nova ni una unitat de quota.
-
-        Cada extrem porta **el seu lloc** i és un enllaç: la pregunta següent de
-        qui llegeix «el més càlid, 32,1°» és «on», i la resposta és una
-        pàgina.
+        Surten de `rankings()`, que ja s'havia baixat l'observació sencera per a
+        `/ranquings`: ni una lectura nova ni una unitat de quota. Cada extrem
+        porta el seu lloc i és un enllaç, perquè la pregunta següent de qui llegeix
+        «el més càlid, 32,1°» és «on».
       */}
       {rank && (
-        <section className="card mb-8" aria-label="El temps ara mateix a Catalunya">
-          <h2 className="card-title">Ara mateix a Catalunya</h2>
-          {/*
-            El mapa de temperatures, que vivia a `/mapa` i a les fitxes de
-            comarca. Un web del temps que obre sense cap mapa obre com un índex.
-            És el SVG de servidor de 10 kB, sense JavaScript; cada comarca és un
-            enllaç, i la llista de sota diu on són els extrems.
-          */}
-          {map.comarques.some((c) => c.temperature != null) && (
-            <div className="mt-3">
-              {/* Cada comarca ja és un enllaç a la seva pàgina: embolicar el mapa
-                  en un altre enllaç en faria d'aniuats, que no és HTML vàlid. */}
-              <TemperatureMap data={map} />
-              <TemperatureLegend
-                span={map.min != null && map.max != null ? { min: map.min, max: map.max } : undefined}
-              />
-              <p className="mt-2 text-sm">
-                <Link href="/mapa" className="font-medium text-[var(--accent)] no-underline hover:underline">
-                  El mapa gran, i les comarques de la més càlida a la més freda ›
-                </Link>
-              </p>
-            </div>
-          )}
-          <ul className="mt-4 grid list-none grid-cols-2 gap-x-6 gap-y-3.5 p-0">
-            {([
-              ['El més càlid', rank.stations.nowWarmest[0], (v: number) => `${num(v, 1)} °C`],
-              ['El més fred', rank.stations.nowColdest[0], (v: number) => `${num(v, 1)} °C`],
-              ['Més pluja avui', rank.stations.rain[0], (v: number) => `${num(v, 1)} mm`],
-              /*
-               * La ratxa ja ve en km/h.
-               *
-               * `rankings()` la converteix quan la desa —`describe(s, Math.round(msToKmh(v)))`—
-               * i tornar-la a convertir aquí la multiplicava per 3,6 una segona
-               * vegada: el Monestir de Montserrat sortia a **180 km/h** una
-               * tarda de 37 °C. Ni un error, i un número que es pot llegir.
-               */
-              ['Ratxa més forta', rank.stations.gust[0], (v: number) => `${v.toFixed(0)} km/h`],
-            ] as const).map(([label, row, fmt]) => {
-              /* Una fila sense estació no s'escriu: un guió al costat d'una
-                 etiqueta és una manera de dir que no ho sabem que ocupa el
-                 mateix que dir-ho. */
-              if (!row) return null;
-              const name = row.placeNom ?? row.nom;
-              return (
-                /* L'etiqueta a dalt i la xifra a sota, i no als dos costats
-                   d'una mateixa línia: amb «Ratxa més forta» i «Monestir de
-                   Montserrat» a banda i banda, les dues es partien i la fila
-                   ocupava quatre línies per dir una cosa. */
-                <li key={label}>
-                  <p className="text-[12px] text-[var(--muted)]">{label}</p>
-                  <p className="tnum mt-0.5">
-                    <strong className="text-[17px] font-semibold text-[var(--ink)]">{fmt(row.value)}</strong>{' '}
-                    {row.path ? (
-                      <Link href={row.path} className="text-sm text-[var(--ink-2)]">{name}</Link>
-                    ) : (
-                      <span className="text-sm text-[var(--ink-2)]">{name}</span>
-                    )}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="source">
-            {rank.stations.total} estacions · {rank.source}
-            {rank.ageMin != null && ` · ${ago(rank.ageMin)}`}. La pluja i la ratxa són d&apos;avui
-            des de mitjanit; la temperatura, de l&apos;última lectura.{' '}
-            <Link href="/ranquings">Totes les llistes</Link>.
-          </p>
+        <section className="mt-10" aria-labelledby="h-extrems">
+          <h2 id="h-extrems" className="card-title mb-3">Els extrems d&apos;ara</h2>
+          <div className="card">
+            <ul className="extremes">
+              {([
+                ['El més càlid', 'thermometer', rank.stations.nowWarmest[0], (v: number) => `${num(v, 1)}°`],
+                ['El més fred', 'thermometer', rank.stations.nowColdest[0], (v: number) => `${num(v, 1)}°`],
+                ['Més pluja avui', 'raindrop', rank.stations.rain[0], (v: number) => `${num(v, 1)} mm`],
+                /*
+                 * La ratxa ja ve en km/h.
+                 *
+                 * `rankings()` la converteix quan la desa i tornar-la a convertir
+                 * aquí la multiplicava per 3,6 una segona vegada: el Monestir de
+                 * Montserrat sortia a **180 km/h** una tarda de 37 °C.
+                 */
+                ['Ratxa màxima', 'wind', rank.stations.gust[0], (v: number) => `${v.toFixed(0)} km/h`],
+              ] as const).map(([label, icon, row, fmt]) => {
+                // Una fila sense estació no s'escriu.
+                if (!row) return null;
+                const name = row.placeNom ?? row.nom;
+                return (
+                  <li key={label}>
+                    <p className="card-label">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+                      <img src={`/icons/w/${icon}.svg`} width={20} height={20} alt="" />
+                      {label}
+                    </p>
+                    <p className="extreme-value tnum">{fmt(row.value)}</p>
+                    {row.path
+                      ? <Link href={row.path} className="extreme-place">{name}</Link>
+                      : <span className="extreme-place">{name}</span>}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="source">
+              {rank.stations.total} estacions del Meteocat
+              {rank.ageMin != null && ` · lectura ${ago(rank.ageMin)}`}. La pluja i la ratxa
+              compten des de mitjanit.{' '}
+              <Link href="/ranquings" className="text-[var(--accent)]">Totes les llistes</Link>.
+            </p>
+          </div>
         </section>
       )}
 
-
       {/*
-        * Totes les seccions, explicades.
-        *
-        * Abans n'hi havia dues aquí i quinze amagades a la barra de dalt.
-        * Havent tret la barra, la portada és qui ha d'ensenyar què hi ha —i
-        * ensenyar-ho amb una frase de què hi trobaràs, no amb una paraula
-        * solta, que és el que fa que ningú entri a «Bolets» sense saber què
-        * és.
-        *
-        * La llista surt de `src/lib/nav.ts`, la mateixa que fa servir el peu.
-        */}
-      {SECTIONS.map((g) => (
-        <section key={g.title} className="mb-8">
-          <h2 className="card-title mb-3">{g.title}</h2>
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {g.links.map((l) => (
-              <li key={l.href}>
-                <Link
-                  href={l.href}
-                  className="block h-full card no-underline hover:border-[var(--accent)]"
-                >
-                  <p className="font-semibold text-[var(--ink)]">{l.label}</p>
-                  {l.blurb && <p className="mt-1 text-sm text-[var(--muted)]">{l.blurb}</p>}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+        ── Tot el lloc ─────────────────────────────────────────────────────────
 
-      <h2 className="card-title mb-3">Comarques</h2>
-      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {comarques.map((c) => (
-          <li key={c.codi}>
-            <Link
-              href={c.path}
-              className="flex items-baseline justify-between gap-3 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2 no-underline hover:border-[var(--accent)]"
-            >
-              <span className="text-[var(--ink)]">{c.nom}</span>
-              <span className="tnum shrink-0 text-xs text-[var(--muted)]">
-                {c.nMunicipis} mun.
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+        La llista surt de `src/lib/nav.ts`, la mateixa que fa servir el peu. Cada
+        secció diu en una línia què hi ha, perquè ningú no entra a «Nàutica»
+        sense saber què hi trobarà.
+      */}
+      <section className="mt-12" aria-labelledby="h-explorar">
+        <h2 id="h-explorar" className="card-title mb-3">Explorar</h2>
+        {/* Les que no porten icona —les estacions, les dades obertes, l'estat—
+            són del projecte i no del temps: viuen al peu. */}
+        <ul className="explore">
+          {SECTIONS.flatMap((g) => g.links).filter((l) => l.icon).map((l) => (
+            <li key={l.href}>
+              <Link href={l.href} className="explore-link">
+                <span className="explore-icon">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+                  <img src={`/icons/w/${l.icon}.svg`} width={30} height={30} alt="" />
+                </span>
+                <span className="explore-label">{l.label}</span>
+                {l.blurb && <span className="explore-blurb">{l.blurb}</span>}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="mt-12" aria-labelledby="h-comarques">
+        <h2 id="h-comarques" className="card-title mb-3">Les 43 comarques</h2>
+        <ul className="chips">
+          {comarques.map((c) => (
+            <li key={c.codi}><Link href={c.path}>{c.nom}</Link></li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
