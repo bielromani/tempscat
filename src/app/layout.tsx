@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: '%s',
   },
   description:
-    'Predicció i observació real per a totes les comarques, municipis i nuclis de població de Catalunya, amb dades del Meteocat i consens multimodel.',
+    'El temps a cada poble de Catalunya: l’observació de l’estació més propera, corregida per l’altitud, i la predicció hora a hora i a catorze dies.',
   alternates: { canonical: '/' },
   openGraph: { locale: 'ca_ES', type: 'website', siteName: 'tempscat' },
   /*

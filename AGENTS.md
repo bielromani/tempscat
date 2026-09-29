@@ -1233,6 +1233,32 @@ cuota para exactamente la misma información.
   adjectiu. I «no arriba a mullar el terra» ja només surt per sota d'1 mm en tot el tram: vuit
   hores de 0,3 mm són 2,7 mm, i això mulla.
 
+- **Les classes de `globals.css` viuen a `@layer components`, i ha de seguir sent així.** Una
+  regla sense capa guanya **qualsevol** utilitat de Tailwind —que viu a `@layer utilities`—, així
+  que `class="card p-0"` deixava el relleu de `.card` i `class="stat-grid mt-6"` el marge a zero.
+  Quatre agents que van redissenyar pàgines en paral·lel ho van topar cadascun pel seu compte i
+  ho van resoldre amb `p-0!` i estils en línia. Fora de la capa, al final del fitxer, hi ha
+  només el que **ha** de guanyar a una utilitat: l'amplada de `main` i el titular del cel, que
+  treu el `py-8` del layout. Si afegeixes una classe, va dins de la capa.
+
+- **Les pàgines de secció es fan amb `PageHero`** (`src/components/PageHero.tsx`): la ruta, el
+  títol, una entradilla que contesta, les xifres (`stats`, que accepta `false` per a les que no
+  hi són) i el mapa a `aside`. La ruta és **la mateixa llista** que es passa a `breadcrumbLd()`.
+  Cada bloc va en una `.card` dins d'una `<Section>`, i la prosa llarga, en un `Fold` al final.
+  La pàgina de comarca és la més curta de llegir com a referència.
+
+- **Un mapa de punts al costat del títol es dibuixa a escala 0,44.** El contorn fa 1.000
+  unitats i la columna de l'`aside`, uns 440 px: els números de dins dels cercles feien 6,6 px
+  i els noms, 5,7. `PointsMap` porta `scale` —2 a la columna del costat— que multiplica radis,
+  lletra, desplaçaments i la separació entre rètols. Qualsevol mapa nou que vagi petit l'ha de
+  portar.
+
+- **El vent del mapa interactiu és el d'ara, no una sèrie.** Des que la barra és només radar,
+  cap hora del vent coincidia amb un marc i el botó «Vent» no sortia —sense cap error—. La
+  pàgina li passa **una sola hora**, la més propera a l'últim marc del radar, i cap si és a més
+  de 90 minuts. `InteractiveMap` cau a la primera hora quan no troba el marc, i per això n'hi
+  ha prou.
+
 
 <!-- BEGIN:nextjs-agent-rules -->
 
