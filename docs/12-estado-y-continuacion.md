@@ -140,7 +140,8 @@ qué el tiempo aquí es distinto—, y el resto en tarjetas plegadas (`Fold`, un
 que enseñan su cifra en una línea. Medido a 390 px: Lilla de 9.371 a 4.216 px, Malgrat de
 10.017 a 4.629. El HTML pesa lo mismo: lo plegado sigue ahí para el buscador. De paso, en
 escritorio con tema claro la barra del web era **texto blanco sobre blanco** fuera del
-cielo; ahora cabe dentro.
+cielo; ahora cabe dentro. Y la portada abre con el buscador grande, los avisos y el mapa
+de temperaturas por comarca, en vez de con un índice y cuatro contadores.
 
 **Almacén.** `DATA_BASE_URL` = `https://dades.tempscat.cat` en Vercel (los tres entornos), en
 GitHub Actions y en `.env.local`. Antes de cambiarlo se comprobó que el dominio nuevo sirve
