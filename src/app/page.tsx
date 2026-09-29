@@ -5,6 +5,9 @@ import { rankings } from '@/lib/rankings';
 import { activeWarnings, groupWarnings } from '@/lib/weather';
 import { phenomenonName } from '@/lib/warning-labels';
 import { ago, num } from '@/lib/format';
+import { SiteSearch } from '@/components/SiteSearch';
+import { TemperatureLegend, TemperatureMap } from '@/components/TemperatureMap';
+import { temperatureMap } from '@/lib/map';
 
 /*
  * Deu minuts, i no una hora.
@@ -18,7 +21,7 @@ import { ago, num } from '@/lib/format';
 export const revalidate = 600;
 
 export default async function Home() {
-  const [rank, warnings] = await Promise.all([rankings(), activeWarnings()]);
+  const [rank, warnings, map] = await Promise.all([rankings(), activeWarnings(), temperatureMap()]);
   const comarques = allComarques();
   const summary = buildSummary() as {
     published: number;
@@ -37,12 +40,47 @@ export default async function Home() {
           Predicció i observació real per a{' '}
           <strong className="font-semibold text-[var(--ink)]">
             {summary.published.toLocaleString('ca-ES')} llocs
-          </strong>{' '}
-          — no només els 947 municipis, sinó també els nuclis i les entitats
-          de població. Cada punt amb la seva altitud
-          real i l&apos;estació automàtica que li correspon.
+          </strong>
+          , no només els municipis: també els nuclis i les entitats de
+          població, cadascun amb la seva altitud i l&apos;estació que li toca.
         </p>
+        {/*
+          El cercador, al davant. És el que fa gairebé tothom que arriba a la
+          portada: buscar el seu poble. A la capçalera és una píndola petita; aquí
+          és el primer que es veu. No afegeix JavaScript —el component ja és a
+          totes les pàgines, a la barra— i sense JavaScript és un formulari.
+        */}
+        <div className="mt-5">
+          <SiteSearch variant="page" />
+        </div>
       </header>
+
+      {/*
+        Els avisos, i només quan n'hi ha.
+
+        Una franja que digui «cap avís» cada dia és una franja que ningú no
+        llegeix el dia que en digui un.
+      */}
+      {(() => {
+        const groups = groupWarnings(warnings);
+        const worst = groups[0];
+        if (!worst) return null;
+        return (
+          <section className="card mb-8" aria-label="Avisos oficials vigents">
+            <h2 className="card-title">Avisos oficials</h2>
+            <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
+              Hi ha <strong className="font-semibold text-[var(--ink)]">
+                {groups.length} {groups.length === 1 ? 'avís' : 'avisos'}
+              </strong>{' '}
+              en vigor. El més alt és de nivell{' '}
+              <strong className="font-semibold text-[var(--ink)]">{worst.level}</strong>, per{' '}
+              {phenomenonName(worst.phenomenon).toLowerCase()}.{' '}
+              <Link href="/avisos">Consulteu-los tots</Link>.
+            </p>
+            <p className="source">Agència Estatal de Meteorologia · avisos oficials.</p>
+          </section>
+        );
+      })()}
 
       {/*
         ── Què fa ara mateix ──────────────────────────────────────────────────
@@ -63,7 +101,28 @@ export default async function Home() {
       {rank && (
         <section className="card mb-8" aria-label="El temps ara mateix a Catalunya">
           <h2 className="card-title">Ara mateix a Catalunya</h2>
-          <ul className="mt-3 grid list-none grid-cols-2 gap-x-6 gap-y-3.5 p-0">
+          {/*
+            El mapa de temperatures, que vivia a `/mapa` i a les fitxes de
+            comarca. Un web del temps que obre sense cap mapa obre com un índex.
+            És el SVG de servidor de 10 kB, sense JavaScript; cada comarca és un
+            enllaç, i la llista de sota diu on són els extrems.
+          */}
+          {map.comarques.some((c) => c.temperature != null) && (
+            <div className="mt-3">
+              {/* Cada comarca ja és un enllaç a la seva pàgina: embolicar el mapa
+                  en un altre enllaç en faria d'aniuats, que no és HTML vàlid. */}
+              <TemperatureMap data={map} />
+              <TemperatureLegend
+                span={map.min != null && map.max != null ? { min: map.min, max: map.max } : undefined}
+              />
+              <p className="mt-2 text-sm">
+                <Link href="/mapa" className="font-medium text-[var(--accent)] no-underline hover:underline">
+                  El mapa gran, i les comarques de la més càlida a la més freda ›
+                </Link>
+              </p>
+            </div>
+          )}
+          <ul className="mt-4 grid list-none grid-cols-2 gap-x-6 gap-y-3.5 p-0">
             {([
               ['El més càlid', rank.stations.nowWarmest[0], (v: number) => `${num(v, 1)} °C`],
               ['El més fred', rank.stations.nowColdest[0], (v: number) => `${num(v, 1)} °C`],
@@ -111,59 +170,6 @@ export default async function Home() {
         </section>
       )}
 
-      {/*
-        Els avisos, i només quan n'hi ha.
-
-        Una franja que digui «cap avís» cada dia és una franja que ningú no
-        llegeix el dia que en digui un.
-      */}
-      {(() => {
-        const groups = groupWarnings(warnings);
-        const worst = groups[0];
-        if (!worst) return null;
-        return (
-          <section className="card mb-8" aria-label="Avisos oficials vigents">
-            <h2 className="card-title">Avisos oficials</h2>
-            <p className="mt-2 leading-relaxed text-[var(--ink-2)]">
-              Hi ha <strong className="font-semibold text-[var(--ink)]">
-                {groups.length} {groups.length === 1 ? 'avís' : 'avisos'}
-              </strong>{' '}
-              en vigor. El més alt és de nivell{' '}
-              <strong className="font-semibold text-[var(--ink)]">{worst.level}</strong>, per{' '}
-              {phenomenonName(worst.phenomenon).toLowerCase()}.{' '}
-              <Link href="/avisos">Consulteu-los tots</Link>.
-            </p>
-            <p className="source">Agència Estatal de Meteorologia · avisos oficials.</p>
-          </section>
-        );
-      })()}
-
-      {/* Els números del territori. Segueixen sent certs; el que canvia és
-          que ja no són el primer que es veu. */}
-      <section className="card mb-10">
-        <h2 className="card-title">Què hi ha cobert</h2>
-        <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-          {[
-            { v: comarques.length, k: 'comarques' },
-            { v: summary.byLevel.municipi.published, k: 'municipis' },
-            // Les 11 entitats col·lectives també hi són: sense elles, 947 i 3.292 no
-            // sumaven els 4.250 llocs que diu la frase de dalt.
-            {
-              v: summary.byLevel.entitat_singular.published + summary.byLevel.nucli.published
-                + (summary.byLevel.entitat_colectiva?.published ?? 0),
-              k: 'nuclis i entitats',
-            },
-            { v: summary.stations.operatives, k: 'estacions XEMA' },
-          ].map((s) => (
-            <div key={s.k}>
-              <dd className="tnum text-2xl font-semibold tracking-tight text-[var(--ink)]">
-                {s.v.toLocaleString('ca-ES')}
-              </dd>
-              <dt className="text-xs text-[var(--muted)]">{s.k}</dt>
-            </div>
-          ))}
-        </dl>
-      </section>
 
       {/*
         * Totes les seccions, explicades.
