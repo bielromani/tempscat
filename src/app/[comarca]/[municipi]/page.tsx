@@ -6,20 +6,8 @@ import {
   breadcrumbs, comarcaOf, entitatsOfMunicipi, highPriorityPaths,
   locationByPath, neighboursOf,
 } from '@/lib/territory';
-import {
-  airQualityFor, astronomyFor, currentFor, forecastFor, historyFor,
-  groupWarnings, localNowHour, localToday, rainWarningsOf, warningsFor,
-} from '@/lib/weather';
-import { comarcaComparison } from '@/lib/comparison';
-import { waterNear } from '@/lib/water';
-import { nearestAirStation } from '@/lib/air-stations';
-import { seaNear } from '@/lib/sea';
-import { camerasNear } from '@/lib/cameras';
-import { resortNear } from '@/lib/mountain';
-import { routesNear } from '@/lib/routes';
+import { fichaData } from '@/lib/ficha-data';
 import { aName, deName } from '@/lib/format';
-import { narrativeFor } from '@/lib/narrative';
-import { localRainFor } from '@/lib/local-rain';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 
 /**
@@ -103,34 +91,16 @@ export default async function MunicipiPage({ params }: { params: Params }) {
   // y decirlo en el texto sería afirmar algo falso.
   const adjacent = neighboursOf(loc.id, 'adjacent').slice(0, 8);
 
-  // Se resuelven aquí y se pasan una sola vez: el titular necesita los tres a la
-  // vez, y volver a pedirlos dentro del JSX era pedirlos dos veces.
-  const current = await currentFor(loc);
-  const forecast = await forecastFor(loc);
-  const history = await historyFor(loc);
-  const warnings = await warningsFor(loc);
+  // Totes les lectures alhora, i les mateixes que la fitxa d'un nucli: ver `fichaData()`.
+  const data = await fichaData(loc);
 
   return (
     <>
       <LocationView
+        {...data}
         loc={loc}
         comarca={com}
         breadcrumbs={breadcrumbs(loc)}
-        current={current}
-        forecast={forecast}
-        warnings={groupWarnings(warnings)}
-        astro={astronomyFor(loc)}
-        history={history}
-        air={await airQualityFor(loc)}
-        comparison={await comarcaComparison(loc)}
-        narrative={narrativeFor(forecast, current, localNowHour(), localToday(), rainWarningsOf(warnings))}
-        water={await waterNear(loc)}
-        airStation={await nearestAirStation(loc)}
-        sea={await seaNear(loc)}
-        cameras={await camerasNear(loc)}
-        resort={await resortNear(loc)}
-        routes={routesNear(loc)}
-        localRain={await localRainFor(forecast, loc.lat, loc.lon)}
         siblings={entitats}
         siblingsLabel={`Nuclis i entitats ${deName(loc.nom)}`}
         neighbours={adjacent}
