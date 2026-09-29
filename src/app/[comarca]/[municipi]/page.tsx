@@ -8,7 +8,7 @@ import {
 } from '@/lib/territory';
 import {
   airQualityFor, astronomyFor, currentFor, forecastFor, historyFor,
-  groupWarnings, localNowHour, localToday, warningsFor,
+  groupWarnings, localNowHour, localToday, rainWarningsOf, warningsFor,
 } from '@/lib/weather';
 import { comarcaComparison } from '@/lib/comparison';
 import { waterNear } from '@/lib/water';
@@ -108,6 +108,7 @@ export default async function MunicipiPage({ params }: { params: Params }) {
   const current = await currentFor(loc);
   const forecast = await forecastFor(loc);
   const history = await historyFor(loc);
+  const warnings = await warningsFor(loc);
 
   return (
     <>
@@ -117,12 +118,12 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         breadcrumbs={breadcrumbs(loc)}
         current={current}
         forecast={forecast}
-        warnings={groupWarnings(await warningsFor(loc))}
+        warnings={groupWarnings(warnings)}
         astro={astronomyFor(loc)}
         history={history}
         air={await airQualityFor(loc)}
         comparison={await comarcaComparison(loc)}
-        narrative={narrativeFor(forecast, current, localNowHour(), localToday())}
+        narrative={narrativeFor(forecast, current, localNowHour(), localToday(), rainWarningsOf(warnings))}
         water={await waterNear(loc)}
         airStation={await nearestAirStation(loc)}
         sea={await seaNear(loc)}

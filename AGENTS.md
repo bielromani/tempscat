@@ -91,6 +91,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/warning-stack.ts` | Quin avís mana, quin acompanya i quin no diu res de nou |
 | `src/lib/warning-zones.ts` | On viu el contorn de les 21 zones de Meteoalerta, i per què va a part |
 | `src/lib/sky.ts` | De la nuvolositat, l'hora i la lluna a les capes del cel del titular |
+| `src/lib/recent-rain.ts` | La pluja d'avui i d'ahir, que la sèrie diària encara no té, i la ratxa seca |
 
 ## Dónde viven los datos vivos
 
@@ -198,13 +199,15 @@ npm run test:climate      # los meses y los años que el histórico tiene que de
 npm run test:hours        # qué tramo del reloj describe cada valor de la predicción
 npm run check:credentials # a qué clave le queda poco. Lo corre `credencials.yml` cada lunes
 npm run check:jsonld      # que cada tipus de pàgina segueixi portant el seu marcatge
+npm run check:coherence   # que una fitxa no es contradigui · contra l'HTML servit, com l'anterior
 npm run check:workflows   # claus repetides, `npm run` inexistents i workflows sense feines
 npm run test:colors       # que el color que rep el mapa sigui el que pinta el navegador
 npm run test:wind         # que el vent vagi cap on ha d'anar · amb `-- --api`, contra la marinada
 npm run test:warnings     # que la pila d'avisos d'un lloc no perdi mai cap avís
 npm run test:sky          # que el cel del titular digui el temps, i el contrast del text
 npm run cels              # els dotze cels de cop a /__cels.html, per mirar-los de costat
-npm run test:narrative    # las frases, con perfiles de lluvia sintéticos
+npm run test:rain         # la pluja dels dos dies que la sèrie diària encara no té
+npm run test:narrative    # las frases, con perfiles de lluvia sintéticos, y con aviso encima
 ```
 
 ## Cómo se trabaja: en una rama, y se fusiona por lotes
@@ -1143,6 +1146,27 @@ cuota para exactamente la misma información.
   `espècie,abundància,talla`. Llegint només fins a la primera coma, a Castell-Platja d'Aro
   —que en reporta tres— sortia la inofensiva i **quedava amagada la que pica**. `parseJellyfish()`
   retorna la llista sencera, i una espècie que no consti a la taula es tracta com si piqués.
+
+- **Cada bloc estava bé i la fitxa es contradeia.** El 29 de setembre de 2026, amb avisos
+  taronja a mig país —que és justament quan la gent mira—, `npm run check:coherence` va
+  trobar **75 contradiccions en 20 fitxes** de producció, i cap prova no n'havia vist cap,
+  perquè les proves miren blocs i això surt de **juntar-ne dos**:
+  **La sèrie diària va dos dies tard i el bloc de pluja comptava des d'allà.** Lilla deia
+  «Pluja 24 h: 16,6 mm» a dalt i «Últim ruixat: fa més de 45 dies» a baix, de la mateixa
+  estació; Esparreguera, 87,8 mm i «fa 11 dies». Els dos dies que falten ja els porta
+  l'observació (`todayPrecip`, `yesterdayPrecip`) i `withMeasuredRain()` els enganxa. El dia
+  d'«avui» és el de l'agregat —`aggregatesDay`, la data de la instantània—, no el del
+  rellotge: passada la mitjanit, el rellotge posaria la pluja d'ahir a avui.
+  **L'adjectiu d'intensitat del model no va sota un avís.** Malgrat deia «Pluja feble» i
+  «sempre feble» sota un taronja de 150 mm en dotze hores amb el radar en vermell. Un model
+  no resol la tempesta que cau en una vall i no a la del costat; amb avís, la frase diu els
+  mil·límetres del model i que hi ha avís, i el cel del titular diu «Pluja», no «Pluja
+  feble». La regla és a `narrative.ts` i té prova.
+  **Les preposicions escrites a mà.** «a el Perelló», «de els Hostalets», «del ESE», «Dins
+  de Conca de Barberà» — i una que encara no havia sortit i hauria sortit l'1 d'octubre a
+  les 4.250 fitxes: `de ${monthName}` feia «dies de octubre». Topònims amb `deName()` i
+  `aName()`, comarques amb `deComarca()`, mesos amb `monthOf()`, rumbs amb
+  `fromDirection()`. El comprovador busca aquestes formes a l'HTML servit.
 
 
 <!-- BEGIN:nextjs-agent-rules -->

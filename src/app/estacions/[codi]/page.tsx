@@ -8,7 +8,8 @@ import { msToKmh, windCardinal } from '@/lib/variables';
 import {
   aName, ago, dateFull, deName, int, num, signed, temp,
 } from '@/lib/format';
-import { historyOfStation, localToday, observationOfStation } from '@/lib/weather';
+import { historyOfStation, localToday, measuredRainOf, observationOfStation } from '@/lib/weather';
+import { dryStreakOf, withMeasuredRain } from '@/lib/recent-rain';
 import {
   climateOfStation, rainYearsOf, sameMonthAcrossYears, trendOf, yearsOf,
   MONTH_MIN_DAYS, TREND_MIN_YEARS,
@@ -51,7 +52,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const s = stationByCodi(codi);
   if (!s) return {};
   return {
-    title: `Estació de ${s.nom} · ${s.comarcaNom ?? 'Catalunya'}`,
+    title: `Estació ${deName(s.nom)} · ${s.comarcaNom ?? 'Catalunya'}`,
     description: `Dades de l'estació automàtica ${deName(s.nom)} (XEMA, codi ${s.codi}), `
       + `a ${s.altitud != null ? `${Math.round(s.altitud)} m` : 'cota desconeguda'}: `
       + 'rècords, normals mensuals, rosa dels vents i els últims 45 dies.',
@@ -78,6 +79,12 @@ export default async function EstacioPage({ params }: { params: Params }) {
   const obs = await observationOfStation(station.codi);
   const today = localToday();
   const month = Number(today.slice(5, 7));
+
+  // Els dies sense pluja, comptats fins avui: el de `history` s'acaba on s'acaba
+  // la sèrie diària, dos dies enrere. Ver `recent-rain.ts`.
+  const dryStreak = history
+    ? dryStreakOf(withMeasuredRain(history.daily, await measuredRainOf(station.codi)))
+    : null;
 
   /*
    * La sèrie mensual, que viu al seu propi tros.
@@ -193,7 +200,7 @@ export default async function EstacioPage({ params }: { params: Params }) {
             )}
             {obs.values.pressure?.value != null && (
               <div>
-                <dt style={{ opacity: 0.7 }}>Pressió</dt>
+                <dt style={{ opacity: 0.7 }}>Pressió a l&apos;estació</dt>
                 <dd className="tnum font-medium">{Math.round(obs.values.pressure.value)} hPa</dd>
               </div>
             )}
@@ -252,6 +259,7 @@ export default async function EstacioPage({ params }: { params: Params }) {
             }}
             month={month}
             today={today}
+            dryStreak={dryStreak ?? undefined}
           />
         </section>
       )}
@@ -339,7 +347,7 @@ export default async function EstacioPage({ params }: { params: Params }) {
           )}
           {history != null && (
             <Fact label="Dies sense pluja">
-              <span className="tnum">{history.dryStreak}</span>
+              <span className="tnum">{dryStreak}</span>
             </Fact>
           )}
         </div>

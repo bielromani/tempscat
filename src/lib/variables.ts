@@ -275,6 +275,26 @@ export const RICH_HOURLY: VariableSlug[] = [
  */
 export const LAPSE_RATE = 0.0065;
 
+/**
+ * La pressió d'una estació, reduïda al nivell del mar.
+ *
+ * La XEMA publica la pressió **a l'altura de l'estació** (codi 34), i és la
+ * correcta per a un baròmetre; però la que es llegeix a tot arreu —mapes,
+ * televisió, la predicció— és la reduïda. A Lilla la fitxa deia «967 hPa» i a
+ * Malgrat, a la mateixa hora, «1019»: 52 hPa de diferència que no eren cap
+ * borrasca, eren 480 m de desnivell. Qui ho llegeix només hi pot veure un
+ * temporal.
+ *
+ * És la fórmula hipsomètrica amb el gradient estàndard i la temperatura que
+ * mesura la mateixa estació, la que fan servir les estacions automàtiques quan
+ * donen la pressió reduïda. A 500 m, un error de 5 °C a la temperatura hi posa
+ * menys d'1 hPa.
+ */
+export function seaLevelPressure(stationHpa: number, altitudeM: number, tempC: number): number {
+  const k = LAPSE_RATE * altitudeM;
+  return stationHpa * Math.pow(1 - k / (tempC + k + 273.15), -5.257);
+}
+
 /** Peso que Open-Meteo cobrará por una petición. */
 export function callWeight(nVariables: number, forecastDays: number, nLocations: number): number {
   const varFactor = Math.max(1, nVariables / 10);

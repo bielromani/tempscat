@@ -2,8 +2,9 @@ import Link from 'next/link';
 import type { CurrentConditions, LocationForecast } from '@/lib/forecast-types';
 import type { Location } from '@/lib/territory';
 import { weatherCode } from '@/lib/weather-codes';
+import { unratedRainLabel } from '@/lib/narrative';
 import { skyStyle, drawsRain, drawsSnow } from '@/lib/sky';
-import { ago, deName, num, signed } from '@/lib/format';
+import { ago, deName, fromDirection, num, signed } from '@/lib/format';
 import { feelsCause, msToKmh, windCardinal } from '@/lib/variables';
 import { WeatherIcon } from './WeatherIcon';
 
@@ -51,6 +52,14 @@ interface Props {
   sunsetH: number | null;
   /** Posició al cicle lunar: 0 i 1 lluna nova, 0,5 plena. */
   moonPhase: number;
+  /**
+   * Hi ha un avís oficial de pluja o tempesta a aquesta hora.
+   *
+   * Aleshores el nom del cel no porta la intensitat del model —«Pluja», no
+   * «Pluja feble»—, perquè la targeta de sota diu una altra cosa. Ver
+   * `unratedRainLabel()`.
+   */
+  rainWarned?: boolean;
 }
 
 /** `2026-09-15T14` → 14,0. L'hora que la pàgina ja ensenya. */
@@ -62,6 +71,7 @@ function hourOf(iso: string | undefined): number {
 
 export function LocationHero({
   loc, comarcaLabel, breadcrumbs, current, nowHour, today, sunriseH, sunsetH, moonPhase,
+  rainWarned = false,
 }: Props) {
   const sky = skyStyle({
     hour: hourOf(nowHour?.time),
@@ -92,7 +102,9 @@ export function LocationHero({
   const tMin = dayMin.length ? Math.min(...dayMin) : null;
   const whole = t != null ? Math.trunc(t) : null;
   const decimal = t != null ? Math.abs(Math.round((t - Math.trunc(t)) * 10)) : null;
-  const condition = nowHour?.weatherCode != null ? weatherCode(nowHour.weatherCode).caLong : null;
+  const condition = nowHour?.weatherCode != null
+    ? (rainWarned && unratedRainLabel(nowHour.weatherCode)) || weatherCode(nowHour.weatherCode).caLong
+    : null;
   const corrected = current?.station.dAltM != null && Math.abs(current.station.dAltM) >= 25;
 
   /*
@@ -464,7 +476,7 @@ export function LocationHero({
                 : `Sensació de ${ap.toFixed(0)}°`;
           const wind = current?.windSpeed != null
             ? `vent ${msToKmh(current.windSpeed).toFixed(0)} km/h${
-              current.windDirection != null ? ` del ${windCardinal(current.windDirection)}` : ''}`
+              current.windDirection != null ? ` ${fromDirection(windCardinal(current.windDirection))}` : ''}`
             : null;
           if (!feels && !wind) return null;
           // Amb la sensació davant, el vent hi va en minúscula; sense ella, el

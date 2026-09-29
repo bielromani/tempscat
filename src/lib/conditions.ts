@@ -1,5 +1,6 @@
 import 'server-only';
 import { historyOfStation, localToday, type StationHistory } from './weather';
+import { dryStreakOf, withMeasuredRain, type MeasuredRain, type RainDay } from './recent-rain';
 
 /**
  * L'aigua acumulada d'una estació, per al bloc de pluja d'una fitxa.
@@ -53,6 +54,20 @@ export interface RainConditions {
    * es menor y entonces sí que no se sabe.
    */
   dryDaysChecked: number;
+  /**
+   * El último día que cuentan los números de lluvia.
+   *
+   * Hoy cuando la observación lo trae, que es lo normal. Sin ella, el último de
+   * la serie diaria, que va dos días tarde.
+   */
+  through: string;
+  /**
+   * Días seguidos sin llegar a 0,2 mm, hasta `through`.
+   *
+   * El worker de histórico guarda el mismo número en `dryStreak`, pero hasta
+   * donde llega su serie: dos días de menos, y ciego a lo que haya llovido hoy.
+   */
+  dryStreak: number;
   /** Media de las mínimas de los últimos diez días. */
   tMinAvg10: number | null;
   /** Media de las máximas de los últimos diez días. */
@@ -72,16 +87,32 @@ const WET_DAY_MM = 5;
  * ni una petició ni un byte de més: és aritmètica sobre el que ja hi ha.
  * `rainConditionsFor()` és per a qui encara no la té.
  */
-export function rainConditionsOf(history: StationHistory, today: string): RainConditions | null {
+export function rainConditionsOf(
+  history: StationHistory,
+  today: string,
+  measured: MeasuredRain | null = null,
+): RainConditions | null {
   const daily = history.daily.filter((d) => d.day <= today);
   if (daily.length < 10) return null;
 
-  const lastN = (n: number) => daily.slice(-n);
+  /*
+   * La pluja, fins avui; les temperatures, fins on arriba la sèrie.
+   *
+   * La sèrie diària va dos dies tard i sense `measured` els comptes de pluja
+   * s'acabaven abans d'ahir: amb 16,6 mm caiguts avui, el bloc deia que l'últim
+   * ruixat era de feia més de 45 dies. Ver `recent-rain.ts`. Les temperatures
+   * no s'hi enganxen: les d'avui venen corregides per l'altitud del lloc i les
+   * de la sèrie són les de l'estació, i barrejar-les en una mitjana de deu dies
+   * seria sumar dues coses diferents.
+   */
+  const wet = withMeasuredRain(daily, measured).filter((d) => d.day <= today);
 
-  const sum = (days: typeof daily) =>
+  const lastN = <T>(days: T[], n: number) => days.slice(-n);
+
+  const sum = (days: RainDay[]) =>
     Math.round(days.reduce((a, d) => a + (d.precip ?? 0), 0) * 10) / 10;
 
-  const withPrecip = (days: typeof daily) => days.filter((d) => d.precip != null).length;
+  const withPrecip = (days: RainDay[]) => days.filter((d) => d.precip != null).length;
 
   const avg = (days: typeof daily, get: (d: (typeof daily)[number]) => number | null) => {
     const xs = days.map(get).filter((v): v is number => v != null);
@@ -92,25 +123,27 @@ export function rainConditionsOf(history: StationHistory, today: string): RainCo
   // no cuenta como día seco — la misma regla que la racha seca.
   let daysSinceRain: number | null = null;
   let dryDaysChecked = 0;
-  for (let i = daily.length - 1; i >= 0; i--) {
-    const mm = daily[i].precip;
+  for (let i = wet.length - 1; i >= 0; i--) {
+    const mm = wet[i].precip;
     if (mm == null) break;
     if (mm >= WET_DAY_MM) {
-      daysSinceRain = daily.length - 1 - i;
+      daysSinceRain = wet.length - 1 - i;
       break;
     }
     dryDaysChecked++;
   }
 
-  const last10 = lastN(10);
+  const last10 = lastN(daily, 10);
 
   return {
     station: history.station,
-    rain15: sum(lastN(15)),
-    rain30: sum(lastN(30)),
-    days15: withPrecip(lastN(15)),
+    rain15: sum(lastN(wet, 15)),
+    rain30: sum(lastN(wet, 30)),
+    days15: withPrecip(lastN(wet, 15)),
     daysSinceRain,
     dryDaysChecked,
+    through: wet[wet.length - 1].day,
+    dryStreak: dryStreakOf(wet),
     tMinAvg10: avg(last10, (d) => d.tMin),
     tMaxAvg10: avg(last10, (d) => d.tMax),
     frostRecently: last10.some((d) => d.tMin != null && d.tMin < 0),

@@ -1,5 +1,5 @@
 import { WeatherIcon } from '@/components/WeatherIcon';
-import { hour, num } from '@/lib/format';
+import { fromDirection, hour, num } from '@/lib/format';
 import { temperatureColor } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import type { HourlyPoint } from '@/lib/forecast-types';
@@ -152,7 +152,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
               <li key={h.time} className="w-[68px] shrink-0 px-1 py-2 text-center">
                 <p className="text-[11px] text-[var(--muted)]">{i === 0 ? 'ara' : hour(h.time)}</p>
                 {h.windDirection != null ? (
-                  <div className="my-1 flex justify-center" title={`Ve del ${windCardinal(h.windDirection)}`}>
+                  <div className="my-1 flex justify-center" title={`Ve ${fromDirection(windCardinal(h.windDirection))}`}>
                     {/* La fletxa apunta cap on va el vent, no d'on ve: és el que
                         la gent llegeix sense pensar-hi. El cardinal de sota diu
                         l'origen, que és la convenció meteorològica. */}

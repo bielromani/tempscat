@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { WindRose } from './WindRose';
 import { msToKmh } from '@/lib/variables';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { int, num, ordinal, signed } from '@/lib/format';
+import { aName, deName, int, monthOf, num, ordinal, signed } from '@/lib/format';
 import { MONTH_MIN_DAYS } from '@/lib/climate-math';
 import type { StationHistory } from '@/lib/weather';
 import type { StationRef } from '@/lib/territory';
@@ -190,12 +190,28 @@ interface Props {
    * ficha: un enlace a la página en la que ya estás es ruido.
    */
   stationHref?: string;
+  /**
+   * Dies seguits sense pluja, comptats fins avui amb el que l'estació ja ha
+   * mesurat. El de `history` s'acaba on s'acaba la sèrie diària —dos dies
+   * enrere— i no veu la pluja d'avui: a Malgrat deia «fa 11 dies que no hi
+   * plou» el dia que n'hi queien 0,7 mm. Ver `recent-rain.ts`.
+   */
+  dryStreak?: number;
 }
 
-export function ClimateBlock({ history, station, month, today, stationHref }: Props) {
-  const { records, counters, normals, monthAnomaly, monthProgress, dryStreak } = history;
+export function ClimateBlock({
+  history, station, month, today, stationHref, dryStreak: dryStreakNow,
+}: Props) {
+  const { records, counters, normals, monthAnomaly, monthProgress } = history;
+  const dryStreak = dryStreakNow ?? history.dryStreak;
   const normal = normals.find((n) => n.month === month);
   const monthName = MONTHS[month - 1];
+  /*
+   * «de setembre» però «d'octubre», «d'abril» i «d'agost». Anava escrit a mà
+   * —`de ${monthName}`— i al setembre no es notava: l'1 d'octubre totes les
+   * fitxes haurien dit «dies de octubre». Ver `monthOf()`.
+   */
+  const deMonth = monthOf(month);
 
   /*
    * Cuánto se desvía el mes en curso, y **contra qué**.
@@ -322,8 +338,8 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           */}
           {monthProgress && (
             <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
-              Amb {monthProgress.days} {monthProgress.days === 1 ? 'dia' : 'dies'} de{' '}
-              {monthName} mesurats, a {station.nom} hi ha fet{' '}
+              Amb {monthProgress.days} {monthProgress.days === 1 ? 'dia' : 'dies'}{' '}
+              {deMonth} mesurats, {aName(station.nom)} hi ha fet{' '}
               <strong className="font-semibold text-[var(--ink)]">{num(monthProgress.tMean, 1)} °C</strong>{' '}
               de mitjana, contra els {num(monthProgress.normal, 1)} °C que hi solen fer
               aquests mateixos dies. És el{' '}
@@ -356,14 +372,14 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           {hasTemp && !monthProgress && monthCovered && monthDays.length < MONTH_MIN_DAYS && (
             <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
               Són {monthDays.length} {monthDays.length === 1 ? 'dia' : 'dies'} comparats amb la
-              mitjana de {monthName} sencer, i el {monthName} no comença com acaba:
+              mitjana {deMonth} sencer, i el {monthName} no comença com acaba:
               una part d&apos;aquests graus és el pas del mes i no una desviació.
             </p>
           )}
 
           <p className="mt-1.5 text-sm leading-relaxed text-[var(--muted)]">
             {hasTemp && (
-              `La mitjana de ${monthName} sencer a ${station.nom} és de `
+              `La mitjana ${deMonth} sencer ${aName(station.nom)} és de `
               + `${num(normal.tMean, 1)} °C, calculada sobre ${normal.years} anys `
               + 'de sèrie de la mateixa estació.'
             )}
@@ -385,9 +401,9 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
               + (monthCovered
                 ? ` sol ploure ${int(normal.precip)} mm en tot el mes, i dels `
                   + `${monthDays.length} ${monthDays.length === 1 ? 'dia' : 'dies'} `
-                  + `de ${monthName} que la sèrie ja té, n'han caigut `
+                  + `${deMonth} que la sèrie ja té, n'han caigut `
                   + `${int(counters.precip.month)} mm.`
-                : ` sol ploure ${int(normal.precip)} mm en tot el mes; de ${monthName} `
+                : ` sol ploure ${int(normal.precip)} mm en tot el mes; ${deMonth} `
                   + 'la sèrie encara no en té cap dia.')
             )}
             {/*
@@ -411,7 +427,7 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           {stationHref && (
             <p className="mt-3 text-sm">
               <Link href={`${stationHref}#anys`} className="font-medium text-[var(--accent)] no-underline hover:underline">
-                Com han anat els anys a {station.nom} ›
+                Com han anat els anys {aName(station.nom)} ›
               </Link>
             </p>
           )}
@@ -445,7 +461,7 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
         </p>
         {dryStreak >= 5 && (
           <p className="mt-2 text-sm text-[var(--ink-2)]">
-            Fa <strong className="font-semibold">{dryStreak} dies</strong> que no hi plou de manera apreciable.
+            Fa <strong className="font-semibold">{dryStreak} dies</strong> seguits que no hi plou gens.
           </p>
         )}
       </div>
@@ -515,14 +531,14 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           </table>
         </div>
         <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-          Mesurats a l&apos;estació de{' '}
+          Mesurats a l&apos;estació{' '}
           {stationHref
             ? (
               <Link href={stationHref} className="font-medium text-[var(--ink-2)] no-underline hover:underline">
-                {station.nom}
+                {deName(station.nom)}
               </Link>
             )
-            : <strong className="font-medium text-[var(--ink-2)]">{station.nom}</strong>},
+            : <strong className="font-medium text-[var(--ink-2)]">{deName(station.nom)}</strong>},
           a {num(station.distKm, 1)} km
           {station.dAltM != null && Math.abs(station.dAltM) >= 25 && ` i ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivell`}.
           {/*
@@ -571,7 +587,7 @@ export function ClimateBlock({ history, station, month, today, stationHref }: Pr
           {stationHref && (
             <p className="mt-2 text-xs text-[var(--muted)]">
               <Link href={stationHref} className="text-[var(--ink-2)] no-underline hover:underline">
-                Fitxa completa de l&apos;estació de {station.nom} ›
+                Fitxa completa de l&apos;estació {deName(station.nom)} ›
               </Link>
             </p>
           )}

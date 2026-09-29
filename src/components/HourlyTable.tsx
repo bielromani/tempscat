@@ -4,6 +4,7 @@ import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
 import { dateLong, dateShort, hour as hourLabel, num, relativeDay } from '@/lib/format';
 import type { HourlyPoint } from '@/lib/weather';
+import { rainWarnedAt, unratedRainLabel, type RainWarning } from '@/lib/narrative';
 
 /**
  * Tabla horaria detallada.
@@ -22,6 +23,12 @@ interface Props {
   hours?: number;
   /** Dia d'avui en hora local, per poder escriure "avui" i "dema". */
   today?: string;
+  /**
+   * Els avisos de pluja i tempesta del lloc. A les hores que cobreixen, el nom
+   * del temps no porta la intensitat del model: «Pluja», no «Pluja feble». La
+   * mateixa regla que el titular; ver `unratedRainLabel()`.
+   */
+  rainWarnings?: RainWarning[];
 }
 
 /**
@@ -35,7 +42,7 @@ interface Props {
  * Deixar-hi el `<details>` volia dir dos clics per veure una taula que ja
  * s'havia demanat, i un títol repetit a dins.
  */
-export function HourlyTable({ hourly, hours = 48, today }: Props) {
+export function HourlyTable({ hourly, hours = 48, today, rainWarnings = [] }: Props) {
   const data = hourly.slice(0, hours);
   if (!data.length) return null;
 
@@ -97,7 +104,9 @@ export function HourlyTable({ hourly, hours = 48, today }: Props) {
                     <td className="px-2 py-1.5">
                       <span className="flex items-center gap-1.5">
                         <WeatherIcon code={h.weatherCode} isDay={h.isDay} size={22} />
-                        <span className="hidden text-xs text-[var(--muted)] sm:inline">{w.ca}</span>
+                        <span className="hidden text-xs text-[var(--muted)] sm:inline">
+                          {(rainWarnedAt(rainWarnings, h.time) && unratedRainLabel(h.weatherCode)) || w.ca}
+                        </span>
                       </span>
                     </td>
                     <td className="px-2 py-1.5">

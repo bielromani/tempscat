@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { absolute } from '@/lib/site';
+import { publishedPlaces } from '@/lib/territory';
+
+const PLACES = publishedPlaces().toLocaleString('ca-ES');
 
 /**
  * Documentación del feed, en catalán y legible por una persona.
@@ -15,7 +18,7 @@ export const revalidate = 86_400;
 export const metadata: Metadata = {
   title: 'Dades obertes · API del temps a Catalunya',
   description:
-    'Feed públic en JSON i CSV per a qualsevol dels 4.293 llocs de Catalunya: '
+    `Feed públic en JSON i CSV per a qualsevol dels ${PLACES} llocs de Catalunya: `
     + 'observació de la XEMA, predicció multimodel, qualitat de l\'aire i avisos oficials.',
   alternates: { canonical: '/dades' },
 };
@@ -61,7 +64,7 @@ export default function DadesPage() {
         
         `Dataset` és el marcatge que llegeix el cercador de conjunts de dades de
         Google, i és **l'únic tipus d'aquest web que descriu el que el lloc té
-        de propi**: 4.293 punts amb la seva font, en JSON i en CSV, amb
+        de propi**: un punt per lloc amb la seva font, en JSON i en CSV, amb
         llicència declarada. Una pàgina de predicció competeix amb totes les
         altres pàgines de predicció; un conjunt de dades obert de Catalunya amb
         atribució per bloc, amb molt poques.
@@ -74,7 +77,7 @@ export default function DadesPage() {
           '@type': 'Dataset',
           name: 'El temps a Catalunya, poble a poble',
           description:
-            'Observació i predicció per a 4.293 poblacions de Catalunya: municipis, '
+            `Observació i predicció per a ${PLACES} poblacions de Catalunya: municipis, `
             + 'nuclis i entitats de població, cada punt amb la seva altitud i '
             + "l'estació automàtica de referència. En JSON i en CSV, sense clau.",
           url: absolute('/dades'),
@@ -112,7 +115,7 @@ export default function DadesPage() {
         <h1 className="page-title">Dades obertes</h1>
         <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
           Tot el que es veu en aquest web es pot llegir en JSON o en CSV, per a
-          qualsevol dels 4.293 llocs. No cal clau, no cal registre i no hi ha
+          qualsevol dels {PLACES} llocs. No cal clau, no cal registre i no hi ha
           límit de peticions: el feed llegeix els mateixos fitxers que la pàgina.
         </p>
       </header>

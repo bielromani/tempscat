@@ -11,7 +11,9 @@
  * señaló como inútil: a las cuatro pueden ser cuatro gotas y a las seis una
  * tromba, y el tramo entero se lee igual en los dos casos.
  */
-import { dayNotes, dayParts, narrativeFor, rainIntensity, rainWindows } from '../src/lib/narrative.ts';
+import {
+  dayNotes, dayParts, narrativeFor, rainIntensity, rainWindows, unratedRainLabel, type RainWarning,
+} from '../src/lib/narrative.ts';
 import type { HourlyPoint } from '../src/lib/forecast-types.ts';
 
 const DAY = '2026-11-14';
@@ -176,6 +178,73 @@ console.log('\n── Franges del dia, des de les 12 h ──');
 for (const p of dayParts(series({ 16: rain(3, 80), 17: rain(9, 90, 95) }), NOW, DAY)) {
   console.log(`  ${p.label.padEnd(22)} ${p.first.slice(11, 16)}–${p.last.slice(11, 16)}`
     + `  ${p.tMin}–${p.tMax} °C  ${p.precip} mm  ${p.precipProb} %`);
+}
+
+// ── Amb un avís oficial a sobre ────────────────────────────────────────────
+/*
+ * El 29 de setembre de 2026 la fitxa de Malgrat deia «Pluja feble» i «sempre
+ * feble» sota un avís taronja de 150 mm en dotze hores. Aquí ja no és una
+ * sortida per mirar: si torna a passar, falla.
+ */
+console.log('\n── Amb avís oficial ──');
+let bad = 0;
+function expect(what: string, ok: boolean, text: string | null | undefined) {
+  if (!ok) bad++;
+  console.log(`  ${ok ? '✓' : '✗'} ${what}\n      → ${text ?? '(res)'}`);
+}
+
+const weakRain = series({
+  14: rain(1.1, 80), 15: rain(1.2, 85), 16: rain(1.0, 85),
+  17: rain(1.3, 80), 18: rain(1.1, 75), 19: rain(1.2, 70),
+});
+const fc = (hours: HourlyPoint[], code = 61) => ({
+  hourly: hours,
+  daily: [{
+    date: DAY, tMax: 17, tMin: 9, weatherCode: code,
+    precipitation: 7, precipProbability: 90, precipHours: 6,
+    snowfall: 0, windMax: 4, gustMax: 9, windDirection: 200, uvMax: 2,
+    snowLevel: null, sunrise: null, sunset: null, spread: null,
+  }],
+  models: ['best_match'], nModels: 1, altitudeCorrectionM: null,
+  issuedAt: '', source: 'test', skillWeighted: false,
+});
+const taronja: RainWarning = { level: 'taronja', phenomenon: 'PR', from: `${DAY}T07`, to: `${DAY}T17` };
+
+{
+  const n = narrativeFor(fc(weakRain), null, NOW, DAY, [taronja]);
+  const text = `${n?.today} ${n?.change}`;
+  expect('sense «feble» sota un avís taronja', !/feble|moderada/.test(text), text);
+  expect('diu que hi ha avís', /avís taronja per pluja/.test(n?.change ?? ''), n?.change);
+  expect('i els mil·límetres del model hi són', /6,9 mm/.test(n?.change ?? ''), n?.change);
+  expect('el titular del cel sap que hi ha avís ara', n?.rainWarnedNow === true, String(n?.rainWarnedNow));
+  expect('«Pluja», no «Pluja feble»', unratedRainLabel(61) === 'Pluja' && unratedRainLabel(80) === 'Ruixats', `${unratedRainLabel(61)} · ${unratedRainLabel(80)}`);
+  expect('la tempesta no es toca', unratedRainLabel(95) === null, String(unratedRainLabel(95)));
+}
+
+{
+  // L'avís s'acaba a les 11 h i la pluja és de 14 a 19 h: no es toquen.
+  const early: RainWarning = { ...taronja, from: `${DAY}T06`, to: `${DAY}T11` };
+  const n = narrativeFor(fc(weakRain), null, NOW, DAY, [early]);
+  expect('un avís que no toca el tram no canvia la frase', /sempre feble/.test(n?.change ?? ''), n?.change);
+  expect('ni el titular del cel', n?.rainWarnedNow === false, String(n?.rainWarnedNow));
+}
+
+{
+  // El model ja veu pluja forta: no hi ha contradicció, i l'avís s'hi afegeix.
+  const strong = series({ 16: rain(4, 80), 17: rain(24, 95), 18: rain(6, 80) });
+  const n = narrativeFor(fc(strong), null, NOW, DAY, [taronja]);
+  expect('amb pluja forta, la frase de sempre i l\'avís', /forta/.test(n?.change ?? '') && /avís taronja/.test(n?.change ?? ''), n?.change);
+}
+
+{
+  // Avís a la zona, i el model no hi veu res en aquest punt.
+  const n = narrativeFor(fc(series({}), 3), null, NOW, DAY, [taronja]);
+  expect('avís sense pluja al model: es diu igual', /avís taronja per pluja a la zona/.test(n?.change ?? ''), n?.change);
+}
+
+if (bad) {
+  console.error(`\n${bad} ${bad === 1 ? 'fallada' : 'fallades'}.`);
+  process.exit(1);
 }
 
 console.log('\nOK');
