@@ -41,19 +41,23 @@ const SEO_CRAWLERS = ['AhrefsBot', 'SemrushBot', 'DataForSeoBot', 'MJ12bot', 'Do
 /*
  * Rutas que sirven bytes y no contenido.
  *
- * Las seis son route handlers que devuelven una imagen: teselas del radar, del
- * mapa base y del relieve, el campo de lluvia, el campo de viento y los
- * fotogramas de las cámaras. Un buscador no tiene nada que entender ahí dentro,
- * y en cambio son miles de ficheros —el mapa base solo, del zoom 6 al 14— que
- * se llevarían el presupuesto de rastreo y la cuota de salida.
+ * Son route handlers que devuelven una imagen: teselas del radar, del mapa
+ * base y del relieve, el campo de viento y los fotogramas de las cámaras. Un
+ * buscador no tiene nada que entender ahí dentro, y en cambio son miles de
+ * ficheros —el mapa base solo, del zoom 6 al 14— que se llevarían el
+ * presupuesto de rastreo y la cuota de salida.
+ *
+ * `/camp/` ya no existe: servía el campo de lluvia, que dejó de hacerse el 29
+ * de septiembre de 2026. Se queda en la lista porque esas URL salían en el
+ * HTML de `/radar`, una por hora, y sin el `Disallow` cada una que un
+ * rastreador se haya guardado sería una visita que acaba en un 404 renderizado.
  *
  * Aquí `Disallow` es la herramienta correcta y no la trampa que se explica
  * abajo con `/api/`: no hay ninguna URL que desindexar, solo tráfico que no
  * tiene por qué existir.
  *
  * Las fichas que las llevan dentro siguen siendo legibles sin ellas: el mapa de
- * una ruta o el bloque de «cap on va la pluja» son el dibujo de algo que el
- * texto de la página ya dice.
+ * una ruta es el dibujo de algo que el texto de la página ya dice.
  */
 const ASSET_PATHS = ['/radar/t/', '/base/', '/relleu/', '/camp/', '/vent/', '/cameres/i/'];
 

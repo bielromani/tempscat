@@ -59,8 +59,8 @@ const PLAN = [
   { file: 'diari.yml', at: (h, m) => h === 6 && m === 0 },
   { file: 'cameres.yml', at: (h, m) => m === 25 },
   { file: 'muntanya.yml', at: (h, m) => m === 40 },
-  // El camp de pluja del radar. No baixa cap dada nova: repinta les dotze
-  // hores següents amb la predicció que ja hi ha, perquè el futur del radar no
+  // El camp de vent del mapa. No baixa cap dada nova: torna a fer les dotze
+  // hores següents amb la predicció que ja hi ha, perquè el futur del mapa no
   // se'n vagi encongint entre refresc i refresc. A i 50 perquè l'hora nova
   // entri abans de començar.
   { file: 'camp.yml', at: (h, m) => m === 50 },

@@ -153,8 +153,14 @@ cristal—, un solo tema, marca **tempscat** con logo propio, Inter y los iconos
 - **La portada:** título, buscador y accesos rápidos al lado del mapa; las cuatro capitales
   ahora; la franja de avisos; los extremos; y todas las secciones con su icono.
 - **Fuera la lluvia futura**, a petición del usuario: ni en `/radar`, ni en el mapa
-  interactivo, ni el bloque «Cap on va la pluja» de la ficha. El worker del campo sigue
-  porque también da el viento del mapa interactivo (ver `AGENTS.md`).
+  interactivo, ni el bloque «Cap on va la pluja» de la ficha. Y después, en la rama
+  `sense-camp-de-pluja`, **tampoco se hace**: `forecast-field.ts` ya no pinta ni publica las
+  imágenes de lluvia ni su índice, y se borraron `precipField()`, `src/lib/field.ts` y la
+  ruta `/camp/`. El worker sigue, con el mismo nombre, porque también da el viento del mapa
+  interactivo; su salida de viento se comprobó idéntica byte a byte antes y después. La
+  cuota no cambia (129 unidades al día del anillo, con dos variables igual que con tres);
+  lo que se ahorra son escrituras en R2 y tiempo de worker. Detalle en `AGENTS.md`, «El
+  futuro del radar».
 - `/avisos` deja de ser una pared de bloques naranjas: tarjetas de cristal con el color oficial
   en el borde y en la pastilla.
 - Textos: el titular ya no escribe «El temps a els Albans» ni «a les 1 h»; el plugim solo
@@ -219,23 +225,41 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    **coste**. Tiene dos precios, y los decide el usuario: rompe la regla de «cero JavaScript en
    las fichas» y saca los números del HTML que lee el buscador.
 
+**Otra del usuario, pequeña pero antes de fusionar `producte`:**
+
+5. **El viento de `/mapa/interactiu` no sale desde el rediseño.** La página solo le pasa la
+   capa al mapa si cada hora del viento coincide con un marco de la barra de tiempo, y la barra
+   ya es solo radar, o sea pasado: no coincide ninguna, el botón «Vent» no se pinta y nada da
+   error. Comprobado el 29 de septiembre con el servidor de desarrollo y un índice de viento
+   recién hecho. **En producción aún sale**, casi siempre —de tres cargas ese día, una llegó
+   sin el botón: allí la puerta depende de que el índice de lluvia y el de viento se lean de
+   la misma vuelta—, y se apaga del todo al fusionar `producte`. Mientras siga así,
+   `forecast-field.ts` calcula y publica cada hora un viento que no lee nadie. Dos salidas:
+   - **Que vuelva:** la capa de viento con su propia barra de doce horas y el rótulo diciendo
+     que es predicción. Toca `InteractiveMap.tsx` —hoy la barra y el rótulo salen de los
+     marcos del radar, y el viento se busca por el instante del marco— y la puerta de la página.
+   - **Que se quite:** entonces sobra el worker entero —`camp.yml`, el último paso de
+     `prediccio.yml`, el anillo (129 unidades al día), `/vent/`, `wind.ts`, `wind-grid.ts` y
+     `wind-layer.ts`—, y el reloj de Cloudflare (`cloudflare/scheduler/worker.js`, que se
+     despliega aparte) tiene que dejar de llamar a `camp.yml`.
+
 **Sin decisión pendiente:**
 
-5. **Pregenerar menos en el build** (los 683 itinerarios y las 189 estaciones), para bajar el
+6. **Pregenerar menos en el build** (los 683 itinerarios y las 189 estaciones), para bajar el
    gigabyte de cada despliegue. Los ~3.300 núcleos ya se generan bajo demanda.
-6. **Revisar a ojo las fichas de detalle** después del rediseño: `/estacions/<codi>`,
+7. **Revisar a ojo las fichas de detalle** después del rediseño: `/estacions/<codi>`,
    `/cameres/<slug>`, `/senderisme/rutes/<slug>`, `/[comarca]` y la de núcleo. Recibieron el
    barrido de estilos, pero nadie las ha mirado en un móvil.
-7. **Reescribir los textos** para que el sitio suene a portal profesional. Las reglas de tono
+8. **Reescribir los textos** para que el sitio suene a portal profesional. Las reglas de tono
    están en `AGENTS.md`, «Cómo se escribe lo que lee el usuario».
-8. **Lo que quedó de la rama `credibilitat`:** los rótulos de los iconos hora a hora (el
+9. **Lo que quedó de la rama `credibilitat`:** los rótulos de los iconos hora a hora (el
    `<title>` y el `aria-label` de `WeatherIcon`) siguen diciendo «Pluja feble» bajo un aviso;
    la antigüedad de `/estat` lee con `Date.parse` las marcas sin zona —las de Open-Meteo, que
    son hora local— como si fueran UTC, y en Vercel salen dos horas cortas; la descripción
    general del sitio (`layout.tsx`) promete «consens multimodel», que es cierto en el 11 % de
    los puntos. Y `check:coherence` no lo lanza ningún workflow: se pasa a mano después de
    cada fusión, como `check:jsonld`.
-9. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa) · el buscador
+10. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa) · el buscador
    del móvil podría ser una pastilla «⌕ Cercar» · el trazador de Next avisa de que
    `join(LOCAL, path)` en `cache-store.ts` engancha los 5.525 ficheros de `data/cache/`; hoy no
    pasa nada porque no se versiona, y es una trampa esperando a que alguien lo haga.

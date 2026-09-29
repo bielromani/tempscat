@@ -18,8 +18,9 @@
  *
  * Un pas més enllà de la costa i de la ratlla de França a posta: si s'acabés
  * al límit exacte del país, arrossegar cap al mar ensenyaria el blanc just on
- * comença el Mediterrani. Són els mateixos graus que `RING_BOX` del camp de
- * pluja, i per la mateixa raó.
+ * comença el Mediterrani. El voltant de `forecast-field.ts` —els punts de
+ * predicció de fora de Catalunya— es demana sobre aquesta mateixa finestra,
+ * perquè el camp de vent la cobreixi sencera.
  */
 export const MAP_BOX = { west: 0.05, east: 3.45, south: 40.45, north: 42.95 };
 
