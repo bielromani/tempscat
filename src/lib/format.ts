@@ -118,10 +118,22 @@ export function hourAxis(iso: string): string {
   return `${parse(iso).hh} h`;
 }
 
-/** «les 8 h» / «les 8.30 h», como se escribe en catalán. */
+/**
+ * «les 8 h», «la 1 h»: una hora en punt amb el seu article.
+ *
+ * La 1 és l'única en singular, i per això no es pot escriure «a les ${h} h» a
+ * mà: la fitxa del Prat deia «fins demà a les 1 h». Sense `unit` no porta la
+ * «h», per a la primera meitat d'un interval: «de la 1 a les 3 h».
+ */
+export function theHour(h: number, unit = true): string {
+  const hh = ((h % 24) + 24) % 24;
+  return `${hh === 1 ? 'la' : 'les'} ${hh}${unit ? ' h' : ''}`;
+}
+
+/** «les 8 h» / «les 8.30 h» / «la 1 h», como se escribe en catalán. */
 export function hourSpoken(iso: string): string {
   const { hh, mm } = parse(iso);
-  return mm === 0 ? `les ${hh} h` : `les ${hh}.${String(mm).padStart(2, '0')} h`;
+  return mm === 0 ? theHour(hh) : `${hh === 1 ? 'la' : 'les'} ${hh}.${String(mm).padStart(2, '0')} h`;
 }
 
 // ── Fechas ──────────────────────────────────────────────────────────────────
@@ -240,6 +252,27 @@ export function aName(nom: string): string {
     case 'les ': return `a les ${rest}`;
     case "l'": return `a l'${rest}`;
     default: return `a ${nom}`;
+  }
+}
+
+/**
+ * «a» i el topònim, en dues peces: `{ prep: 'als', rest: 'Albans i Cal Xeret' }`.
+ *
+ * Per als titulars que posen la preposició en una línia i el nom en una altra.
+ * Escrivint «El temps a» damunt del nom, «els Albans» es llegia «El temps a
+ * els Albans»: la preposició s'ha de contraure amb l'article, i per tant
+ * l'article va amb ella. `joined` diu si entre les dues peces hi va un espai
+ * —«a l'» s'enganxa al nom—, perquè el text del titular sencer sigui el correcte.
+ */
+export function aNameParts(nom: string): { prep: string; rest: string; joined: boolean } {
+  const { article, rest } = splitArticle(nom);
+  switch (article) {
+    case 'el ': return { prep: 'al', rest, joined: false };
+    case 'els ': return { prep: 'als', rest, joined: false };
+    case 'la ': return { prep: 'a la', rest, joined: false };
+    case 'les ': return { prep: 'a les', rest, joined: false };
+    case "l'": return { prep: "a l'", rest, joined: true };
+    default: return { prep: 'a', rest: nom, joined: false };
   }
 }
 

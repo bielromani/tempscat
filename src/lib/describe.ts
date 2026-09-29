@@ -46,19 +46,21 @@ function altitudeSentence(loc: Location, parent: Location | null): string | null
   return `${loc.nom} és a ${loc.altitud} m d'altitud.`;
 }
 
+/**
+ * L'estació, només quan cal dir-ne alguna cosa més que el nom.
+ *
+ * El nom, la distància i el desnivell ja els diu el titular de la fitxa, just
+ * a sobre de la xifra; repetir-los aquí era llegir el mateix dues vegades. El
+ * que el titular no diu és que, amb més de cent metres de diferència, la
+ * temperatura que s'ensenya està corregida.
+ */
 function stationSentence(loc: Location): string | null {
   if (!loc.stationRef) return null;
-  const { nom, distKm, dAltM } = loc.stationRef;
-
-  const dist = distKm.toFixed(1).replace('.', ',');
-  if (dAltM != null && Math.abs(dAltM) >= 100) {
-    return `L'observació prové de l'estació automàtica ${deName(nom)}, a ${dist} km i `
-      + `${dAltM > 0 ? '' : '−'}${Math.abs(dAltM)} m de desnivell. Com que la diferència d'altitud `
-      + `és considerable, la temperatura que es mostra ja ve corregida; no és la lectura crua de l'estació.`;
-  }
-  return `L'observació prové de l'estació automàtica ${deName(nom)}, a ${dist} km`
-    + (dAltM != null && Math.abs(dAltM) >= 25 ? ` i ${dAltM > 0 ? '' : '−'}${Math.abs(dAltM)} m de desnivell` : '')
-    + `. És la més representativa d'aquest punt tenint en compte distància i cota.`;
+  const { nom, dAltM } = loc.stationRef;
+  if (dAltM == null || Math.abs(dAltM) < 100) return null;
+  return `L'estació més propera, la ${deName(nom)}, és ${Math.abs(dAltM)} m `
+    + `${dAltM > 0 ? 'més amunt' : 'més avall'}: la temperatura que es mostra està corregida `
+    + `per aquesta diferència, i no és la lectura directa de l'aparell.`;
 }
 
 function contextSentence(loc: Location, comarca: Comarca, siblings: Location[]): string | null {
@@ -132,8 +134,7 @@ export function describeMunicipi(
     if (spread >= 100) {
       parts.push(`El municipi té ${withAlt.length} nuclis més enllà de la capital, repartits entre `
         + `els ${min} i els ${max} m. Aquest desnivell de ${spread} m es tradueix en diferències `
-        + `de fins a ${(spread * LAPSE).toFixed(1).replace('.', ',')} °C entre uns i altres, `
-        + `motiu pel qual cada nucli té la seva pàgina i la seva correcció.`);
+        + `de fins a ${(spread * LAPSE).toFixed(1).replace('.', ',')} °C entre uns i altres.`);
     } else {
       parts.push(`El municipi té ${withAlt.length} nuclis més enllà de la capital, tots a cotes similars.`);
     }

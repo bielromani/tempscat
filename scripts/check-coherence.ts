@@ -112,8 +112,11 @@ function problems(text: string): string[] {
   const now = madridNow();
 
   // 1 ── La lluvia de hoy y el último día de lluvia.
-  const rain24 = /Pluja 24 h ([\d.,]+) mm/.exec(text);
-  const last = /(?:Últim ruixat|Últim dia de més de 5 mm) (avui|fa \d+ dies?|fa 1 dia|fa més de \d+ dies|no consta)/i.exec(text);
+  // Des del redisseny «Cel» és la rajola «Pluja · 24 h», amb dos punts darrere
+  // de l'últim dia: les dues formes, perquè una regla que deixa de casar no
+  // falla, calla.
+  const rain24 = /Pluja(?: ·)? 24 h:? ([\d.,]+) mm/.exec(text);
+  const last = /(?:Últim ruixat|Últim dia de més de 5 mm):? (avui|fa \d+ dies?|fa 1 dia|fa més de \d+ dies|no consta)/i.exec(text);
   if (rain24 && last) {
     const mm = Number(rain24[1].replace('.', '').replace(',', '.'));
     if (mm >= 10 && !/^(avui|fa 1 dia)$/i.test(last[1])) {
@@ -137,8 +140,8 @@ function problems(text: string): string[] {
     // Solo lo que habla de ahora: el cielo del titular y la frase. La tabla
     // horaria enseña 48 horas y las que caen fuera del aviso pueden decir
     // «Pluja feble» con razón.
-    const hero = /°\s+([^·]{3,40}?)\s+· màx\./.exec(text)?.[1] ?? '';
-    const headline = /Avui, [\s\S]*?(?=(?:Avui|Demà) a(?:l| la) |Les pròximes hores)/.exec(text)?.[0] ?? '';
+    const hero = /°\s+([^·]{3,40}?)\s+· [Mm]àx\./.exec(text)?.[1] ?? '';
+    const headline = /Avui, [\s\S]*?(?=(?:Avui|Demà) a(?:l| la) |Les pròximes hores|Pròximes 24 hores)/.exec(text)?.[0] ?? '';
     const weak = /(Pluja feble|Pluja moderada|Ruixats febles|Ruixats moderats|Plugim feble|sempre (?:feble|moderada)|no arriba a mullar el terra)/
       .exec(`${hero} · ${headline}`);
     if (weak) out.push(`avís de ${inForce[0][1].toLowerCase()} en vigor i «${weak[1]}»`);
@@ -149,6 +152,8 @@ function problems(text: string): string[] {
     /\b(?:vent|km\/h|Ve|vénen) del (?:E|ENE|ESE|O|ONO|OSO)\b/,
     /\b(?:de|a) (?:el|els) [A-ZÀ-Ú]/,
     /\bDins de (?!l'|la |les |el |els )[A-ZÀ-Ú]/,
+    // La 1 és l'única hora en singular: «a la 1 h».
+    /\bles 1 h\b/,
   ]) {
     const m = re.exec(text);
     if (m) out.push(`contracció: «${m[0]}»`);
@@ -159,8 +164,9 @@ function problems(text: string): string[] {
   if (rank && rank[1] === rank[2]) out.push(`«${rank[0]}»`);
 
   // 6 ── Una presión de estación que se lee como una borrasca.
-  const p = /Pressió (\d{3,4}) hPa/.exec(text);
-  if (p && Number(p[1]) < 960) out.push(`«Pressió ${p[1]} hPa» sense dir que és a l'estació`);
+  // La rajola escriu el separador de milers: «1.019 hPa».
+  const p = /Pressió (\d{1,2}\.?\d{3}|\d{3}) hPa/.exec(text);
+  if (p && Number(p[1].replace('.', '')) < 960) out.push(`«Pressió ${p[1]} hPa» sense dir que és a l'estació`);
 
   return out;
 }

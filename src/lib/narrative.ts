@@ -1,6 +1,6 @@
 import { msToKmh } from './variables.ts';
 import { dailySummaryCode, weatherCode } from './weather-codes.ts';
-import { num, relativeDay } from './format.ts';
+import { num, relativeDay, theHour } from './format.ts';
 import { LEVEL_RANK } from './warning-stack.ts';
 import type { CurrentConditions, HourlyPoint, LocationForecast } from './forecast-types.ts';
 
@@ -359,7 +359,7 @@ function atPhrase(iso: string, today: string, plus = 0): string {
   // 23 h + 1 no son las 24: se dice medianoche, y sin prefijo de día porque
   // «demà a mitjanit» apuntaría a la noche siguiente.
   if (h >= 24) return 'cap a mitjanit';
-  return `${dayPrefix(iso, today)}cap a les ${h} h`;
+  return `${dayPrefix(iso, today)}cap a ${theHour(h)}`;
 }
 
 /** «de les 15 a les 18 h» / «demà de les 10 a les 14 h». */
@@ -367,14 +367,16 @@ function rangePhrase(from: string, to: string, today: string): string {
   const h0 = Number(from.slice(11, 13));
   const h1 = Number(to.slice(11, 13));
   const p0 = dayPrefix(from, today);
+  // Un tram que acaba a les 23 h s'acaba a mitjanit, no «a les 24 h».
+  const end = h1 + 1 >= 24 ? 'mitjanit' : theHour(h1 + 1);
 
   if (from.slice(0, 10) === to.slice(0, 10)) {
     return h0 === h1
-      ? `${p0}cap a les ${h0} h`
-      : `${p0}de les ${h0} a les ${h1 + 1} h`;
+      ? `${p0}cap a ${theHour(h0)}`
+      : `${p0}de ${theHour(h0, false)} a ${end}`;
   }
   // Cruza la medianoche: hay que nombrar los dos días o no se entiende.
-  return `${p0}des de les ${h0} h fins ${dayPrefix(to, today)}a les ${h1 + 1} h`;
+  return `${p0}des de ${theHour(h0)} fins ${dayPrefix(to, today)}a ${end}`;
 }
 
 /**
@@ -391,6 +393,19 @@ function rangePhrase(from: string, to: string, today: string): string {
  *  3. **Continua.** El tramo es plano: se dice cuánto dura y con qué intensidad.
  *  4. **Intermitente.** Varios tramos: se listan y se nombra el peor.
  */
+/** Quan plou, sense dir com: «Pluja de les 16 a les 18 h», «Un ruixat cap a les 9 h». */
+function rainWhen(windows: RainWindow[], today: string): string {
+  return windows.length === 1
+    ? (windows[0].hours === 1
+      ? `Un ruixat ${atPhrase(windows[0].from, today)}`
+      : `Pluja ${rangePhrase(windows[0].from, windows[0].to, today)}`)
+    : `Ruixats intermitents, ${windows.map((w) => rangePhrase(w.from, w.to, today)).join(' i ')}`;
+}
+
+function rainTotal(windows: RainWindow[]): number {
+  return Math.round(windows.reduce((s, w) => s + w.mm, 0) * 10) / 10;
+}
+
 function rainSentence(
   windows: RainWindow[],
   today: string,
@@ -420,13 +435,7 @@ function rainSentence(
     const tail = `Hi ha ${warningPhrase(lead)} a la zona`;
 
     if (weak) {
-      const total = Math.round(windows.reduce((s2, w) => s2 + w.mm, 0) * 10) / 10;
-      const when = windows.length === 1
-        ? (windows[0].hours === 1
-          ? `Un ruixat ${atPhrase(windows[0].from, today)}`
-          : `Pluja ${rangePhrase(windows[0].from, windows[0].to, today)}`)
-        : `Ruixats intermitents, ${windows.map((w) => rangePhrase(w.from, w.to, today)).join(' i ')}`;
-      return `${when}${storm(worst)}: aquí el model en preveu ${num(total, 1)} mm. `
+      return `${rainWhen(windows, today)}${storm(worst)}: aquí el model en preveu ${num(rainTotal(windows), 1)} mm. `
         + `${tail}, i en alguns punts en pot caure molta més.`;
     }
     const plain = rainSentence(windows, today);
@@ -448,11 +457,21 @@ function rainSentence(
      * La frase decía «quatre gotes», que es de conversación y no de un servicio
      * meteorológico. Ahora dice qué pasa —plugim, y no llega a mojar el suelo—,
      * que es lo mismo y además es comprobable.
+     *
+     * **Pero solo si el total también es poco.** Ocho horas de 0,3 mm son 2,7 mm,
+     * y eso moja el suelo aunque ninguna hora llegue a medio milímetro: la
+     * ficha de Malgrat decía «2,7 mm en tot el tram: no arriba a mullar el
+     * terra» el 29 de septiembre de 2026. El corte está en 1 mm, que es donde
+     * la AEMET empieza a contar un día de lluvia apreciable.
      */
     if (w.peak.mm < 0.5) {
-      return `Plugim ${rangePhrase(w.from, w.to, today)}, amb un ${w.prob} % de `
-        + `probabilitat i ${num(w.mm, 1)} mm en tot el tram: no arriba a mullar `
-        + `el terra${storm(w)}.`;
+      return w.mm < 1
+        ? `Plugim ${rangePhrase(w.from, w.to, today)}, amb un ${w.prob} % de `
+          + `probabilitat i ${num(w.mm, 1)} mm en tot el tram: no arriba a mullar `
+          + `el terra${storm(w)}.`
+        : `Plugim ${rangePhrase(w.from, w.to, today)}, amb un ${w.prob} % de `
+          + `probabilitat: poca intensitat, però ${num(w.mm, 1)} mm en tot el tram, `
+          + `prou per mullar el terra${storm(w)}.`;
     }
 
     if (w.concentrated) {
@@ -792,6 +811,21 @@ export function narrativeFor(
     const lead = strongest(warned24);
     change = `Hi ha ${warningPhrase(lead)} a la zona ${rangePhrase(lead.from, lead.to, today)}, `
       + 'tot i que aquí el model no hi preveu pluja.';
+  } else if (change && warned24.length
+    && !windows.some((w) => warningsOver(warned24, w.from, w.to).length)) {
+    /*
+     * I si el model sí que veu pluja, però a unes altres hores.
+     *
+     * Amb un groc per pluja vigent fins a les 22 h, l'Albagés deia «Plugim
+     * demà de les 16 a les 18 h […]: no arriba a mullar el terra» i res de
+     * l'avís —el 29 de setembre de 2026—. Cada frase era certa i juntes deien
+     * que avui no passa res. Primer l'avís, i la pluja del model després,
+     * en mil·límetres i sense adjectiu: el mateix que quan hi coincideix.
+     */
+    const lead = strongest(warned24);
+    change = `Hi ha ${warningPhrase(lead)} a la zona ${rangePhrase(lead.from, lead.to, today)}, `
+      + 'tot i que aquí el model no hi preveu pluja en aquestes hores. '
+      + `${rainWhen(windows, today)}: el model en preveu ${num(rainTotal(windows), 1)} mm.`;
   }
   if (!change && d0.snowLevel != null) {
     change = `Nevarà per damunt dels ${d0.snowLevel} m.`;
