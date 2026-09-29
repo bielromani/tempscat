@@ -130,6 +130,18 @@ auditoría de la web publicada un día de avisos naranja. `npm run check:coheren
 - Una sola cifra de lugares en todo el sitio (4.250; el 4.293 contaba las comarcas).
 - `/estat`, en hora de Madrid, y el mensaje técnico de cada fallo, plegado.
 
+**Frescura (29 sep, lote `frescor`).** Las fichas leen sus trece datos a la vez
+(`fichaData()`: de 795 a 350-500 ms en frío) y las de núcleo están en una prueba de 48 h
+sin ISR. Qué mirar, en «Lo que falta», punto 0.
+
+**La ficha como producto (29 sep, rama `producte`).** De 11 pantallas de móvil a 5: arriba
+y abierto lo que se consulta —cielo, avisos, frase y franjas, próximas horas, 14 días, por
+qué el tiempo aquí es distinto—, y el resto en tarjetas plegadas (`Fold`, un `<details>`)
+que enseñan su cifra en una línea. Medido a 390 px: Lilla de 9.371 a 4.216 px, Malgrat de
+10.017 a 4.629. El HTML pesa lo mismo: lo plegado sigue ahí para el buscador. De paso, en
+escritorio con tema claro la barra del web era **texto blanco sobre blanco** fuera del
+cielo; ahora cabe dentro.
+
 **Almacén.** `DATA_BASE_URL` = `https://dades.tempscat.cat` en Vercel (los tres entornos), en
 GitHub Actions y en `.env.local`. Antes de cambiarlo se comprobó que el dominio nuevo sirve
 exactamente lo mismo que `r2.dev`: contenido y ETag idénticos, los mismos 404, `304` en las

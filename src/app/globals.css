@@ -638,6 +638,53 @@ button:focus-visible,
   color: var(--muted);
 }
 
+/* ── Blocs plegats ──────────────────────────────────────────────────────────
+
+   La capçalera d'un `<details>` té l'aspecte d'una targeta, i el contingut va
+   a sota, fora d'ella: els blocs de dins ja porten `.card`. El triangle del
+   navegador es treu i en fa la feina un angle a la dreta, que gira en obrir-se.
+   Ver `Fold.tsx`.                                                          */
+
+.fold { margin-top: 10px; }
+
+.fold > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  padding: 13px 18px;
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::marker { content: ""; }
+
+.fold > summary::after {
+  content: "";
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+.fold[open] > summary::after { transform: rotate(-135deg); margin-top: 4px; }
+.fold > summary:hover { border-color: var(--line); }
+.fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.fold-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fold-summary { font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
+.fold-body { margin-top: 12px; margin-bottom: 18px; }
+
+/* El primer bloc plegat d'una tanda es separa del que hi ha a sobre. */
+.folds { margin-top: 28px; }
+.folds > h2 { margin-bottom: 4px; }
+
 /* ── L'amplada del web ──────────────────────────────────────────────────────
 
    Una columna, i la mateixa per a tot. El text porta un límit de mesura i les
@@ -800,6 +847,22 @@ body:has([data-hero]) > header input {
 
 body:has([data-hero]) > header input::placeholder {
   color: oklch(99% 0 0 / 0.7);
+}
+
+/* En pantalla ampla la barra ha de cabre dins del cel.
+
+   El cel és la columna de 38 rem i la barra en feia 64, així que en un
+   portàtil els seus extrems quedaven fora del titular: «El temps», «Mapa» i
+   «Radar» eren text blanc damunt del fons clar de la pàgina, invisibles amb el
+   tema clar. Amb el tema fosc no es veia, que és per on va passar per alt.
+   Aquí la barra pren l'amplada de la columna i el marge interior del cel
+   (`sm:px-7` a `LocationHero`), i queda alineada amb el text de sota. Al
+   mòbil el cel ja ocupa tota l'amplada i no cal res. */
+@media (min-width: 640px) {
+  body:has([data-hero]) > header > div {
+    max-width: 38rem;
+    padding-inline: 3rem;
+  }
 }
 
 /* La barra ja no ocupa lloc, així que el contingut arrenca a dalt de tot i el

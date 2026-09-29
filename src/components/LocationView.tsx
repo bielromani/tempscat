@@ -8,7 +8,8 @@ import { NextHours } from '@/components/NextHours';
 import { HourlyTable } from './HourlyTable';
 import { SunMoon } from './SunMoon';
 import { ClimateBlock } from './ClimateBlock';
-import { RainBlock } from './RainBlock';
+import { RainBlock, lastWetDay } from './RainBlock';
+import { Fold } from './Fold';
 import { LocalRain } from './LocalRain';
 import { rainConditionsOf } from '@/lib/conditions';
 import { AirQuality } from './AirQuality';
@@ -23,10 +24,12 @@ import { networkLabel, refApart, type Route } from '@/lib/routes';
 import { radarZoneOf } from '@/lib/radar-zones';
 import type { LocalRainData } from '@/lib/local-rain';
 import { temperatureColor } from '@/lib/scales';
+import { aqiBand } from '@/lib/air-variables';
+import { gaugeName } from '@/lib/water';
 import { msToKmh, seaLevelPressure, windCardinal } from '@/lib/variables';
 import {
-  aComarca, aName, ago, comarcaName, dateTiny, deComarca, int, num, relativeDayTiny,
-  signed, tempTiny,
+  aComarca, aName, ago, comarcaName, dateTiny, deComarca, deName, int, monthName, num,
+  relativeDayTiny, signed, tempTiny,
 } from '@/lib/format';
 import { localNowHour, localToday } from '@/lib/weather';
 import type {
@@ -65,6 +68,16 @@ function decimalHour(d: Date | null | undefined): number | null {
   const hm = d.toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).slice(11, 16);
   const [h, m] = hm.split(':').map(Number);
   return Number.isFinite(h) && Number.isFinite(m) ? h + m / 60 : null;
+}
+
+/** 07:44 — l'hora de Madrid d'un instant, per a les línies de resum. */
+function clock(d: Date | null | undefined): string | null {
+  return d ? d.toLocaleTimeString('ca-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }) : null;
+}
+
+/** Les peces que hi són, separades per un punt volat. */
+function joinBits(bits: Array<string | false | null | undefined>): string {
+  return bits.filter(Boolean).join(' · ');
 }
 
 /**
@@ -131,9 +144,8 @@ function NowGrid({
   const fromModel = cells.filter((c) => c.model).map((c) => c.k);
 
   return (
-    <section className="card card-block" aria-label="Totes les mesures d'ara mateix">
-      <h2 className="card-title">Ara mateix, tota la lectura</h2>
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3.5 sm:grid-cols-3">
+    <div className="card">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5 sm:grid-cols-3">
         {cells.map((c) => (
           <div key={c.k}>
             <dt className="text-[12px] text-[var(--muted)]">{c.k}</dt>
@@ -170,7 +182,7 @@ function NowGrid({
           </>
         )}
       </p>
-    </section>
+    </div>
   );
 }
 
@@ -275,11 +287,8 @@ function DailyStrip({ daily, today }: { daily: LocationForecast['daily']; today:
       </ol>
       {daily.length > CONFIDENT_DAYS && (
         <p className="mt-3 measure text-xs leading-relaxed text-[var(--muted)]">
-          Els dies que queden després de la ratlla són <strong className="font-medium text-[var(--ink-2)]">tendència,
-          no predicció</strong>. Un model encerta força la setmana que ve i molt
-          menys la següent, així que allà no hi ha mil·límetres —a dotze dies
-          vista la quantitat és soroll— i sí la probabilitat, que encara diu
-          alguna cosa. Serveixen per veure cap on va, no per fer plans.
+          Després de la ratlla, <strong className="font-medium text-[var(--ink-2)]">tendència
+          i no predicció</strong>: sense mil·límetres, només la probabilitat de pluja.
         </p>
       )}
     </div>
@@ -435,49 +444,24 @@ export function LocationView({
 
       <WarningBanner warnings={warnings} />
 
-      {current && (
-        <NowGrid
-          current={current}
-          nowHour={nowHour}
-          stationAltitude={stationByCodi(current.station.codi)?.altitud ?? null}
-        />
-      )}
-
-      {/* La interpretación va inmediatamente después del número grande: el
-          termómetro es el gancho y la frase es la respuesta. */}
-      {narrative && <Headline narrative={narrative} />}
       {/*
         * ── L'ordre d'aquesta pàgina ─────────────────────────────────────────
         *
-        * Havia crescut per acumulació: cada bloc nou anava a continuació de
-        * l'anterior, i la qualitat de l'aire —que va ser dels primers— havia
-        * quedat entre el termòmetre i la predicció. En una fitxa de nucli això
-        * volia dir una pantalla sencera de contaminants i pol·len abans de
-        * saber si plouria.
+        * Havia crescut per acumulació fins a onze pantalles de mòbil, i tots els
+        * blocs pesaven igual. Ara n'hi ha dues parts:
         *
-        * Ara mana la pregunta que porta el lector aquí:
+        *   1. Oberta, i seguida: què fa ara (el titular), què vol dir (la frase
+        *      i les franges), què passarà aviat (les hores) i la setmana (els
+        *      dies). És el que ve a buscar gairebé tothom.
+        *   2. Plegada, amb la xifra que la resumeix a la vista: la lectura
+        *      sencera, el gràfic i la taula de 48 h, l'aire, el mar, l'aigua,
+        *      la pluja caiguda, el clima, la comarca, el sol i la lluna.
         *
-        *   1. Quant fa ara            → Current
-        *   2. Què vol dir             → Headline
-        *   3. Què passarà aviat       → NextHours, 7 dies, meteograma, taula
-        *   4. La resta                → aire, mar, aigua, comparativa, clima
-        *
-        * Si algun dia s'hi afegeix un bloc, va al calaix 4 mentre no respongui
-        * una pregunta més urgent que les tres primeres.
+        * Si algun dia s'hi afegeix un bloc, va plegat mentre no respongui una
+        * pregunta més urgent que les de la primera part.
         */}
+      {narrative && <Headline narrative={narrative} />}
 
-      {/*
-        * Les pròximes hores, abans que res.
-        *
-        * L'ordre d'aquesta pàgina havia anat creixent per acumulació, i acabava
-        * posant la qualitat de l'aire —sis contaminants, la tira del dia i el
-        * pol·len— entre el termòmetre i la predicció. O sigui: allò que ve a
-        * mirar gairebé tothom quedava sota una pantalla de dades secundàries.
-        *
-        * Aquesta tira respon «què passarà d'aquí a tres hores» d'un cop d'ull.
-        * El meteograma i la taula es queden, més avall: serveixen per veure
-        * relacions i per buscar un valor, que són preguntes diferents.
-        */}
       {forecast && forecast.hourly.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 card-title">Les pròximes hores</h2>
@@ -488,17 +472,8 @@ export function LocationView({
             id={loc.id}
           />
           {/*
-            La porta al radar del seu tros, que no existia.
-
-            Des d'una fitxa l'única manera d'arribar-hi era el menú, que obre
-            Catalunya sencera; des d'allà calia endevinar en quina de les sis
-            zones cau el teu poble. I la pregunta que porta algú al radar des
-            d'aquí no és «on plou» en general: és si allò que ve li tocarà.
-
-            No hi ha zoom més enllà d'aquestes zones i no n'hi pot haver: la
-            imatge de radar té un píxel cada 457 m, que ja és més fi que la
-            pròpia mesura, i una comarca sencera hi són seixanta-sis píxels.
-            El que canvia és **on** es mira, no com de prop.
+            La porta al radar del seu tros. La pregunta que porta algú al radar
+            des d'aquí no és «on plou» en general: és si allò que ve li tocarà.
           */}
           {zone && (
             <p className="mt-2 text-sm">
@@ -514,13 +489,8 @@ export function LocationView({
       )}
 
       {/*
-        Cap on va la pluja, i només quan n'hi ha.
-
-        Va aquí, just després de les hores i abans dels dies: la pregunta que
-        contesta —«això que ve, em tocarà?»— es fa mirant les pròximes hores,
-        no la setmana. I la porta és la predicció d'aquest punt, no el radar:
-        un eco a cent quilòmetres que se'n va cap a França no fa que aquesta
-        fitxa hagi d'ensenyar cap mapa. Ver `localRainFor()`.
+        Cap on va la pluja, i només quan n'hi ha: la porta és la predicció
+        d'aquest punt, no el radar. Ver `localRainFor()`.
       */}
       {localRain && loc.lat != null && loc.lon != null && (
         <section className="mt-8">
@@ -540,76 +510,6 @@ export function LocationView({
         </section>
       )}
 
-      {/*
-        * Les mateixes 48 hores, com a dibuix o com a xifres.
-        *
-        * Estaven en dos blocs seguits —el gràfic, els pròxims dies, i després
-        * la taula— i eren la mateixa predicció dues vegades: temperatura, pluja
-        * i vent al gràfic, i temperatura, pluja i vent a la taula. Es notava, i
-        * amb raó.
-        *
-        * Cadascun té el seu motiu, així que no en sobra cap: el gràfic ensenya
-        * la forma i el marge de desacord entre models; la taula ensenya el que
-        * el gràfic no pot dir —sensació, humitat, UV, neu— hora per hora. El
-        * que sobrava era llegir-los un darrere l'altre.
-        *
-        * Les pestanyes són dos radios i dos panells amb `:checked`, com les de
-        * `NextHours`. Els panells han de ser `section` i la barra un `div`:
-        * `nth-of-type` compta per etiqueta i no per classe, i barrejar-los
-        * corre tots els índexs — ja va passar.
-        */}
-      {forecast && forecast.hourly.length > 0 && (
-        <section className="mt-8">
-          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="card-title">Pròximes 48 hores</h2>
-            <p className="text-xs text-[var(--muted)]">
-              {forecast.nModels > 1
-                ? `Consens de ${forecast.nModels} models de predicció`
-                : 'Un sol model de predicció'}
-              {forecast.altitudeCorrectionM != null &&
-                ` · corregit ${signed(forecast.altitudeCorrectionM, 0, 'm')} d'altitud`}
-            </p>
-          </div>
-
-          <div className="tabs">
-            <input type="radio" name={`h-${loc.id}`} id={`h-${loc.id}-1`} defaultChecked />
-            <input type="radio" name={`h-${loc.id}`} id={`h-${loc.id}-2`} />
-
-            <div className="tablist mb-3 flex gap-5 border-b border-[var(--line-soft)] text-sm">
-              <label htmlFor={`h-${loc.id}-1`} className="pb-2">Gràfic</label>
-              <label htmlFor={`h-${loc.id}-2`} className="pb-2">Hora per hora</label>
-            </div>
-
-            <section className="panel">
-              <Meteogram
-                hourly={forecast.hourly}
-                hours={48}
-                showSpread={forecast.nModels > 1}
-                nowHour={nowIso}
-                tableFor={`h-${loc.id}-2`}
-              />
-              {/* La franja de desacord del gràfic és correcta i ningú la sap
-                  llegir. El que cal saber és fins quin dia es pot confiar en el
-                  número, i això és una frase, no una àrea ombrejada. */}
-              {narrative?.uncertainty && (
-                <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
-                  {narrative.uncertainty}
-                </p>
-              )}
-            </section>
-
-            <section className="panel scroll-x">
-              <HourlyTable
-                hourly={forecast.hourly}
-                hours={48}
-                today={today}
-                rainWarnings={narrative?.rainWarnings}
-              />
-            </section>
-          </div>
-        </section>
-      )}
-
       {forecast && forecast.daily.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 card-title">Els pròxims dies</h2>
@@ -617,88 +517,20 @@ export function LocationView({
         </section>
       )}
 
+      {/* La tesi del lloc, a la vista: és el que no diu cap altre web. */}
+      <section className="mt-8">
+        <h2 className="mb-2 card-title">
+          Per què el temps {aName(loc.nom)} és diferent
+        </h2>
+        <p className="measure leading-relaxed text-[var(--ink-2)]">{description}</p>
+      </section>
 
-      {(air || airStation) && (
-        <section className="mt-8">
-          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="card-title">Qualitat de l&apos;aire</h2>
-            {air && (
-              <p className="text-xs text-[var(--muted)]">Model CAMS · cel·la de {air.cellKm} km</p>
-            )}
-          </div>
-          {air && <AirQuality air={air} today={today} />}
-          {/* La medida real debajo del modelo, y diciendo que es de ayer. */}
-          {airStation && <MeasuredAir station={airStation} />}
-        </section>
-      )}
-
-
-      {sea && (
-        <section className="mt-8">
-          <h2 className="mb-3 card-title">El mar</h2>
-          <SeaBlock sea={sea} nom={loc.nom} />
-        </section>
-      )}
-
-      {water && (
-        <section className="mt-8">
-          <h2 className="mb-3 card-title">Aigua</h2>
-          <WaterBlock water={water} nom={loc.nom} />
-        </section>
-      )}
-
-      {routes.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 card-title">
-            Itineraris senyalitzats {deComarca(comarca.nom)}
-          </h2>
-          <ul className="grid list-none gap-2 p-0 sm:grid-cols-2">
-            {routes.map((r) => (
-              <li key={r.slug}>
-                <Link
-                  href={`/senderisme/rutes/${r.slug}`}
-                  className="block rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2 no-underline"
-                >
-                  <span className="text-sm font-medium text-[var(--ink)]">{r.name}</span>
-                  <span className="block text-xs text-[var(--muted)]">
-                    {[
-                      refApart(r),
-                      networkLabel(r.network),
-                      `${num(r.km, 1)} km`,
-                      r.minM != null && r.maxM != null && `${int(r.minM)}–${int(r.maxM)} m`,
-                    ].filter(Boolean).join(' · ')}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-xs text-[var(--muted)]">
-            Traçats d&apos;OpenStreetMap (ODbL).{' '}
-            <Link href="/senderisme/rutes" className="text-[var(--ink-2)]">Tots els itineraris</Link>.
-          </p>
-        </section>
-      )}
-
-      {comparison && (
-        <section className="mt-8">
-          <h2 className="mb-3 card-title">
-            Com queda dins {deComarca(comparison.comarca.nom)}
-          </h2>
-          <ComarcaCompare cmp={comparison} nom={loc.nom} />
-        </section>
-      )}
-
-      {astro && (
-        <section className="mt-8">
-          <h2 className="mb-3 card-title">Sol i lluna</h2>
-          <SunMoon astro={astro} />
-        </section>
-      )}
-
+      {/* Rars —sis estacions d'esquí i vint-i-quatre càmeres— i molt visuals:
+          quan hi són, van oberts. */}
       {resort && (
         <section className="mt-8">
           <h2 className="mb-3 card-title">
-            {resort.resort.name}, l’estació d’esquí més propera
+            {resort.resort.name}, l&apos;estació d&apos;esquí més propera
           </h2>
           <ResortBlock
             resort={resort.resort}
@@ -727,44 +559,224 @@ export function LocationView({
         </section>
       )}
 
-      <section className="mt-8">
-        <h2 className="mb-2 card-title">
-          Per què el temps {aName(loc.nom)} és diferent
-        </h2>
-        <p className="measure leading-relaxed text-[var(--ink-2)]">{description}</p>
-      </section>
+      <div className="folds">
+        {current && (
+          <Fold
+            id="ara"
+            title="Ara mateix, tota la lectura"
+            summary={joinBits([
+              current.humidity != null && `Humitat ${Math.round(current.humidity)} %`,
+              current.precip24h != null && `pluja 24 h ${num(current.precip24h, 1)} mm`,
+              current.windGust != null && `ratxa ${msToKmh(current.windGust).toFixed(0)} km/h`,
+            ])}
+          >
+            <NowGrid
+              current={current}
+              nowHour={nowHour}
+              stationAltitude={stationByCodi(current.station.codi)?.altitud ?? null}
+            />
+          </Fold>
+        )}
 
-      {/*
-        L'aigua acumulada. Surt de la mateixa sèrie diària que el bloc de clima,
-        que la fitxa ja s'ha baixat: no costa cap petició ni cap byte de més.
-      */}
-      {rain && current && (
-        <section className="mt-8">
-          <h2 className="mb-3 card-title">
-            L&apos;aigua que ha caigut
-          </h2>
-          <RainBlock
-            conditions={rain}
-            station={current.station}
-            stationHref={`/estacions/${current.station.codi}`}
-            ytd={history?.rainProgress}
-          />
-        </section>
-      )}
+        {/*
+          * Les mateixes 48 hores, com a dibuix o com a xifres.
+          *
+          * El gràfic ensenya la forma i el marge de desacord entre models; la
+          * taula, el que el gràfic no pot dir —sensació, humitat, UV, neu— hora
+          * per hora. Les pestanyes són dos radios i dos panells amb `:checked`:
+          * els panells han de ser `section` i la barra un `div`, perquè
+          * `nth-of-type` compta per etiqueta i no per classe.
+          */}
+        {forecast && forecast.hourly.length > 0 && (
+          <Fold
+            id="48h"
+            title="Gràfic i taula de 48 hores"
+            summary={joinBits([
+              forecast.nModels > 1 ? `Consens de ${forecast.nModels} models de predicció` : 'Un sol model de predicció',
+              forecast.altitudeCorrectionM != null && `corregit ${signed(forecast.altitudeCorrectionM, 0, 'm')} d'altitud`,
+            ])}
+          >
+            <div className="tabs">
+              <input type="radio" name={`h-${loc.id}`} id={`h-${loc.id}-1`} defaultChecked />
+              <input type="radio" name={`h-${loc.id}`} id={`h-${loc.id}-2`} />
 
-      {history && current && (
-        <section className="mt-8">
-          <h2 className="mb-3 card-title">Clima i rècords</h2>
-          <ClimateBlock
-            history={history}
-            station={current.station}
-            month={Number(today.slice(5, 7))}
-            today={today}
-            stationHref={`/estacions/${current.station.codi}`}
-            dryStreak={rain?.dryStreak}
-          />
-        </section>
-      )}
+              <div className="tablist mb-3 flex gap-5 border-b border-[var(--line-soft)] text-sm">
+                <label htmlFor={`h-${loc.id}-1`} className="pb-2">Gràfic</label>
+                <label htmlFor={`h-${loc.id}-2`} className="pb-2">Hora per hora</label>
+              </div>
+
+              <section className="panel">
+                <Meteogram
+                  hourly={forecast.hourly}
+                  hours={48}
+                  showSpread={forecast.nModels > 1}
+                  nowHour={nowIso}
+                  tableFor={`h-${loc.id}-2`}
+                />
+                {narrative?.uncertainty && (
+                  <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
+                    {narrative.uncertainty}
+                  </p>
+                )}
+              </section>
+
+              <section className="panel scroll-x">
+                <HourlyTable
+                  hourly={forecast.hourly}
+                  hours={48}
+                  today={today}
+                  rainWarnings={narrative?.rainWarnings}
+                />
+              </section>
+            </div>
+          </Fold>
+        )}
+
+        {(air || airStation) && (
+          <Fold
+            id="aire"
+            title="Qualitat de l'aire"
+            summary={air?.aqi != null
+              ? `Índex europeu ${air.aqi} · ${aqiBand(air.aqi).ca}`
+              : "Mesurada a l'estació més propera"}
+          >
+            {air && (
+              <p className="mb-2 text-xs text-[var(--muted)]">Model CAMS · cel·la de {air.cellKm} km</p>
+            )}
+            {air && <AirQuality air={air} today={today} />}
+            {/* La medida real debajo del modelo, y diciendo que es de ayer. */}
+            {airStation && <MeasuredAir station={airStation} />}
+          </Fold>
+        )}
+
+        {sea && (
+          <Fold
+            id="mar"
+            title="El mar"
+            summary={joinBits([
+              sea.now?.sst != null && `Aigua a ${num(sea.now.sst, 1)} °C`,
+              sea.now?.waveHeight != null && `onada de ${num(sea.now.waveHeight, 1)} m`,
+            ]) || undefined}
+          >
+            <SeaBlock sea={sea} nom={loc.nom} />
+          </Fold>
+        )}
+
+        {water && (
+          <Fold
+            id="aigua"
+            title="Aigua"
+            summary={water.reservoir?.pct != null
+              ? `${water.reservoir.name}, al ${num(water.reservoir.pct, 1)} %`
+              : water.river?.flow != null
+                ? `${gaugeName(water.river.name)}, ${num(water.river.flow, 2)} m³/s`
+                : undefined}
+          >
+            <WaterBlock water={water} nom={loc.nom} />
+          </Fold>
+        )}
+
+        {/*
+          L'aigua acumulada. Surt de la mateixa sèrie diària que el bloc de clima,
+          que la fitxa ja s'ha baixat: no costa cap petició ni cap byte de més.
+        */}
+        {rain && current && (
+          <Fold
+            id="pluja"
+            title="L'aigua que ha caigut"
+            summary={`${num(rain.rain15, 1)} mm en 15 dies · últim dia de més de 5 mm: ${lastWetDay(rain)}`}
+          >
+            <RainBlock
+              conditions={rain}
+              station={current.station}
+              stationHref={`/estacions/${current.station.codi}`}
+              ytd={history?.rainProgress}
+            />
+          </Fold>
+        )}
+
+        {history && current && (
+          <Fold
+            id="clima"
+            title="Clima i rècords"
+            summary={history.monthProgress
+              ? `Aquest ${monthName(Number(today.slice(5, 7)))}, ${signed(
+                Math.round((history.monthProgress.tMean - history.monthProgress.normal) * 10) / 10, 1, '°C',
+              )} respecte dels mateixos dies d'altres anys`
+              : `Rècords i normals de l'estació ${deName(current.station.nom)}`}
+          >
+            <ClimateBlock
+              history={history}
+              station={current.station}
+              month={Number(today.slice(5, 7))}
+              today={today}
+              stationHref={`/estacions/${current.station.codi}`}
+              dryStreak={rain?.dryStreak}
+            />
+          </Fold>
+        )}
+
+        {comparison && (
+          <Fold
+            id="comarca"
+            title={`Com queda dins ${deComarca(comparison.comarca.nom)}`}
+            summary={comparison.now
+              ? (Math.abs(comparison.now.vsMedian) < 0.3
+                ? 'Ara, pràcticament igual que la mediana de la comarca'
+                : `Ara, ${signed(comparison.now.vsMedian, 1, '°C')} respecte de la mediana de la comarca`)
+              : undefined}
+          >
+            <ComarcaCompare cmp={comparison} nom={loc.nom} />
+          </Fold>
+        )}
+
+        {astro && (
+          <Fold
+            id="sol"
+            title="Sol i lluna"
+            summary={joinBits([
+              clock(astro.sunrise) && `Surt a les ${clock(astro.sunrise)}`,
+              clock(astro.sunset) && `es pon a les ${clock(astro.sunset)}`,
+              astro.moon.name.toLowerCase(),
+            ])}
+          >
+            <SunMoon astro={astro} />
+          </Fold>
+        )}
+
+        {routes.length > 0 && (
+          <Fold
+            id="itineraris"
+            title={`Itineraris senyalitzats ${deComarca(comarca.nom)}`}
+            summary={`${routes.length} ${routes.length === 1 ? 'itinerari passa' : 'itineraris passen'} per la comarca`}
+          >
+            <ul className="grid list-none gap-2 p-0 sm:grid-cols-2">
+              {routes.map((r) => (
+                <li key={r.slug}>
+                  <Link
+                    href={`/senderisme/rutes/${r.slug}`}
+                    className="block rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2 no-underline"
+                  >
+                    <span className="text-sm font-medium text-[var(--ink)]">{r.name}</span>
+                    <span className="block text-xs text-[var(--muted)]">
+                      {[
+                        refApart(r),
+                        networkLabel(r.network),
+                        `${num(r.km, 1)} km`,
+                        r.minM != null && r.maxM != null && `${int(r.minM)}–${int(r.maxM)} m`,
+                      ].filter(Boolean).join(' · ')}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              Traçats d&apos;OpenStreetMap (ODbL).{' '}
+              <Link href="/senderisme/rutes" className="text-[var(--ink-2)]">Tots els itineraris</Link>.
+            </p>
+          </Fold>
+        )}
+      </div>
 
       {siblings.length > 0 && (
         <section className="mt-8">

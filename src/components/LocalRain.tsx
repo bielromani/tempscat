@@ -180,13 +180,8 @@ export function LocalRain({
           mateixa hora. No es contradiuen —mesuren coses diferents— però qui
           ho mira no té per què saber-ho.
         */}{' '}
-        Un radar veu gotes a l&apos;aire, també les que s&apos;evaporen abans de
-        tocar terra, i per això el primer quadre acostuma a tenir més color que
-        els altres: no vol dir que la pluja se&apos;n vagi.{' '}
-        Per saber quanta pluja caurà aquí i a quina hora, les xifres de més
-        amunt ho diuen millor que aquests mapes: surten del punt de predicció
-        d&apos;aquest poble i no d&apos;una malla de 3,2 km. El que això ensenya
-        és cap on va.
+        El radar veu també les gotes que no arriben a terra, i per això el primer
+        quadre sol tenir més color: no vol dir que la pluja se&apos;n vagi.
         {zoneKey && (
           <>
             {' '}

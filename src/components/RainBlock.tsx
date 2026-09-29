@@ -31,6 +31,14 @@ import type { StationRef } from '@/lib/territory';
  * l'estació no ha mesurat, l'acumulat es queda curt i el bloc ho diu en comptes
  * de sumar un zero.
  */
+/** «avui», «fa 3 dies», «fa més de 45 dies» o «no consta»: l'últim dia de més de 5 mm. */
+export function lastWetDay(c: RainConditions): string {
+  if (c.daysSinceRain != null) {
+    return c.daysSinceRain === 0 ? 'avui' : `fa ${c.daysSinceRain} ${c.daysSinceRain === 1 ? 'dia' : 'dies'}`;
+  }
+  return c.dryDaysChecked >= 15 ? `fa més de ${c.dryDaysChecked} dies` : 'no consta';
+}
+
 export function RainBlock({
   conditions, station, stationHref, ytd,
 }: {
@@ -58,11 +66,7 @@ export function RainBlock({
    * que vol saber qui ho mira. Es distingeixen amb `dryDaysChecked`, que diu
    * fins on s'ha pogut mirar enrere.
    */
-  const lastShower = c.daysSinceRain != null
-    ? (c.daysSinceRain === 0 ? 'avui' : `fa ${c.daysSinceRain} ${c.daysSinceRain === 1 ? 'dia' : 'dies'}`)
-    : c.dryDaysChecked >= 15
-      ? `fa més de ${c.dryDaysChecked} dies`
-      : 'no consta';
+  const lastShower = lastWetDay(c);
 
   return (
     <div className="card">
