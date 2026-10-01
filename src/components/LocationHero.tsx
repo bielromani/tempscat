@@ -4,7 +4,7 @@ import type { Location } from '@/lib/territory';
 import { weatherCode } from '@/lib/weather-codes';
 import { unratedRainLabel } from '@/lib/narrative';
 import { skyStyle, drawsRain, drawsSnow } from '@/lib/sky';
-import { ago, deName, fromDirection, num, signed } from '@/lib/format';
+import { aNameParts, ago, deName, fromDirection, num, signed } from '@/lib/format';
 import { feelsCause, msToKmh, windCardinal } from '@/lib/variables';
 import { WeatherIcon } from './WeatherIcon';
 
@@ -105,6 +105,7 @@ export function LocationHero({
   const condition = nowHour?.weatherCode != null
     ? (rainWarned && unratedRainLabel(nowHour.weatherCode)) || weatherCode(nowHour.weatherCode).caLong
     : null;
+  const place = aNameParts(loc.nom);
   const corrected = current?.station.dAltM != null && Math.abs(current.station.dAltM) >= 25;
 
   /*
@@ -129,7 +130,15 @@ export function LocationHero({
          `globals.css`, i si un navegador no entén `:has()` no passa res: la
          barra es queda com sempre. */
       data-hero
-      className="relative -mx-5 -mt-8 mb-6 overflow-hidden sm:mx-0 sm:mt-0 sm:rounded-2xl"
+      /*
+       * D'una vora a l'altra de la finestra, i no una targeta dins de la columna.
+       *
+       * Al redisseny «Cel» el cel del lloc és el principi del cel de la pàgina:
+       * s'estén per tota l'amplada i a baix es fon amb el blau del fons, i el
+       * que ve després hi queda a sobre. `calc(50% - 50vw)` el treu de `main`
+       * sense haver de canviar el layout.
+       */
+      className="hero-bleed relative mb-2 overflow-hidden"
       style={{
         /*
          * Un color pla a sota, i després el degradat.
@@ -371,6 +380,9 @@ export function LocationHero({
         />
       )}
 
+      {/* A baix, el cel es fon amb el blau de la pàgina: no acaba en una vora. */}
+      <div aria-hidden className="hero-fade absolute inset-x-0 bottom-0" />
+
       {/* ── El que es llegeix ──────────────────────────────────────────── */}
       {/*
         L'espai de dalt el reserva el titular, no la barra.
@@ -386,8 +398,8 @@ export function LocationHero({
         d'una altra peça: escrit com a `pt-[92px]` sembla una tria d'espaiat i
         el dia que la barra creixi ningú no el relacionarà amb això.
       */}
-      <div className="relative px-5 pb-5 sm:px-7 sm:pb-6" style={{ color: 'oklch(99% 0 0)', paddingTop: 72 }}>
-        <nav aria-label="Ruta de navegació" className="text-[12px] uppercase tracking-[0.08em]">
+      <div className="relative mx-auto max-w-[70rem] px-5 pb-12 sm:pb-14" style={{ color: 'oklch(99% 0 0)', paddingTop: 84 }}>
+        <nav aria-label="Ruta de navegació" className="text-[13px]">
           <ol className="flex flex-wrap items-center gap-x-1.5">
             {/* L'últim element de la ruta és aquesta mateixa pàgina i el seu
                 nom ja és el titular de sota: no s'escriu dues vegades. I el
@@ -404,46 +416,55 @@ export function LocationHero({
           </ol>
         </nav>
 
-        <h1 className="mt-1.5 text-[34px] font-semibold leading-tight tracking-[-0.025em] sm:text-5xl">
-          {loc.nom}
+        {/*
+          «El temps a» damunt del nom, i tots dos dins del mateix `h1`: el títol
+          sencer és el que es busca, i el topònim sol és el que es llegeix de
+          lluny. La preposició porta l'article —«El temps als» · «Albans i Cal
+          Xeret»—, perquè escrita a part feia «El temps a els Albans».
+        */}
+        <h1 className="mt-5">
+          <span className="block text-[13px] font-semibold uppercase tracking-[0.08em] opacity-80">
+            El temps {place.prep}
+          </span>
+          {!place.joined && ' '}
+          <span className="mt-0.5 block text-[38px] font-[750] leading-[1.04] tracking-[-0.04em] sm:text-[56px]">
+            {place.rest}
+          </span>
         </h1>
-        <p className="mt-0.5 text-[13px] opacity-90">
+        <p className="mt-1.5 text-[14px] opacity-85">
           {loc.level !== 'municipi' && breadcrumbs.length > 2 && `${breadcrumbs[breadcrumbs.length - 2].nom} · `}
           {comarcaLabel}
-          {loc.altitud != null && ` · ${loc.altitud} m`}
-          {loc.poblacio != null && loc.poblacio > 0 && ` · ${loc.poblacio.toLocaleString('ca-ES')} hab.`}
-          {/* Les coordenades hi van perquè són el que fa que aquesta pàgina
-              parli d'un punt i no d'un nom: tot el que hi ha a sota —quina
-              estació, quin punt de predicció, quina zona d'avís— es decideix
-              amb aquests dos números. */}
-          {loc.lat != null && loc.lon != null
-            && ` · ${num(loc.lat, 3)} N ${num(loc.lon, 3)} E`}
+          {loc.altitud != null && ` · ${loc.altitud} m d'altitud`}
+          {loc.poblacio != null && loc.poblacio > 0 && ` · ${loc.poblacio.toLocaleString('ca-ES')} habitants`}
         </p>
 
-        {whole != null ? (
-          <div className="mt-3 flex items-start gap-0.5">
-            <span className="tnum text-[92px] font-light leading-[0.86] tracking-[-0.06em] sm:text-[118px]">
-              {whole}
-            </span>
-            <span className="mt-2 text-[26px] font-light sm:text-3xl">,{decimal}°</span>
-          </div>
-        ) : (
-          <p className="mt-4 text-lg opacity-90">Encara no hi ha observació per a aquest punt.</p>
-        )}
-
-        <div className="mt-2.5 flex flex-wrap items-center gap-x-2 text-[17px] font-medium">
-          {/* La icona surt del mateix `sprite` que ja porta la pàgina per a la
-              taula horària: no n'afegeix cap dibuix nou. */}
+        <div className="mt-4 flex items-center gap-2 sm:gap-4">
+          {/* L'animada, i l'estàtica a qui té el moviment reduït. */}
           {nowHour?.weatherCode != null && (
-            <WeatherIcon code={nowHour.weatherCode} isDay={sky.isDay} size={26} />
+            <WeatherIcon code={nowHour.weatherCode} isDay={sky.isDay} size={96} animated decorative />
           )}
-          {condition && <span>{condition}</span>}
-          {tMax != null && tMin != null && (
-            <span className="tnum opacity-90">
-              · màx. {Math.round(tMax)}° mín. {Math.round(tMin)}°
-            </span>
+          {whole != null ? (
+            <div className="flex items-start">
+              <span className="tnum text-[104px] font-extralight leading-[0.86] tracking-[-0.06em] sm:text-[128px]">
+                {whole}
+              </span>
+              {/* El decimal és d'un termòmetre, i per això hi és; un «,0» no
+                  diu res i no s'escriu. */}
+              <span className="mt-2 text-[30px] font-light sm:text-[38px]">{decimal ? `,${decimal}` : ''}°</span>
+            </div>
+          ) : (
+            <p className="text-lg opacity-90">Encara no hi ha observació per a aquest punt.</p>
           )}
         </div>
+
+        <p className="mt-3 text-[19px] font-semibold sm:text-[21px]">
+          {condition}
+          {tMax != null && tMin != null && (
+            <span className="tnum font-normal opacity-90">
+              {condition ? ' · ' : ''}Màx. {Math.round(tMax)}° · Mín. {Math.round(tMin)}°
+            </span>
+          )}
+        </p>
         {/*
           La sensació, amb la causa quan es pot comprovar.
 
@@ -482,7 +503,7 @@ export function LocationHero({
           // Amb la sensació davant, el vent hi va en minúscula; sense ella, el
           // vent obre la frase i li toca la majúscula.
           const line = feels ? `${feels} · ${wind ?? ''}`.replace(/ · $/, '') : `V${wind!.slice(1)}`;
-          return <p className="mt-1 text-sm opacity-85">{line}</p>;
+          return <p className="mt-1 text-[15px] opacity-85">{line}</p>;
         })()}
 
         {/*
@@ -495,8 +516,8 @@ export function LocationHero({
         */}
         {current && (
           <div
-            className="mt-4 flex items-start gap-2.5 rounded-2xl px-3.5 py-3"
-            style={{ background: 'oklch(20% 0.02 250 / 0.42)', backdropFilter: 'blur(10px)' }}
+            className="mt-5 inline-flex max-w-2xl items-start gap-2.5 rounded-2xl px-3.5 py-2.5"
+            style={{ background: 'oklch(18% 0.03 255 / 0.4)', backdropFilter: 'blur(10px)' }}
           >
             <span
               aria-hidden

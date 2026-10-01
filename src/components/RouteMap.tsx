@@ -66,14 +66,33 @@ export function RouteMap({
   const view = fitBox(pts);
   const tiles = tileWindow(view, projection, ZOOMS, MAX_TILES);
 
-  const paths = trace
-    .map((line) => line
-      .map(([lat, lon], i) => {
+  /*
+   * Tot el traçat en **un sol `path`**, amb un `M` per via.
+   *
+   * Cada via era un `<path>` —dos, amb la vora— i cadascun repetia els seus
+   * sis atributs: el GR 1, amb 1.153 vies, en feia 2.306 i l'article pesava
+   * 527 kB, la major part atributs repetits. Un `M` ja comença un tros nou sense
+   * unir-lo amb l'anterior, així que dibuixa exactament el mateix.
+   *
+   * I les coordenades, amb la precisió que es veu: en una finestra de mil
+   * unitats per a quatre-cents píxels, una dècima són quatre centèsimes de
+   * píxel. Els punts que arrodonits cauen al mateix lloc no s'hi tornen a posar.
+   */
+  const dp = Math.max(view.w, view.h) > 400 ? 0 : 1;
+  const d = trace
+    .map((line) => {
+      const out: string[] = [];
+      let prev = '';
+      for (const [lat, lon] of line) {
         const [x, y] = projectToMap(lon, lat, projection);
-        return `${i ? 'L' : 'M'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-      })
-      .join(' '))
-    .filter(Boolean);
+        const xy = `${x.toFixed(dp)} ${y.toFixed(dp)}`;
+        if (xy === prev) continue;
+        out.push(`${out.length ? 'L' : 'M'}${xy}`);
+        prev = xy;
+      }
+      return out.join('');
+    })
+    .join('');
 
   // El gruix del traçat s'escala amb la finestra: un valor fix seria una ratlla
   // d'un pam en un itinerari curt i un fil en un GR de quatre-cents quilòmetres.
@@ -86,7 +105,7 @@ export function RouteMap({
         viewBox={`${view.x.toFixed(1)} ${view.y.toFixed(1)} ${view.w.toFixed(1)} ${view.h.toFixed(1)}`}
         role="img"
         aria-label={`Traçat de ${name} sobre el mapa topogràfic`}
-        className="routemap block h-auto w-full rounded-lg border border-[var(--line-soft)]"
+        className="routemap block h-auto w-full rounded-2xl border border-[var(--line-soft)]"
         style={{ background: 'var(--surface-2)' }}
       >
         {tiles.map((t) => (
@@ -107,29 +126,23 @@ export function RouteMap({
           sense vora es confon amb una carretera més. La vora la separa del
           fons sigui quin sigui el color que li toqui a sota.
         */}
-        {paths.map((d, i) => (
-          <path
-            key={i}
-            d={d}
-            fill="none"
-            stroke="#fff"
-            strokeWidth={unit * 2.2}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            opacity={0.85}
-          />
-        ))}
-        {paths.map((d, i) => (
-          <path
-            key={`t${i}`}
-            d={d}
-            fill="none"
-            stroke="var(--route)"
-            strokeWidth={unit * 1.2}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-          />
-        ))}
+        <path
+          d={d}
+          fill="none"
+          stroke="#fff"
+          strokeWidth={unit * 2.2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          opacity={0.85}
+        />
+        <path
+          d={d}
+          fill="none"
+          stroke="var(--route)"
+          strokeWidth={unit * 1.2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
 
         {/* L'inici, a sobre de tot. */}
         <circle
@@ -139,14 +152,13 @@ export function RouteMap({
         <title>{`Traçat de ${name}`}</title>
       </svg>
 
-      <figcaption className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-        Mapa base de l&apos;{' '}
+      <figcaption className="source">
+        Mapa base de l&apos;
         <External href="https://www.icgc.cat/" className="text-[var(--ink-2)]" plain>
           Institut Cartogràfic i Geològic de Catalunya
         </External>{' '}
-        (CC BY). Fora de Catalunya, ©OpenMapTiles i ©OpenStreetMap (ODbL). El
-        traçat és d&apos;OpenStreetMap i el punt verd és l&apos;inici, que és el punt
-        d&apos;on surt la predicció.
+        (CC BY); fora de Catalunya, ©OpenMapTiles i ©OpenStreetMap (ODbL). El traçat és
+        d&apos;OpenStreetMap, i el punt verd és l&apos;inici, d&apos;on surt la predicció.
       </figcaption>
     </figure>
   );

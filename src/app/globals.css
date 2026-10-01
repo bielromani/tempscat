@@ -13,108 +13,64 @@
  */
 
 :root {
-  /* Neutros con sesgo frío: es una web de mapas y cartas sinópticas, no un
-     panel de administración. Un gris puro se lee como no elegido. */
-  --paper: oklch(98.2% 0.004 240);
-  --surface: oklch(100% 0 0);
-  --surface-2: oklch(96.2% 0.006 240);
-  --ink: oklch(24% 0.02 250);
-  --ink-2: oklch(44% 0.018 250);
-  --muted: oklch(58% 0.015 250);
-  --line: oklch(90% 0.008 240);
-  --line-soft: oklch(94% 0.006 240);
+  /*
+   * «Cel»: el tema del lloc, i n'hi ha un de sol.
+   *
+   * Des del redisseny del 29 de setembre de 2026 la pàgina sencera porta el
+   * color del cel: blau de nit a baix, més clar a dalt, i a les fitxes el cel
+   * calculat d'aquell lloc i aquella hora al titular. No hi ha tema clar i
+   * fosc: un web del temps que canvia de pell segons l'ordinador de qui el
+   * mira deixa de semblar el mateix web, i aquest ha d'assemblar-se al cel.
+   *
+   * Tots els components ja llegien aquestes variables —hi havia un mode fosc
+   * sencer—, així que canviar-les aquí canvia el web sense tocar-ne cap.
+   *
+   * Les superfícies són opaques a posta. Les targetes (`.card`) sí que són de
+   * vidre, però `--surface` la fan servir també les columnes enganxades de les
+   * taules, i una columna fixa translúcida deixaria veure el que passa per sota.
+   */
+  --paper: oklch(23.5% 0.05 257);
+  --surface: oklch(29% 0.055 256);
+  --surface-2: oklch(33% 0.058 255);
+  --ink: oklch(98% 0.006 250);
+  --ink-2: oklch(89% 0.018 250);
+  --muted: oklch(76% 0.028 250);
+  --line: oklch(100% 0 0 / 0.16);
+  --line-soft: oklch(100% 0 0 / 0.1);
 
-  --accent: oklch(48% 0.09 235);
-  --accent-soft: oklch(94% 0.03 235);
+  --accent: oklch(82% 0.1 237);
+  --accent-soft: oklch(100% 0 0 / 0.1);
+  /* El blau de la marca: botons i el que s'ha de prémer. */
+  --brand: oklch(57% 0.19 259);
 
-  /* Colores semánticos, independientes del acento. */
-  --good: oklch(52% 0.11 155);
-  --warn: oklch(60% 0.13 75);
-  --bad: oklch(53% 0.16 28);
+  /* El vidre de les targetes, damunt del degradat de la pàgina. */
+  --glass: oklch(100% 0 0 / 0.075);
+  --glass-line: oklch(100% 0 0 / 0.12);
 
-  /* Avisos: los colores oficiales CAP. No se inventan otros — el usuario ya
-     los reconoce, y cambiarlos es un fallo de seguridad, no de estilo. */
+  /* No s'inverteixen mecànicament: una escala que funciona sobre blanc és
+     il·legible sobre blau fosc, i al revés. */
+  --good: oklch(80% 0.14 155);
+  --warn: oklch(84% 0.13 80);
+  --bad: oklch(74% 0.15 28);
+
+  /* Avisos: els colors oficials CAP. No se n'inventen d'altres — l'usuari ja
+     els reconeix, i canviar-los és un error de seguretat, no d'estil. */
   --cap-green: oklch(62% 0.14 150);
   --cap-yellow: oklch(83% 0.15 95);
   --cap-orange: oklch(70% 0.16 55);
   --cap-red: oklch(55% 0.20 27);
 
-  --shadow: 0 1px 2px oklch(24% 0.02 250 / 0.05), 0 8px 24px oklch(24% 0.02 250 / 0.05);
+  --shadow: 0 1px 2px oklch(0% 0 0 / 0.25), 0 10px 30px oklch(0% 0 0 / 0.22);
 
-  /* Els mapes que no pinten cap dada al terra.
-     -----------------------------------------------------------------------
-     El mapa de comarques tenyeix la terra amb la temperatura i no els
-     necessita. El de la costa i el de les estacions de muntanya sí: allà la
-     dada és als punts de sobre, i sense mar i terra diferenciats el dibuix es
-     llegeix com una taca i no com un mapa. El mar tira a blau i la terra queda
-     un to per damunt del paper, prou per veure el contorn sense competir amb
-     els punts. */
-  --sea: oklch(93% 0.033 232);
-  --land: oklch(95.5% 0.007 240);
+  /* Els mapes que no pinten cap dada al terra: la costa i les estacions de
+     muntanya. Sense mar i terra diferenciats el dibuix es llegeix com una
+     taca i no com un mapa. */
+  --sea: oklch(36% 0.085 240);
+  --land: oklch(42% 0.04 252);
 
-  /* El traçat d'un itinerari damunt del mapa base.
-     -----------------------------------------------------------------------
-     No és l'accent. L'accent és un blau i el mapa topogràfic ja en porta —els
-     rius, les autopistes— així que el traçat s'hi confonia amb una via més. Un
-     magenta fosc no surt en cap cartografia i per tant no es confon amb res,
-     i el mateix to va bé sobre el mapa clar i sobre el fosc perquè el mapa
-     base és clar en tots dos casos. */
-  --route: oklch(48% 0.22 342);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: oklch(17% 0.014 250);
-    --surface: oklch(21% 0.016 250);
-    --surface-2: oklch(25% 0.018 250);
-    --ink: oklch(93% 0.008 240);
-    --ink-2: oklch(80% 0.012 245);
-    --muted: oklch(64% 0.015 245);
-    --line: oklch(32% 0.018 250);
-    --line-soft: oklch(27% 0.016 250);
-
-    --accent: oklch(75% 0.09 235);
-    --accent-soft: oklch(29% 0.04 235);
-
-    /* No se invierten mecánicamente: una escala que funciona sobre blanco es
-       ilegible sobre negro, y al revés. */
-    --good: oklch(74% 0.13 155);
-    --warn: oklch(80% 0.13 80);
-    --bad: oklch(70% 0.15 28);
-
-    --cap-green: oklch(70% 0.14 150);
-    --cap-yellow: oklch(85% 0.15 95);
-    --cap-orange: oklch(75% 0.15 55);
-    --cap-red: oklch(66% 0.18 27);
-
-    --sea: oklch(30% 0.045 240);
-    --land: oklch(23% 0.014 250);
-
-    --shadow: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.28);
-  }
-}
-
-:root[data-theme="dark"] {
-  --paper: oklch(17% 0.014 250);
-  --surface: oklch(21% 0.016 250);
-  --surface-2: oklch(25% 0.018 250);
-  --ink: oklch(93% 0.008 240);
-  --ink-2: oklch(80% 0.012 245);
-  --muted: oklch(64% 0.015 245);
-  --line: oklch(32% 0.018 250);
-  --line-soft: oklch(27% 0.016 250);
-  --accent: oklch(75% 0.09 235);
-  --accent-soft: oklch(29% 0.04 235);
-  --good: oklch(74% 0.13 155);
-  --warn: oklch(80% 0.13 80);
-  --bad: oklch(70% 0.15 28);
-  --cap-green: oklch(70% 0.14 150);
-  --cap-yellow: oklch(85% 0.15 95);
-  --cap-orange: oklch(75% 0.15 55);
-  --cap-red: oklch(66% 0.18 27);
-  --sea: oklch(30% 0.045 240);
-  --land: oklch(23% 0.014 250);
-  --shadow: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.28);
+  /* El traçat d'un itinerari damunt del mapa base, que és clar: un magenta
+     fosc no surt en cap cartografia i no es confon amb cap via. */
+  --route: oklch(52% 0.22 342);
 }
 
 @theme inline {
@@ -149,13 +105,22 @@
 }
 
 html {
-  --font-body: "Inter Tight", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Inter, servida pel mateix web amb `next/font`: cap petició a Google. */
+  --font-body: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono-stack: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
 }
 
 body {
-  background: var(--paper);
+  /* El cel de la pàgina: més clar a dalt, blau de nit a baix. El color pla
+     va primer perquè, si el degradat no es pinta, el text blanc no quedi mai
+     damunt de blanc. */
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(1100px 620px at 78% -8%, oklch(52% 0.12 250 / 0.55), transparent 68%),
+    linear-gradient(180deg, oklch(33% 0.075 255) 0, oklch(26.5% 0.06 256) 760px, var(--paper) 1500px);
+  background-repeat: no-repeat;
   color: var(--ink);
+  font-feature-settings: "cv11", "ss01";
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -181,6 +146,22 @@ button:focus-visible,
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * ── Les classes del lloc, a la capa de components ──────────────────────────
+ *
+ * Fins al 29 de setembre de 2026 anaven sense capa, i una regla sense capa
+ * guanya **qualsevol** utilitat de Tailwind, que viu a `@layer utilities`:
+ * `class="card p-0"` deixava el relleu de `.card`, `class="stat-grid mt-6"` el
+ * marge a zero, i qui ho trobava acabava escrivint `p-0!` o un `style`. Dins de
+ * `components`, la utilitat que s'escriu a l'element és la que mana, que és el
+ * que espera qui la llegeix.
+ *
+ * Queden fora, al final del fitxer, les poques regles que **han** de guanyar a
+ * una utilitat: la mida de `main` i el titular del cel, que treuen el `py-8`
+ * del layout.
+ */
+@layer components {
 
 /*
  * Pestañas sin una línea de JavaScript.
@@ -468,14 +449,6 @@ button:focus-visible,
    competeixi amb els ecos, que son la dada. */
 .relief { opacity: 0.42; }
 
-:root:not([data-theme='dark']) .relief { opacity: 0.3; }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .relief { opacity: 0.42; }
-}
-
-:root[data-theme='dark'] .relief { opacity: 0.42; }
-
 
 /* Arribar-hi des del cercador.
    -------------------------------------------------------------------------
@@ -606,10 +579,31 @@ button:focus-visible,
    surt sempre igual.                                                        */
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
-  border-radius: 16px;
-  padding: 16px 18px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  border-radius: 22px;
+  padding: 16px;
+}
+
+@media (min-width: 640px) {
+  .card { padding: 18px 20px; }
+}
+
+/*
+ * L'etiqueta de dins d'una targeta: petita, en versaletes i amb la seva
+ * icona. Diu què és el bloc sense competir amb la xifra, que és el que es
+ * mira. `.card-title` es queda per als títols de secció, fora de les targetes.
+ */
+.card-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 /*
@@ -624,11 +618,10 @@ button:focus-visible,
 }
 
 .card-title {
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--ink);
-  margin: 0;
 }
 
 .source {
@@ -638,27 +631,52 @@ button:focus-visible,
   color: var(--muted);
 }
 
-/* ── L'amplada del web ──────────────────────────────────────────────────────
+/* ── Blocs plegats ──────────────────────────────────────────────────────────
 
-   Una columna, i la mateixa per a tot. El text porta un límit de mesura i les
-   targetes no en portaven cap: dins d'una columna de 1.024 px, un paràgraf
-   s'acabava a mig camí amb 430 px de blanc a la dreta al costat d'un bloc que
-   arribava al final. Cada un per separat estava bé i junts semblaven mal
-   posats.
+   La capçalera d'un `<details>` té l'aspecte d'una targeta, i el contingut va
+   a sota, fora d'ella: els blocs de dins ja porten `.card`. El triangle del
+   navegador es treu i en fa la feina un angle a la dreta, que gira en obrir-se.
+   Ver `Fold.tsx`.                                                          */
 
-   Les poques pàgines que **de veritat** necessiten amplada —un mapa del país,
-   una taula de dotze columnes— es marquen amb `data-wide` i recuperen els
-   1.024. Es fa amb `:has()` per no haver de passar res del `layout` a cada
-   pàgina; el dia que un navegador no l'entengui, el web sencer es queda a la
-   columna estreta, que és estret però correcte i igual a tot arreu.           */
+.fold { margin-top: 10px; }
 
-main {
-  max-width: 38rem;
+.fold > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  border-radius: 18px;
+  padding: 14px 18px;
 }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::marker { content: ""; }
 
-body:has([data-wide]) > main {
-  max-width: 64rem;
+.fold > summary::after {
+  content: "";
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
 }
+.fold[open] > summary::after { transform: rotate(-135deg); margin-top: 4px; }
+.fold > summary:hover { border-color: var(--line); background: oklch(100% 0 0 / 0.1); }
+.fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.fold-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fold-summary { font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
+.fold-body { margin-top: 12px; margin-bottom: 18px; }
+
+/* El primer bloc plegat d'una tanda es separa del que hi ha a sobre. */
+.folds { margin-top: 28px; }
+.folds > h2 { margin-bottom: 4px; }
 
 /* ── La capçalera d'una pàgina ──────────────────────────────────────────────
 
@@ -681,10 +699,10 @@ body:has([data-wide]) > main {
 .crumbs a:hover { color: var(--ink); }
 
 .page-title {
-  font-size: clamp(1.75rem, 1.35rem + 1.7vw, 2.3rem);
-  font-weight: 600;
-  letter-spacing: -0.025em;
-  line-height: 1.12;
+  font-size: clamp(2rem, 1.4rem + 2.4vw, 2.9rem);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.06;
   color: var(--ink);
 }
 
@@ -725,91 +743,71 @@ body:has([data-wide]) > main {
   color: var(--muted);
 }
 
-/* ── El menú del mòbil ──────────────────────────────────────────────────────
+/* ── La marca ─────────────────────────────────────────────────────────────── */
 
-   És un `<details>` i per tant l'obre el navegador. El triangle per defecte no
-   hi pinta res: el que es veu és la icona de tres ratlles, i el triangle al
-   costat diria que allò s'obre dues vegades.                                 */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+}
 
-.menu > summary { list-style: none; }
+.brand-word {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.brand-word b { font-weight: 800; color: var(--accent); }
+
+/* ── La capçalera ─────────────────────────────────────────────────────────────
+
+   Sense fons: va damunt del cel de la pàgina. Els enllaços, blancs i una mica
+   apagats fins que s'hi passa per sobre. */
+
+.site-top { position: relative; z-index: 10; }
+
+.site-nav { gap: 22px; font-size: 14.5px; font-weight: 500; }
+.site-nav a { color: var(--ink-2); text-decoration: none; }
+.site-nav a:hover { color: var(--ink); }
+
+/* El menú del mòbil. És un `<details>`: el triangle del navegador es treu,
+   perquè la icona de tres ratlles ja diu que s'obre. */
+.menu > summary { list-style: none; background: var(--glass); border: 1px solid var(--glass-line); }
 .menu > summary::-webkit-details-marker { display: none; }
 .menu > summary::marker { content: ""; }
 
-/* Damunt del cel, la píndola del menú va sobre vidre fosc com el cercador.
-   El desplegable, en canvi, es queda opac i clar: és una llista d'enllaços i
-   ha de ser llegible, no transparent. */
-body:has([data-hero]) .menu > summary {
-  background: oklch(20% 0.02 250 / 0.42);
-  backdrop-filter: blur(8px);
-  border-color: oklch(99% 0 0 / 0.22);
-  color: oklch(99% 0 0);
-}
-
-body:has([data-hero]) .menu nav a {
-  color: var(--ink);
-  opacity: 1;
-}
-
-/* ── La capçalera, quan la pàgina porta cel ─────────────────────────────────
-
-   A les fitxes de lloc la barra del web va **a dins** del titular, damunt del
-   cel, i no com una franja blanca a sobre. Ho decideix la pròpia pàgina posant
-   `data-hero` al titular; la capçalera viu al `layout` i no se li pot passar
-   cap propietat, així que qui els connecta és `:has()`.
-
-   Es fa amb CSS i no amb un estat compartit per dues raons. La primera és que
-   no cal JavaScript per a una cosa que és d'aspecte. La segona és el que passa
-   el dia que un navegador no entengui `:has()`: **no passa res**. La regla no
-   s'aplica, la barra es queda on és ara —blanca i a sobre— i la pàgina segueix
-   sencera. Amb un estat compartit, el mateix error deixaria la barra blanca
-   damunt del cel amb el text blanc a sobre.
-
-   Les píndoles van damunt de vidre **fosc** i no de blanc translúcid: han
-   d'aguantar un cel de migdia al darrere, i un blanc translúcid damunt d'un
-   núvol és blanc damunt de blanc.                                            */
-
-body:has([data-hero]) > header {
+.menu-panel {
   position: absolute;
-  inset-inline: 0;
-  top: 0;
-  z-index: 10;
-  background: transparent;
-  border-bottom-color: transparent;
-  color: oklch(99% 0 0);
+  right: 0;
+  top: 48px;
+  z-index: 20;
+  width: 15rem;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
-body:has([data-hero]) > header a {
-  color: oklch(99% 0 0);
+.menu-panel a {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 15px;
+  color: var(--ink);
+  text-decoration: none;
 }
 
-body:has([data-hero]) > header nav a {
-  opacity: 0.88;
-}
+.menu-panel a:hover { background: var(--surface-2); }
 
-body:has([data-hero]) > header nav a:hover {
-  opacity: 1;
-}
+/* ── El peu ─────────────────────────────────────────────────────────────────── */
 
-/* El cercador de la capçalera, que és l'únic que hi porta fons propi. */
-body:has([data-hero]) > header input {
-  background: oklch(20% 0.02 250 / 0.42);
-  backdrop-filter: blur(8px);
-  border-color: oklch(99% 0 0 / 0.22);
-  color: oklch(99% 0 0);
-}
-
-body:has([data-hero]) > header input::placeholder {
-  color: oklch(99% 0 0 / 0.7);
-}
-
-/* La barra ja no ocupa lloc, així que el contingut arrenca a dalt de tot i el
-   titular deixa d'haver de pujar per tapar el buit que hi havia. */
-body:has([data-hero]) > main {
-  padding-top: 0;
-}
-
-body:has([data-hero]) [data-hero] {
-  margin-top: 0;
+.site-foot {
+  margin-top: 72px;
+  border-top: 1px solid var(--line-soft);
+  background: oklch(0% 0 0 / 0.18);
 }
 
 /* ── El cel del titular ─────────────────────────────────────────────────────
@@ -859,3 +857,676 @@ body:has([data-hero]) [data-hero] {
 @media (prefers-reduced-motion: reduce) {
   .cel-anim { animation: none !important; }
 }
+
+/* ── La fitxa d'un lloc ──────────────────────────────────────────────────────
+
+   Redisseny «Cel», 29 de setembre de 2026. El cel del titular va d'una vora a
+   l'altra de la finestra i a baix es fon amb el blau de la pàgina; el que ve
+   després hi puja una mica a sobre, perquè es llegeixi com una sola peça i no
+   com una fotografia amb una pàgina enganxada a sota.
+
+   `100vw` compta la barra de desplaçament vertical, així que el titular fa
+   uns píxels més que la finestra: `overflow-x: clip` al `body` els retalla
+   sense crear un context de desplaçament, que és el que faria `hidden` i
+   trencaria el `position: sticky` de les taules. */
+
+
+.hero-bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+}
+
+/* El color d'arribada és el del degradat del `body` a l'alçada on acaba el
+   titular, uns 480 px: si no hi coincideix, es veu una franja. */
+.hero-fade {
+  height: 150px;
+  background: linear-gradient(to bottom, oklch(29% 0.066 255 / 0), oklch(29% 0.066 255 / 0.85) 70%, oklch(29% 0.066 255));
+}
+
+
+.ficha-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+
+.ficha-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .ficha-grid { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; }
+  .ficha-col { gap: 20px; }
+}
+
+.card-label img { margin: -3px 0; }
+
+.card-foot { margin: 12px 0 0; font-size: 13.5px; }
+.card-foot a { color: var(--accent); text-decoration: none; font-weight: 500; }
+.card-foot a:hover { text-decoration: underline; }
+
+/* El resum. La primera frase és la resposta i va més grossa. */
+.summary-lead { margin: 0; font-size: 17.5px; line-height: 1.45; color: var(--ink-2); letter-spacing: -0.01em; }
+@media (min-width: 640px) { .summary-lead { font-size: 19px; } }
+.summary-lead strong { color: var(--ink); font-weight: 700; }
+.summary-more { margin: 8px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+.summary-notes {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ── Les pròximes hores ── */
+
+.hour-strip {
+  display: flex;
+  gap: 2px;
+  list-style: none;
+  margin: 0 -10px;
+  padding: 0 0 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.hour-strip > li {
+  flex: 0 0 auto;
+  min-width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-radius: 16px;
+}
+
+.hour-strip > li:first-child { background: oklch(100% 0 0 / 0.09); }
+.hour-strip > li:first-child .hs-time { color: var(--ink); font-weight: 700; }
+
+.hs-time { font-size: 13px; font-weight: 500; color: var(--muted); }
+.hs-temp { font-size: 17px; font-weight: 600; }
+.hs-prob { min-height: 15px; font-size: 11.5px; font-weight: 600; color: var(--accent); }
+.hs-sun .hs-time { color: oklch(88% 0.12 85); }
+.hs-sun .hs-temp { font-size: 12.5px; font-weight: 500; color: var(--ink-2); padding-top: 3px; }
+
+/* ── Els catorze dies ── */
+
+.day-list { list-style: none; padding: 0; }
+
+.dl-row {
+  display: grid;
+  grid-template-columns: 3.6rem 32px 3.3rem 1.9rem minmax(2.5rem, 1fr) 1.9rem;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.dl-row:first-child,
+.dl-sep + .dl-row { border-top: 0; }
+
+@media (min-width: 640px) {
+  .dl-row { grid-template-columns: 6rem 34px 3.4rem 2.4rem minmax(4rem, 1fr) 2.4rem; gap: 12px; }
+}
+
+.dl-day { display: flex; flex-direction: column; line-height: 1.2; font-size: 15px; font-weight: 600; }
+.dl-date { font-size: 12px; font-weight: 400; color: var(--muted); }
+.dl-rain { display: flex; flex-direction: column; line-height: 1.2; font-size: 12.5px; font-weight: 600; color: var(--accent); }
+.dl-rain small { font-size: 11.5px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.dl-min { text-align: right; font-size: 15px; color: var(--muted); }
+.dl-max { font-size: 15px; font-weight: 650; }
+
+.dl-bar { position: relative; height: 6px; border-radius: 3px; background: oklch(100% 0 0 / 0.1); }
+.dl-bar > i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+
+.dl-row.is-trend { opacity: 0.7; }
+
+.dl-sep {
+  margin-top: 6px;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ── Les rajoles del detall ── */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 1024px) {
+  .tiles { gap: 14px; }
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 138px;
+  padding: 14px 16px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  border-radius: 20px;
+}
+
+/* Una rajola sola a l'última fila s'estira: mitja fila buida sembla un forat. */
+.tiles > .tile:last-child:nth-child(odd) { grid-column: 1 / -1; min-height: 0; }
+
+.tile-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tile-label img { margin: -3px -2px -3px -4px; }
+
+.tile-value { margin: 0; font-size: 30px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
+.tile-value small { margin-left: 4px; font-size: 14px; font-weight: 500; letter-spacing: 0; color: var(--muted); white-space: nowrap; }
+.tile-band { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.tile-note { margin: auto 0 0; font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+
+.tile-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tile-compass { flex-shrink: 0; color: var(--ink); }
+.tile-arc { display: block; margin: 2px 0; color: var(--ink); }
+
+/* L'índex europeu de 0 a 100, amb els colors de les seves bandes. */
+.tile-aqi {
+  position: relative;
+  height: 6px;
+  margin: 8px 0 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg,
+    oklch(76% 0.14 170), oklch(82% 0.14 120), oklch(84% 0.14 90),
+    oklch(70% 0.17 50), oklch(58% 0.2 25), oklch(48% 0.17 350));
+}
+.tile-aqi > i {
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--paper);
+  transform: translate(-50%, -50%);
+}
+
+/* ── Per què aquí és diferent ── */
+
+.thesis p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--ink-2); }
+.thesis .thesis-coords { margin-top: 10px; font-size: 12px; color: var(--muted); }
+
+/* ── Els llocs del voltant ── */
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; }
+.chips a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: none;
+}
+.chips a:hover { background: oklch(100% 0 0 / 0.12); border-color: var(--line); }
+.chips a span { font-size: 12px; color: var(--muted); }
+
+/* ── La portada ──────────────────────────────────────────────────────────────
+
+   Redisseny «Cel». A dalt, el títol, el cercador i el mapa; a sota, les quatre
+   capitals ara, els avisos si n'hi ha, els extrems i tot el lloc. */
+
+.home-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .home-top { grid-template-columns: minmax(0, 1fr) minmax(0, 31rem); gap: 48px; padding-top: 12px; }
+}
+
+.home-date {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.home-title {
+  margin: 0;
+  font-size: clamp(44px, 7.4vw, 76px);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.home-lead {
+  margin: 18px 0 0;
+  max-width: 34rem;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.capitals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 900px) {
+  .capitals { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+}
+
+.capital {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 14px 16px 16px;
+  border-radius: 20px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.capital:hover { background: oklch(100% 0 0 / 0.11); border-color: var(--line); }
+.capital-name { font-size: 15px; font-weight: 650; }
+.capital-temp { margin-top: 2px; font-size: 44px; font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; }
+.capital-icon { position: absolute; top: 10px; right: 10px; }
+.capital-cond { margin-top: 4px; font-size: 13px; color: var(--ink-2); }
+
+/* La franja d'avisos: el color oficial al marge i de fons, no a tota la peça. */
+.home-warn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--lvl);
+  background: color-mix(in oklch, var(--lvl) 16%, transparent);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+.home-warn img { flex-shrink: 0; }
+.home-warn u { text-underline-offset: 3px; }
+.home-warn.is-groc { --lvl: var(--cap-yellow); }
+.home-warn.is-taronja { --lvl: var(--cap-orange); }
+.home-warn.is-vermell { --lvl: var(--cap-red); }
+
+.extremes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 900px) {
+  .extremes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.extremes .card-label { margin-bottom: 4px; }
+.extreme-value { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; }
+.extreme-place { display: block; margin-top: 2px; font-size: 14px; color: var(--ink-2); text-decoration: none; }
+a.extreme-place:hover { color: var(--ink); text-decoration: underline; }
+
+/* Al mòbil, una llista: la icona a l'esquerra i el text al costat. En
+   targetes de dues columnes, cada una feia cinc línies per dir-ne dues. */
+.explore {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 640px) { .explore { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; } }
+@media (min-width: 1024px) { .explore { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; } }
+
+.explore-link {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 14px;
+  row-gap: 2px;
+  align-items: center;
+  height: 100%;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.explore-link:hover { background: oklch(100% 0 0 / 0.11); border-color: var(--line); }
+.explore-icon {
+  grid-row: 1 / 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: oklch(100% 0 0 / 0.1);
+}
+.explore-label { font-size: 15.5px; font-weight: 650; align-self: end; }
+.explore-blurb { font-size: 13.5px; line-height: 1.4; color: var(--muted); align-self: start; }
+
+@media (min-width: 640px) {
+  .explore-link { display: flex; flex-direction: column; gap: 4px; padding: 16px; }
+  .explore-icon { margin-bottom: 8px; }
+}
+
+
+/* ── Les pàgines de secció ───────────────────────────────────────────────────
+
+   La mateixa composició que la portada: el títol, l'entradilla i les xifres a
+   l'esquerra, el mapa a la dreta. Ver `PageHero.tsx`. */
+
+.crumbs-sep { margin: 0 6px; color: var(--line); }
+
+.page-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 36px;
+}
+
+@media (min-width: 1024px) {
+  .page-hero.has-aside { grid-template-columns: minmax(0, 1fr) minmax(0, 30rem); gap: 48px; }
+}
+
+.page-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.page-hero-title {
+  margin: 0;
+  font-size: clamp(38px, 5.4vw, 62px);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.page-lead {
+  margin-top: 16px;
+  max-inline-size: 40rem;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.page-lead strong { color: var(--ink); font-weight: 650; }
+.page-lead p + p { margin-top: 8px; }
+
+.page-note {
+  margin-top: 16px;
+  max-inline-size: 40rem;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.page-hero-aside { min-width: 0; }
+
+/* Les xifres: dues columnes al mòbil, fins a quatre on hi caben. */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 640px) {
+  .stat-grid { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 12px; }
+}
+
+.stat {
+  padding: 13px 15px 14px;
+  border-radius: 18px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  min-width: 0;
+}
+.stat-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stat-label img { margin: -3px -2px -3px -4px; }
+.stat-value { margin: 0; font-size: 28px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; color: var(--ink); }
+.stat-value small { margin-left: 3px; font-size: 14px; font-weight: 500; letter-spacing: 0; color: var(--muted); }
+.stat-sub { margin-top: 3px; font-size: 13px; line-height: 1.35; color: var(--ink-2); overflow-wrap: anywhere; }
+.stat-sub a { color: var(--ink-2); text-decoration: none; }
+.stat-sub a:hover { color: var(--ink); text-decoration: underline; }
+
+/* Una secció: títol, enllaç de «tot» a la dreta, i el contingut a sota. */
+.section { margin-top: 44px; }
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.section-action { flex-shrink: 0; font-size: 14px; font-weight: 500; color: var(--accent); text-decoration: none; }
+.section-action:hover { text-decoration: underline; }
+
+/* Targetes en graella: una, dues o tres columnes segons l'amplada. */
+.card-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 640px) { .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; } }
+@media (min-width: 1024px) { .card-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Una targeta que és un enllaç. */
+a.card, .card-link {
+  display: block;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+a.card:hover, .card-link:hover { background: oklch(100% 0 0 / 0.11); border-color: var(--line); }
+
+/* Files dins d'una targeta: el nom a l'esquerra, la xifra a la dreta. */
+.rows { padding: 0; list-style: none; }
+.rows > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.rows > li:first-child { border-top: 0; padding-top: 2px; }
+.rows > li:last-child { padding-bottom: 2px; }
+.rows a { color: var(--ink); text-decoration: none; }
+.rows a:hover { text-decoration: underline; }
+.row-main { min-width: 0; }
+.row-title { display: block; font-size: 15px; font-weight: 550; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-sub { display: block; font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-value { flex-shrink: 0; font-size: 15px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Una xifra de temperatura amb el seu color de fons. El color el posa la
+   pàgina en línia (`temperatureColor`), i la tinta, `temperatureInk`. */
+.temp-pill {
+  display: inline-block;
+  min-width: 3.1em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 650;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Taules de dades sobre vidre. */
+.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data-table th {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.data-table td { padding: 10px; border-top: 1px solid var(--line-soft); vertical-align: top; color: var(--ink-2); }
+.data-table tbody tr:first-child td { border-top: 0; }
+.data-table tbody tr:hover td { background: oklch(100% 0 0 / 0.04); }
+.data-table td.num, .data-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.data-table a { color: var(--ink); text-decoration: none; }
+.data-table a:hover { text-decoration: underline; }
+
+/* La prosa que explica d'on surt cada cosa: plegada o al final, i estreta. */
+.prose { max-inline-size: 62ch; font-size: 15px; line-height: 1.65; color: var(--ink-2); }
+.prose p + p { margin-top: 10px; }
+.prose h3 { margin: 18px 0 6px; font-size: 15.5px; font-weight: 650; color: var(--ink); }
+.prose strong { color: var(--ink); font-weight: 600; }
+.prose a { color: var(--accent); }
+
+/* Files en columnes: una llista llarga —els 68 municipis d'una comarca— en
+   una sola targeta. Amb columnes cada fila porta la ratlla a sota, perquè la
+   de dalt de cada columna no quedi penjada. */
+.rows.rows-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); column-gap: 28px; }
+.rows.rows-cols > li { border-top: 0; border-bottom: 1px solid var(--line-soft); padding: 9px 0; }
+
+/* Al mòbil, una xifra sola a l'última fila s'estira, com les rajoles. */
+@media (max-width: 639px) {
+  .stat-grid > .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+/* La franja d'un avís vigent, amb el color oficial del nivell al marge. La
+   porta la portada i qualsevol pàgina que avisi: `.warn-bar is-groc`. */
+.warn-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--lvl);
+  background: color-mix(in oklch, var(--lvl) 16%, transparent);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+.warn-bar img { flex-shrink: 0; }
+.warn-bar u { text-underline-offset: 3px; }
+.warn-bar.is-groc { --lvl: var(--cap-yellow); }
+.warn-bar.is-taronja { --lvl: var(--cap-orange); }
+.warn-bar.is-vermell { --lvl: var(--cap-red); }
+
+} /* @layer components */
+
+/* ── Fora de la capa: regles que han de guanyar a les utilitats ─────────────── */
+
+/* ── L'amplada del web ──────────────────────────────────────────────────────
+
+   70 rem a totes les pàgines. Fins al redisseny «Cel» era una columna de 38 rem
+   i les poques pàgines amples es marcaven amb `data-wide`; ara la capçalera de
+   secció posa el mapa al costat del títol i les fitxes van a dues columnes, així
+   que l'amplada és la norma i el que es limita és **la línia de text**, amb
+   `.measure` i `.prose`. Un paràgraf de 1.024 px d'ample no es llegeix.
+
+   `data-wide` es queda a les pàgines que ja el portaven: no fa res, i treure'l
+   de vint fitxers no valia un desplegament.                                   */
+
+main {
+  max-width: 70rem;
+}
+
+/* ── La capçalera, quan la pàgina porta cel ─────────────────────────────────
+
+   A les fitxes de lloc la barra va **damunt** del cel del titular, i no a
+   sobre com una franja. Ho decideix la pròpia pàgina posant `data-hero` al
+   titular; la capçalera viu al `layout` i no se li pot passar cap propietat,
+   així que qui els connecta és `:has()`. El dia que un navegador no l'entengui
+   no passa res: la barra es queda a sobre, en el seu lloc, i tot es llegeix.
+
+   Des del redisseny del 29 de setembre de 2026 el cel ocupa tota l'amplada,
+   així que la barra ja no s'ha d'encongir per cabre-hi. */
+
+body:has([data-hero]) > header {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+}
+
+/* La barra ja no ocupa lloc, així que el contingut arrenca a dalt de tot. */
+body:has([data-hero]) > main {
+  padding-top: 0;
+}
+
+body:has([data-hero]) [data-hero] {
+  margin-top: 0;
+}
+
+/* El titular del cel fa 100vw, que compta la barra de desplaçament. */
+body { overflow-x: clip; }
+
+/* El primer bloc després del cel hi puja a sobre. */
+[data-hero] + * {
+  position: relative;
+  z-index: 1;
+  margin-top: -36px;
+}
+
+/* Si hi ha avisos, la franja ja ha pujat damunt del cel i la graella va a sota. */
+[data-hero] + * + .ficha-grid { margin-top: 16px; }

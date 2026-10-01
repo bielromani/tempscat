@@ -1,29 +1,8 @@
-/**
- * Hora local de Madrid → instante, sin biblioteca y sin restar horas a mano.
- *
- * Restar «dos horas en verano y una en invierno» es lo que se rompe el domingo
- * del cambio, y se rompe en silencio: la hora sale plausible y es de otra. Aquí
- * se supone que la hora leída es UTC, se pregunta qué hora marca ese instante
- * en Madrid, y la diferencia es el desplazamiento que hay que quitar.
- *
- * Se repite una vez porque en la madrugada del cambio el desplazamiento del
- * instante supuesto y el del real no son el mismo.
- *
- * Lo usan dos fuentes que dan la hora local sin decir la zona: las rutas de las
- * panorámicas de Roundshot y los XML de meteorología de FGC.
- */
-export function madridToUtc(y: number, mo: number, d: number, h: number, mi: number): Date {
-  const wall = Date.UTC(y, mo - 1, d, h, mi);
-  let guess = wall;
-  for (let i = 0; i < 2; i++) {
-    const asMadrid = new Date(guess)
-      .toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
-      .replace(' ', 'T');
-    const offset = Date.parse(`${asMadrid}Z`) - guess;
-    guess = wall - offset;
-  }
-  return new Date(guess);
-}
+// La conversión vive en `src/lib/format.ts`, que no importa nada, porque la
+// aplicación también la necesita. Una copia, no dos.
+import { madridToUtc } from '../../src/lib/format.ts';
+
+export { madridToUtc };
 
 /**
  * `03/09/26` + ` 9:33` → el instante en UTC.

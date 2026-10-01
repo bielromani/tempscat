@@ -7,7 +7,6 @@ import {
 import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
 import { airCellKey } from './air-grid';
 import type { MonthProgress, RainProgress } from './climate-math';
-import { fieldShard, type FieldIndex } from './field';
 import { windShard, type WindIndex } from './wind';
 import {
   aggregateDaily, mergeHourly, type PointForecast, type StoredDaily,
@@ -22,6 +21,7 @@ import {
 import type {
   CurrentConditions, DailyPoint, HourlyPoint, LocationForecast,
 } from './forecast-types';
+import { instantOf } from './format';
 import type { TileGrid } from './mercator';
 import type { Location } from './territory';
 import { LEVEL_RANK, type Warning } from './warning-stack';
@@ -766,8 +766,9 @@ export interface RadarFrame {
    * D'on surt aquest marc.
    *
    * `past` i `nowcast` són del radar —observació i, si algun dia la font en
-   * torna, extrapolació—. `forecast` és **nostre**: el camp de pluja de la
-   * predicció, que no és radar i que la pàgina no fa passar per radar.
+   * torna, extrapolació—. `forecast` era **nostre**: el camp de pluja de la
+   * predicció, que ja no es fa des del 29 de setembre de 2026. Avui cap marc
+   * no porta aquest valor.
    */
   kind: 'past' | 'nowcast' | 'forecast';
 }
@@ -806,40 +807,18 @@ export async function radar(): Promise<(RadarData & {
 }
 
 /**
- * El camp de pluja de la predicció: una imatge per hora, en píxels del mosaic
- * del radar. Null mentre el worker no hagi corregut mai.
+ * El camp de vent: una graella d'u i v per hora, desada com un PNG. Null
+ * mentre el worker no hagi corregut mai.
  *
- * Només en torna les hores **que encara no han passat**. El worker en pinta
+ * Només en torna les hores **que encara no han passat**. El worker en calcula
  * dotze quan corre, i entre una volta i la següent el rellotge avança: sense
  * aquest filtre, el mapa oferiria com a futur una hora que ja s'ha viscut.
  *
  * I les que porten un instant que no és un número es queden fora, encara que
- * tinguin la imatge feta. `time` és l'`id` del radio de cada marc a la pàgina
- * del radar: amb un índex on totes valguin `null` —hi va ser—, els dotze marcs
- * de futur comparteixen `id` i el navegador els encén tots alhora. Val més
- * ensenyar només el radar que una predicció que no es pot recórrer, i així un
- * índex dolent que ja estigui publicat no arriba a la pàgina.
- */
-export async function precipField(): Promise<FieldIndex | null> {
-  const snap = await snapshot<FieldIndex>(fieldShard());
-  if (!snap?.data?.hours?.length) return null;
-  const now = localNowHour();
-  const hours = snap.data.hours.filter(
-    (h) => Number.isFinite(h.time) && h.iso.slice(0, 13) > now,
-  );
-  return hours.length ? { ...snap.data, hours } : null;
-}
-
-/**
- * El camp de vent: una graella d'u i v per hora, desada com un PNG.
- *
- * Mateix filtre que el de pluja i pel mateix motiu —les hores que ja han
- * passat no s'ofereixen com a futur— i el mateix guardió sobre l'instant.
- *
- * Les dues capes les pinta el mateix worker i surten de les mateixes hores a
- * posta: la barra de temps del mapa és una de sola, i si una tingués dotze
- * hores i l'altra onze, arrossegar-la ensenyaria el vent d'una hora damunt de
- * la pluja d'una altra sense que res fallés.
+ * tinguin la graella feta. `time` és la clau amb què el mapa busca l'hora que
+ * toca: amb un índex on totes valguin `null` —va passar al camp de pluja que
+ * es pintava fins al setembre de 2026—, totes les hores serien la mateixa. Així
+ * un índex dolent que ja estigui publicat no arriba a la pàgina.
  */
 export async function windField(): Promise<WindIndex | null> {
   const snap = await snapshot<WindIndex>(windShard());
@@ -922,7 +901,7 @@ export async function freshness(): Promise<Array<
       };
     }
     const ageMin = entry.lastDataTs
-      ? Math.round((Date.now() - Date.parse(entry.lastDataTs)) / 60_000)
+      ? Math.round((Date.now() - instantOf(entry.lastDataTs)) / 60_000)
       : null;
     const exp = entry.credentialExpiresAt;
     const keyDaysLeft = exp

@@ -19,6 +19,13 @@ const eslintConfig = defineConfig([
      * Veure `scripts/16-maplibre-worker.ts`.
      */
     "public/maplibre/**",
+    /*
+     * Les còpies de treball que l'aplicació d'escriptori de Claude crea per a
+     * altres sessions, cadascuna amb el seu `.next` de desenvolupament a dins.
+     * No són d'aquest projecte en aquest moment, i el lint en llegia els
+     * fragments compilats: centenars d'errors que no eren de ningú.
+     */
+    ".claude/**",
   ]),
   {
     /*

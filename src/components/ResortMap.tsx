@@ -68,8 +68,8 @@ export function ResortMap({
 
   // La finestra surt dels punts. Prou marge per veure on cau cada estació dins
   // del país i per encabir el rètol de sota.
-  const MX = 110;
-  const MY = 92;
+  const MX = 92;
+  const MY = 84;
   const x0 = Math.min(...placed.map((p) => p.x)) - MX;
   const x1 = Math.max(...placed.map((p) => p.x)) + MX;
   const y0 = Math.min(...placed.map((p) => p.y)) - MY;
@@ -149,8 +149,8 @@ export function ResortMap({
             p.snowCm != null && p.snowCm > 0 && `${int(p.snowCm)} cm de neu`,
           ].filter(Boolean).join(' · ');
 
-          const ly = p.up ? p.y - 42 : p.y + 34;
-          const sy = p.up ? p.y - 57 : p.y + 49;
+          const ly = p.up ? p.y - 44 : p.y + 37;
+          const sy = p.up ? p.y - 63 : p.y + 56;
 
           return (
             <a key={p.slug} href={`#e-${p.slug}`}>
@@ -170,7 +170,7 @@ export function ResortMap({
                   <text
                     x={p.x} y={p.y}
                     textAnchor="middle" dominantBaseline="central"
-                    fontSize={17} fontWeight={600} fill={temperatureInk(t)}
+                    fontSize={18} fontWeight={650} fill={temperatureInk(t)}
                     style={{ pointerEvents: 'none' }}
                   >
                     {num(t, 0)}
@@ -179,7 +179,8 @@ export function ResortMap({
                 <text
                   x={p.x} y={ly}
                   textAnchor="middle" dominantBaseline="central"
-                  fontSize={17} fontWeight={600} fill="var(--ink)"
+                  fontSize={21} fontWeight={600} fill="var(--ink)"
+                  stroke="var(--paper)" strokeWidth={4} paintOrder="stroke"
                   style={{ pointerEvents: 'none' }}
                 >
                   {p.name}
@@ -188,7 +189,8 @@ export function ResortMap({
                   <text
                     x={p.x} y={sy}
                     textAnchor="middle" dominantBaseline="central"
-                    fontSize={15} fill="var(--ink-2)"
+                    fontSize={17} fill="var(--ink-2)"
+                    stroke="var(--paper)" strokeWidth={3.5} paintOrder="stroke"
                     style={{ pointerEvents: 'none' }}
                   >
                     {int(p.snowCm)} cm
@@ -203,10 +205,9 @@ export function ResortMap({
 
       <figcaption className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
         El número és la <strong className="font-medium text-[var(--ink-2)]">temperatura
-        mesurada</strong> a l&apos;estació meteorològica més alta de cada domini, que
-        mesura tot l&apos;any. L&apos;anell verd vol dir oberta, i el gruix de neu hi surt
-        quan el comunicat encara val. El relleu del fons és calculat del model
-        d&apos;elevació de Copernicus.
+        mesurada</strong> a l&apos;estació meteorològica més alta de cada domini.
+        L&apos;anell verd vol dir oberta, i el gruix de neu hi surt quan el
+        comunicat encara val. Relleu: model d&apos;elevació de Copernicus.
       </figcaption>
     </figure>
   );

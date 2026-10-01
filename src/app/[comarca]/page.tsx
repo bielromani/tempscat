@@ -7,9 +7,10 @@ import { activeWarnings, currentFor } from '@/lib/weather';
 import { comarcaSummary } from '@/lib/comparison';
 import { temperatureMap } from '@/lib/map';
 import { TemperatureMap } from '@/components/TemperatureMap';
-import { aName, comarcaName, dateLong, deComarca, num, temp } from '@/lib/format';
+import { aName, aNameParts, comarcaName, dateLong, deComarca, num, temp } from '@/lib/format';
 import { localToday } from '@/lib/weather';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
+import { PageHero, Section } from '@/components/PageHero';
 
 /** Página de comarca: 43 rutas, todas prerenderizadas. */
 export const dynamicParams = false;
@@ -50,164 +51,136 @@ export default async function ComarcaPage({ params }: { params: Params }) {
     municipis.map(async (m) => ({ m, current: await currentFor(m) })),
   );
   const conTemp = rows.filter((r) => r.current?.temperatureAdjusted != null);
-  const sorted = [...conTemp].sort(
-    (a, b) => (a.current!.temperatureAdjusted!) - (b.current!.temperatureAdjusted!),
-  );
+
+  const trail = [
+    { nom: 'Catalunya', path: '/' },
+    { nom: c.nom, path: c.path },
+  ];
+  const place = aNameParts(comarcaName(c.nom));
+  const worst = ['vermell', 'taronja', 'groc'].find((l) => warnings.some((w) => w.level === l));
+  const link = (p: { nom: string; path: string }) => <Link href={p.path}>{p.nom}</Link>;
 
   return (
-    <article>
-      <JsonLd data={graph(breadcrumbLd([
-          { nom: 'Catalunya', path: '/' },
-          { nom: c.nom, path: c.path },
-        ]))} />
-      <nav aria-label="Ruta de navegació" className="crumbs">
-        <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
-        <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
-        <span className="text-[var(--ink-2)]">{c.nom}</span>
-      </nav>
+    <article data-wide>
+      <JsonLd data={graph(breadcrumbLd(trail))} />
 
-      <header className="page-head">
-        <h1 className="page-title">{c.nom}</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {c.nMunicipis} municipis
-          {c.poblacio > 0 && ` · ${c.poblacio.toLocaleString('ca-ES')} habitants`}
-          {c.areaKm2 && ` · ${c.areaKm2.toLocaleString('ca-ES')} km²`}
-          {c.densitat && ` · ${c.densitat.toLocaleString('ca-ES')} hab/km²`}
-          {c.altitudMin != null && c.altitudMax != null && ` · dels ${c.altitudMin} als ${c.altitudMax} m`}
-        </p>
-      </header>
-
-      {summary && summary.withData >= 3 && (
-        <p className="mb-6 measure leading-relaxed text-[var(--ink-2)]">
-          {/*
-            Frase de observación, no de predicción: agregar el consenso de hasta
-            68 municipios convertiría esta página de listado en la más cara del
-            sitio a cambio de una línea.
-          */}
-          Ara mateix {comarcaName(c.nom)} va dels{' '}
-          <strong className="tnum font-medium text-[var(--ink)]">{temp(summary.coldest?.value)}</strong>{' '}
-          {summary.coldest && aName(summary.coldest.nom)} als{' '}
-          <strong className="tnum font-medium text-[var(--ink)]">{temp(summary.warmest?.value)}</strong>{' '}
-          {summary.warmest && aName(summary.warmest.nom)}.
-          {summary.dayMax && summary.dayMin && (
-            <> Avui s&apos;ha arribat als {temp(summary.dayMax.value)} {aName(summary.dayMax.nom)} i
-              la mínima ha estat de {temp(summary.dayMin.value)} {aName(summary.dayMin.nom)}.</>
-          )}
-          {summary.rainedCount > 0 && summary.rainMax && (
-            <> Ha plogut en {summary.rainedCount} {summary.rainedCount === 1 ? 'municipi' : 'municipis'},
-              amb {num(summary.rainMax.value, 1)} mm {aName(summary.rainMax.nom)}.</>
-          )}
-        </p>
-      )}
-
-      {warnings.length > 0 && (
-        <p className="mb-6 rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--ink-2)]">
-          Hi ha {warnings.length} {warnings.length === 1 ? 'avís oficial vigent' : 'avisos oficials vigents'}{' '}
-          {aName(comarcaName(c.nom))}.{' '}
-          <Link href="/avisos" className="text-[var(--accent)] no-underline hover:underline">
-            Veure els avisos ›
-          </Link>
-        </p>
-      )}
-
-      {/*
-        * El mapa de tot Catalunya amb aquesta comarca marcada.
-        *
-        * No és decoració: situa la comarca i, sobretot, ensenya **com queda
-        * respecte de la resta** ara mateix. Saber que fa 18 graus no diu gaire;
-        * veure que la resta del país en té 25 sí.
-        *
-        * És el mateix SVG de `/mapa` i no porta cap script.
-        */}
-      {/*
-        * Un pam, no una pantalla.
-        *
-        * El mapa va néixer per a `/mapa`, on és el contingut i ocupa l'ample.
-        * Aquí serveix per situar la comarca dins del país, i a mida completa
-        * empenyia tota la informació de la pàgina per sota de la primera
-        * pantalla d'un ordinador.
-        */}
-      <section className="mb-8 max-w-[340px]">
-        <TemperatureMap data={map} highlight={c.codi} variant="compact" />
-      </section>
-
-      {sorted.length >= 3 && (
-        <section className="mb-8 grid gap-3 sm:grid-cols-2">
-          <div className="card">
-            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Ara mateix, el més fresc</p>
-            <p className="mt-1">
-              <Link href={sorted[0].m.path} className="text-lg font-semibold no-underline text-[var(--ink)]">
-                {sorted[0].m.nom}
-              </Link>
-              <span className="tnum ml-2 text-lg text-[var(--ink-2)]">
-                {num(sorted[0].current!.temperatureAdjusted, 1)} °C
-              </span>
+      <PageHero
+        crumbs={trail}
+        eyebrow={`El temps ${place.prep}`}
+        title={place.rest}
+        lead={summary && summary.withData >= 3 && summary.coldest && summary.warmest ? (
+          /*
+            Frase d'observació, no de predicció: agregar el consens de fins a 68
+            municipis faria d'aquesta pàgina de llistat la més cara del lloc a
+            canvi d'una línia.
+          */
+          <>
+            Ara mateix, {comarcaName(c.nom)} va dels{' '}
+            <strong className="tnum">{temp(summary.coldest.value)}</strong> {aName(summary.coldest.nom)} als{' '}
+            <strong className="tnum">{temp(summary.warmest.value)}</strong> {aName(summary.warmest.nom)}.
+          </>
+        ) : undefined}
+        stats={summary ? [
+          summary.dayMax && {
+            label: "Màxima d'avui", icon: 'thermometer', value: num(summary.dayMax.value, 1), unit: '°C',
+            sub: link(summary.dayMax),
+          },
+          summary.dayMin && {
+            label: "Mínima d'avui", icon: 'thermometer', value: num(summary.dayMin.value, 1), unit: '°C',
+            sub: link(summary.dayMin),
+          },
+          summary.rainedCount > 0 && summary.rainMax && {
+            label: "Pluja d'avui", icon: 'raindrop', value: num(summary.rainMax.value, 1), unit: 'mm',
+            sub: <>{link(summary.rainMax)} · ha plogut en {summary.rainedCount}{' '}
+              {summary.rainedCount === 1 ? 'municipi' : 'municipis'}</>,
+          },
+        ] : undefined}
+        note={[
+          `${c.nMunicipis} municipis`,
+          c.poblacio > 0 && `${c.poblacio.toLocaleString('ca-ES')} habitants`,
+          c.areaKm2 && `${c.areaKm2.toLocaleString('ca-ES')} km²`,
+          c.altitudMin != null && c.altitudMax != null && `dels ${c.altitudMin} als ${c.altitudMax} m`,
+        ].filter(Boolean).join(' · ')}
+        aside={(
+          /*
+            El mapa de tot Catalunya amb aquesta comarca marcada. No és
+            decoració: ensenya com queda respecte de la resta ara mateix. Saber
+            que fa 18 graus no diu gaire; veure que la resta del país en té 25, sí.
+          */
+          <section className="card" aria-label={`${comarcaName(c.nom)} dins de Catalunya, ara`}>
+            <p className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
+              Ara a Catalunya
             </p>
-          </div>
-          <div className="card">
-            <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Ara mateix, el més càlid</p>
-            <p className="mt-1">
-              <Link href={sorted[sorted.length - 1].m.path} className="text-lg font-semibold no-underline text-[var(--ink)]">
-                {sorted[sorted.length - 1].m.nom}
-              </Link>
-              <span className="tnum ml-2 text-lg text-[var(--ink-2)]">
-                {num(sorted[sorted.length - 1].current!.temperatureAdjusted, 1)} °C
-              </span>
-            </p>
-          </div>
-        </section>
+            <div className="mx-auto max-w-[24rem]">
+              <TemperatureMap data={map} highlight={c.codi} variant="compact" />
+            </div>
+            <p className="card-foot"><Link href="/mapa">Totes les comarques ›</Link></p>
+          </section>
+        )}
+      />
+
+      {worst && (
+        <Link href="/avisos" className={`warn-bar is-${worst}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+          <img
+            src={`/icons/w/code-${worst === 'vermell' ? 'red' : worst === 'taronja' ? 'orange' : 'yellow'}.svg`}
+            width={30}
+            height={30}
+            alt=""
+          />
+          <span>
+            <strong>
+              {warnings.length} {warnings.length === 1 ? 'avís oficial vigent' : 'avisos oficials vigents'}
+            </strong>{' '}
+            {aName(comarcaName(c.nom))}. <u>Vegeu-los</u>
+          </span>
+        </Link>
       )}
 
-      <h2 className="mb-3 card-title">
-        Municipis {deComarca(c.nom)}
-      </h2>
-      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {rows.map(({ m, current }) => {
-          const t = current?.temperatureAdjusted ?? null;
-          return (
-            <li key={m.id}>
-              <Link
-                href={m.path}
-                className="flex items-center justify-between gap-3 rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2 no-underline hover:border-[var(--accent)]"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate text-[var(--ink)]">{m.nom}</span>
-                  {m.altitud != null && (
-                    <span className="tnum text-xs text-[var(--muted)]">{m.altitud} m</span>
+      <Section id="municipis" title={`Els ${municipis.length} municipis`}>
+        <div className="card">
+          <ul className="rows rows-cols">
+            {rows.map(({ m, current }) => {
+              const t = current?.temperatureAdjusted ?? null;
+              return (
+                <li key={m.id}>
+                  <Link href={m.path} className="row-main">
+                    <span className="row-title">{m.nom}</span>
+                    {m.altitud != null && <span className="row-sub tnum">{m.altitud} m</span>}
+                  </Link>
+                  {t != null && (
+                    <span
+                      className="temp-pill"
+                      style={{ background: temperatureColor(t), color: temperatureInk(t) }}
+                    >
+                      {t.toFixed(0)}°
+                    </span>
                   )}
-                </span>
-                {t != null && (
-                  <span
-                    className="tnum shrink-0 rounded px-2 py-0.5 text-sm font-semibold"
-                    style={{ background: temperatureColor(t), color: temperatureInk(t) }}
-                  >
-                    {t.toFixed(0)}°
-                  </span>
-                )}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="source">
+            Temperatura de l&apos;estació de la XEMA més propera a cada municipi, corregida pel
+            desnivell. {conTemp.length} de {municipis.length} municipis tenen lectura recent
+            {summary && summary.nStations > 0 && (
+              <>, i darrere hi ha {summary.nStations}{' '}
+                {summary.nStations === 1 ? 'estació' : 'estacions'} diferents</>
+            )}. Dades {dateLong(today)}.
+          </p>
+        </div>
+      </Section>
 
-      <p className="mt-6 text-xs text-[var(--muted)]">
-        Avisos {deComarca(c.nom)} com a{' '}
-        <Link href={`/avisos/feed/${c.slug}`} className="text-[var(--ink-2)] no-underline hover:underline">
+      <p className="mt-8 text-sm text-[var(--muted)]">
+        Els avisos {deComarca(c.nom)}, com a{' '}
+        <Link href={`/avisos/feed/${c.slug}`} className="text-[var(--accent)] no-underline hover:underline">
           feed
         </Link>{' '}o com a{' '}
-        <Link href={`/avisos/feed/${c.slug}?format=ics`} className="text-[var(--ink-2)] no-underline hover:underline">
+        <Link href={`/avisos/feed/${c.slug}?format=ics`} className="text-[var(--accent)] no-underline hover:underline">
           calendari
         </Link>.
-      </p>
-
-      <p className="mt-6 measure text-xs leading-relaxed text-[var(--muted)]">
-        Temperatures de les estacions automàtiques de la XEMA més properes a cada
-        municipi, corregides pel desnivell. {conTemp.length} de {municipis.length} municipis
-        tenen lectura recent
-        {summary && summary.nStations > 0 && (
-          <>, i darrere hi ha {summary.nStations}{' '}
-            {summary.nStations === 1 ? 'estació' : 'estacions'} diferents</>
-        )}. Dades {dateLong(today)}.
       </p>
     </article>
   );

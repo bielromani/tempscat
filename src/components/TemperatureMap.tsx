@@ -217,13 +217,16 @@ export function TemperatureLegend({
   return (
     <div className="mt-4">
       {span && (
-        <div className="relative mb-1 h-4">
+        /* El rètol a dalt i la ratlla a sota, just damunt de l'escala. Anaven a
+           la mateixa alçada i la ratlla passava pel mig del text: es llegia
+           «avui, tot Catalunya» ratllat, com una cosa descartada. */
+        <div className="relative mb-1 h-6">
           <span
-            className="absolute top-1.5 border-t-2 border-[var(--ink-2)]"
+            className="absolute bottom-0.5 border-t-2 border-[var(--ink-2)]"
             style={{ left: `${pct(span.min)}%`, width: `${Math.max(1, pct(span.max) - pct(span.min))}%` }}
           />
           <span
-            className="absolute -translate-x-1/2 whitespace-nowrap text-[11px] text-[var(--ink-2)]"
+            className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] leading-none text-[var(--ink-2)]"
             style={{ left: `${(pct(span.min) + pct(span.max)) / 2}%` }}
           >
             avui, tot Catalunya

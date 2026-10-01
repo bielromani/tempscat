@@ -104,6 +104,13 @@ const CASOS: Array<{ nom: string; hours: HourlyPoint[] }> = [
     nom: 'Plugim llarg: cap hora arriba a mig mil·límetre (no és pluja contínua)',
     hours: series({ 15: rain(0.2, 55), 16: rain(0.2, 60), 17: rain(0.2, 55) }),
   },
+  {
+    nom: 'Plugim de vuit hores: cap hora arriba a mig mil·límetre, però en total sí que mulla',
+    hours: series({
+      15: rain(0.3, 45), 16: rain(0.4, 45), 17: rain(0.3, 40), 18: rain(0.4, 40),
+      19: rain(0.3, 40), 20: rain(0.4, 35), 21: rain(0.3, 35), 22: rain(0.3, 30),
+    }),
+  },
 ];
 
 for (const cas of CASOS) {
@@ -240,6 +247,26 @@ const taronja: RainWarning = { level: 'taronja', phenomenon: 'PR', from: `${DAY}
   // Avís a la zona, i el model no hi veu res en aquest punt.
   const n = narrativeFor(fc(series({}), 3), null, NOW, DAY, [taronja]);
   expect('avís sense pluja al model: es diu igual', /avís taronja per pluja a la zona/.test(n?.change ?? ''), n?.change);
+}
+
+{
+  /*
+   * Avís vigent ara i el model veu pluja, però només a unes altres hores:
+   * l'Albagés, 29 de setembre de 2026. Es diu l'avís, i la pluja del model sense
+   * adjectiu, ni «feble» ni «no arriba a mullar el terra».
+   */
+  const later = series({ 21: rain(0.1, 15), 22: rain(0.1, 15) });
+  const n = narrativeFor(fc(later, 3), null, NOW, DAY, [taronja]);
+  const c = n?.change ?? '';
+  expect('pluja fora de l\'avís: primer l\'avís', /^Hi ha avís taronja per pluja a la zona/.test(c), c);
+  expect('i la pluja del model, sense adjectiu', /el model en preveu 0,2 mm/.test(c) && !/feble|mullar/.test(c), c);
+}
+
+{
+  // La 1 és l'única hora en singular: el Prat deia «fins demà a les 1 h».
+  const n = narrativeFor(fc(series({ 22: rain(1.2, 80), 23: rain(1.1, 80), 24: rain(1.0, 80) })), null, NOW, DAY, []);
+  const c = n?.change ?? '';
+  expect('«a la 1 h», no «a les 1 h»', /a la 1 h/.test(c) && !/les 1 h/.test(c), c);
 }
 
 if (bad) {

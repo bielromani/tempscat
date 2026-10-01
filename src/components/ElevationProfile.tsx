@@ -35,7 +35,8 @@ export function ElevationProfile({
   const H = 260;
   const PAD_L = 52;
   const PAD_B = 26;
-  const PAD_T = 12;
+  // Prou aire a dalt perquè la «m» de la unitat no trepitgi la cota més alta.
+  const PAD_T = 30;
 
   const dist = profile.map((p) => p[0]);
   const alts = profile.map((p) => p[1]);
@@ -118,14 +119,14 @@ export function ElevationProfile({
           </text>
         ))}
 
-        <text x={PAD_L - 8} y={PAD_T - 2} textAnchor="end" fontSize="13" fill="var(--muted)">m</text>
+        <text x={PAD_L - 8} y={14} textAnchor="end" fontSize="13" fill="var(--muted)">m</text>
       </svg>
 
-      <figcaption className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-        Cota mesurada cada 150 m del model d&apos;elevació de Copernicus, que té un
-        píxel de 57 m. Diu bé <strong className="font-medium text-[var(--ink-2)]">on
-        es puja</strong>; el desnivell acumulat no se&apos;n calcula, perquè a
-        aquesta resolució sortiria curt.
+      <figcaption className="source">
+        Cota cada 150 m, del model d&apos;elevació de Copernicus, que té un píxel de
+        57 m. Diu bé <strong className="font-medium text-[var(--ink-2)]">on es
+        puja</strong>; el desnivell acumulat no se&apos;n calcula, perquè a aquesta
+        resolució sortiria curt.
       </figcaption>
     </figure>
   );

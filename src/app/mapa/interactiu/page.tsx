@@ -2,11 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import InteractiveMap, { type MapFrame } from '@/components/InteractiveMap';
 import { TemperatureLegend } from '@/components/TemperatureMap';
-import { JsonLd, breadcrumbLd } from '@/components/JsonLd';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
+import { PageHero } from '@/components/PageHero';
+import { Fold } from '@/components/Fold';
 import { municipalTemperatures, warningOverlay } from '@/lib/map';
-import { precipField, radar, windField } from '@/lib/weather';
-import { tileXToLon, tileYToLat } from '@/lib/mercator';
-import { hour, num } from '@/lib/format';
+import { radar, windField } from '@/lib/weather';
+import { hour, num, theHour } from '@/lib/format';
 import { MAP_NATIVE_MAX_ZOOM } from '@/lib/webmap';
 
 /**
@@ -26,7 +27,7 @@ import { MAP_NATIVE_MAX_ZOOM } from '@/lib/webmap';
  *
  * ## Què hi ha, i què no
  *
- * Hi ha la pluja —el radar i, a continuació, la nostra predicció—, la
+ * Hi ha la pluja del radar —les dues últimes hores—, la
  * temperatura municipi a municipi, el vent i **els avisos de l'AEMET**.
  *
  * Els avisos van per **zona de Meteoalerta** i no per comarca, i aquesta és
@@ -45,28 +46,37 @@ export const revalidate = 900;
 export const metadata: Metadata = {
   title: 'Mapa interactiu de Catalunya: pluja i temperatura',
   description:
-    'El radar, la pluja prevista hora a hora i la temperatura de cada municipi, '
-    + 'en un mapa que es pot moure i ampliar. Cartografia de l’ICGC.',
+    'El radar de les dues últimes hores, la temperatura de cada municipi, el vent '
+    + 'previst i els avisos oficials, en un mapa que es pot moure i ampliar. '
+    + 'Cartografia de l’ICGC.',
   alternates: { canonical: '/mapa/interactiu' },
 };
 
+/**
+ * Quant pot distar l'hora del vent de l'última imatge del radar.
+ *
+ * El vent es publica per hores en punt i el radar cada deu minuts, així que
+ * l'hora més propera és, com a molt, a mitja hora — i a una hora i poc quan la
+ * predicció ja ha descartat l'hora en curs (`windField()` només en torna de
+ * futures). Més enllà, el radar o el vent estan endarrerits, i ensenyar-los
+ * junts seria posar el vent d'una tarda damunt de la pluja d'una altra.
+ */
+const WIND_MAX_GAP_S = 90 * 60;
+
 export default async function MapaInteractiuPage() {
-  const [rad, field, air, temps, warnings] = await Promise.all([
+  const [rad, air, temps, warnings] = await Promise.all([
     radar(),
-    precipField(),
     windField(),
     municipalTemperatures(),
     warningOverlay(),
   ]);
 
   /*
-   * Els marcs, en ordre: primer el radar i després la predicció.
+   * Els marcs del radar, i només ells: passat i present.
    *
-   * Els dos jocs viuen en el mateix mosaic —el camp es pinta en píxels de les
-   * tessel·les del radar a posta— però arriben de maneres diferents: el radar
-   * són quatre tessel·les i el camp és una imatge sola. Per això aquí es fa
-   * l'únic pas que els iguala: donar-li al camp els seus quatre cantons en
-   * graus, que és el que MapLibre necessita per posar-lo al seu lloc.
+   * Fins al 29 de setembre de 2026 la barra seguia amb la predicció pintada
+   * com un camp. Es va treure, com a `/radar`: un model no es mou com un eco,
+   * i en passar del present al futur semblava que la pluja saltés.
    */
   const frames: MapFrame[] = [];
 
@@ -81,98 +91,72 @@ export default async function MapaInteractiuPage() {
     }
   }
 
-  /*
-   * El camp només entra si el seu mosaic és **el mateix** que el del radar.
-   *
-   * Els seus píxels es compten des de la tessel·la `(x0, y0)` de la graella del
-   * radar, i el zoom i la mida els posa el worker del camp pel seu compte. Avui
-   * són els mateixos —z7 i 512— i per això la comptabilitat surt: el cantó
-   * nord-oest calculat cau exactament a 0,0000 / 43,0689, que és on diu la
-   * graella. El dia que un dels dos canviï, aquesta mateixa aritmètica posaria
-   * la pluja **desplaçada damunt d'un país que seguiria sortint bé**, que és el
-   * tipus d'error que aquí no es veu fins que algú compara amb la finestra.
-   *
-   * Així que es comprova, i si no quadra no s'ensenya el futur: val més un
-   * radar que s'acaba que una predicció posada on no toca.
-   */
-  const sameMosaic = !!rad && !!field
-    && field.mosaic.z === rad.grid.z
-    && field.mosaic.tile === rad.grid.size;
-
-  if (rad && field && sameMosaic) {
-    const { z, tile } = field.mosaic;
-    const { x, y, w, h } = field.box;
-    // El píxel (0,0) del mosaic és el cantó de la tessel·la (x0, y0).
-    const lon = (px: number) => tileXToLon(rad.grid.x0 + px / tile, z);
-    const lat = (py: number) => tileYToLat(rad.grid.y0 + py / tile, z);
-
-    const seen = new Set(frames.map((f) => f.time));
-    for (const hr of field.hours) {
-      // Una hora que xoqui amb un marc de radar no entra: el radar ha mesurat
-      // aquell instant i la predicció només l'endevinava.
-      if (seen.has(hr.time)) continue;
-      frames.push({
-        time: hr.time,
-        label: hour(`${hr.iso}:00`),
-        kind: 'forecast',
-        // Amb `.webp`: la ruta demana el nom sencer, i sense ell torna un 404
-        // que no es veu — el marc queda buit i sembla que no hi plou.
-        image: `/camp/${hr.name}.webp`,
-        corners: [
-          [lon(x), lat(y)],
-          [lon(x + w), lat(y)],
-          [lon(x + w), lat(y + h)],
-          [lon(x), lat(y + h)],
-        ],
-      });
-    }
-  }
-
   frames.sort((a, b) => a.time - b.time);
 
   const lastPast = frames.filter((f) => f.kind === 'past').at(-1);
-  const firstForecast = frames.find((f) => f.kind === 'forecast');
+
+  /*
+   * El vent d'ara, i una sola hora.
+   *
+   * Abans el vent anava hora a hora per la mateixa barra que la pluja, i la
+   * pàgina només el passava si **cada** hora del vent tenia el seu marc. Quan
+   * la barra va quedar-se amb el radar i prou —dues hores enrere, ni una
+   * endavant—, cap hora del vent hi coincidia i la capa desapareixia sense cap
+   * error: el botó «Vent» deixava de sortir i prou.
+   *
+   * Ara va l'hora de la predicció més propera a l'última imatge del radar, que
+   * és el «ara» de la pàgina, i només si hi és prou a prop (`WIND_MAX_GAP_S`).
+   * `InteractiveMap` ensenya aquella hora sigui on sigui la barra, perquè
+   * busca el marc i, si no el troba, agafa la primera. El rellotge no entra
+   * aquí: l'instant de referència és el del radar, que ja és una dada.
+   */
+  const now = frames.at(-1);
+  const nearest = air && now
+    ? air.hours.reduce((best, h) => (
+      Math.abs(h.time - now.time) < Math.abs(best.time - now.time) ? h : best
+    ))
+    : null;
+  const windHour = nearest && now && Math.abs(nearest.time - now.time) <= WIND_MAX_GAP_S
+    ? nearest
+    : null;
+
+  const trail = [
+    { nom: 'Catalunya', path: '/' },
+    { nom: 'Mapa', path: '/mapa' },
+    { nom: 'Mapa interactiu', path: '/mapa/interactiu' },
+  ];
 
   return (
     <article data-wide>
-      <JsonLd data={breadcrumbLd([
-        { nom: 'Catalunya', path: '/' },
-        { nom: 'Mapa', path: '/mapa' },
-        { nom: 'Mapa interactiu', path: '/mapa/interactiu' },
-      ])}
+      <JsonLd data={graph(breadcrumbLd(trail))} />
+
+      <PageHero
+        crumbs={trail}
+        eyebrow="Mapa interactiu"
+        icon="partly-cloudy-day-rain"
+        title="El mapa, de prop"
+        lead={(
+          <>
+            La pluja del radar, la temperatura de cada municipi
+            {windHour ? ', el vent previst' : ''} i els avisos, damunt de la
+            cartografia de l’Institut Cartogràfic. Podeu moure’l i ampliar-lo.
+          </>
+        )}
+        note={(
+          <>
+            Per veure el país sencer d’una ullada, sense esperar res, hi ha el{' '}
+            <Link href="/mapa" className="text-[var(--accent)] no-underline hover:underline">
+              mapa de temperatures per comarques
+            </Link>.
+          </>
+        )}
       />
-
-      <nav aria-label="Ruta de navegació" className="crumbs">
-        <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
-        <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
-        <Link href="/mapa" className="no-underline hover:text-[var(--ink)]">Mapa</Link>
-        <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
-        <span className="text-[var(--ink-2)]">Interactiu</span>
-      </nav>
-
-      <header className="page-head">
-        <h1 className="page-title">
-          El mapa, de prop
-        </h1>
-        <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
-          La pluja i la temperatura sobre la cartografia de l’Institut Cartogràfic,
-          amb la finestra que trieu vós. Per veure el país sencer d’una ullada,
-          sense esperar res, hi ha el{' '}
-          <Link href="/mapa">mapa de temperatures per comarques</Link>.
-        </p>
-      </header>
 
       <InteractiveMap
         frames={frames}
         warnings={warnings}
-        /*
-         * El vent només s'ofereix si les seves hores són les mateixes que les
-         * dels marcs. Les pinta el mateix worker de la mateixa sèrie, però si
-         * un dia una de les dues es publiqués a mitges, la barra ensenyaria el
-         * vent d'una hora damunt de la pluja d'una altra i tot semblaria bé.
-         */
-        wind={air && air.hours.every((h) => frames.some((f) => f.time === h.time))
-          ? { width: air.width, height: air.height, box: air.box, hours: air.hours }
+        wind={air && windHour
+          ? { width: air.width, height: air.height, box: air.box, hours: [windHour] }
           : null}
         colors={temps.colors}
         degrees={temps.degrees}
@@ -180,25 +164,15 @@ export default async function MapaInteractiuPage() {
         total={temps.total}
         radarLegend={(
           <>
-            {lastPast && firstForecast ? (
+            {lastPast ? (
               <>
-                Fins a les <strong className="tnum">{lastPast.label}</strong> és el
-                radar: gotes mesurades a l’aire. A partir de les{' '}
-                <strong className="tnum">{firstForecast.label}</strong> ja no hi ha
-                cap radar al darrere — és la nostra predicció, mil·límetres previstos
-                a terra. Són dues coses diferents i el primer quadre sempre té més
-                color que els altres.
-              </>
-            ) : lastPast ? (
-              <>
-                Radar de precipitació fins a les{' '}
-                <strong className="tnum">{lastPast.label}</strong>. Avui no hi ha
-                predicció per encadenar-hi.
+                Radar de precipitació de les dues últimes hores, fins a les{' '}
+                <strong className="tnum text-[var(--ink-2)]">{lastPast.label}</strong>.
               </>
             ) : (
               'Encara no hi ha cap imatge de radar.'
             )}{' '}
-            El mosaic públic del radar s’acaba al zoom 7: acostant-s’hi més no
+            El mosaic públic del radar s’acaba al zoom 7: acostant-s’hi no
             apareix cap detall nou, s’amplia la mateixa imatge.
           </>
         )}
@@ -209,97 +183,83 @@ export default async function MapaInteractiuPage() {
             ) : null}
             <p className="mt-2">
               La temperatura de{' '}
-              <strong className="tnum">{temps.observed}</strong> municipis de{' '}
+              <strong className="tnum text-[var(--ink-2)]">{temps.observed}</strong> municipis de{' '}
               {temps.total}, cadascuna corregida per l’altitud des de l’estació
               del Meteocat que li toca. Els que no surten pintats no tenen cap
-              estació prou a prop: no s’hi inventa un color.
+              estació prou a prop.
               {temps.min != null && temps.max != null ? (
                 <>
                   {' '}Ara mateix hi ha{' '}
-                  <strong className="tnum">{num(temps.max - temps.min, 1)} graus</strong>{' '}
+                  <strong className="tnum text-[var(--ink-2)]">{num(temps.max - temps.min, 1)} graus</strong>{' '}
                   entre el municipi més càlid i el més fred.
                 </>
               ) : null}
             </p>
           </>
         )}
-        windLegend={(
+        windLegend={windHour ? (
           <>
-            On va l’aire, hora a hora. Cada fil és una partícula que segueix la
-            predicció del vent a deu metres del terra; com més marcat, més
-            força.{' '}
-            {air ? (
-              <>
-                En les properes{' '}
-                <strong className="tnum">{air.hours.length} hores</strong> el
-                màxim previst arreu del mapa és de{' '}
-                <strong className="tnum">
-                  {num(Math.max(...air.hours.map((h) => h.maxMs)) * 3.6, 0)} km/h
-                </strong>.{' '}
-              </>
-            ) : null}
+            Vent de la predicció per a{' '}
+            <strong className="tnum text-[var(--ink-2)]">
+              {theHour(Number(windHour.iso.slice(11, 13)))}
+            </strong>, a deu metres del terra: cada fil és una partícula que el
+            segueix, i com més marcat, més força. El màxim arreu del mapa és de{' '}
+            <strong className="tnum text-[var(--ink-2)]">{num(windHour.maxMs * 3.6, 0)} km/h</strong>.{' '}
             <strong className="font-medium text-[var(--ink-2)]">
-              No és vent mesurat: és vent previst.
+              És vent previst, no mesurat:
             </strong>{' '}
-            Surt dels mateixos punts que la pluja, un cada 3,2 km dins de
-            Catalunya i un cada 25 al mar i a fora. El que s’ha mesurat de debo
-            és a la fitxa de cada lloc, amb la seva estació i la seva hora.
+            surt dels punts de predicció, un cada 3,2 km dins de Catalunya i un
+            cada 25 al mar i a fora. El mesurat és a la fitxa de cada lloc, amb la
+            seva estació i la seva hora.
           </>
-        )}
+        ) : null}
         warningsLegend={warnings ? (
           <>
-            {' '}Les taques i els contorns de color són els{' '}
-            <Link href="/avisos">avisos oficials de l’AEMET</Link> vigents:{' '}
-            <strong className="tnum">{warnings.zones}</strong>{' '}
-            {warnings.zones === 1 ? 'zona' : 'zones'} d’avís. Van per{' '}
+            {' '}Les taques de color són els{' '}
+            <Link href="/avisos">avisos oficials de l’AEMET</Link> vigents, en{' '}
+            <strong className="tnum text-[var(--ink-2)]">{warnings.zones}</strong>{' '}
+            {warnings.zones === 1 ? 'zona' : 'zones'}. Van per{' '}
             <strong className="font-medium text-[var(--ink-2)]">zona de
-            Meteoalerta</strong>, que és la unitat en què l’AEMET els emet — no
-            per comarca ni per municipi: dins d’una zona pintada, l’avís no
-            distingeix un poble d’un altre. Quan una zona en té més d’un, el
-            color és el del més greu. Per saber què diuen exactament, consulteu
-            la fitxa del vostre poble o la <Link href="/avisos">llista
-            d’avisos</Link>.
+            Meteoalerta</strong>, la unitat en què l’AEMET els emet: dins d’una
+            zona pintada, l’avís no distingeix un poble d’un altre. Quan una zona
+            en té més d’un, el color és el del més alt. El detall és a la{' '}
+            <Link href="/avisos">llista d’avisos</Link> i a la fitxa de cada poble.
           </>
         ) : null}
         fallback={(
           <>
             <p>
-              Aquest mapa necessita JavaScript i una targeta gràfica, i és l’única
-              pàgina del lloc que en demana.
+              Aquest mapa necessita JavaScript i una targeta gràfica.
             </p>
             <p className="mt-2">
-              Sense això, la mateixa informació és{' '}
+              La mateixa informació és{' '}
               <Link href="/mapa">al mapa de temperatures</Link> i{' '}
-              <Link href="/radar">al radar</Link>, que funcionen igual sense
+              <Link href="/radar">al radar</Link>, que funcionen sense
               executar res.
             </p>
           </>
         )}
       />
 
-      <section className="mt-8 measure text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="card-title mb-2">
-          D’on surt cada cosa
-        </h2>
-        <p>
-          El fons és el mapa base de l’<strong>Institut Cartogràfic i Geològic de
-          Catalunya</strong>, amb llicència CC BY, desat i servit des d’aquí: cap
-          petició d’aquesta pàgina no surt cap a un servidor de tessel·les de
-          ningú, i per tant la vostra adreça IP tampoc. No hi ha cap clau d’API
-          perquè no hi ha ningú a qui demanar-la.
-        </p>
-        <p className="mt-2">
-          Les tessel·les cobreixen el país fins al zoom {MAP_NATIVE_MAX_ZOOM}. A
-          partir d’aquí el que es veu és la mateixa imatge ampliada; per al
-          carrer d’un poble, la fitxa d’aquell poble.
-        </p>
-        <p className="mt-2">
-          La pluja observada és de <strong>RainViewer</strong> i la prevista surt
-          dels nostres 3.190 punts de predicció d’<strong>Open-Meteo</strong>,
-          CC BY 4.0. La temperatura la mesuren les estacions de la XEMA del{' '}
-          <strong>Meteocat</strong>.
-        </p>
-      </section>
+      <Fold title="D’on surt cada cosa" summary="ICGC, RainViewer, Open-Meteo, Meteocat i AEMET">
+        <div className="card prose">
+          <p>
+            El fons és el mapa base de l’<strong>Institut Cartogràfic i Geològic
+            de Catalunya</strong>, amb llicència CC BY, servit des d’aquest mateix
+            domini: la vostra adreça IP no arriba a cap servidor de tessel·les de
+            tercers. Arriba fins al zoom {MAP_NATIVE_MAX_ZOOM}; més a prop
+            s’amplia la mateixa imatge, i per al carrer d’un poble hi ha la fitxa
+            d’aquell poble.
+          </p>
+          <p>
+            El radar és de <strong>RainViewer</strong>. El vent previst surt
+            {air ? <> dels {air.points.toLocaleString('ca-ES')} punts</> : ' dels punts'} de
+            predicció d’<strong>Open-Meteo</strong>, CC BY 4.0. La temperatura la
+            mesuren les estacions de la XEMA del <strong>Meteocat</strong>, i els
+            avisos són de l’<strong>AEMET</strong>.
+          </p>
+        </div>
+      </Fold>
     </article>
   );
 }

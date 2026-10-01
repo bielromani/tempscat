@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { comarcaName, dateLong, num } from '@/lib/format';
-import { airStations, stationKind } from '@/lib/air-stations';
+import { airStations, stationKind, type AirStation } from '@/lib/air-stations';
 import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
 import { concentrationColor } from '@/lib/scales';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
+import { PageHero, Section } from '@/components/PageHero';
+import { Fold } from '@/components/Fold';
 
 /**
  * La calidad del aire medida, estación por estación.
@@ -18,6 +20,12 @@ import { concentrationColor } from '@/lib/scales';
  * que mide más que la distancia**. Una de tráfico en una calle con cuesta y otra
  * de fondo en un parque, a un kilómetro, dan NO₂ que no se parecen — y las dos
  * están bien.
+ *
+ * ## «Ayer» no se escribe
+ *
+ * El día de la serie se escribe con su fecha y no como «ahir»: cuando la XVPCA
+ * deja de publicar —pasó el 10 de septiembre de 2026— el último día completo
+ * puede ser de hace una semana, y la cabecera diría que es de ayer.
  */
 export const revalidate = 3600;
 
@@ -38,23 +46,40 @@ const COLUMNS = [
   { slug: 'so2', label: 'SO₂' },
 ];
 
+function value(s: AirStation, slug: string): number | null {
+  return s.measurements.find((m) => m.slug === slug && m.dailyMean != null)?.dailyMean ?? null;
+}
+
+/** L'estació amb el valor més alt —o el més baix— d'un contaminant, i el valor. */
+function extreme(list: AirStation[], slug: string, dir: 'max' | 'min') {
+  return list
+    .map((s) => ({ s, v: value(s, slug) }))
+    .filter((x): x is { s: AirStation; v: number } => x.v != null)
+    .sort((a, b) => (dir === 'max' ? b.v - a.v : a.v - b.v))[0] ?? null;
+}
+
 export default async function AirePage() {
   const data = await airStations();
+
+  const trail = [
+    { nom: 'Catalunya', path: '/' },
+    { nom: 'Aire mesurat', path: '/aire' },
+  ];
 
   if (!data?.list.length) {
     return (
       <article>
-        <h1 className="text-3xl font-semibold tracking-tight">Qualitat de l&apos;aire mesurada</h1>
-        <p className="mt-4 text-[var(--muted)]">
-          Encara no hi ha dades descarregades. Apareixen quan el worker de la XVPCA
-          hagi corregut per primera vegada.
-        </p>
+        <JsonLd data={graph(breadcrumbLd(trail))} />
+        <PageHero
+          crumbs={trail}
+          eyebrow="Qualitat de l'aire"
+          icon="haze"
+          title="L'aire, mesurat"
+          lead="Ara mateix no hi ha mesures de la XVPCA. Torneu-hi en una estona."
+        />
       </article>
     );
   }
-
-  const value = (s: (typeof data.list)[number], slug: string) =>
-    s.measurements.find((m) => m.slug === slug && m.dailyMean != null)?.dailyMean ?? null;
 
   const rows = [...data.list].sort((a, b) => (value(b, 'no2') ?? -1) - (value(a, 'no2') ?? -1));
 
@@ -70,152 +95,157 @@ export default async function AirePage() {
     .filter((x): x is { s: typeof x.s; v: number } => x.v != null);
   const worstNo2 = mapped.reduce((a, x) => Math.max(a, x.v), 0);
 
-  const worstPm10 = rows
-    .map((s) => ({ s, v: value(s, 'pm10') }))
-    .filter((x) => x.v != null)
-    .sort((a, b) => (b.v ?? 0) - (a.v ?? 0))[0];
+  const no2Max = extreme(data.list, 'no2', 'max');
+  const no2Min = extreme(data.list, 'no2', 'min');
+  const pm10Max = extreme(data.list, 'pm10', 'max');
+
+  const stat = (label: string, x: { s: AirStation; v: number } | null, sub?: string) => x && {
+    label,
+    value: num(x.v, 1),
+    unit: 'µg/m³',
+    sub: sub ? `${x.s.name} · ${sub}` : x.s.name,
+  };
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="crumbs">
-        <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
-        <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
-        <span className="text-[var(--ink-2)]">Aire mesurat</span>
-      </nav>
+      <JsonLd data={graph(breadcrumbLd(trail))} />
 
-      <header className="page-head">
-        <h1 className="page-title">
-          L&apos;aire, mesurat
-        </h1>
-        <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
-          Mitjanes de tot el dia a {rows.length} estacions de la XVPCA,{' '}
-          {data.day ? <>del <strong className="font-medium text-[var(--ink)]">{dateLong(data.day)}</strong></> : 'del darrer dia complet'}.
-          {worstPm10?.v != null && (
-            <> El PM10 més alt va ser de{' '}
-              <span className="tnum font-medium text-[var(--ink)]">{num(worstPm10.v, 1)} µg/m³</span>{' '}
-              a {worstPm10.s.name}.</>
-          )}
-        </p>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-          <strong className="font-medium text-[var(--ink-2)]">Això no és l&apos;aire d&apos;ara.</strong>{' '}
-          El registre s&apos;actualitza un cop al dia de matinada i porta unes vint
-          hores de retard: són mesures del dia anterior, no lectures en viu.
-          L&apos;índex que surt a cada fitxa és d&apos;un model, cobreix tot el
-          territori i sí que va al dia — les dues coses són útils i no són la
-          mateixa.
-        </p>
-      </header>
+      <PageHero
+        crumbs={trail}
+        eyebrow="Qualitat de l'aire"
+        icon="haze"
+        title="L'aire, mesurat"
+        lead={(
+          <>
+            Mitjanes de tot el dia a {rows.length} estacions de la XVPCA,{' '}
+            {data.day ? <>de <strong>{dateLong(data.day)}</strong></> : 'del darrer dia complet'}.{' '}
+            No és l&apos;aire d&apos;ara: el registre porta unes vint hores de retard.
+          </>
+        )}
+        stats={[
+          stat('NO₂ més alt', no2Max),
+          stat('NO₂ més baix', no2Min),
+          stat('PM10 més alt', pm10Max),
+        ]}
+        note={(
+          <>
+            El registre s&apos;actualitza un cop al dia de matinada. L&apos;índex de cada
+            fitxa és d&apos;un model, cobreix tot el territori i sí que va al dia: són dues
+            coses útils i diferents.
+          </>
+        )}
+        aside={mapped.length > 0 && (
+          /*
+            On són les estacions i quant hi van mesurar.
 
-      {/*
-        On són les estacions i quant hi van mesurar.
+            La pàgina era una taula de 76 files ordenada per NO₂, i una taula no
+            diu que el diòxid de nitrogen és una cosa de trànsit i que per tant es
+            concentra a l'àrea de Barcelona. El mapa ho diu sense una frase.
 
-        La pàgina era una taula de 76 files ordenada per NO₂, i una taula no
-        diu que el diòxid de nitrogen és una cosa de trànsit i que per tant es
-        concentra a l'àrea de Barcelona. El mapa ho diu sense una frase.
+            El color és **relatiu al pitjor del dia** i no una banda oficial: les
+            bandes europees són d'un índex horari i això és una mitjana diària. El
+            peu ho diu, perquè un mapa amb els colors de l'índex i uns valors que
+            no són els que l'índex classifica seria una etiqueta manllevada.
+          */
+          <section className="card" aria-label="El diòxid de nitrogen mesurat, al mapa">
+            <p className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/haze.svg" width={22} height={22} alt="" />
+              Diòxid de nitrogen
+            </p>
+            <PointsMap
+              scale={2}
+              outline={outline.features}
+              projection={outline.projection}
+              width={outline.width}
+              height={outline.height}
+              ariaLabel={`Mapa de Catalunya amb el diòxid de nitrogen mesurat a ${mapped.length} estacions`}
+              points={mapped.map((m) => ({
+                key: m.s.code,
+                lat: m.s.lat,
+                lon: m.s.lon,
+                r: 6,
+                fill: concentrationColor(m.v, worstNo2),
+                tip: `${m.s.name}: ${num(m.v, 1)} µg/m³ de NO₂`,
+              }))}
+              footer={(
+                <>
+                  Cada punt és una estació, de clar a fosc fins al pitjor valor del dia.
+                  És una mitjana diària i no una qualificació: les bandes oficials són
+                  d&apos;un índex horari. El NO₂ ve del trànsit, i s&apos;acumula on n&apos;hi ha.
+                </>
+              )}
+            />
+          </section>
+        )}
+      />
 
-        El color és **relatiu al pitjor del dia** i no una banda oficial: les
-        bandes europees són d'un índex horari i això és una mitjana diària. El
-        peu ho diu, perquè un mapa amb els colors de l'índex i uns valors que
-        no són els que l'índex classifica seria una etiqueta manllevada.
-      */}
-      {mapped.length > 0 && (
-        <section className="mb-8">
-          <PointsMap
-            outline={outline.features}
-            projection={outline.projection}
-            width={outline.width}
-            height={outline.height}
-            ariaLabel={`Mapa de Catalunya amb el diòxid de nitrogen mesurat a ${mapped.length} estacions`}
-            points={mapped.map((m) => ({
-              key: m.s.code,
-              lat: m.s.lat,
-              lon: m.s.lon,
-              r: 6,
-              fill: concentrationColor(m.v, worstNo2),
-              tip: `${m.s.name}: ${num(m.v, 1)} µg/m³ de NO₂`,
-            }))}
-            footer={(
-              <>
-                Cada punt és una estació de la XVPCA i el color és el
-                <strong className="font-medium text-[var(--ink-2)]"> diòxid de nitrogen</strong>,
-                de clar a fosc segons el pitjor valor del dia. No és una
-                qualificació: és una mitjana diària, i les bandes oficials són
-                d&apos;un índex horari. El NO₂ ve del trànsit, i per això
-                s&apos;acumula on n&apos;hi ha.
-              </>
-            )}
-          />
-        </section>
-      )}
-
-      <div className="scroll-x">
-        <table className="w-full border-collapse text-sm">
-          <caption className="sr-only">
-            Mitjana diària de cada contaminant per estació, en µg/m³
-          </caption>
-          <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--muted)]">
-              <th scope="col" className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Estació</th>
-              {COLUMNS.map((c) => (
-                <th key={c.slug} scope="col" className="border-b border-[var(--line)] py-2 pr-4 font-semibold">
-                  {c.label}
-                </th>
-              ))}
-              <th scope="col" className="border-b border-[var(--line)] py-2 font-semibold">Tipus</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((s) => (
-              <tr key={s.code} className="border-b border-[var(--line-soft)]">
-                <td className="py-2.5 pr-4">
-                  <span className="block text-[var(--ink)]">{s.name}</span>
-                  <span className="block text-xs text-[var(--muted)]">
-                    {s.municipality}
-                    {s.comarca && ` · ${comarcaName(s.comarca)}`}
-                  </span>
-                </td>
-                {COLUMNS.map((c) => {
-                  const v = value(s, c.slug);
-                  return (
-                    <td key={c.slug} className="tnum py-2.5 pr-4 text-[var(--ink-2)]">
-                      {v != null ? num(v, 1) : <span className="text-[var(--line)]">—</span>}
+      <Section id="estacions" title={`Les ${rows.length} estacions`}>
+        <div className="card">
+          <div className="scroll-x">
+            <table className="data-table">
+              <caption className="sr-only">
+                Mitjana diària de cada contaminant per estació, en µg/m³
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="min-w-[11rem]">Estació</th>
+                  {COLUMNS.map((c) => (
+                    <th key={c.slug} scope="col" className="num">{c.label}</th>
+                  ))}
+                  <th scope="col">Tipus</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => (
+                  <tr key={s.code}>
+                    <td>
+                      <span className="block font-medium text-[var(--ink)]">{s.name}</span>
+                      <span className="block text-xs text-[var(--muted)]">
+                        {s.municipality}
+                        {s.comarca && ` · ${comarcaName(s.comarca)}`}
+                      </span>
                     </td>
-                  );
-                })}
-                <td className="py-2.5 text-xs text-[var(--muted)]">{stationKind(s)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    {COLUMNS.map((c) => {
+                      const v = value(s, c.slug);
+                      return (
+                        <td key={c.slug} className="num">
+                          {v != null ? num(v, 1) : <span className="text-[var(--muted)]">—</span>}
+                        </td>
+                      );
+                    })}
+                    <td className="whitespace-nowrap text-xs text-[var(--muted)]">{stationKind(s)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="source">
+            {data.source}. Mitjanes de les 24 hores, en µg/m³, i només amb el dia sencer:
+            una mitjana de mitja jornada no és una mitjana diària. Un guió vol dir que
+            l&apos;estació no mesura aquell contaminant, no un zero.
+          </p>
+        </div>
+      </Section>
 
-      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="card-title">
-          Com es llegeix
-        </h2>
-        <p>
-          Totes les xifres són <strong className="font-medium text-[var(--ink)]">mitjanes de les
-          24 hores</strong> del dia, en µg/m³, i només surten quan el dia està
-          sencer: una mitjana de mitja jornada no és una mitjana diària.
-        </p>
-        <p>
-          <strong className="font-medium text-[var(--ink)]">El tipus d&apos;estació canvia el
-          que mesura més que la distància.</strong> Una de trànsit al costat d&apos;una
-          via amb pendent i una de fons en un parc, a un quilòmetre l&apos;una de
-          l&apos;altra, donen NO₂ que no s&apos;assemblen — i les dues estan bé. La
-          columna de la dreta diu de quina mena és cadascuna.
-        </p>
-        <p>
-          L&apos;ozó fa el camí contrari que el trànsit: puja on hi ha menys cotxes i
-          més sol, perquè els òxids de nitrogen el destrueixen. Un valor alt d&apos;ozó
-          en una estació rural i baix a la ciutat és el comportament normal, no un
-          error.
-        </p>
-        <p className="text-[var(--muted)]">
-          {data.source}. Els contaminants que no mesura cada estació surten amb un
-          guió: no és un zero, és que allà no hi ha aparell.
-        </p>
-      </section>
+      <div className="mt-10">
+        <Fold title="Com es llegeix" summary="El tipus d'estació i l'ozó">
+          <div className="card prose">
+            <p>
+              <strong>El tipus d&apos;estació canvia el que mesura més que la
+              distància.</strong> Una de trànsit al costat d&apos;una via amb pendent i una de
+              fons en un parc, a un quilòmetre l&apos;una de l&apos;altra, donen NO₂ que no
+              s&apos;assemblen, i les dues estan bé. La columna de la dreta diu de quina mena
+              és cadascuna.
+            </p>
+            <p>
+              <strong>L&apos;ozó fa el camí contrari que el trànsit:</strong> puja on hi ha
+              menys cotxes i més sol, perquè els òxids de nitrogen el destrueixen. Un ozó alt
+              en una estació rural i baix a la ciutat és el comportament normal.
+            </p>
+          </div>
+        </Fold>
+      </div>
     </article>
   );
 }

@@ -1,4 +1,5 @@
 import { int, num } from '@/lib/format';
+import { StatGrid } from './PageHero';
 import { temperatureColor } from '@/lib/scales';
 import { MONTH_MIN_DAYS } from '@/lib/climate';
 import type { ClimateYear, RainYear, StationMonth, Trend } from '@/lib/climate';
@@ -105,6 +106,9 @@ export function ClimateTrend({
       : null;
   };
   const mName = MONTHS[month - 1];
+  /** Si el mes d'enguany és a la gràfica, que és quan surt ressaltat. */
+  const nowInChart = monthNow != null
+    && monthTemp.some((m) => m.year === Number(monthNow.ym.slice(0, 4)));
   const monthExtremes = [
     { label: `${mName} més calorós`, m: best(monthSeries, (m) => m.tMax, true), unit: '°C', of: 'tMax' },
     { label: `nit més freda d'un ${mName}`, m: best(monthSeries, (m) => m.tMin, false), unit: '°C', of: 'tMin' },
@@ -122,40 +126,72 @@ export function ClimateTrend({
     }));
 
   return (
-    <div className="space-y-8">
+    <div className="grid grid-cols-1 gap-4">
+      {/*
+        Els extrems de la sèrie, primer: és el que es busca abans de mirar cap
+        dibuix —quin va ser l'any més càlid, el més plujós—, i en xifres grans
+        es llegeix d'una ullada.
+      */}
+      <StatGrid
+        stats={[
+          hottest && {
+            label: 'Any més càlid', icon: 'thermometer', value: num(hottest.tMean, 1), unit: '°C', sub: String(hottest.year),
+          },
+          coldest && {
+            label: 'Any més fred', icon: 'thermometer', value: num(coldest.tMean, 1), unit: '°C', sub: String(coldest.year),
+          },
+          wettest && {
+            label: 'Any més plujós', icon: 'raindrops', value: int(wettest.precip), unit: 'mm', sub: String(wettest.year),
+          },
+          wetMonth && {
+            label: 'Mes més plujós', icon: 'raindrops', value: int(wetMonth.precip), unit: 'mm',
+            sub: `${MONTHS[Number(wetMonth.ym.slice(5, 7)) - 1]} del ${wetMonth.ym.slice(0, 4)}`,
+          },
+          driest && {
+            label: 'Any més sec', icon: 'raindrop', value: int(driest.precip), unit: 'mm', sub: String(driest.year),
+          },
+        ]}
+      />
+
       {/* ── La temperatura, any rere any ── */}
       {hasTemp && (
-        <figure className="m-0">
-          <figcaption className="mb-2 text-sm text-[var(--ink-2)]">
-            <strong className="font-medium text-[var(--ink)]">Temperatura mitjana de cada any</strong>
+        <figure className="card m-0">
+          <figcaption>
+            <p className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
+              Temperatura mitjana de cada any
+            </p>
             {trend && (
-              <>
-                {' · '}
-                <span className="tnum">
-                  {trend.perDecade > 0 ? '+' : '−'}{num(Math.abs(trend.perDecade), 2)} °C
-                </span>{' '}
-                per dècada entre {trend.from} i {trend.to}
-              </>
+              <p className="-mt-1 mb-3 text-[15px] text-[var(--ink-2)]">
+                <strong className="tnum font-semibold text-[var(--ink)]">
+                  {trend.perDecade > 0 ? '+' : '−'}{num(Math.abs(trend.perDecade), 2)} °C per dècada
+                </strong>{' '}
+                entre {trend.from} i {trend.to}
+              </p>
             )}
           </figcaption>
-          <YearChart years={years} trend={trend} />
+          <Chart><YearChart years={years} trend={trend} /></Chart>
         </figure>
       )}
 
       {/* ── Aquest mes, contra tots els altres ── */}
       {(hasMonth || monthExtremes.length > 0) && (
-        <figure className="m-0">
-          {hasMonth && (
-            <>
-              <figcaption className="mb-2 text-sm text-[var(--ink-2)]">
-                <strong className="font-medium text-[var(--ink)]">
-                  Els {MONTHS[month - 1]}s de la sèrie
-                </strong>
-                {' · '}mitjana de cada un, {monthTemp.length} anys
-              </figcaption>
-              <MonthChart series={monthTemp} now={monthNow} />
-            </>
-          )}
+        <figure className="card m-0">
+          <figcaption>
+            <p className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
+              Els {MONTHS[month - 1]}s de la sèrie
+            </p>
+            {hasMonth && (
+              <p className="-mt-1 mb-3 text-[15px] text-[var(--ink-2)]">
+                La mitjana de cada un, {monthTemp.length} anys
+                {nowInChart ? ". La barra marcada és la d'enguany, que encara no s'ha acabat." : '.'}
+              </p>
+            )}
+          </figcaption>
+          {hasMonth && <Chart><MonthChart series={monthTemp} now={monthNow} /></Chart>}
 
           {/*
             Y los extremos de **ese mes**, que no son los de la serie entera.
@@ -167,12 +203,12 @@ export function ClimateTrend({
             mes con cuatro días puede tener la lectura más alta de la serie y
             no ser «el septiembre más caluroso» de nada.
           */}
-          <dl className={`grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4${hasMonth ? ' mt-3' : ''}`}>
+          <dl className={`grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4${hasMonth ? ' mt-4 border-t border-[var(--line-soft)] pt-4' : ''}`}>
             {monthExtremes.map((e) => (
               <div key={e.label}>
                 <dt className="text-xs text-[var(--muted)]">{e.label}</dt>
-                <dd className="tnum font-medium text-[var(--ink)]">
-                  {e.year} <span className="text-[var(--ink-2)]">{e.value}</span>
+                <dd className="tnum mt-0.5 text-[15px] font-semibold text-[var(--ink)]">
+                  {e.value} <span className="font-normal text-[var(--ink-2)]">· {e.year}</span>
                 </dd>
               </div>
             ))}
@@ -182,58 +218,40 @@ export function ClimateTrend({
 
       {/* ── La pluja ── */}
       {hasRain && (
-        <figure className="m-0">
-          <figcaption className="mb-2 text-sm text-[var(--ink-2)]">
-            <strong className="font-medium text-[var(--ink)]">Pluja de cada any</strong>
-            {' · '}en mil·límetres, {rainYears.length} anys sencers
+        <figure className="card m-0">
+          <figcaption>
+            <p className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/raindrops.svg" width={22} height={22} alt="" />
+              Pluja de cada any
+            </p>
+            <p className="-mt-1 mb-3 text-[15px] text-[var(--ink-2)]">
+              En mil·límetres, {rainYears.length} anys sencers.
+            </p>
           </figcaption>
-          <RainChart years={rainYears} />
+          <Chart><RainChart years={rainYears} /></Chart>
         </figure>
       )}
+    </div>
+  );
+}
 
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
-        {hottest && (
-          <div>
-            <dt className="text-xs text-[var(--muted)]">Any més càlid</dt>
-            <dd className="tnum font-medium text-[var(--ink)]">
-              {hottest.year} <span className="text-[var(--ink-2)]">{num(hottest.tMean, 1)} °C</span>
-            </dd>
-          </div>
-        )}
-        {coldest && (
-          <div>
-            <dt className="text-xs text-[var(--muted)]">Any més fred</dt>
-            <dd className="tnum font-medium text-[var(--ink)]">
-              {coldest.year} <span className="text-[var(--ink-2)]">{num(coldest.tMean, 1)} °C</span>
-            </dd>
-          </div>
-        )}
-        {wettest && (
-          <div>
-            <dt className="text-xs text-[var(--muted)]">Any més plujós</dt>
-            <dd className="tnum font-medium text-[var(--ink)]">
-              {wettest.year} <span className="text-[var(--ink-2)]">{int(wettest.precip)} mm</span>
-            </dd>
-          </div>
-        )}
-        {wetMonth && (
-          <div>
-            <dt className="text-xs text-[var(--muted)]">Mes més plujós</dt>
-            <dd className="tnum font-medium text-[var(--ink)]">
-              {MONTHS[Number(wetMonth.ym.slice(5, 7)) - 1]} del {wetMonth.ym.slice(0, 4)}{' '}
-              <span className="text-[var(--ink-2)]">{int(wetMonth.precip)} mm</span>
-            </dd>
-          </div>
-        )}
-        {driest && (
-          <div>
-            <dt className="text-xs text-[var(--muted)]">Any més sec</dt>
-            <dd className="tnum font-medium text-[var(--ink)]">
-              {driest.year} <span className="text-[var(--ink-2)]">{int(driest.precip)} mm</span>
-            </dd>
-          </div>
-        )}
-      </dl>
+/**
+ * Un dibuix de la sèrie, amb una amplada mínima.
+ *
+ * Els tres són de 1.000 unitats d'ample amb el text a 15: a l'amplada d'un
+ * mòbil el text quedava a cinc píxels. Amb un mínim de 600 px es llegeix, i el
+ * que no cap es desplaça dins de la targeta, no la pàgina.
+ *
+ * El desplaçament arrenca per la dreta —`direction: rtl` a la caixa i `ltr` a
+ * dins, sense JavaScript—, perquè el que es mira primer d'una sèrie són els
+ * anys recents. El dibuix torna a `ltr` perquè a l'SVG la direcció gira el
+ * sentit de `text-anchor`.
+ */
+function Chart({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="scroll-x" style={{ direction: 'rtl' }}>
+      <div style={{ minWidth: 600, direction: 'ltr' }}>{children}</div>
     </div>
   );
 }
@@ -363,7 +381,12 @@ function MonthChart({
 
       {/* La mitjana de tots, per veure d'un cop qui hi queda per sobre. */}
       <line x1={PAD_L} y1={Y(mean)} x2={W - 12} y2={Y(mean)} stroke="var(--line)" strokeWidth="2" strokeDasharray="6 6" />
-      <text x={W - 12} y={Y(mean) - 6} textAnchor="end" fontSize="14" fill="var(--muted)">
+      {/* Amb un halo del color de la targeta: les barres més altes passaven per
+          sota del rètol i se'l menjaven. */}
+      <text
+        x={W - 12} y={Y(mean) - 8} textAnchor="end" fontSize="14" fill="var(--ink-2)"
+        stroke="var(--surface)" strokeWidth={6} paintOrder="stroke"
+      >
         mitjana {num(mean, 1)} °C
       </text>
 
@@ -425,7 +448,10 @@ function RainChart({ years }: { years: RainYear[] }) {
       ))}
 
       <line x1={PAD_L} y1={Y(mean)} x2={W - 12} y2={Y(mean)} stroke="var(--line)" strokeWidth="2" strokeDasharray="6 6" />
-      <text x={W - 12} y={Y(mean) - 6} textAnchor="end" fontSize="14" fill="var(--muted)">
+      <text
+        x={W - 12} y={Y(mean) - 8} textAnchor="end" fontSize="14" fill="var(--ink-2)"
+        stroke="var(--surface)" strokeWidth={6} paintOrder="stroke"
+      >
         mitjana {int(mean)} mm
       </text>
 

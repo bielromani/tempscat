@@ -2,9 +2,10 @@
    ha desat cada fotograma en les dues mides que el web ensenya, i `next/image` només hi
    afegiria una quota de plataforma per repetir una feina feta. */
 import Link from 'next/link';
-import { ago, dateFull, deWord, int, num, temp } from '@/lib/format';
+import { ago, dateFull, deWord, int, num } from '@/lib/format';
 import { cameraImage, type CameraNow } from '@/lib/cameras';
 import { windCardinal } from '@/lib/variables';
+import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { REPORT_SHOW_HOURS, type ResortNow, type StationNow } from '@/lib/mountain';
 
 /**
@@ -35,6 +36,12 @@ import { REPORT_SHOW_HOURS, type ResortNow, type StationNow } from '@/lib/mounta
  * cotes, tots vint-i-dos: aquests van desplegats. Dels de senderisme, raquetes
  * i fora de pista només se'n diu quants n'hi ha, perquè de 65 només 9 porten
  * cota i una taula amb els forats tapats seria una taula inventada.
+ *
+ * ## Les dates, sense preposició davant
+ *
+ * «L'últim comunicat és del {data}» fa «del 1 d'octubre» un dia de cada quinze:
+ * davant de l'1 i de l'11 va «de l'». No hi ha cap funció que ho resolgui per a
+ * les dates, així que la frase es construeix amb dos punts i la data sola.
  */
 export function ResortBlock({
   resort, stations, cameras = [], snowShare, distKm,
@@ -52,47 +59,45 @@ export function ResortBlock({
 
   return (
     /* L'ancora es perque el cercador hi pugui portar: /neu#e-la-molina. */
-    <div id={`e-${resort.slug}`} className="card">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h3 className="card-title">
-          {resort.name}
-        </h3>
+    <div id={`e-${resort.slug}`} className="card flex flex-col">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="card-title">{resort.name}</h3>
+          {/* El catàleg tècnic: no depèn de cap comunicat. */}
+          {(slopes || lifts || distKm != null) && (
+            <p className="mt-0.5 text-[13px] leading-snug text-[var(--muted)]">
+              {[
+                slopes?.minM != null && slopes.maxM != null && `${int(slopes.minM)}–${int(slopes.maxM)} m`,
+                slopes && `${int(slopes.count)} ${slopes.count === 1 ? 'pista' : 'pistes'}`,
+                slopes?.km != null && `${num(slopes.km, 1)} km`,
+                lifts && `${int(lifts.count)} ${lifts.count === 1 ? 'remuntador' : 'remuntadors'}`,
+                distKm != null && `a ${num(distKm, 0)} km`,
+              ].filter(Boolean).join(' · ')}
+            </p>
+          )}
+        </div>
         <span
-          className="rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
-          style={{
-            background: resort.open ? 'var(--good)' : 'var(--surface-2)',
-            color: resort.open ? 'var(--surface)' : 'var(--muted)',
-          }}
+          className="mt-0.5 shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+          style={resort.open
+            ? { background: 'var(--good)', borderColor: 'var(--good)', color: 'var(--paper)' }
+            : { borderColor: 'var(--line)', color: 'var(--muted)' }}
         >
           {resort.openLabel}
         </span>
       </div>
 
-      {/* El catàleg tècnic: no depèn de cap comunicat. */}
-      {(slopes || lifts) && (
-        <p className="mt-1 text-xs text-[var(--muted)]">
-          {[
-            slopes?.minM != null && slopes.maxM != null && `${int(slopes.minM)}–${int(slopes.maxM)} m`,
-            slopes && `${int(slopes.count)} ${slopes.count === 1 ? 'pista' : 'pistes'}`,
-            slopes?.km != null && `${num(slopes.km, 1)} km`,
-            lifts && `${int(lifts.count)} ${lifts.count === 1 ? 'remuntador' : 'remuntadors'}`,
-            distKm != null && `a ${num(distKm, 0)} km`,
-          ].filter(Boolean).join(' · ')}
-        </p>
-      )}
-
       {resort.circuits.length > 0 && (
-        <p className="mt-0.5 text-xs text-[var(--muted)]">
+        <p className="mt-1 text-[13px] leading-snug text-[var(--muted)]">
           Itineraris: {resort.circuits.map((c) => `${int(c.count)} ${deWord(c.kind)}`).join(' · ')}
         </p>
       )}
 
       {/* El comunicat, mentre val. */}
       {resort.reportUsable ? (
-        <>
+        <div className="mt-4">
           {hasSnow && (
-            <p className="mt-2.5 flex flex-wrap items-baseline gap-x-2 text-sm">
-              <span className="tnum text-2xl font-semibold text-[var(--ink)]">
+            <p className="flex flex-wrap items-baseline gap-x-2">
+              <span className="tnum text-[32px] font-semibold leading-none tracking-tight text-[var(--ink)]">
                 {resort.snowMinCm != null && resort.snowMinCm !== resort.snowMaxCm
                   ? `${int(resort.snowMinCm)}–${int(resort.snowMaxCm)}`
                   : int(resort.snowMaxCm)}
@@ -105,13 +110,13 @@ export function ResortBlock({
           )}
 
           {resort.lastSnowfall && (
-            <p className="mt-1 text-xs text-[var(--muted)]">
+            <p className="mt-1.5 text-[13px] text-[var(--muted)]">
               Última nevada: {resort.lastSnowfall}
               {resort.lastSnowfallCm != null && `, ${int(resort.lastSnowfallCm)} cm`}
             </p>
           )}
 
-          <p className="mt-2 text-xs text-[var(--ink-2)]">
+          <p className="mt-1.5 text-[13.5px] text-[var(--ink-2)]">
             {[
               resort.slopesOpenPct != null && `pistes obertes ${int(resort.slopesOpenPct)} %`,
               resort.liftsOpenPct != null && `remuntadors ${int(resort.liftsOpenPct)} %`,
@@ -120,57 +125,59 @@ export function ResortBlock({
             ].filter(Boolean).join(' · ')}
           </p>
 
-          <p className="mt-1 text-[11px] text-[var(--muted)]">
+          <p className="source mt-1!">
             Comunicat de l&apos;estació · {ago(resort.ageHours * 60)}
           </p>
-        </>
+        </div>
       ) : (
-        <p className="mt-2 text-xs text-[var(--muted)]">
-          L&apos;últim comunicat de l&apos;estació és del {dateFull(resort.reportAt)}. No se
-          n&apos;ensenya el gruix de neu ni les pistes obertes passades{' '}
-          {REPORT_SHOW_HOURS} hores.
+        <p className="mt-3 text-[13px] leading-relaxed text-[var(--muted)]">
+          Últim comunicat de l&apos;estació: {dateFull(resort.reportAt)}. Passades{' '}
+          {REPORT_SHOW_HOURS} hores no se n&apos;ensenya el gruix de neu ni les pistes obertes.
         </p>
       )}
 
       {/* Les estacions meteorològiques, que no s'aturen mai. */}
       {stations.length > 0 && (
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-[var(--line-soft)] pt-3 text-sm sm:grid-cols-3">
-          {stations.map((s) => (
-            <div key={s.id}>
-              <dt className="text-[11px] text-[var(--muted)]">
-                {s.altitudM != null ? `${int(s.altitudM)} m` : s.name}
-              </dt>
-              <dd className="tnum font-medium text-[var(--ink)]">
-                {temp(s.temperature)}
-                {s.humidity != null && (
-                  <span className="ml-1.5 text-[11px] font-normal text-[var(--muted)]">
-                    {int(s.humidity)} %
-                  </span>
-                )}
-                {s.windDirection != null && (
-                  <span className="ml-1.5 text-[11px] font-normal text-[var(--muted)]">
-                    {windCardinal(s.windDirection)}
-                  </span>
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
-
-      {stations.length > 0 && (
-        <p className="mt-1.5 text-[11px] text-[var(--muted)]">
-          {stations.length === 1 ? 'Estació meteorològica de l’estació' : `${stations.length} estacions meteorològiques de l’estació`}
-          {' · '}{ago(Math.min(...stations.map((s) => s.ageMin)))}
-        </p>
+        <div className="mt-4">
+          <dl className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-2">
+            {stations.map((s) => (
+              <div
+                key={s.id}
+                className="rounded-[14px] border border-[var(--glass-line)] bg-[var(--glass)] px-3 py-2"
+              >
+                <dt className="tnum text-[12px] font-semibold text-[var(--muted)]">
+                  {s.altitudM != null ? `${int(s.altitudM)} m` : s.name}
+                </dt>
+                <dd className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-[var(--muted)]">
+                  {s.temperature != null ? (
+                    <span
+                      className="temp-pill"
+                      style={{ background: temperatureColor(s.temperature), color: temperatureInk(s.temperature) }}
+                    >
+                      {num(s.temperature, 1)}°
+                    </span>
+                  ) : (
+                    <span className="text-[var(--ink-2)]">—</span>
+                  )}
+                  {s.humidity != null && <span className="tnum">{int(s.humidity)} %</span>}
+                  {s.windDirection != null && <span>{windCardinal(s.windDirection)}</span>}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="source mt-1.5!">
+            {stations.length === 1 ? 'Estació meteorològica de l’estació' : `${stations.length} estacions meteorològiques de l’estació`}
+            {' · '}{ago(Math.min(...stations.map((s) => s.ageMin)))}
+          </p>
+        </div>
       )}
 
       {/* El que es veu ara mateix, que és el que la gent ve a mirar. */}
       {cameras.length > 0 && (
-        <div className="mt-3 border-t border-[var(--line-soft)] pt-3">
+        <div className="mt-4">
           <ul className="grid list-none grid-cols-2 gap-2 p-0">
             {cameras.slice(0, 2).map((c) => (
-              <li key={c.id}>
+              <li key={c.id} className="min-w-0">
                 <Link href={`/cameres/${c.slug}`} className="block no-underline">
                   <img
                     src={cameraImage(c, 'thumb')}
@@ -179,9 +186,9 @@ export function ResortBlock({
                     loading="lazy"
                     decoding="async"
                     alt={`Fotograma de la càmera ${c.name}, a ${resort.name}`}
-                    className="block h-auto w-full rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)]"
+                    className="block aspect-video h-auto w-full rounded-[12px] bg-[var(--surface-2)] object-cover"
                   />
-                  <span className="mt-1 block truncate text-[11px] text-[var(--muted)]">
+                  <span className="mt-1 block truncate text-[12px] text-[var(--ink-2)]">
                     {[c.name, c.altitudM != null && `${int(c.altitudM)} m`]
                       .filter(Boolean).join(' · ')}
                   </span>
@@ -189,14 +196,14 @@ export function ResortBlock({
               </li>
             ))}
           </ul>
-          <p className="mt-1 text-[11px] text-[var(--muted)]">
+          <p className="source mt-1!">
             {cameras.length === 1
               ? `Càmera de l’estació · ${ago(cameras[0].ageMin)}`
               : `${cameras.length} càmeres de l’estació · la més recent, ${ago(Math.min(...cameras.map((c) => c.ageMin)))}`}
             {cameras.length > 2 && (
               <>
                 {' · '}
-                <Link href="/cameres" className="text-[var(--ink-2)]">totes</Link>
+                <Link href="/cameres" className="text-[var(--accent)] no-underline hover:underline">totes</Link>
               </>
             )}
           </p>
@@ -209,22 +216,22 @@ export function ResortBlock({
         `details` perque qui ve a mirar la neu no els ha de tenir al davant.
       */}
       {resort.skiTouring.length > 0 && (
-        <details className="mt-3 border-t border-[var(--line-soft)] pt-2">
-          <summary className="cursor-pointer text-xs font-medium text-[var(--ink-2)]">
+        <details className="mt-4 border-t border-[var(--line-soft)] pt-3">
+          <summary className="cursor-pointer text-[13px] font-medium text-[var(--ink-2)]">
             {resort.skiTouring.length === 1
               ? 'Un itinerari d’esquí de muntanya'
               : `${int(resort.skiTouring.length)} itineraris d’esquí de muntanya`}
           </summary>
-          <ul className="mt-2 list-none space-y-1.5 p-0">
+          <ul className="rows mt-2 text-[13px]">
             {resort.skiTouring.map((r) => (
-              <li key={r.name} className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
+              <li key={r.name} className="flex-wrap gap-y-0.5! py-2!">
                 <span className="text-[var(--ink)]">
                   {r.name}
                   {r.difficulty && (
                     <span className="ml-1.5 text-[var(--muted)]">{r.difficulty.toLowerCase()}</span>
                   )}
                 </span>
-                <span className="tnum text-[var(--muted)]">
+                <span className="tnum text-[12px] text-[var(--muted)]">
                   {[
                     r.lengthM != null && `${num(r.lengthM / 1000, 1)} km`,
                     r.ascentM != null && `+${int(r.ascentM)} m`,
@@ -240,7 +247,7 @@ export function ResortBlock({
       {/* La cota de neu prevista contra el desnivell. Només a les fitxes, on ja
           hi ha la predicció pagada. */}
       {snowShare != null && (
-        <p className="mt-2 border-t border-[var(--line-soft)] pt-2 text-xs leading-relaxed text-[var(--ink-2)]">
+        <p className="mt-4 border-t border-[var(--line-soft)] pt-3 text-[13.5px] leading-relaxed text-[var(--ink-2)]">
           {snowShare === 0
             ? 'Amb la cota de neu prevista, la precipitació arribaria en forma de pluja a tot el desnivell esquiable.'
             : snowShare === 100
@@ -250,9 +257,11 @@ export function ResortBlock({
       )}
 
       {resort.nearest && distKm == null && (
-        <p className="mt-2 text-[11px] text-[var(--muted)]">
+        <p className="mt-auto pt-3 text-[13px] text-[var(--muted)]">
           El poble més proper amb fitxa és{' '}
-          <Link href={resort.nearest.path} className="text-[var(--ink-2)]">{resort.nearest.nom}</Link>
+          <Link href={resort.nearest.path} className="text-[var(--accent)] no-underline hover:underline">
+            {resort.nearest.nom}
+          </Link>
           , a {num(resort.nearest.distKm, 0)} km.
         </p>
       )}

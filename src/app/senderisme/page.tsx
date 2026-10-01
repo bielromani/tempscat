@@ -4,9 +4,12 @@ import { beaufort, hikingConditions, MOUNTAIN_M } from '@/lib/activities';
 import { windCardinal } from '@/lib/variables';
 import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
-import { gustColor } from '@/lib/scales';
-import { ago, int, num } from '@/lib/format';
+import { gustColor, temperatureColor, temperatureInk } from '@/lib/scales';
+import { ago, fromDirection, int, num } from '@/lib/format';
 import { allRoutes } from '@/lib/routes';
+import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
+import { PageHero, Section } from '@/components/PageHero';
+import { Fold } from '@/components/Fold';
 
 /**
  * Com està la muntanya ara mateix.
@@ -34,6 +37,19 @@ export const metadata: Metadata = {
   alternates: { canonical: '/senderisme' },
 };
 
+/** A partir d'aquí costa caminar dret en una carena: força 8 de Beaufort. */
+const HARD_KMH = 61;
+
+/** El nom d'una estació sense l'alçada entre parèntesis: «Boí (2.537 m)» → «Boí». */
+function bare(nom: string): string {
+  return nom.replace(/\s*\([^)]*\)\s*$/, '');
+}
+
+/** La tinta del número damunt del color de la ratxa: el mateix tall que el mapa. */
+function gustInk(kmh: number): string {
+  return kmh >= HARD_KMH ? 'oklch(100% 0 0)' : 'oklch(20% 0.02 250)';
+}
+
 export default async function SenderismePage() {
   const routeCount = allRoutes().routes.length;
   const data = await hikingConditions();
@@ -44,6 +60,9 @@ export default async function SenderismePage() {
   const coldest = stations
     .filter((s) => s.temperature != null)
     .sort((a, b) => (a.temperature ?? 0) - (b.temperature ?? 0))[0];
+  const snowiest = stations
+    .filter((s) => s.snowCm != null && s.snowCm > 0)
+    .sort((a, b) => (b.snowCm ?? 0) - (a.snowCm ?? 0))[0];
   const fz = data?.freezing;
 
   /*
@@ -55,252 +74,263 @@ export default async function SenderismePage() {
    * columna no hi és.
    */
   const anyChill = stations.some((s) => s.windChill != null);
-  const anySnow = stations.some((s) => s.snowCm != null && s.snowCm > 0);
+  const anySnow = snowiest != null;
 
   const geo = mapOutline();
   const gusty = stations.filter((s) => s.gustKmh != null);
+  const bf = worst?.gustKmh != null ? beaufort(worst.gustKmh) : null;
+
+  const trail = [
+    { nom: 'Catalunya', path: '/' },
+    { nom: 'Muntanya', path: '/senderisme' },
+  ];
+  const station = (s: { codi: string; nom: string }) => <Link href={`/estacions/${s.codi}`}>{s.nom}</Link>;
 
   return (
     <article>
-      <nav aria-label="Ruta de navegació" className="crumbs">
-        <Link href="/" className="no-underline hover:text-[var(--ink)]">Catalunya</Link>
-        <span aria-hidden className="mx-1.5 text-[var(--line)]">›</span>
-        <span className="text-[var(--ink-2)]">Senderisme</span>
-      </nav>
+      <JsonLd data={graph(breadcrumbLd(trail))} />
 
-      <header className="page-head">
-        <h1 className="page-title">
-          Com està la muntanya
-        </h1>
-        {stations.length === 0 ? (
-          <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
-            Encara no hi ha observació de les estacions d&apos;alçada.
-          </p>
-        ) : (
-          <p className="mt-3 leading-relaxed text-[var(--ink-2)]">
-            {worst?.gustKmh != null && (
-              <>
-                La ratxa més forta d&apos;ara mateix són{' '}
-                <strong className="tnum font-semibold text-[var(--ink)]">{worst.gustKmh} km/h</strong>{' '}
-                {worst.nom}
-                {worst.gustKmh >= 61 && (
-                  <> — força {beaufort(worst.gustKmh).force}, {beaufort(worst.gustKmh).note}</>
-                )}.{' '}
-              </>
-            )}
-            {coldest?.temperature != null && (
-              <>
-                El punt més fred, {coldest.nom}, amb{' '}
-                <span className="tnum font-medium text-[var(--ink)]">{num(coldest.temperature, 1)} °C</span>
-                {coldest.windChill != null && (
-                  <> que amb el vent es noten com {num(coldest.windChill, 0)}</>
-                )}.
-              </>
-            )}
-          </p>
+      <PageHero
+        crumbs={trail}
+        eyebrow="Muntanya"
+        icon="wind"
+        title="Com està la muntanya"
+        lead={stations.length === 0
+          ? 'Encara no hi ha observació de les estacions d’alçada.'
+          : bf && (
+            /*
+              L'entradilla diu què vol dir la ratxa, i les xifres de sota, quant
+              i on. Els llindars són els de l'escala de Beaufort, no nostres.
+            */
+            <>
+              La ratxa més forta és de <strong>força {bf.force}</strong>, {bf.name}
+              {bf.note && <>: {bf.note}</>}.
+            </>
+          )}
+        stats={stations.length ? [
+          worst?.gustKmh != null && {
+            label: 'Ratxa més forta', icon: 'wind', value: int(worst.gustKmh), unit: 'km/h',
+            sub: <>{station(worst)}{worst.windDir != null && <> · vent {fromDirection(windCardinal(worst.windDir))}</>}</>,
+          },
+          coldest?.temperature != null && {
+            label: 'Punt més fred', icon: 'thermometer', value: num(coldest.temperature, 1), unit: '°C',
+            sub: <>{station(coldest)}{coldest.windChill != null && <> · es nota com {num(coldest.windChill, 0)} °C</>}</>,
+          },
+          snowiest?.snowCm != null && {
+            label: 'Més neu', icon: 'snow', value: int(snowiest.snowCm), unit: 'cm',
+            sub: station(snowiest),
+          },
+        ] : undefined}
+        note={stations[0] && (
+          <>
+            Mesurat a {stations.length} estacions per damunt dels {int(MOUNTAIN_M)} m,{' '}
+            {ago(stations[0].ageMin)}. No és predicció: la dels pròxims dies és a la fitxa de
+            cada població.
+          </>
         )}
-      </header>
+        aside={gusty.length > 0 && (
+          /*
+            Les estacions de muntanya, amb la ratxa de cada una.
+
+            El que un excursionista decideix amb aquesta pàgina és **on** no anar
+            avui, i una llista de noms de cims no ho diu si no te'ls saps: si el
+            vent és a l'Aran o al Cadí és la resposta. El número de dins és la
+            ratxa, no la temperatura: a dos mil metres el que fa girar cua és el
+            vent. Els noms només quan n'hi ha pocs.
+          */
+          <section className="card" aria-label="Ratxa de vent a les estacions de muntanya">
+            <p className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/wind.svg" width={22} height={22} alt="" />
+              Ratxa ara, en km/h
+            </p>
+            <PointsMap
+              scale={1.7}
+              outline={geo.features}
+              projection={geo.projection}
+              width={geo.width}
+              height={geo.height}
+              values
+              labels={gusty.length <= 10}
+              maxHeight={440}
+              ariaLabel={`Mapa amb la ratxa de vent a ${gusty.length} estacions de muntanya`}
+              points={gusty.map((s) => ({
+                key: s.codi,
+                lat: s.lat,
+                lon: s.lon,
+                fill: gustColor(s.gustKmh as number),
+                ink: gustInk(s.gustKmh as number),
+                value: String(Math.round(s.gustKmh as number)),
+                label: bare(s.nom),
+                tip: `${s.nom}: ratxa de ${Math.round(s.gustKmh as number)} km/h${
+                  s.temperature != null ? ` · ${num(s.temperature, 1)} °C` : ''}`,
+              }))}
+              footer={(
+                <>
+                  Ratxa màxima a les estacions per damunt dels {int(MOUNTAIN_M)} m. A
+                  partir de <strong className="font-medium text-[var(--ink-2)]">{HARD_KMH} km/h</strong>{' '}
+                  costa caminar dret en una carena, i el color hi gira.
+                </>
+              )}
+            />
+          </section>
+        )}
+      />
 
       {/*
-        Les estacions de muntanya, amb la ratxa de cada una.
+        La isoterma, destacada, i al costat els itineraris.
 
-        La pàgina era una taula ordenada per ratxa, i el que un excursionista
-        decideix amb ella és **on** no anar avui. Una llista de noms de cims
-        no ho diu si no te'ls saps: si el vent és a l'Aran o al Cadí és la
-        resposta, i era la que faltava.
-
-        El número de dins és la ratxa en km/h. Es podria haver pintat la
-        temperatura, però a dos mil metres el que fa girar cua és el vent —i
-        la temperatura ja té el mapa de /rànquings—.
-
-        Els noms només quan n'hi ha pocs: setze cims escampats pel Pirineu
-        porten bé el número a dins i malament el nom a sota.
-      */}
-      {gusty.length > 0 && (
-        <section className="mb-8">
-          <PointsMap
-            outline={geo.features}
-            projection={geo.projection}
-            width={geo.width}
-            height={geo.height}
-            values
-            labels={gusty.length <= 10}
-            ariaLabel={`Mapa amb la ratxa de vent a ${gusty.length} estacions de muntanya`}
-            points={gusty.map((s) => ({
-              key: s.codi,
-              lat: s.lat,
-              lon: s.lon,
-              fill: gustColor(s.gustKmh as number),
-              ink: (s.gustKmh as number) >= 61 ? 'oklch(100% 0 0)' : 'oklch(20% 0.02 250)',
-              value: String(Math.round(s.gustKmh as number)),
-              label: s.nom.replace(/\s*\([^)]*\)\s*$/, ''),
-              tip: `${s.nom}: ratxa de ${Math.round(s.gustKmh as number)} km/h${
-                s.temperature != null ? ` · ${num(s.temperature, 1)} °C` : ''}`,
-            }))}
-            footer={(
-              <>
-                El número és la ratxa màxima en km/h a les estacions per damunt
-                dels {MOUNTAIN_M} m. A partir de{' '}
-                <strong className="font-medium text-[var(--ink-2)]">61 km/h</strong> costa
-                caminar dret en una carena, i el color hi gira.
-              </>
-            )}
-          />
-        </section>
-      )}
-
-      {/*
         L'enllaç als itineraris va aquí dalt i no al peu: qui entra a mirar com
         està la muntanya sovint hi entra per decidir on va, i la llista dels
         senyalitzats és la resposta a aquella pregunta.
       */}
-      <p className="mb-6 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] px-4 py-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <Link href="/senderisme/rutes" className="font-medium text-[var(--ink)]">
-          {int(routeCount)} itineraris senyalitzats
-        </Link>{' '}
-        — els GR i els PR-C, amb la distància del traçat, les cotes per on passen i la
-        predicció a la seva altura.
-      </p>
-
-      {/* ── Isoterma ── */}
-      {fz && (
-        <section className="mb-8 card">
-          <h2 className="text-xs uppercase tracking-wide text-[var(--muted)]">
-            La isoterma de zero graus, mesurada
-          </h2>
-          <p className="mt-2 text-lg text-[var(--ink)]">
-            {fz.metres != null ? (
-              <>Cap als <strong className="tnum font-semibold">{int(fz.metres)} m</strong></>
-            ) : fz.beyond === 'amunt' ? (
-              <>Per damunt de qualsevol cim de Catalunya</>
-            ) : (
-              <>Per sota de l&apos;estació més baixa: fa zero graus arreu</>
-            )}
-          </p>
-          <p className="mt-2 measure text-sm leading-relaxed text-[var(--ink-2)]">
-            No surt d&apos;un model: és una regressió de la temperatura contra
-            l&apos;altitud sobre les <span className="tnum">{fz.stations}</span> estacions que
-            ara mateix donen les dues coses, de {int(fz.lowest)} a {int(fz.highest)} m. El
-            gradient mesurat és de{' '}
-            <span className="tnum font-medium text-[var(--ink)]">{num(fz.lapse, 1)} °C</span> per
-            cada 1.000 m —el teòric de manual és −6,5— i l&apos;ajust val{' '}
-            <span className="tnum">{num(fz.r2, 2)}</span> sobre 1.
-          </p>
-          {fz.metres == null && fz.beyond === 'amunt' && (
-            <p className="mt-2 measure text-sm leading-relaxed text-[var(--muted)]">
-              No se&apos;n dona la xifra: la recta creua el zero molt per damunt de
-              l&apos;estació més alta, i el valor seria una extrapolació de
-              quilòmetres per sobre de l&apos;últim termòmetre.
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        {fz && (
+          <section className="card" aria-labelledby="h-isoterma">
+            <h2 id="h-isoterma" className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
+              La isoterma de zero graus, mesurada
+            </h2>
+            <p className="text-2xl font-semibold leading-tight tracking-tight text-[var(--ink)] sm:text-3xl">
+              {fz.metres != null ? (
+                <>Cap als <span className="tnum">{int(fz.metres)} m</span></>
+              ) : fz.beyond === 'amunt' ? (
+                <>Per damunt de qualsevol cim de Catalunya</>
+              ) : (
+                <>Per sota de l&apos;estació més baixa: fa zero graus arreu</>
+              )}
             </p>
-          )}
-        </section>
-      )}
+            <p className="mt-3 measure text-sm leading-relaxed text-[var(--ink-2)]">
+              No és la cota de neu: la neu es fon mentre baixa i arriba blanca uns
+              dos-cents o tres-cents metres per sota.
+            </p>
+            <p className="source measure">
+              Regressió de la temperatura contra l&apos;altitud a les{' '}
+              <span className="tnum">{fz.stations}</span> estacions que ara donen les dues
+              coses, de {int(fz.lowest)} a {int(fz.highest)} m: el gradient és de{' '}
+              <span className="tnum">{num(fz.lapse, 1)} °C</span> per cada 1.000 m —el de
+              manual és −6,5— i l&apos;ajust val <span className="tnum">{num(fz.r2, 2)}</span> sobre 1.
+              {fz.metres == null && fz.beyond === 'amunt' && (
+                <> No se&apos;n dona la xifra: la recta creua el zero molt per damunt de
+                l&apos;estació més alta, i seria una extrapolació.</>
+              )}
+            </p>
+          </section>
+        )}
 
-      {/* ── Estacions d'alçada ── */}
+        {/* `a.card` porta `display: block`, i per això la columna va a dins. */}
+        <Link href="/senderisme/rutes" className="card">
+          <span className="flex h-full flex-col">
+            <span className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/partly-cloudy-day.svg" width={22} height={22} alt="" />
+              Itineraris
+            </span>
+            <span className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              <span className="tnum">{int(routeCount)}</span> senyalitzats
+            </span>
+            <span className="mt-3 text-sm leading-relaxed text-[var(--ink-2)]">
+              Els GR i els PR-C, amb la distància del traçat, les cotes per on passen i la
+              predicció a la seva altura.
+            </span>
+            <span className="mt-auto pt-3 text-sm font-medium text-[var(--accent)]">
+              Tots els itineraris ›
+            </span>
+          </span>
+        </Link>
+      </div>
+
       {stations.length > 0 && (
-        <section>
-          <h2 className="mb-3 card-title">
-            Les estacions per damunt dels {int(MOUNTAIN_M)} metres
-          </h2>
-          <div className="scroll-x">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--muted)]">
-                  <th scope="col" className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Estació</th>
-                  <th scope="col" className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Alçada</th>
-                  <th scope="col" className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Temp.</th>
-                  {anyChill && (
-                    <th scope="col" className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Es noten</th>
-                  )}
-                  <th scope="col" className="border-b border-[var(--line)] py-2 pr-4 font-semibold">Ratxa</th>
-                  {anySnow && (
-                    <th scope="col" className="border-b border-[var(--line)] py-2 font-semibold">Neu</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {stations.map((s) => {
-                  const hard = s.gustKmh != null && s.gustKmh >= 61;
-                  return (
-                    <tr key={s.codi} className="border-b border-[var(--line-soft)]">
-                      <td className="py-2 pr-4">
-                        <Link href={`/estacions/${s.codi}`} className="text-[var(--ink-2)] no-underline hover:text-[var(--ink)]">
-                          {s.nom}
-                        </Link>
+        <Section id="estacions" title={`Les estacions per damunt dels ${int(MOUNTAIN_M)} metres`}>
+          <div className="card">
+            <div className="scroll-x">
+              <table className="data-table [&_td.num]:whitespace-nowrap">
+                <thead>
+                  <tr>
+                    <th scope="col">Estació</th>
+                    <th scope="col" className="num">Alçada</th>
+                    <th scope="col" className="num">Temp.</th>
+                    {anyChill && <th scope="col" className="num">Es noten</th>}
+                    <th scope="col" className="num">Ratxa (km/h)</th>
+                    {anySnow && <th scope="col" className="num">Neu</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stations.map((s) => (
+                    <tr key={s.codi}>
+                      <td>
+                        {/* L'alçada ja té columna: el nom va sense el parèntesi. */}
+                        <Link href={`/estacions/${s.codi}`}>{bare(s.nom)}</Link>
                         {s.comarcaNom && (
-                          <span className="block text-[11px] text-[var(--muted)]">{s.comarcaNom}</span>
+                          <span className="block text-xs text-[var(--muted)]">{s.comarcaNom}</span>
                         )}
                       </td>
-                      <td className="tnum py-2 pr-4 text-[var(--muted)]">{int(s.altitud)} m</td>
-                      <td className="tnum py-2 pr-4 font-medium text-[var(--ink)]">
-                        {s.temperature != null ? `${num(s.temperature, 1)} °C` : '—'}
+                      <td className="num">{int(s.altitud)} m</td>
+                      <td className="num">
+                        {s.temperature != null ? (
+                          <span
+                            className="temp-pill"
+                            style={{ background: temperatureColor(s.temperature), color: temperatureInk(s.temperature) }}
+                          >
+                            {num(s.temperature, 1)}°
+                          </span>
+                        ) : '—'}
                       </td>
                       {anyChill && (
-                        <td className="tnum py-2 pr-4 text-[var(--ink-2)]">
-                          {s.windChill != null ? `${num(s.windChill, 0)} °C` : '—'}
-                        </td>
+                        <td className="num">{s.windChill != null ? `${num(s.windChill, 0)} °C` : '—'}</td>
                       )}
-                      <td className="tnum py-2 pr-4">
+                      <td className="num">
                         {s.gustKmh != null ? (
                           <>
-                            <span className={hard ? 'font-semibold' : ''} style={hard ? { color: 'var(--warn)' } : undefined}>
-                              {s.gustKmh} km/h
-                            </span>
-                            <span className="ml-1.5 text-[11px] text-[var(--muted)]">
+                            <span className="mr-1.5 text-xs text-[var(--muted)]">
                               F{beaufort(s.gustKmh).force}
                               {s.windDir != null && ` · ${windCardinal(s.windDir)}`}
+                            </span>
+                            <span
+                              className="temp-pill"
+                              style={{ background: gustColor(s.gustKmh), color: gustInk(s.gustKmh) }}
+                            >
+                              {s.gustKmh}
                             </span>
                           </>
                         ) : '—'}
                       </td>
                       {anySnow && (
-                        <td className="tnum py-2 text-[var(--ink-2)]">
-                          {s.snowCm != null && s.snowCm > 0 ? `${int(s.snowCm)} cm` : '—'}
-                        </td>
+                        <td className="num">{s.snowCm != null && s.snowCm > 0 ? `${int(s.snowCm)} cm` : '—'}</td>
                       )}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {stations[0] && (
+              <p className="source">
+                Ratxa en km/h, amb la força de Beaufort i d&apos;on ve el vent. Lectures{' '}
+                {ago(stations[0].ageMin)}. {data?.source}
+              </p>
+            )}
           </div>
-          {stations[0] && (
-            <p className="mt-2 text-[11px] text-[var(--muted)]">
-              Lectures {ago(stations[0].ageMin)}. {data?.source}
-            </p>
-          )}
-        </section>
+        </Section>
       )}
 
-      <section className="mt-8 measure space-y-3 text-sm leading-relaxed text-[var(--ink-2)]">
-        <h2 className="card-title">
-          Els llindars, i d&apos;on surten
-        </h2>
-        <p>
-          <strong className="font-medium text-[var(--ink)]">Força 6 (39 km/h)</strong> és on
-          caminar de cara al vent deixa de ser còmode.{' '}
-          <strong className="font-medium text-[var(--ink)]">Força 8 (62 km/h)</strong> és on costa
-          mantenir-se dret — a la carena, amb un pendent al costat, ja no és qüestió
-          de comoditat. Els llindars són els de l&apos;escala de Beaufort, en ús des de 1805.
-        </p>
-        <p>
-          <strong className="font-medium text-[var(--ink)]">La sensació pel vent</strong> es
-          calcula amb la fórmula de l&apos;índex nord-americà i canadenc, que només és
-          vàlida per sota de 10 °C i amb més de 5 km/h. Fora d&apos;aquest rang la
-          casella queda buida.
-        </p>
-        <p>
-          <strong className="font-medium text-[var(--ink)]">La isoterma no és la cota de
-          neu.</strong> La neu es fon mentre baixa, així que arriba blanca uns
-          dos-cents o tres-cents metres per sota d&apos;on la temperatura creua el
-          zero.
-        </p>
-        <p className="text-[var(--muted)]">
-          Totes les dades són mesurades per les estacions automàtiques del Meteocat,
-          no previstes. La predicció per als pròxims dies és a la pàgina de cada
-          població.
-        </p>
-      </section>
+      <div className="folds">
+        <Fold title="Els llindars, i d’on surten" summary="Força 6, força 8 i la sensació pel vent">
+          <div className="card prose">
+            <p>
+              <strong>Força 6 (39 km/h)</strong> és on caminar de cara al vent deixa de ser
+              còmode. <strong>Força 8 (62 km/h)</strong> és on costa mantenir-se dret: a la
+              carena, amb un pendent al costat, ja no és qüestió de comoditat. Són els
+              llindars de l&apos;escala de Beaufort.
+            </p>
+            <p>
+              <strong>La sensació pel vent</strong> surt de l&apos;índex nord-americà i
+              canadenc, que només val per sota de 10 °C i amb més de 5 km/h. Fora
+              d&apos;aquest rang la casella queda buida.
+            </p>
+          </div>
+        </Fold>
+      </div>
     </article>
   );
 }

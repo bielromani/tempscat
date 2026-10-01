@@ -2,15 +2,70 @@
    worker ya ha desat cada fotograma en les dues mides que la web ensenya, i `next/image`
    només hi afegiria una quota de plataforma per repetir una feina feta. */
 import Link from 'next/link';
-import { ago, int, num } from '@/lib/format';
+import { aName, ago, int, num } from '@/lib/format';
 import { cameraImage, type CameraNow } from '@/lib/cameras';
+
+/**
+ * La targeta d'una càmera: la miniatura a dalt, el nom, d'on és i de quan.
+ *
+ * ## Per què és una peça i no tres còpies
+ *
+ * La mateixa targeta surt a `/cameres`, a la pàgina de cada càmera («Més
+ * càmeres de…») i a la fitxa d'un poble amb càmeres a prop. Eren tres còpies
+ * del mateix marcatge, i el dia que una canviés la manera de dir de quan és la
+ * imatge, les altres dues seguirien dient-ho a l'antiga.
+ *
+ * ## La miniatura, de vora a vora
+ *
+ * `.card` porta el seu farciment i aquí la imatge va enganxada a les vores de
+ * dalt: per això el `p-0!`, que ha de guanyar a una regla sense capa de
+ * `globals.css`. Amplada i alçada posades —sense elles la reixa salta quan
+ * arriben les imatges— i càrrega diferida, perquè ningú baixa vint-i-quatre
+ * fotogrames per veure'n tres.
+ *
+ * ## El color de l'hora
+ *
+ * Més clara només quan la imatge no és d'ara, i sense color d'avís: una hora
+ * d'antiguitat en una càmera de muntanya no és cap alarma.
+ */
+export function CameraCard({ camera: c, meta, loading = 'lazy' }: {
+  camera: CameraNow;
+  /** El que va sota el nom: l'estació, la distància, l'altitud. */
+  meta: Array<string | false | null | undefined>;
+  loading?: 'lazy' | 'eager';
+}) {
+  const line = meta.filter(Boolean).join(' · ');
+  return (
+    <Link href={`/cameres/${c.slug}`} className="card flex h-full flex-col overflow-hidden p-0!">
+      <img
+        src={cameraImage(c, 'thumb')}
+        width={400}
+        height={225}
+        loading={loading}
+        decoding="async"
+        alt={`Fotograma de la càmera ${c.name}, ${aName(c.resort)}`}
+        className="block aspect-video h-auto w-full bg-[var(--surface-2)] object-cover"
+      />
+      <span className="flex flex-1 flex-col px-3.5 pb-3 pt-2.5">
+        <span className="block text-[15px] font-semibold leading-snug text-[var(--ink)]">{c.name}</span>
+        {line && <span className="block text-[12.5px] text-[var(--muted)]">{line}</span>}
+        <span
+          className="mt-auto block pt-1.5 text-[12px]"
+          style={{ color: c.current ? 'var(--muted)' : 'var(--ink-2)' }}
+        >
+          {c.current ? ago(c.ageMin) : `última imatge ${ago(c.ageMin)}`}
+        </span>
+      </span>
+    </Link>
+  );
+}
 
 /**
  * Les càmeres que hi ha a prop d'un poble.
  *
  * ## Por qué esto no está en las 4.293 fichas
  *
- * Porque solo hay cámaras en siete estaciones del Pirineu y del Montsec. La
+ * Porque solo hay cámaras en siete estaciones del Pirineo y del Montsec. La
  * lista llega ya filtrada por distancia desde `camerasNear()`, y en la inmensa
  * mayoría de las fichas viene vacía y el bloque no se dibuja: **una página baja
  * lo que enseña**, y una ficha del Baix Llobregat no baja ninguna miniatura.
@@ -24,42 +79,22 @@ import { cameraImage, type CameraNow } from '@/lib/cameras';
 export function CameraBlock({ cameras }: { cameras: Array<CameraNow & { distKm: number }> }) {
   return (
     <>
-      <ul className="grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="card-grid">
         {cameras.map((c) => (
           <li key={c.id}>
-            <Link
-              href={`/cameres/${c.slug}`}
-              className="block overflow-hidden rounded-lg border border-[var(--line-soft)] bg-[var(--surface)] no-underline"
-            >
-              <img
-                src={cameraImage(c, 'thumb')}
-                width={400}
-                height={225}
-                loading="lazy"
-                decoding="async"
-                alt={`Fotograma de la càmera ${c.name}, a ${c.resort}`}
-                className="block h-auto w-full bg-[var(--surface-2)]"
-              />
-              <div className="p-3">
-                <span className="block text-sm font-medium text-[var(--ink)]">{c.name}</span>
-                <span className="block text-xs text-[var(--muted)]">
-                  {[
-                    c.resort,
-                    `${num(c.distKm, 1)} km`,
-                    c.altitudM != null && `${int(c.altitudM)} m`,
-                  ].filter(Boolean).join(' · ')}
-                </span>
-                <span className="mt-1 block text-[11px] text-[var(--muted)]">
-                  {c.current ? ago(c.ageMin) : `última imatge ${ago(c.ageMin)}`}
-                </span>
-              </div>
-            </Link>
+            <CameraCard
+              camera={c}
+              meta={[c.resort, `${num(c.distKm, 1)} km`, c.altitudM != null && `${int(c.altitudM)} m`]}
+            />
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-xs text-[var(--muted)]">
+      <p className="source">
         Imatges de Ferrocarrils de la Generalitat de Catalunya (CC BY 4.0), desades un
-        cop per hora. <Link href="/cameres" className="text-[var(--ink-2)]">Totes les càmeres</Link>.
+        cop per hora.{' '}
+        <Link href="/cameres" className="text-[var(--accent)] no-underline hover:underline">
+          Totes les càmeres
+        </Link>.
       </p>
     </>
   );

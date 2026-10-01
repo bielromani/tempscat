@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { WindRose } from './WindRose';
+import { StatGrid, type HeroStat } from './PageHero';
 import { msToKmh } from '@/lib/variables';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { aName, deName, int, monthOf, num, ordinal, signed } from '@/lib/format';
@@ -50,6 +51,15 @@ const fmtDate = (iso: string) =>
   new Date(`${iso}T12:00:00`).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 
 /**
+ * «del 7 de set.» però «de l'1 d'oct.» i «de l'11»: el dia es llegeix «u» i
+ * «onze», i contrau com qualsevol mot que comença per vocal. Anava escrit a mà
+ * —`des del ${…}`— i el dia 1 de cada mes hauria dit «des del 1».
+ */
+const vowelDay = (iso: string) => iso.slice(8, 10) === '01' || iso.slice(8, 10) === '11';
+const delDate = (iso: string) => `${vowelDay(iso) ? "de l'" : 'del '}${fmtDate(iso)}`;
+const alDate = (iso: string) => `${vowelDay(iso) ? "a l'" : 'al '}${fmtDate(iso)}`;
+
+/**
  * Dues dates d'un mateix tram, sense repetir l'any.
  *
  * «16 de maig del 2026 – 2 d'ag. del 2026» escriu el 2026 dues vegades en una
@@ -62,25 +72,39 @@ function spellDates(from: string, to: string) {
   return `${dayMonth(from)} – ${fmtDate(to)}`;
 }
 
-function Counter(
+/**
+ * Un comptador de l'any, en el format de les xifres del web (`StatGrid`).
+ *
+ * Un zero sense cap dia comptat no vol dir zero: vol dir que encara no se sap.
+ * El del mes es calla quan la sèrie encara no en té cap dia, i la nota de sota
+ * ho explica una vegada per als cinc en comptes de repetir-ho cinc. Veure la
+ * capçalera.
+ */
+function counter(
   { label, month, year, hint, monthCovered }:
-  { label: string; month: number; year: number; hint?: string; monthCovered: boolean },
-) {
+  { label: string; month: number; year: number; hint: string; monthCovered: boolean },
+): HeroStat {
+  return {
+    label,
+    value: int(year),
+    unit: "l'any",
+    sub: (
+      <>
+        {monthCovered && <span className="block"><span className="tnum">{int(month)}</span> aquest mes</span>}
+        <span className="block text-[var(--muted)]">{hint}</span>
+      </>
+    ),
+  };
+}
+
+/** L'etiqueta de dins de cada targeta del bloc: la icona i el nom. */
+function Label({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-[var(--line-soft)] bg-[var(--surface)] px-3 py-2.5">
-      <p className="text-xs text-[var(--muted)]">{label}</p>
-      <p className="tnum mt-0.5">
-        <span className="text-xl font-semibold text-[var(--ink)]">{int(year)}</span>
-        <span className="ml-1.5 text-xs text-[var(--muted)]">l&apos;any</span>
-      </p>
-      {/* Un zero sense cap dia comptat no vol dir zero: vol dir que encara no
-          se sap. Es calla, i la nota de sota ho explica una vegada per als cinc
-          en comptes de repetir-ho cinc. Veure la capcalera. */}
-      {monthCovered && (
-        <p className="tnum text-xs text-[var(--muted)]">{int(month)} aquest mes</p>
-      )}
-      {hint && <p className="mt-1 text-[11px] leading-tight text-[var(--muted)]">{hint}</p>}
-    </div>
+    <h3 className="card-label">
+      {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+      <img src={`/icons/w/${icon}.svg`} width={22} height={22} alt="" />
+      {children}
+    </h3>
   );
 }
 
@@ -100,8 +124,11 @@ function RecentChart({ daily }: { daily: StationHistory['daily'] }) {
   const step = (W - PAD_L - PAD_R) / data.length;
 
   return (
-    <div className="scroll-x">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 520 }} role="img"
+    /* Al mòbil no hi cap i es desplaça; arrenca per la dreta, que és on hi ha
+       els dies d'ara. `rtl` a la caixa i `ltr` al dibuix, que dins d'un SVG la
+       direcció gira el sentit de `text-anchor`. */
+    <div className="scroll-x" style={{ direction: 'rtl' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 520, direction: 'ltr' }} role="img"
         aria-label={`Temperatures màximes i mínimes i precipitació dels últims ${data.length} dies`}>
         {[lo, Math.round((lo + hi) / 2), hi].map((t) => {
           const y = PAD_T + plotH - ((t - lo) / span) * plotH;
@@ -197,10 +224,18 @@ interface Props {
    * plou» el dia que n'hi queien 0,7 mm. Ver `recent-rain.ts`.
    */
   dryStreak?: number;
+  /**
+   * Si la rosa dels vents va dins del bloc.
+   *
+   * A les fitxes de lloc hi va —és l'únic lloc on la veuen les 4.293—, però
+   * la fitxa de l'estació ja la porta en una secció pròpia, i amb les dues la
+   * mateixa rosa sortia dues vegades a la mateixa pàgina.
+   */
+  withRose?: boolean;
 }
 
 export function ClimateBlock({
-  history, station, month, today, stationHref, dryStreak: dryStreakNow,
+  history, station, month, today, stationHref, dryStreak: dryStreakNow, withRose = true,
 }: Props) {
   const { records, counters, normals, monthAnomaly, monthProgress } = history;
   const dryStreak = dryStreakNow ?? history.dryStreak;
@@ -299,350 +334,352 @@ export function ClimateBlock({
     ? new Date().getFullYear() - Number(records.since.slice(0, 4))
     : null;
 
+  const hasMonthCard = normal != null && (hasTemp || normal.precip != null);
+
+  /*
+   * Dues columnes quan el bloc té lloc, i no quan la pantalla en té.
+   *
+   * El bloc viu a dos llocs —plegat a la fitxa de cada poble i obert a la de
+   * l'estació— i els dos no tenen la mateixa amplada, així que la graella la
+   * decideix l'amplada del bloc (`@container`) i no la de la finestra. El mes i
+   * els rècords van de costat; la resta, que són dibuixos, a tota l'amplada.
+   */
   return (
-    <section className="flex flex-col gap-5">
-      {/* ── Anomalía del mes ── */}
-      {normal && (hasTemp || normal.precip != null) && (
-        <div className="card">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
-            Com va aquest {monthName}
-          </h3>
-          {hasTemp && gap != null && (
-          <p className="mt-2 flex flex-wrap items-baseline gap-x-3">
-            <span
-              className="tnum text-3xl font-semibold"
-              style={{ color: gap > 0 ? 'var(--bad)' : gap < 0 ? 'var(--accent)' : 'var(--ink)' }}
-            >
-              {signed(gap, 1, '°C')}
-            </span>
-            {/* «per damunt» i «per sota» demanen «de», i amb l'article
-                «dels»: sense contreure surt «per damunt els mateixos dies». */}
-            <span className="text-[var(--ink-2)]">
-              {monthProgress
-                ? gap === 0
-                  ? 'igual que aquests mateixos dies els altres anys'
-                  : `per ${gap > 0 ? 'damunt' : 'sota'} dels mateixos dies dels altres anys`
-                : gap === 0
-                  ? 'igual que la mitjana'
-                  : `per ${gap > 0 ? 'damunt' : 'sota'} de la mitjana`}
-            </span>
-          </p>
-          )}
-
-          {/*
-            Y el lugar que ocupa entre esos mismos años, que es la frase que
-            contesta «¿este septiembre es más cálido que los últimos diez?».
-            Solo aparece con diez años comparables o más: «el 3.º de 4» no
-            responde nada. El cálculo es del worker —la página solo tiene 45
-            días de serie— y está en `monthProgressOf`.
-          */}
-          {monthProgress && (
-            <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
-              Amb {monthProgress.days} {monthProgress.days === 1 ? 'dia' : 'dies'}{' '}
-              {deMonth} mesurats, {aName(station.nom)} hi ha fet{' '}
-              <strong className="font-semibold text-[var(--ink)]">{num(monthProgress.tMean, 1)} °C</strong>{' '}
-              de mitjana, contra els {num(monthProgress.normal, 1)} °C que hi solen fer
-              aquests mateixos dies. És el{' '}
-              <strong className="font-semibold text-[var(--ink)]">
-                {monthProgress.rank === 1
-                  ? `${monthName} més càlid de ${monthProgress.total}`
-                  : monthProgress.rank === monthProgress.total
-                    ? `${monthName} més fred de ${monthProgress.total}`
-                    : `${ordinal(monthProgress.rank)} ${monthName} més càlid de ${monthProgress.total}`}
-              </strong>{' '}
-              en aquest tram del mes.
-              {/* «El rècord» no serveix aquí: en un mes que és el més fred de
-                  la sèrie, la paraula sembla contradir la frase d'abans. Es
-                  diu quin any va ser el més càlid i s'acaba. */}
-              {monthProgress.rank !== 1 && (
-                ` El més càlid va ser el ${monthProgress.warmest.year}, amb `
-                + `${num(monthProgress.warmest.tMean, 1)} °C.`
-              )}
+    <section className="@container">
+      <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
+        {/* ── Anomalía del mes ── */}
+        {hasMonthCard && (
+          <div className="card">
+            <Label icon="thermometer">Com va aquest {monthName}</Label>
+            {hasTemp && gap != null && (
+            <p className="flex flex-wrap items-baseline gap-x-3">
+              <span
+                className="tnum text-3xl font-semibold"
+                style={{ color: gap > 0 ? 'var(--bad)' : gap < 0 ? 'var(--accent)' : 'var(--ink)' }}
+              >
+                {signed(gap, 1, '°C')}
+              </span>
+              {/* «per damunt» i «per sota» demanen «de», i amb l'article
+                  «dels»: sense contreure surt «per damunt els mateixos dies». */}
+              <span className="text-[var(--ink-2)]">
+                {monthProgress
+                  ? gap === 0
+                    ? 'igual que aquests mateixos dies els altres anys'
+                    : `per ${gap > 0 ? 'damunt' : 'sota'} dels mateixos dies dels altres anys`
+                  : gap === 0
+                    ? 'igual que la mitjana'
+                    : `per ${gap > 0 ? 'damunt' : 'sota'} de la mitjana`}
+              </span>
             </p>
-          )}
-
-          {/*
-            Y cuando no hay comparación de tramo, la cifra grande viene de
-            comparar los días que hay contra el mes entero, y **eso se dice**.
-            La primera semana de septiembre es más cálida que el septiembre
-            medio: en Raimat, 2,1 de los 6,9 grados que da esa cuenta eran la
-            deriva del calendario y no una anomalía. No se calla porque un
-            número grande sin decir contra qué se mide es el que se cita.
-          */}
-          {hasTemp && !monthProgress && monthCovered && monthDays.length < MONTH_MIN_DAYS && (
-            <p className="mt-2 text-sm leading-relaxed text-[var(--ink-2)]">
-              Són {monthDays.length} {monthDays.length === 1 ? 'dia' : 'dies'} comparats amb la
-              mitjana {deMonth} sencer, i el {monthName} no comença com acaba:
-              una part d&apos;aquests graus és el pas del mes i no una desviació.
-            </p>
-          )}
-
-          <p className="mt-1.5 text-sm leading-relaxed text-[var(--muted)]">
-            {hasTemp && (
-              `La mitjana ${deMonth} sencer ${aName(station.nom)} és de `
-              + `${num(normal.tMean, 1)} °C, calculada sobre ${normal.years} anys `
-              + 'de sèrie de la mateixa estació.'
             )}
+
             {/*
-              El total del mes va amb els dies que cobreix, sempre.
-
-              Deia «Hi sol ploure 86 mm, i aquest mes en porta 0 mm» el 4 de
-              setembre, quan la sèrie diària de la XEMA —que va dos dies enrere—
-              només tenia el dia 1 i el 2. El número era cert i la lectura,
-              falsa: comparar dos dies contra la normal de trenta no és comparar
-              res. Es va veure quan el bloc de pluja acumulada, just a sobre,
-              va escriure 168,8 mm dels últims trenta dies a la mateixa pàgina.
-
-              El «Hi» va gran quan obre el paràgraf: a les quatre estacions que
-              només mesuren pluja no hi ha frase de temperatura al davant.
+              Y el lugar que ocupa entre esos mismos años, que es la frase que
+              contesta «¿este septiembre es más cálido que los últimos diez?».
+              Solo aparece con diez años comparables o más: «el 3.º de 4» no
+              responde nada. El cálculo es del worker —la página solo tiene 45
+              días de serie— y está en `monthProgressOf`.
             */}
-            {normal.precip != null && (
-              (hasTemp ? ' Hi' : 'Hi')
-              + (monthCovered
-                ? ` sol ploure ${int(normal.precip)} mm en tot el mes, i dels `
-                  + `${monthDays.length} ${monthDays.length === 1 ? 'dia' : 'dies'} `
-                  + `${deMonth} que la sèrie ja té, n'han caigut `
-                  + `${int(counters.precip.month)} mm.`
-                : ` sol ploure ${int(normal.precip)} mm en tot el mes; ${deMonth} `
-                  + 'la sèrie encara no en té cap dia.')
+            {monthProgress && (
+              <p className="mt-2 text-[15px] leading-relaxed text-[var(--ink-2)]">
+                Amb {monthProgress.days} {monthProgress.days === 1 ? 'dia' : 'dies'}{' '}
+                {deMonth} mesurats, {aName(station.nom)} hi ha fet{' '}
+                <strong className="font-semibold text-[var(--ink)]">{num(monthProgress.tMean, 1)} °C</strong>{' '}
+                de mitjana, contra els {num(monthProgress.normal, 1)} °C que hi solen fer
+                aquests mateixos dies. És el{' '}
+                <strong className="font-semibold text-[var(--ink)]">
+                  {monthProgress.rank === 1
+                    ? `${monthName} més càlid de ${monthProgress.total}`
+                    : monthProgress.rank === monthProgress.total
+                      ? `${monthName} més fred de ${monthProgress.total}`
+                      : `${ordinal(monthProgress.rank)} ${monthName} més càlid de ${monthProgress.total}`}
+                </strong>{' '}
+                en aquest tram del mes.
+                {/* «El rècord» no serveix aquí: en un mes que és el més fred de
+                    la sèrie, la paraula sembla contradir la frase d'abans. Es
+                    diu quin any va ser el més càlid i s'acaba. */}
+                {monthProgress.rank !== 1 && (
+                  ` El més càlid va ser el ${monthProgress.warmest.year}, amb `
+                  + `${num(monthProgress.warmest.tMean, 1)} °C.`
+                )}
+              </p>
             )}
+
             {/*
-              I si l'estació no mesura temperatura, es diu: altrament aquesta
-              targeta és una que parla només de pluja sense que se sàpiga per què.
+              Y cuando no hay comparación de tramo, la cifra grande viene de
+              comparar los días que hay contra el mes entero, y **eso se dice**.
+              La primera semana de septiembre es más cálida que el septiembre
+              medio: en Raimat, 2,1 de los 6,9 grados que da esa cuenta eran la
+              deriva del calendario y no una anomalía. No se calla porque un
+              número grande sin decir contra qué se mide es el que se cita.
             */}
-            {!hasTemp && (
-              (normal.precipYears ? ` És la mitjana de ${normal.precipYears} anys.` : '')
-              + ` A ${station.nom} no es mesura la temperatura: només hi ha pluviòmetre.`
+            {hasTemp && !monthProgress && monthCovered && monthDays.length < MONTH_MIN_DAYS && (
+              <p className="mt-2 text-[15px] leading-relaxed text-[var(--ink-2)]">
+                Són {monthDays.length} {monthDays.length === 1 ? 'dia' : 'dies'} comparats amb la
+                mitjana {deMonth} sencer, i el {monthName} no comença com acaba:
+                una part d&apos;aquests graus és el pas del mes i no una desviació.
+              </p>
             )}
-          </p>
 
-          {/*
-            Y la puerta al histórico entero, que es lo que sigue a la frase de
-            arriba: si este septiembre va el primero de 38, la pregunta
-            siguiente es cómo han ido esos 38. Los gráficos —media de cada año
-            con su recta, el mismo mes año a año, la lluvia— viven en la ficha
-            de la estación y no aquí: son 24 kB de serie mensual que ninguna de
-            las 4.293 fichas de lugar dibuja. `climateShard()` en `shards.ts`.
-          */}
-          {stationHref && (
-            <p className="mt-3 text-sm">
-              <Link href={`${stationHref}#anys`} className="font-medium text-[var(--accent)] no-underline hover:underline">
-                Com han anat els anys {aName(station.nom)} ›
-              </Link>
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ── Contadores ── */}
-      {(hasThermometer || hasGauge) && (
-      <div>
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
-          Comptadors de l&apos;any
-        </h3>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {hasThermometer && (
-            <>
-              <Counter label="Dies d'estiu" month={counters.summerDays.month} year={counters.summerDays.year} hint="màxima ≥ 25 °C" monthCovered={monthCovered} />
-              <Counter label="Dies de calor" month={counters.hotDays.month} year={counters.hotDays.year} hint="màxima ≥ 30 °C" monthCovered={monthCovered} />
-              <Counter label="Nits tropicals" month={counters.tropicalNights.month} year={counters.tropicalNights.year} hint="mínima ≥ 20 °C" monthCovered={monthCovered} />
-              <Counter label="Dies de glaçada" month={counters.frostDays.month} year={counters.frostDays.year} hint="mínima < 0 °C" monthCovered={monthCovered} />
-            </>
-          )}
-          {hasGauge && (
-            <Counter label="Dies de pluja" month={counters.rainDays.month} year={counters.rainDays.year} hint="≥ 0,2 mm" monthCovered={monthCovered} />
-          )}
-        </div>
-        {/* Una vegada per als cinc, i no cinc vegades. */}
-        <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">
-          {lastMonthDay
-            ? `El recompte del mes arriba fins al ${fmtDate(lastMonthDay)}: el conjunt diari de la XEMA es publica amb dos dies de retard.`
-            : 'El conjunt diari de la XEMA es publica amb dos dies de retard, i d’aquest mes encara no n’hi ha cap dia.'}
-        </p>
-        {dryStreak >= 5 && (
-          <p className="mt-2 text-sm text-[var(--ink-2)]">
-            Fa <strong className="font-semibold">{dryStreak} dies</strong> seguits que no hi plou gens.
-          </p>
-        )}
-      </div>
-      )}
-
-      {/* ── Récords ── */}
-      <div>
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
-          Rècords de l&apos;estació
-        </h3>
-        <div className="scroll-x rounded-lg border border-[var(--line-soft)] bg-[var(--surface)]">
-          <table className="w-full border-collapse text-sm">
-            <tbody>
-              {records.tMaxAbs && (
-                <tr className="border-b border-[var(--line-soft)]">
-                  <th scope="row" className="px-4 py-2.5 text-left font-normal text-[var(--muted)]">Temperatura més alta</th>
-                  <td className="px-4 py-2.5 text-right">
-                    <span className="tnum rounded px-2 py-0.5 font-semibold"
-                      style={{ background: temperatureColor(records.tMaxAbs.value), color: temperatureInk(records.tMaxAbs.value) }}>
-                      {num(records.tMaxAbs.value, 1)} °C
-                    </span>
-                  </td>
-                  <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">{fmtDate(records.tMaxAbs.date)}</td>
-                </tr>
-              )}
-              {records.tMinAbs && (
-                <tr className="border-b border-[var(--line-soft)]">
-                  <th scope="row" className="px-4 py-2.5 text-left font-normal text-[var(--muted)]">Temperatura més baixa</th>
-                  <td className="px-4 py-2.5 text-right">
-                    <span className="tnum rounded px-2 py-0.5 font-semibold"
-                      style={{ background: temperatureColor(records.tMinAbs.value), color: temperatureInk(records.tMinAbs.value) }}>
-                      {num(records.tMinAbs.value, 1)} °C
-                    </span>
-                  </td>
-                  <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">{fmtDate(records.tMinAbs.date)}</td>
-                </tr>
-              )}
-              {records.precipMaxDay && (
-                <tr className="border-b border-[var(--line-soft)]">
-                  <th scope="row" className="px-4 py-2.5 text-left font-normal text-[var(--muted)]">Dia amb més pluja</th>
-                  <td className="tnum px-4 py-2.5 text-right font-semibold text-[var(--ink)]">{num(records.precipMaxDay.value, 1)} mm</td>
-                  <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">{fmtDate(records.precipMaxDay.date)}</td>
-                </tr>
-              )}
-              {records.gustMax && (
-                <tr className="border-b border-[var(--line-soft)] last:border-0">
-                  <th scope="row" className="px-4 py-2.5 text-left font-normal text-[var(--muted)]">Ratxa de vent més forta</th>
-                  <td className="tnum px-4 py-2.5 text-right font-semibold text-[var(--ink)]">{int(msToKmh(records.gustMax.value))} km/h</td>
-                  <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">{fmtDate(records.gustMax.date)}</td>
-                </tr>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+              {hasTemp && (
+                `La mitjana ${deMonth} sencer ${aName(station.nom)} és de `
+                + `${num(normal.tMean, 1)} °C, calculada sobre ${normal.years} anys `
+                + 'de sèrie de la mateixa estació.'
               )}
               {/*
-                La ratxa seca més llarga porta les dues dates i no una: «noranta
-                dies» sol és un número, i «del novembre al febrer» diu quin hivern
-                va ser. Un dia sense dada la talla, com talla la d'ara.
+                El total del mes va amb els dies que cobreix, sempre.
+
+                Deia «Hi sol ploure 86 mm, i aquest mes en porta 0 mm» el 4 de
+                setembre, quan la sèrie diària de la XEMA —que va dos dies enrere—
+                només tenia el dia 1 i el 2. El número era cert i la lectura,
+                falsa: comparar dos dies contra la normal de trenta no és comparar
+                res. Es va veure quan el bloc de pluja acumulada, just a sobre,
+                va escriure 168,8 mm dels últims trenta dies a la mateixa pàgina.
+
+                El «Hi» va gran quan obre el paràgraf: a les quatre estacions que
+                només mesuren pluja no hi ha frase de temperatura al davant.
               */}
-              {records.drySpell && records.drySpell.days >= 20 && (
-                <tr className="border-b border-[var(--line-soft)] last:border-0">
-                  <th scope="row" className="px-4 py-2.5 text-left font-normal text-[var(--muted)]">Ratxa seca més llarga</th>
-                  <td className="tnum px-4 py-2.5 text-right font-semibold text-[var(--ink)]">{int(records.drySpell.days)} dies</td>
-                  <td className="tnum px-4 py-2.5 text-right text-[var(--muted)]">
-                    {spellDates(records.drySpell.from, records.drySpell.to)}
-                  </td>
-                </tr>
+              {normal.precip != null && (
+                (hasTemp ? ' Hi' : 'Hi')
+                + (monthCovered
+                  ? ` sol ploure ${int(normal.precip)} mm en tot el mes, i dels `
+                    + `${monthDays.length} ${monthDays.length === 1 ? 'dia' : 'dies'} `
+                    + `${deMonth} que la sèrie ja té, n'han caigut `
+                    + `${int(counters.precip.month)} mm.`
+                  : ` sol ploure ${int(normal.precip)} mm en tot el mes; ${deMonth} `
+                    + 'la sèrie encara no en té cap dia.')
               )}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-          Mesurats a l&apos;estació{' '}
-          {stationHref
-            ? (
-              <Link href={stationHref} className="font-medium text-[var(--ink-2)] no-underline hover:underline">
-                {deName(station.nom)}
-              </Link>
-            )
-            : <strong className="font-medium text-[var(--ink-2)]">{deName(station.nom)}</strong>},
-          a {num(station.distKm, 1)} km
-          {station.dAltM != null && Math.abs(station.dAltM) >= 25 && ` i ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivell`}.
-          {/*
-            El punt final anava sempre, també quan no hi havia sèrie a dir: les
-            fitxes de les estacions sense termòmetre acabaven la frase amb
-            «de desnivell . .». Ara la cua es munta d'una peça i el punt és seu.
-          */}
-          {records.since && (
-            ` Sèrie des del ${fmtDate(records.since)}`
-            + (records.days > 0 ? ` · ${records.days.toLocaleString('ca-ES')} dies amb dada` : '')
-            + (yearsOfSeries != null && yearsOfSeries > 0 ? ` (${yearsOfSeries} anys)` : '')
-            + '.'
-          )}
-          {/*
-            I sobre quants anys s'ha buscat la ratxa seca, que no són els de la
-            sèrie. Sense dir-ho, el lector compta els que acaba de llegir a la
-            frase de dalt —a Tàrrega, 31— i el rècord s'ha mirat en 21: en un any
-            amb dies perduts, una ratxa surt partida i sembla més curta, i com
-            que els anys perduts són els vells, deixar-los dins faria guanyar
-            sempre els recents.
-          */}
-          {records.drySpell && records.drySpell.days >= 20
-            && records.drySpell.years < records.drySpell.ofYears && (
-            ` La ratxa seca es busca als ${records.drySpell.years} anys sencers dels `
-            + `${records.drySpell.ofYears}: `
-            + 'a un any amb dies perduts, una ratxa surt partida i sembla més curta.'
-          )}
-        </p>
-      </div>
-
-      {/* ── De dónde viene el viento ── */}
-      {/*
-        La rosa vive aquí y no solo en la ficha de la estación, y es una decisión
-        de alcance: en /estacions la ven 189 páginas y en el bloque de clima la ven
-        4.293. El dato es el mismo —es de la estación de referencia— y esta sección
-        ya va toda atribuida a ella.
-      */}
-      {history.rose && (
-        <div>
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
-            D&apos;on ve el vent
-          </h3>
-          <div className="card">
-            <WindRose rose={history.rose} />
-          </div>
-          {stationHref && (
-            <p className="mt-2 text-xs text-[var(--muted)]">
-              <Link href={stationHref} className="text-[var(--ink-2)] no-underline hover:underline">
-                Fitxa completa de l&apos;estació {deName(station.nom)} ›
-              </Link>
+              {/*
+                I si l'estació no mesura temperatura, es diu: altrament aquesta
+                targeta és una que parla només de pluja sense que se sàpiga per què.
+              */}
+              {!hasTemp && (
+                (normal.precipYears ? ` És la mitjana de ${normal.precipYears} anys.` : '')
+                + ` A ${station.nom} no es mesura la temperatura: només hi ha pluviòmetre.`
+              )}
             </p>
-          )}
+
+            {/*
+              Y la puerta al histórico entero, que es lo que sigue a la frase de
+              arriba: si este septiembre va el primero de 38, la pregunta
+              siguiente es cómo han ido esos 38. Los gráficos —media de cada año
+              con su recta, el mismo mes año a año, la lluvia— viven en la ficha
+              de la estación y no aquí: son 24 kB de serie mensual que ninguna de
+              las 4.293 fichas de lugar dibuja. `climateShard()` en `shards.ts`.
+            */}
+            {stationHref && (
+              <p className="card-foot">
+                <Link href={`${stationHref}#anys`}>
+                  Com han anat els anys {aName(station.nom)} ›
+                </Link>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ── Récords ── */}
+        <div className={hasMonthCard ? 'card' : 'card @3xl:col-span-2'}>
+          <Label icon="thermometer">Rècords de l&apos;estació</Label>
+          {/*
+            Files i no una taula de tres columnes: la data va sota el nom del
+            rècord, així que al mòbil no hi ha res a desplaçar de costat.
+          */}
+          <ul className="rows">
+            {records.tMaxAbs && (
+              <li>
+                <span className="row-main">
+                  <span className="row-title">Temperatura més alta</span>
+                  <span className="row-sub tnum">{fmtDate(records.tMaxAbs.date)}</span>
+                </span>
+                <span
+                  className="temp-pill"
+                  style={{ background: temperatureColor(records.tMaxAbs.value), color: temperatureInk(records.tMaxAbs.value) }}
+                >
+                  {num(records.tMaxAbs.value, 1)} °C
+                </span>
+              </li>
+            )}
+            {records.tMinAbs && (
+              <li>
+                <span className="row-main">
+                  <span className="row-title">Temperatura més baixa</span>
+                  <span className="row-sub tnum">{fmtDate(records.tMinAbs.date)}</span>
+                </span>
+                <span
+                  className="temp-pill"
+                  style={{ background: temperatureColor(records.tMinAbs.value), color: temperatureInk(records.tMinAbs.value) }}
+                >
+                  {num(records.tMinAbs.value, 1)} °C
+                </span>
+              </li>
+            )}
+            {records.precipMaxDay && (
+              <li>
+                <span className="row-main">
+                  <span className="row-title">Dia amb més pluja</span>
+                  <span className="row-sub tnum">{fmtDate(records.precipMaxDay.date)}</span>
+                </span>
+                <span className="row-value">{num(records.precipMaxDay.value, 1)} mm</span>
+              </li>
+            )}
+            {records.gustMax && (
+              <li>
+                <span className="row-main">
+                  <span className="row-title">Ratxa de vent més forta</span>
+                  <span className="row-sub tnum">{fmtDate(records.gustMax.date)}</span>
+                </span>
+                <span className="row-value">{int(msToKmh(records.gustMax.value))} km/h</span>
+              </li>
+            )}
+            {/*
+              La ratxa seca més llarga porta les dues dates i no una: «noranta
+              dies» sol és un número, i «del novembre al febrer» diu quin hivern
+              va ser. Un dia sense dada la talla, com talla la d'ara.
+            */}
+            {records.drySpell && records.drySpell.days >= 20 && (
+              <li>
+                <span className="row-main">
+                  <span className="row-title">Ratxa seca més llarga</span>
+                  <span className="row-sub tnum">{spellDates(records.drySpell.from, records.drySpell.to)}</span>
+                </span>
+                <span className="row-value">{int(records.drySpell.days)} dies</span>
+              </li>
+            )}
+          </ul>
+          <p className="source">
+            Mesurats a l&apos;estació{' '}
+            {stationHref
+              ? (
+                <Link href={stationHref} className="font-medium text-[var(--ink-2)] no-underline hover:underline">
+                  {deName(station.nom)}
+                </Link>
+              )
+              : <strong className="font-medium text-[var(--ink-2)]">{deName(station.nom)}</strong>}
+            {/* A la fitxa de la mateixa estació la distància és zero, i «a 0,0
+                km» no diu res. */}
+            {station.distKm > 0 && `, a ${num(station.distKm, 1)} km`}
+            {station.dAltM != null && Math.abs(station.dAltM) >= 25 && ` i ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivell`}.
+            {/*
+              El punt final anava sempre, també quan no hi havia sèrie a dir: les
+              fitxes de les estacions sense termòmetre acabaven la frase amb
+              «de desnivell . .». Ara la cua es munta d'una peça i el punt és seu.
+            */}
+            {records.since && (
+              ` Sèrie des ${delDate(records.since)}`
+              + (records.days > 0 ? ` · ${records.days.toLocaleString('ca-ES')} dies amb dada` : '')
+              + (yearsOfSeries != null && yearsOfSeries > 0 ? ` (${yearsOfSeries} anys)` : '')
+              + '.'
+            )}
+            {/*
+              I sobre quants anys s'ha buscat la ratxa seca, que no són els de la
+              sèrie. Sense dir-ho, el lector compta els que acaba de llegir a la
+              frase de dalt —a Tàrrega, 31— i el rècord s'ha mirat en 21: en un any
+              amb dies perduts, una ratxa surt partida i sembla més curta, i com
+              que els anys perduts són els vells, deixar-los dins faria guanyar
+              sempre els recents.
+            */}
+            {records.drySpell && records.drySpell.days >= 20
+              && records.drySpell.years < records.drySpell.ofYears && (
+              ` La ratxa seca es busca als ${records.drySpell.years} anys sencers dels `
+              + `${records.drySpell.ofYears}: `
+              + 'a un any amb dies perduts, una ratxa surt partida i sembla més curta.'
+            )}
+          </p>
         </div>
-      )}
 
-      {/* ── Últimos 30 días ── */}
-      {columns.length > 0 && (
-        <div>
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
-            Els últims 30 dies
-          </h3>
-          {/* La caixa només si hi ha dibuix: `RecentChart` torna nul sense cinc
-              dies de màxima i mínima, i quedava un requadre buit. */}
-          {hasChart && (
-            <div className="card">
-              <RecentChart daily={history.daily} />
-            </div>
-          )}
+        {/* ── Contadores ── */}
+        {(hasThermometer || hasGauge) && (
+          <div className="@3xl:col-span-2">
+            <Label icon="thermometer">Comptadors de l&apos;any</Label>
+            <StatGrid
+              stats={[
+                hasThermometer && counter({ label: "Dies d'estiu", month: counters.summerDays.month, year: counters.summerDays.year, hint: 'màxima ≥\u00a025\u00a0°C', monthCovered }),
+                hasThermometer && counter({ label: 'Dies de calor', month: counters.hotDays.month, year: counters.hotDays.year, hint: 'màxima ≥\u00a030\u00a0°C', monthCovered }),
+                hasThermometer && counter({ label: 'Nits tropicals', month: counters.tropicalNights.month, year: counters.tropicalNights.year, hint: 'mínima ≥\u00a020\u00a0°C', monthCovered }),
+                hasThermometer && counter({ label: 'Dies de glaçada', month: counters.frostDays.month, year: counters.frostDays.year, hint: 'mínima <\u00a00\u00a0°C', monthCovered }),
+                hasGauge && counter({ label: 'Dies de pluja', month: counters.rainDays.month, year: counters.rainDays.year, hint: '≥\u00a00,2\u00a0mm', monthCovered }),
+              ]}
+            />
+            {dryStreak >= 5 && (
+              <p className="mt-3 text-[15px] text-[var(--ink-2)]">
+                Fa <strong className="font-semibold text-[var(--ink)]">{dryStreak} dies</strong> seguits que no hi plou gens.
+              </p>
+            )}
+            {/* Una vegada per als cinc, i no cinc vegades. */}
+            <p className="source">
+              {lastMonthDay
+                ? `El recompte del mes arriba fins ${alDate(lastMonthDay)}: el conjunt diari de la XEMA es publica amb dos dies de retard.`
+                : 'El conjunt diari de la XEMA es publica amb dos dies de retard, i d’aquest mes encara no n’hi ha cap dia.'}
+            </p>
+          </div>
+        )}
 
-          <details className={hasChart ? 'mt-2' : ''} open={!hasChart}>
-            <summary className="cursor-pointer text-sm text-[var(--muted)] hover:text-[var(--ink)]">
-              Veure la taula diària
-            </summary>
-            <div className="scroll-x mt-2 rounded-lg border border-[var(--line-soft)] bg-[var(--surface)]">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--muted)]">
-                    <th scope="col" className="bg-[var(--surface-2)] px-3 py-2 font-semibold">Dia</th>
-                    {columns.map((c) => (
-                      <th key={c.label} scope="col" className="bg-[var(--surface-2)] px-3 py-2 font-semibold">
-                        {c.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {recent.slice().reverse().map((d) => (
-                    <tr key={d.day} className="border-t border-[var(--line-soft)]">
-                      <th scope="row" className="tnum px-3 py-1.5 text-left font-medium text-[var(--ink-2)]">
-                        {d.day.slice(8, 10)}/{d.day.slice(5, 7)}
-                      </th>
+        {/* ── De dónde viene el viento ── */}
+        {/*
+          La rosa vive aquí y no solo en la ficha de la estación, y es una decisión
+          de alcance: en /estacions la ven 189 páginas y en el bloque de clima la ven
+          4.293. El dato es el mismo —es de la estación de referencia— y esta sección
+          ya va toda atribuida a ella.
+        */}
+        {withRose && history.rose && (
+          <div className="card @3xl:col-span-2">
+            <Label icon="wind">D&apos;on ve el vent</Label>
+            <WindRose rose={history.rose} />
+            {stationHref && (
+              <p className="card-foot">
+                <Link href={stationHref}>
+                  Fitxa completa de l&apos;estació {deName(station.nom)} ›
+                </Link>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ── Últimos 30 días ── */}
+        {columns.length > 0 && (
+          <div className="card @3xl:col-span-2">
+            <Label icon="raindrops">Els últims 30 dies</Label>
+            {/* El dibuix només si n'hi ha: `RecentChart` torna nul sense cinc
+                dies de màxima i mínima, i quedava un requadre buit. */}
+            {hasChart && <RecentChart daily={history.daily} />}
+
+            <details className={hasChart ? 'mt-3' : ''} open={!hasChart}>
+              <summary className="cursor-pointer text-sm font-medium text-[var(--accent)] hover:underline">
+                Veure la taula diària
+              </summary>
+              <div className="scroll-x mt-2">
+                <table className="data-table whitespace-nowrap">
+                  <thead>
+                    <tr>
+                      <th scope="col">Dia</th>
                       {columns.map((c) => (
-                        <td key={c.label} className={`tnum px-3 py-1.5${c.dim ? ' text-[var(--muted)]' : ''}`}>
-                          {c.cell(d) ?? <span className="text-[var(--line)]">—</span>}
-                        </td>
+                        <th key={c.label} scope="col" className="num">{c.label}</th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
-        </div>
-      )}
+                  </thead>
+                  <tbody>
+                    {recent.slice().reverse().map((d) => (
+                      <tr key={d.day}>
+                        <td className="tnum">
+                          <span className="font-medium text-[var(--ink)]">{d.day.slice(8, 10)}/{d.day.slice(5, 7)}</span>
+                        </td>
+                        {columns.map((c) => (
+                          <td key={c.label} className="num">
+                            {c.cell(d) != null
+                              ? <span className={c.dim ? 'text-[var(--muted)]' : 'text-[var(--ink)]'}>{c.cell(d)}</span>
+                              : <span className="text-[var(--line)]">—</span>}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

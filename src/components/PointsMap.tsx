@@ -55,7 +55,7 @@ const APART = 95;
 
 export function PointsMap({
   outline, projection, points, width, height,
-  labels = false, values = labels, ariaLabel, footer, maxHeight = 460,
+  labels = false, values = labels, ariaLabel, footer, maxHeight = 460, scale = 1,
 }: {
   outline: MapFeature[];
   projection: MapProjection;
@@ -87,6 +87,17 @@ export function PointsMap({
    * mateix que fa el mapa del radar a `globals.css`.
    */
   maxHeight?: number;
+  /**
+   * Quant més grossos es dibuixen els punts i els rètols.
+   *
+   * El contorn fa 1000 unitats d'ample. A tota l'amplada d'una columna es veu a
+   * mida real, però al costat del títol d'una pàgina —la columna de 30 rem de
+   * `PageHero`— es dibuixa a escala 0,44, i un número de 15 unitats hi fa 6,6
+   * píxels: no es llegeix. Amb `scale={2}` el mapa és el mateix i els rètols
+   * tornen a fer entre 11 i 13 píxels. La separació entre rètols creix igual,
+   * perquè un rètol més gros també es trepitja abans.
+   */
+  scale?: number;
 }) {
   if (!points.length) return null;
 
@@ -98,6 +109,7 @@ export function PointsMap({
     .sort((a, b) => a.x - b.x);
 
   const r = values ? 17 : 5;
+  const apart = APART * scale;
 
   /*
    * A dalt o a baix, segons el veí de l'esquerra.
@@ -109,7 +121,7 @@ export function PointsMap({
    */
   const laid = placed.reduce<Array<typeof placed[number] & { up: boolean }>>((acc, p) => {
     const prev = acc[acc.length - 1];
-    const up = prev != null && p.x - prev.x < APART ? !prev.up : false;
+    const up = prev != null && p.x - prev.x < apart ? !prev.up : false;
     return [...acc, { ...p, up }];
   }, []);
 
@@ -136,16 +148,16 @@ export function PointsMap({
           <g key={p.key}>
             {p.tip && <title>{p.tip}</title>}
             <circle
-              cx={p.x} cy={p.y} r={p.r ?? r}
+              cx={p.x} cy={p.y} r={(p.r ?? r) * scale}
               fill={p.fill}
               stroke="oklch(100% 0 0 / 0.85)"
-              strokeWidth={values ? 1.5 : 1}
+              strokeWidth={(values ? 1.5 : 1) * scale}
             />
             {values && p.value && (
               <text
-                x={p.x} y={p.y + 5}
+                x={p.x} y={p.y + 5 * scale}
                 textAnchor="middle"
-                fontSize={15}
+                fontSize={15 * scale}
                 fontWeight={600}
                 fill={p.ink ?? 'oklch(20% 0.02 250)'}
                 className="tnum"
@@ -156,13 +168,13 @@ export function PointsMap({
             {labels && p.label && (
               <text
                 x={p.x}
-                y={p.up ? p.y - (p.r ?? r) - 8 : p.y + (p.r ?? r) + 17}
+                y={p.up ? p.y - ((p.r ?? r) + 8) * scale : p.y + ((p.r ?? r) + 17) * scale}
                 textAnchor="middle"
-                fontSize={13}
+                fontSize={13 * scale}
                 fontWeight={500}
                 fill="var(--ink)"
                 stroke="var(--paper)"
-                strokeWidth={3.5}
+                strokeWidth={3.5 * scale}
                 paintOrder="stroke"
               >
                 {p.label}

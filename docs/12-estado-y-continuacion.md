@@ -130,6 +130,54 @@ auditoría de la web publicada un día de avisos naranja. `npm run check:coheren
 - Una sola cifra de lugares en todo el sitio (4.250; el 4.293 contaba las comarcas).
 - `/estat`, en hora de Madrid, y el mensaje técnico de cada fallo, plegado.
 
+**Frescura (29 sep, lote `frescor`).** Las fichas leen sus trece datos a la vez
+(`fichaData()`: de 795 a 350-500 ms en frío) y las de núcleo están en una prueba de 48 h
+sin ISR. Qué mirar, en «Lo que falta», punto 0.
+
+**La ficha como producto (29 sep, rama `producte`).** De 11 pantallas de móvil a 5: arriba
+y abierto lo que se consulta —cielo, avisos, frase y franjas, próximas horas, 14 días, por
+qué el tiempo aquí es distinto—, y el resto en tarjetas plegadas (`Fold`, un `<details>`)
+que enseñan su cifra en una línea. Medido a 390 px: Lilla de 9.371 a 4.216 px, Malgrat de
+10.017 a 4.629. El HTML pesa lo mismo: lo plegado sigue ahí para el buscador. De paso, en
+escritorio con tema claro la barra del web era **texto blanco sobre blanco** fuera del
+cielo; ahora cabe dentro. Y la portada abre con el buscador grande, los avisos y el mapa
+de temperaturas por comarca, en vez de con un índice y cuatro contadores.
+
+**Rediseño «Cel» (29 sep, misma rama `producte`, PR #4).** El usuario eligió entre dos
+maquetas la dirección A: todo el sitio con el color del cielo —azul de noche, tarjetas de
+cristal—, un solo tema, marca **tempscat** con logo propio, Inter y los iconos Meteocons.
+- **La ficha:** el cielo del lugar a todo el ancho, y debajo dos columnas: el resumen, las
+  próximas 24 horas en tira con la salida y la puesta del sol, los 14 días en lista con barra
+  de temperaturas, y baldosas de viento, humedad, lluvia, UV, sol, presión, aire y mar. El
+  resto, plegado como antes.
+- **La portada:** título, buscador y accesos rápidos al lado del mapa; las cuatro capitales
+  ahora; la franja de avisos; los extremos; y todas las secciones con su icono.
+- **Fuera la lluvia futura**, a petición del usuario: ni en `/radar`, ni en el mapa
+  interactivo, ni el bloque «Cap on va la pluja» de la ficha. Y después, en la rama
+  `sense-camp-de-pluja`, **tampoco se hace**: `forecast-field.ts` ya no pinta ni publica las
+  imágenes de lluvia ni su índice, y se borraron `precipField()`, `src/lib/field.ts` y la
+  ruta `/camp/`. El worker sigue, con el mismo nombre, porque también da el viento del mapa
+  interactivo; su salida de viento se comprobó idéntica byte a byte antes y después. La
+  cuota no cambia (129 unidades al día del anillo, con dos variables igual que con tres);
+  lo que se ahorra son escrituras en R2 y tiempo de worker. Detalle en `AGENTS.md`, «El
+  futuro del radar».
+- `/avisos` deja de ser una pared de bloques naranjas: tarjetas de cristal con el color oficial
+  en el borde y en la pastilla.
+- **Las 22 páginas de sección**, con la misma composición que la portada (`PageHero`: título,
+  respuesta corta, cifras clave y el mapa al lado; cada bloque en una tarjeta; la prosa larga,
+  plegada al final). Se hicieron en paralelo por grupos y se revisaron a 390 y 1.280 px, sin
+  scroll horizontal en ninguna. De paso: `/senderisme/rutes` de 1.248 a 681 kB, la ficha del
+  GR 1 de 1.354 a 363 kB, `/avisos` con un mapa de las zonas de Meteoalerta, el viento de
+  vuelta en `/mapa/interactiu` (la hora de ahora) y el favicon, que seguía siendo el de
+  «Create Next App».
+- **Las clases de `globals.css` van en `@layer components`.** Sin capa ganaban a cualquier
+  utilidad de Tailwind (`class="card p-0"` no quitaba el relleno); fuera quedan solo la anchura
+  de `main` y el titular del cielo, que sí tienen que ganar al `py-8` del layout.
+- Textos: el titular ya no escribe «El temps a els Albans» ni «a les 1 h»; el plugim solo
+  «no arriba a mullar el terra» por debajo de 1 mm; un aviso vigente se dice aunque el
+  modelo vea la lluvia a otras horas; y la descripción del lugar ya no repite la estación
+  que dice el titular.
+
 **Almacén.** `DATA_BASE_URL` = `https://dades.tempscat.cat` en Vercel (los tres entornos), en
 GitHub Actions y en `.env.local`. Antes de cambiarlo se comprobó que el dominio nuevo sirve
 exactamente lo mismo que `r2.dev`: contenido y ETag idénticos, los mismos 404, `304` en las
@@ -158,11 +206,9 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
      de la caché con 1,3 a 5,8 h de antigüedad —y el techo era el último despliegue, que
      vacía la caché de ISR— y 14 se generaban en el momento en 0,7-2,2 s. La cabecera de
      ISR que pone Next es `stale-while-revalidate` de **un año**.
-   - **Lo primero que hay que comprobar**, nada más desplegar: pedir dos veces el mismo
-     núcleo. Si la segunda da `x-vercel-cache: HIT` con `age` por debajo de 600, el CDN
-     respeta la cabecera aunque Next añada `Cache-Control: private`. Si da `MISS` las dos
-     veces, no la respeta y cada visita renderiza: la prueba sigue siendo válida —datos
-     frescos— pero cuesta más, y hay que mirarlo antes de las 48 h.
+   - **Comprobado al desplegar (29 sep, 16:55):** el CDN respeta la cabecera aunque Next
+     añada `Cache-Control: private`. Dos peticiones al mismo núcleo dan `MISS` y luego `HIT`
+     con `age` 0-1. El navegador sigue recibiendo `private` y no guarda nada.
    - **A las 48 h, en Vercel → Usage**, comparar con los dos días anteriores: invocaciones
      y duración de funciones, escrituras y lecturas de ISR y Fast Origin Transfer.
    - **Si convence**, la ficha de municipio va igual (otra regla de cabecera para
@@ -189,23 +235,29 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    **coste**. Tiene dos precios, y los decide el usuario: rompe la regla de «cero JavaScript en
    las fichas» y saca los números del HTML que lee el buscador.
 
+5. ~~El viento de `/mapa/interactiu` no salía desde el rediseño.~~ **Resuelto el 29 de
+   septiembre**, antes de fusionar: la página le pasa al mapa **una sola hora**, la del viento
+   más cercana al último marco del radar (y ninguna si está a más de 90 minutos), y el rótulo
+   dice de qué hora es. `InteractiveMap` ya caía a la primera hora cuando no encontraba el
+   marco, así que no hizo falta la barra de doce horas. La barra y el botón de reproducir solo
+   salen en «Pluja».
+
 **Sin decisión pendiente:**
 
-5. **Pregenerar menos en el build** (los 683 itinerarios y las 189 estaciones), para bajar el
+6. **Pregenerar menos en el build** (los 683 itinerarios y las 189 estaciones), para bajar el
    gigabyte de cada despliegue. Los ~3.300 núcleos ya se generan bajo demanda.
-6. **Revisar a ojo las fichas de detalle** después del rediseño: `/estacions/<codi>`,
-   `/cameres/<slug>`, `/senderisme/rutes/<slug>`, `/[comarca]` y la de núcleo. Recibieron el
-   barrido de estilos, pero nadie las ha mirado en un móvil.
-7. **Reescribir los textos** para que el sitio suene a portal profesional. Las reglas de tono
+7. ~~Revisar a ojo las fichas de detalle~~ **Hecho** con el rediseño de las páginas de sección:
+   estación, cámara, itinerario, eje y comarca, a 390 y a 1.280 px.
+8. **Reescribir los textos** para que el sitio suene a portal profesional. Las reglas de tono
    están en `AGENTS.md`, «Cómo se escribe lo que lee el usuario».
-8. **Lo que quedó de la rama `credibilitat`:** los rótulos de los iconos hora a hora (el
+9. **Lo que quedó de la rama `credibilitat`:** los rótulos de los iconos hora a hora (el
    `<title>` y el `aria-label` de `WeatherIcon`) siguen diciendo «Pluja feble» bajo un aviso;
    la antigüedad de `/estat` lee con `Date.parse` las marcas sin zona —las de Open-Meteo, que
    son hora local— como si fueran UTC, y en Vercel salen dos horas cortas; la descripción
-   general del sitio (`layout.tsx`) promete «consens multimodel», que es cierto en el 11 % de
-   los puntos. Y `check:coherence` no lo lanza ningún workflow: se pasa a mano después de
+   general del sitio (`layout.tsx`) prometía «consens multimodel», que es cierto en el 11 % de
+   los puntos —ya no—. Y `check:coherence` no lo lanza ningún workflow: se pasa a mano después de
    cada fusión, como `check:jsonld`.
-9. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa) · el buscador
+10. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa) · el buscador
    del móvil podría ser una pastilla «⌕ Cercar» · el trazador de Next avisa de que
    `join(LOCAL, path)` en `cache-store.ts` engancha los 5.525 ficheros de `data/cache/`; hoy no
    pasa nada porque no se versiona, y es una trampa esperando a que alguien lo haga.

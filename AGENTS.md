@@ -27,7 +27,8 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/build/routes.json` | Índice de los 683: nombre, código, km, cotas, comarcas. **Se versiona** |
 | `data/build/routes/<slug>.json` | Trazado y perfil de alturas de uno. Solo lo lee su ficha |
 | `data/cache/base/` | Teselas del mapa base del ICGC, ya en WebP. Las sirve una route handler |
-| `data/cache/field/` | El campo de lluvia de la predicción, una imagen por hora. Es el **futuro** del radar |
+| `data/cache/wind/` | El viento previsto de las doce horas siguientes, una rejilla u/v por hora en PNG. Lo mueve `/mapa/interactiu` |
+| `data/cache/field/` | Solo `voltant.json`: la predicción de viento de 129 puntos de fuera de Catalunya, que lee únicamente el worker del viento. El campo de lluvia que daba nombre a la carpeta **ya no se hace**: ver «El futuro del radar» |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
 | `data/build/geo/comarques-map.json` | El mapa, ya proyectado y simplificado en el build. Ver `scripts/10-map-geometry.ts` |
@@ -86,7 +87,6 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/forecast-merge.ts` | De los modelos a una serie, y de la serie al resumen por días |
 | `src/lib/search-match.ts` | Cómo se parece lo que se escribe en el buscador al nombre de un sitio |
 | `src/lib/climate-math.ts` | Qué es un mes comparable, qué es un año entero y cómo se saca una tendencia |
-| `src/lib/field.ts` | El recuadro del campo de lluvia, en píxeles del mosaico del radar |
 | `src/lib/webmap.ts` | La ventana, los zooms y la dirección del worker del mapa que se mueve |
 | `src/lib/warning-stack.ts` | Quin avís mana, quin acompanya i quin no diu res de nou |
 | `src/lib/warning-zones.ts` | On viu el contorn de les 21 zones de Meteoalerta, i per què va a part |
@@ -186,7 +186,7 @@ npm run worker:forecast   # predicció · accepta --tiers=A,B,C i --fill
 npm run worker:history    # rècords i normals, un cop al dia
 npm run worker:cameres    # cameres de muntanya de FGC, cada hora
 npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
-npm run worker:field      # el camp de pluja del radar · cada hora, i al final de `prediccio.yml`
+npm run worker:field      # el camp de vent del mapa · cada hora, i al final de `prediccio.yml`
 npm run worker:verify     # quant encerta cada model, contra la XEMA · un cop al dia
 ```
 
@@ -385,12 +385,29 @@ cuota para exactamente la misma información.
   en pasos de 6— pero **no está en su API**: se vende por contrato bilateral, y sus condiciones
   de uso prohiben expresamente «difondre a tercers», así que un web público entra en tarifa de
   difusión. Comprobado contra su documentación en septiembre de 2026; el detalle y los precios
-  están en el hoja de ruta. Lo que sí tenemos es **nuestra propia predicción**: 3.190 puntos, uno
-  cada 3,2 km, hora a hora, que `forecast-field.ts` pinta como un campo sobre el mismo mosaico.
-  Se concatena a los marcos del radar y hereda la animación, el rótulo de la hora y la barra sin
-  una línea más —toda la página cuenta grupos—, pero **no hereda el nombre**: la leyenda dice
-  dónde acaba el radar y empieza el modelo, antes que ninguna otra cosa.
+  están en el hoja de ruta. Lo que sí teníamos es **nuestra propia predicción**: 3.190 puntos, uno
+  cada 3,2 km, hora a hora, que `forecast-field.ts` pintaba como un campo sobre el mismo mosaico
+  y se concatenaba a los marcos del radar, con una leyenda que decía dónde acababa el radar y
+  empezaba el modelo.
+  **Desde el 29 de septiembre de 2026 no se enseña en ninguna parte, y ya no se hace.** El
+  usuario lo vio feo y el radar volvió a ser solo pasado y presente, en `/radar`, en
+  `/mapa/interactiu` y en la ficha; dónde lloverá lo dicen las horas de la ficha, en milímetros.
+  Las imágenes se quedaron sin lector, así que el worker dejó de pintarlas y de publicarlas, y se
+  borraron `precipField()`, `src/lib/field.ts` y la ruta `/camp/`. El worker **sigue
+  corriendo**, con el mismo nombre, porque del mismo recorrido sale el viento de
+  `/mapa/interactiu`; del anillo de fuera ya solo se pide el viento. Quitar la lluvia **no ahorra
+  cuota** —ver «El vent amb partícules»—: ahorra, en cada vuelta, las escrituras en R2 de las
+  imágenes que cambian y de su índice, y más de la mitad del tiempo del worker. Lo que ya estaba
+  en R2 bajo `field/` lo puede borrar alguien a mano, **menos `field/voltant.json`**, que es el
+  anillo y sigue en uso.
+  Y una trampa que salió al hacerlo: **quitar los marcos de predicción apagó también el viento
+  de `/mapa/interactiu`**, sin ningún error. La página solo le pasa la capa al mapa si cada hora
+  del viento coincide con un marco de la barra; con la barra solo de radar, que es pasado, no
+  coincide ninguna, el botón «Vent» no se pinta y las partículas no salen. Qué hacer con eso está
+  en `docs/12`, «Lo que falta».
 - **La pluja del model s'acabava dins del mapa, i això no es llegeix com «aquí no en sabem».**
+  (El campo de lluvia ya no se hace desde el 29 de septiembre de 2026. Queda el anillo, que
+  ahora solo pide viento, y las lecciones de dibujo, que valen para cualquier campo.)
   Los 3.190 puntos son de Catalunya, así que el campo de lluvia se cortaba en seco en la raya de
   la frontera y en la costa, con medio encuadre en blanco. Se arregló **sin inventar nada**: no
   se estira el valor del punto más cercano —eso sería dibujar lo que no sabemos— sino que se le
@@ -413,7 +430,9 @@ cuota para exactamente la misma información.
   desvanecimiento del último punto caería **dentro** del mapa y parecería que la lluvia se acaba
   en el marco.
 - **El campo se repinta cada hora, y comparar con el disco para no repetir escrituras no
-  funciona.** Se pintaba solo cuando se refrescaba la predicción —cuatro veces al día— y como la
+  funciona.** (Desde el 29 de septiembre de 2026 lo que se rehace cada hora es solo el
+  viento, con la misma comparación contra el índice publicado.) Se pintaba solo cuando se
+  refrescaba la predicción —cuatro veces al día— y como la
   página únicamente enseña las horas que no han pasado, **el futuro del radar se iba encogiendo**:
   con el último refresco a las 17:00 UTC, a las nueve de la mañana siguiente no quedaba ninguna.
   Ahora hay `camp.yml` cada hora. Entre dos vueltas once de las doce imágenes son idénticas, así
@@ -422,8 +441,9 @@ cuota para exactamente la misma información.
   mirándolo la comparación sale siempre negativa y se subirían las doce cada hora. Escrito
   primero con `existsSync`, iba bien en local y no habría hecho nada en producción. Cada hora
   lleva su `hash` en el índice. Medido: primera vuelta 14 ficheros, segunda 2.
-- **Un mapa pequeño no puede llevar el país entero dentro.** El bloque «Cap on va la pluja» de
-  la ficha son cuatro cuadros de 100 km —el último radar y las tres horas siguientes— y la
+- **Un mapa pequeño no puede llevar el país entero dentro.** (El bloque se retiró el 29 de
+  septiembre de 2026; la regla vale para cualquier mapa pequeño.) El bloque «Cap on va la pluja» de
+  la ficha eran cuatro cuadros de 100 km —el último radar y las tres horas siguientes— y la
   primera versión volcaba las 43 comarcas en cada uno: **320 kB de coordenadas, cuatro veces**,
   247 kB en gzip añadidos a una página que pesa 72. Dos arreglos, y los dos hacen falta:
   `comarcaPathsNear()` se queda con los trazos cuya caja toca la ventana —6 de 130 en el
@@ -431,7 +451,7 @@ cuota para exactamente la misma información.
   Quedan **19 kB**. La ventana la calcula `windowOf()` una vez y la usan los dos lados: quien
   elige qué fronteras se envían y quien recorta el dibujo. Con dos cálculos, un día se enviarían
   las de un trozo y se recortaría otro.
-- **El bloque de la ficha solo sale cuando la predicción de ese punto da lluvia**, y la puerta la
+- **El bloque de la ficha solo salía cuando la predicción de ese punto daba lluvia** (retirado con el anterior), y la puerta la
   mira la predicción y no el radar: un eco a cien kilómetros que se va hacia Francia no hace que
   la ficha de un pueblo de Ponent tenga que enseñar un mapa. Un mapa de lluvia sin lluvia no es
   información, es ruido en 4.293 páginas. Y el primer cuadro **siempre tiene más color que los
@@ -945,6 +965,17 @@ cuota para exactamente la misma información.
   ha de portar la llista de variables a dins**, o el dia que se n'hi afegeix una, el
   tros vell segueix valent i el voltant es queda sense la nova fins que la predicció es
   refresqui sola.
+  El 29 de setembre de 2026 se'n va treure la pluja, quan el camp de pluja es va deixar
+  de fer, i pel mateix terra **no es va estalviar res**: dues variables també valen 1 per
+  punt, i el voltant segueix costant 129 unitats al dia. Com que la llista és a
+  l'empremta, la primera volta sense pluja va tornar a demanar el voltant una vegada.
+  **El voltant s'alinea amb la sèrie de dins per l'hora, no per la posició.** La seva sèrie
+  comença les zero hores del dia en què es demana, i la de dins pot ser d'un altre dia.
+  `windGrid` llegeix per posició, i el vent del voltant hi entrava així: el camp de pluja
+  sí que el buscava per hora, i el de vent no, sense que es notés, perquè gairebé sempre
+  comencen el mateix dia. Ara les sèries del voltant es tornen a escriure sobre les hores
+  de dins abans d'entrar-hi. Comprovat amb un voltant desplaçat un dia: les hores que
+  cobreix surten idèntiques, byte a byte, i les que no, en calma i amb avís.
   **La direcció no es pot interpolar, i el signe no es pot deduir.** Entre 350° i 10° la
   mitjana dona 180°: vent del sud exactament on bufa del nord. Es descompon en u i v
   abans d'interpolar. I la conversió —`u = −v·sinθ`, `v = −v·cosθ`, amb θ **d'on ve** el
@@ -1167,6 +1198,66 @@ cuota para exactamente la misma información.
   les 4.250 fitxes: `de ${monthName}` feia «dies de octubre». Topònims amb `deName()` i
   `aName()`, comarques amb `deComarca()`, mesos amb `monthOf()`, rumbs amb
   `fromDirection()`. El comprovador busca aquestes formes a l'HTML servit.
+
+- **El redisseny «Cel» (29 de setembre de 2026): un sol tema, i és fosc.** Tot el web porta el
+  color del cel —blau de nit, targetes de vidre— i ja no hi ha tema clar. Les variables de
+  `:root` a `globals.css` són les de sempre (`--paper`, `--ink`, `--line`…) amb valors nous, així
+  que els components que ja les llegien no s'han tocat. Els colors CAP dels avisos **no s'hi
+  mouen**: `test:colors` els compara amb `scales.ts` i falla si algú els «adapta» al tema.
+  La marca és **tempscat** (`Logo.tsx`, `src/app/icon.svg`), la lletra Inter servida pel mateix
+  web amb `next/font`, i les icones del temps són **Meteocons** (MIT, a `public/icons/w` i
+  `w-anim`): `<img>` estàtiques, zero JavaScript, i l'animada només per a qui no demana moviment
+  reduït.
+  La fitxa són ara tres peces: el cel del lloc **a tota l'amplada** (`.hero-bleed`, que surt de
+  `main` amb `calc(50% - 50vw)` i per això el `body` porta `overflow-x: clip`); dues columnes
+  amb el resum, les 24 hores (`HourStrip`), els 14 dies (`DailyList`) i les rajoles del detall
+  (`DetailTiles`); i els blocs plegats. Quatre coses que no són evidents:
+  **El primer bloc després del cel hi puja a sobre** amb `[data-hero] + *` i un marge negatiu:
+  si hi ha avisos és la franja d'avisos, i si no, la graella. No ho posis a la graella.
+  **«El temps a» i el nom van dins del mateix `h1`, i la preposició porta l'article.** Escrit
+  «El temps a» damunt de «els Albans i Cal Xeret», es llegia «El temps a els Albans» — el
+  comprovador ho va trobar el primer dia. `aNameParts()` a `format.ts` parteix «als» i «Albans i
+  Cal Xeret».
+  **La 1 és l'única hora en singular.** El Prat deia «fins demà a les 1 h». Les hores en punt
+  amb article surten de `theHour()`, i `check:coherence` busca «les 1 h» a l'HTML servit.
+  **Canviar el marcatge d'una fitxa vol dir revisar `check-coherence.ts`.** Les seves regles
+  busquen frases concretes —«Pluja 24 h», «· màx.», «Pressió 1.019 hPa»— i **una regla que
+  deixa de casar no falla: calla**. Amb el redisseny en van deixar de casar quatre, i el
+  comprovador hauria donat verd sense mirar res.
+
+- **Un avís vigent i pluja del model a unes altres hores.** Amb un groc per pluja fins a les
+  22 h, l'Albagés deia «Plugim demà de les 16 a les 18 h […]: no arriba a mullar el terra» i res
+  de l'avís: el model només veia pluja l'endemà, fora de la finestra de l'avís, i la frase de
+  pluja no se n'assabentava. Ara `narrative.ts` diu primer l'avís —«tot i que aquí el model no
+  hi preveu pluja en aquestes hores»— i la pluja del model després, en mil·límetres i sense
+  adjectiu. I «no arriba a mullar el terra» ja només surt per sota d'1 mm en tot el tram: vuit
+  hores de 0,3 mm són 2,7 mm, i això mulla.
+
+- **Les classes de `globals.css` viuen a `@layer components`, i ha de seguir sent així.** Una
+  regla sense capa guanya **qualsevol** utilitat de Tailwind —que viu a `@layer utilities`—, així
+  que `class="card p-0"` deixava el relleu de `.card` i `class="stat-grid mt-6"` el marge a zero.
+  Quatre agents que van redissenyar pàgines en paral·lel ho van topar cadascun pel seu compte i
+  ho van resoldre amb `p-0!` i estils en línia. Fora de la capa, al final del fitxer, hi ha
+  només el que **ha** de guanyar a una utilitat: l'amplada de `main` i el titular del cel, que
+  treu el `py-8` del layout. Si afegeixes una classe, va dins de la capa.
+
+- **Les pàgines de secció es fan amb `PageHero`** (`src/components/PageHero.tsx`): la ruta, el
+  títol, una entradilla que contesta, les xifres (`stats`, que accepta `false` per a les que no
+  hi són) i el mapa a `aside`. La ruta és **la mateixa llista** que es passa a `breadcrumbLd()`.
+  Cada bloc va en una `.card` dins d'una `<Section>`, i la prosa llarga, en un `Fold` al final.
+  La pàgina de comarca és la més curta de llegir com a referència.
+
+- **Un mapa de punts al costat del títol es dibuixa a escala 0,44.** El contorn fa 1.000
+  unitats i la columna de l'`aside`, uns 440 px: els números de dins dels cercles feien 6,6 px
+  i els noms, 5,7. `PointsMap` porta `scale` —2 a la columna del costat— que multiplica radis,
+  lletra, desplaçaments i la separació entre rètols. Qualsevol mapa nou que vagi petit l'ha de
+  portar.
+
+- **El vent del mapa interactiu és el d'ara, no una sèrie.** Des que la barra és només radar,
+  cap hora del vent coincidia amb un marc i el botó «Vent» no sortia —sense cap error—. La
+  pàgina li passa **una sola hora**, la més propera a l'últim marc del radar, i cap si és a més
+  de 90 minuts. `InteractiveMap` cau a la primera hora quan no troba el marc, i per això n'hi
+  ha prou.
 
 
 <!-- BEGIN:nextjs-agent-rules -->
