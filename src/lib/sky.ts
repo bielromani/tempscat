@@ -437,16 +437,35 @@ export function skyStyle(input: SkyInput): Sky {
   const warm = golden * (1 - 0.8 * cover ** 2);
   // Blau de capvespre i de nit: de −2° cap avall.
   const cool = clamp01((-2 - alt) / 6);
+  /*
+   * I de dia, **l'ombra d'un núvol és blavosa**, no grisa.
+   *
+   * La primera versió deixava les textures neutres, i un cel tapat sortia d'un
+   * gris de ciment sense ni un bri de blau: correcte de claror i mort de color.
+   * La part de sota d'una capa de núvols la il·lumina el cel, no el sol, i per
+   * això tira a blau; com més gruixuda la capa, més es nota.
+   */
+  const shade = light * cover ** 2 * 0.5;
   const thick = 1 - 0.2 * cover ** 1.5 - (thunder ? 0.14 : 0) - (wet ? Math.min(0.14, intensity / 700) : 0);
   const bright = mix(0.34, 1.04, light) * thick;
   const cloudContrast = 1.02 + cover * 0.08;
+  // El to: càlid amb el sol baix, blau a l'ombra i de nit. Guanya el que pesa més.
+  const warmAmt = warm * 0.42;
+  const coolAmt = Math.max(cool * 0.3, shade * 0.6);
+  const blue = coolAmt > warmAmt;
+  const tint = Math.max(warmAmt, coolAmt);
   const cloudFx = (b: number) => `brightness(${clamp01(b).toFixed(3)}) `
     + `contrast(${cloudContrast.toFixed(2)}) `
-    + `sepia(${(warm * 0.42 + cool * 0.3).toFixed(2)}) `
-    + `hue-rotate(${(cool > 0 ? 185 : -8 * warm).toFixed(0)}deg) `
-    + `saturate(${(1 + warm * 0.9 + cool * 0.3).toFixed(2)})`;
-  /** El que fa `contrast()` a una lluminositat: l'allunya del gris mitjà. */
-  const afterContrast = (b: number) => clamp01((clamp01(b) - 0.5) * cloudContrast + 0.5);
+    + `sepia(${tint.toFixed(2)}) `
+    + `hue-rotate(${(blue ? 185 : -8 * warm).toFixed(0)}deg) `
+    + `saturate(${(1 + (blue ? 0.6 * (tint / 0.3) : warm * 0.9)).toFixed(2)})`;
+  /**
+   * El que fan `contrast()` i `sepia()` a una lluminositat: el primer l'allunya
+   * del gris mitjà i el segon l'apuja una mica, perquè la matriu del sèpia suma
+   * més d'u.
+   */
+  const afterContrast = (b: number) =>
+    clamp01(clamp01((clamp01(b) - 0.5) * cloudContrast + 0.5) * (1 + 0.215 * tint));
 
   // El vent inclina la pluja, i cada capa se'n desvia per no fer ratlles paral·leles.
   const rainTilt = 97 + Math.min(14, intensity / 7);
@@ -461,7 +480,8 @@ export function skyStyle(input: SkyInput): Sky {
   const wispO = clamp01(cover * 3.2) * (1 - smoothStep(0.5, 0.92, cover));
   const farO = clamp01((cover - 0.06) * 2) * (1 - smoothStep(0.72, 1, cover) * 0.55);
   const nearO = clamp01((cover - 0.24) * 1.9) * (1 - smoothStep(0.78, 1, cover) * 0.6);
-  const overO = clamp01((cover - 0.5) * 2.3);
+  // La capa tancada no arriba a opaca: per les juntes es veu el cel de sota.
+  const overO = clamp01((cover - 0.5) * 2.3) * 0.84;
 
   /*
    * El vel de nuvolositat: la capa plana i grisa que hi ha sota les textures.
@@ -472,9 +492,20 @@ export function skyStyle(input: SkyInput): Sky {
    * el 72 % d'opacitat, que és negre.
    */
   const storm = thunder ? 12 : wet ? Math.min(10, intensity / 8) : 0;
-  const veilTop: LCH = [Math.max(17, mix(30, 72, light) - 7 * cover - storm), 0.02, 252];
-  const veilBottom: LCH = [Math.max(15, veilTop[0] - 7), 0.022, 252];
-  const veilO = cover ** 1.9 * 0.8;
+  /*
+   * De color **blau plom**, no gris: és el cel que es veu a través d'una capa
+   * de núvols, i sota una capa de núvols el cel segueix sent blau. Amb pluja o
+   * tempesta el color s'apaga, que és el que passa de veritat.
+   *
+   * I **l'horitzó és més clar que el zenit**: sota un cel tapat la llum entra
+   * de costat, per on la capa és més prima. Al revés —més fosc a baix— semblava
+   * una paret.
+   */
+  const veilChroma = mix(0.03, 0.06, light) * (1 - storm / 24);
+  const veilTop: LCH = [Math.max(17, mix(30, 70, light) - 6 * cover - storm), veilChroma, 246];
+  const veilBottom: LCH = [Math.max(17, veilTop[0] + mix(2, 9, light)), veilChroma * 0.85, 240];
+  // No tapa del tot: un terç del cel de sota hi passa.
+  const veilO = cover ** 1.9 * 0.66;
 
   /*
    * ── El vel de contrast ───────────────────────────────────────────────────

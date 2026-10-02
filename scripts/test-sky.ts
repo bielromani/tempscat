@@ -290,11 +290,16 @@ console.log('\nEl text blanc del titular, contra el pitjor cel i el pitjor núvo
     return stops.at(-1)![1];
   };
 
-  /** El que deixa passar el filtre d'una textura blanca: `brightness()` i `contrast()`. */
+  /**
+   * El que deixa passar el filtre d'una textura blanca: `brightness()`,
+   * `contrast()` i `sepia()`, que apuja una mica la lluminositat perquè la
+   * seva matriu suma més d'u.
+   */
   const whiteThrough = (filter: string) => {
     const b = Math.min(1, Number(filter.match(/brightness\(([\d.]+)\)/)?.[1] ?? 1));
     const c = Number(filter.match(/contrast\(([\d.]+)\)/)?.[1] ?? 1);
-    return Math.max(0, Math.min(1, (b - 0.5) * c + 0.5));
+    const sp = Number(filter.match(/sepia\(([\d.]+)\)/)?.[1] ?? 0);
+    return Math.max(0, Math.min(1, Math.max(0, Math.min(1, (b - 0.5) * c + 0.5)) * (1 + 0.215 * sp)));
   };
 
   /*

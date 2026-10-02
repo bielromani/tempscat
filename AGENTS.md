@@ -1294,6 +1294,12 @@ cuota para exactamente la misma información.
   El que no es pot canviar: darrere del text el cel no pot ser més clar que un gris mitjà, i
   per això un dia tapat és de color plom i no blanc. `npm run test:sky` ho mesura tot, i
   `npm run cels` ensenya els divuit estats de costat.
+  I l'endemà, la segona meitat: **tapat no vol dir gris**. Amb les textures neutres i el vel
+  sense croma, un cel cobert de dia sortia de color ciment, «sense ni un bri de blau». L'ombra
+  d'un núvol la il·lumina el cel i tira a blau, el cel que es veu a través d'una capa de núvols
+  segueix sent blau, i l'horitzó és més clar que el zenit. Ara el vel de nuvolositat és blau
+  plom i no tapa del tot, la capa tancada deixa juntes, i les textures porten un to blavós de
+  dia.
 
 
 <!-- BEGIN:nextjs-agent-rules -->
