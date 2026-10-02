@@ -29,7 +29,12 @@ import { PageHero, Section } from '@/components/PageHero';
  * escriben con el día de la semana delante («de dimarts, 29 de setembre») o
  * detrás de dos puntos.
  */
-export const revalidate = 3600;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Els embassaments i els rius de Catalunya',

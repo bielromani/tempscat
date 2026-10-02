@@ -36,19 +36,14 @@ import { PageHero, Section } from '@/components/PageHero';
  * el desnivel; aquí no hace falta corregir nada porque el dato es de este punto
  * exacto.
  */
-export const dynamicParams = false;
 /*
- * Una hora, igual que las fichas de lugar. Aquí el argumento es aún más claro:
- * esta página es la lectura cruda de un termómetro que publica cada media hora
- * y llega con 45-65 min de retraso, así que no hay nada que refrescar antes.
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
  */
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 type Params = Promise<{ codi: string }>;
-
-export async function generateStaticParams() {
-  return operativeStations().map((s) => ({ codi: s.codi }));
-}
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { codi } = await params;

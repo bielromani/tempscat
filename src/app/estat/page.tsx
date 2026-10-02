@@ -4,7 +4,12 @@ import { buildSummary } from '@/lib/territory';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 
-export const revalidate = 300;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Estat de les dades',

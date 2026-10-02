@@ -17,7 +17,12 @@ import { PageHero, Section } from '@/components/PageHero';
  * publica 4.293 puntos con 189 estaciones. Enseñar la densidad real —y las
  * comarcas que no tienen ninguna— vale más que esconderla.
  */
-export const revalidate = 600;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 /*
  * El número va en el título, y por eso el título se calcula.

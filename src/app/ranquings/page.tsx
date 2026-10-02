@@ -21,7 +21,12 @@ import { PageHero, Section } from '@/components/PageHero';
  * Diez minutos de revalidación, la cadencia del worker de observación. Poner
  * menos no traería datos nuevos; poner más haría mentir al «ara mateix».
  */
-export const revalidate = 600;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Rànquings del dia · el poble més fred i el més càlid de Catalunya',

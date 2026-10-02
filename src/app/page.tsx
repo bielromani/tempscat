@@ -14,13 +14,11 @@ import { TemperatureLegend, TemperatureMap } from '@/components/TemperatureMap';
 import { temperatureMap } from '@/lib/map';
 
 /*
- * Deu minuts, i no una hora.
- *
- * La portada contesta quin temps fa, i els extrems i les capitals d'ara mateix
- * envelleixen com l'observació que els dona: amb una hora, la xifra de «el més
- * càlid» podria ser de fa seixanta minuts amb el rètol dient que és d'ara.
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
  */
-export const revalidate = 600;
+export const dynamic = 'force-dynamic';
 
 /**
  * Les quatre capitals, amb el temps d'ara.

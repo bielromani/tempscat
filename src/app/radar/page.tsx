@@ -55,7 +55,12 @@ import { Fold } from '@/components/Fold';
  * gente crea que el radar se ha equivocado, cuando lo que ha fallado es la
  * explicación.
  */
-export const revalidate = 300;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Radar de precipitació a Catalunya',

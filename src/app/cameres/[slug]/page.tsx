@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { cameraBySlug, cameraImage, cameraSlugs, CAMERA_SHOW_HOURS } from '@/lib/cameras';
+import { cameraBySlug, cameraImage, CAMERA_SHOW_HOURS } from '@/lib/cameras';
 import { aName, ago, dateFull, deName, hour, hourSpoken, int, num } from '@/lib/format';
 import { CameraCard } from '@/components/CameraBlock';
 import { External } from '@/components/External';
@@ -37,12 +37,12 @@ import { PageHero, Section, StatGrid } from '@/components/PageHero';
  * no: son 1.280 × 167 —la de Clots—, y en dos tercios de la anchura quedarían
  * en una tira de cien píxeles. Esas van de lado a lado y los datos, debajo.
  */
-export const revalidate = 900;
-export const dynamicParams = true;
-
-export async function generateStaticParams() {
-  return (await cameraSlugs()).map((slug) => ({ slug }));
-}
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> },

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { allComarques, comarcaBySlug, municipisOfComarca } from '@/lib/territory';
+import { comarcaBySlug, municipisOfComarca } from '@/lib/territory';
 import { activeWarnings, currentFor } from '@/lib/weather';
 import { comarcaSummary } from '@/lib/comparison';
 import { temperatureMap } from '@/lib/map';
@@ -12,15 +12,15 @@ import { localToday } from '@/lib/weather';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 
-/** Página de comarca: 43 rutas, todas prerenderizadas. */
-export const dynamicParams = false;
-export const revalidate = 600;   // 10 min: lleva observación en viu
+/** Página de comarca: 43 rutas. */
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 type Params = Promise<{ comarca: string }>;
-
-export async function generateStaticParams() {
-  return allComarques().map((c) => ({ comarca: c.slug }));
-}
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { comarca } = await params;

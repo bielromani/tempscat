@@ -4,8 +4,9 @@
 decisiones ya tomadas y —sobre todo— **las trampas que ya nos han costado horas**. Casi todas
 son fallos que no dan error: dan datos plausibles y equivocados.
 
-Última actualización: **29 de septiembre de 2026**, después del rediseño, de la pausa de la
-cuenta de Vercel y del cambio del almacén a `dades.tempscat.cat`.
+Última actualización: **2 de octubre de 2026**: el rediseño «Cel» está publicado, el proyecto
+está en el **plan Pro de Vercel**, las páginas con datos ya no usan ISR y el cielo del titular
+se calcula con la altura real del sol.
 
 > La lista de trampas **más completa y al día** es la sección «Rarezas de las fuentes» de
 > `AGENTS.md`, que se carga sola en cada sesión. La de este documento es la de agosto y se
@@ -198,30 +199,16 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
 
 **Con fecha:**
 
-0. **~1 de octubre — revisar la prueba de frescura de los núcleos (48 h).** Desde el lote
-   `frescor`, las ~3.300 fichas de núcleo ya no usan ISR: se generan en cada petición
-   (`force-dynamic`) y el CDN de Vercel las guarda 10 min (`Vercel-CDN-Cache-Control`, en
-   `next.config.ts`). Las de municipio siguen con ISR y sirven de comparación.
-   - **El punto de partida**, medido el 29 de septiembre sobre 40 fichas al azar: 20 salían
-     de la caché con 1,3 a 5,8 h de antigüedad —y el techo era el último despliegue, que
-     vacía la caché de ISR— y 14 se generaban en el momento en 0,7-2,2 s. La cabecera de
-     ISR que pone Next es `stale-while-revalidate` de **un año**.
-   - **Comprobado al desplegar (29 sep, 16:55):** el CDN respeta la cabecera aunque Next
-     añada `Cache-Control: private`. Dos peticiones al mismo núcleo dan `MISS` y luego `HIT`
-     con `age` 0-1. El navegador sigue recibiendo `private` y no guarda nada.
-   - **A las 48 h, en Vercel → Usage**, comparar con los dos días anteriores: invocaciones
-     y duración de funciones, escrituras y lecturas de ISR y Fast Origin Transfer.
-   - **Si convence**, la ficha de municipio va igual (otra regla de cabecera para
-     `/:comarca/:municipi` y `force-dynamic`), y el despliegue adelgaza: dejan de
-     pregenerarse. **Si no**, se quitan la regla y el `force-dynamic`; `fichaData()` se
-     queda, que es independiente.
+0. ~~Revisar la prueba de frescura de los núcleos.~~ **Resuelto el 2 de octubre**: el usuario
+   vio en la ficha de una ciudad una temperatura y un cielo de hacía horas que se arreglaban
+   al recargar —ISR sirviendo la copia vieja—, y con el plan Pro ya contratado se extendió a
+   **todas las páginas con datos de ahora**: `force-dynamic` y cinco minutos en el CDN
+   (`LIVE_PAGES` en `next.config.ts`). El build pasa de 1.326 páginas a 29 y el despliegue,
+   de 956 MB a 29. Queda por mirar, sin prisa, cuánto suben las invocaciones en Vercel → Usage.
 1. **6 de octubre — apagar `r2.dev`.** R2 → bucket → Settings → *Public Development URL* →
    **Disable**, y comprobar la web y `/estat`. Es la única prueba de que nada sigue leyendo la
    dirección vieja: las dos sirven lo mismo, así que desde fuera no se distinguen.
-2. **~20 de octubre, fin del ciclo — Pro o gratuito.** Se decide mirando las **unidades** de
-   Usage contra los techos del plan gratuito, no los dólares. Y hay una pregunta que manda más
-   que las cuotas: el plan gratuito **prohíbe el uso comercial**, y en la misma cuenta está
-   NuptialNode (invitaciones de boda).
+2. ~~Pro o gratuito.~~ **Decidido: plan Pro**, desde el 1-2 de octubre de 2026.
 3. **Hacia el 16 de octubre, `credencials.yml` empezará a fallar** avisando de que la clave de
    AEMET caduca el **30 de noviembre**. Es a propósito: 45 días de margen. Se renueva gratis en
    `opendata.aemet.es`, y hay que actualizar `AEMET_API_KEY` y `AEMET_API_KEY_EXPIRES` en
@@ -244,8 +231,8 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
 
 **Sin decisión pendiente:**
 
-6. **Pregenerar menos en el build** (los 683 itinerarios y las 189 estaciones), para bajar el
-   gigabyte de cada despliegue. Los ~3.300 núcleos ya se generan bajo demanda.
+6. ~~Pregenerar menos en el build.~~ **Hecho** el 2 de octubre, de rebote: municipios,
+   itinerarios y estaciones se generan en la petición.
 7. ~~Revisar a ojo las fichas de detalle~~ **Hecho** con el rediseño de las páginas de sección:
    estación, cámara, itinerario, eje y comarca, a 390 y a 1.280 px.
 8. **Reescribir los textos** para que el sitio suene a portal profesional. Las reglas de tono
