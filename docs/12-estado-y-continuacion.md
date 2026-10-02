@@ -55,7 +55,7 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 |---|---|
 | Fase 0 · territorio | ✅ completada y validada |
 | Fase 1 · ingesta y páginas | ✅ en producción en **tempscat.cat**, con el rediseño completo |
-| Fase 2 · SEO e indexación | 🟡 sitemaps, `robots.txt`, canónicas y JSON-LD hechos; **falta dar de alta Search Console** |
+| Fase 2 · SEO e indexación | ✅ sitemaps, `robots.txt`, canónicas y JSON-LD hechos, y el sitio dado de alta en Search Console; falta mirar qué indexa |
 | Fase 4 · verificación de modelos | 🟡 `worker:verify` acumulando desde septiembre; no sirve hasta tener ~60 días |
 
 **Dónde vive cada cosa en producción:**
@@ -270,7 +270,8 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    AEMET caduca el **30 de noviembre**. Es a propósito: 45 días de margen. Se renueva gratis en
    `opendata.aemet.es`, y hay que actualizar `AEMET_API_KEY` y `AEMET_API_KEY_EXPIRES` en
    GitHub. `credencials.yml` no se ha lanzado nunca a mano.
-3. **Dar de alta Search Console.**
+3. **Search Console:** ya está dado de alta (confirmado por el usuario el 3 de octubre). Lo que
+   queda es mirar, por tipo de sitemap, cuántas de las fichas entran de verdad en el índice.
 
 **Por mirar después de lo de octubre:**
 
@@ -302,6 +303,26 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    un ajuste de la cuenta y lo hace el usuario) · el sol del titular puede quedar detrás del
    final de un nombre largo en el móvil, y el velo de contraste no lo cuenta — va con el
    punto 4, porque se mira en el mismo sitio.
+
+**El cielo en el móvil (3 de octubre, rama `cel-mobil`).** El usuario lo vio en el teléfono:
+una noche con pocas nubes salía negra y sin luna, y de día las nubes lo tapaban todo y no se
+veía que se movieran. Eran cuatro cosas:
+- Las texturas de nubes tenían **tamaño fijo de escritorio** —la cercana, 1.900 px— y cada una
+  tiene un solo hueco: en 375 px se veía un trozo de banco de nubes continuo durante casi todo
+  el ciclo. Por debajo de 640 px van a la mitad, y **el primer fotograma pone el hueco de cada
+  capa donde está el sol o la luna** (`.cel-drift` en `globals.css`, con `--g`, el sitio del
+  hueco medido sobre el alfa). Así se ve el cielo al entrar y luego las nubes pasando.
+- La luna y el sol iban **debajo de las tres capas de nubes**; ahora van encima de los
+  filamentos y debajo de los cúmulos, y la luna sale hasta el 85 % de nubosidad.
+- De noche el cielo era casi negro (L 17 %) y las nubes más oscuras que él. El cielo de noche
+  es ahora azul marino y las nubes, plateadas según la fase de la luna.
+- **El velo de contraste era gris pizarra** y de día tapa más de la mitad. Ahora es azul de
+  cielo con luz, el oscuro de antes con poca luz, y se apaga con lluvia y tormenta. Cada capa
+  de nubes entra más tarde y más floja, así que un «mig ennuvolat» enseña medio cielo.
+
+El texto sigue pasando de 4,5:1 en el peor caso (`test:sky`, que ahora lee el color del velo
+de cada cielo en vez de tenerlo copiado). Lo que no se puede: un mediodía con nubes sigue
+siendo un azul más profundo que el cielo de verdad, porque el texto blanco lo exige.
 
 **Cerrado el 2 de octubre, rama `neteja`:** los iconos de las 24 horas, de la tabla de 48 y
 de los 14 días ya no dicen «Pluja feble» en el `alt` bajo un aviso (`warnedIconLabel()`,
@@ -582,5 +603,5 @@ npm run build    # desde el ordenador del trabajo falla por el proxy al leer R2;
 | El plan gratuito de Vercel no cabe | **Mitigado** con el plan Pro y el arreglo del 20 de septiembre. Decisión el ~20 de octubre |
 | Sin base de datos: todo son ficheros | Deliberado. Migración escrita en `db/migrations/001` |
 | El token de AEMET caduca cada 90 días | **Automatizado:** `credencials.yml` falla con 45 días de margen, y `/estat` enseña la fecha |
-| Indexación (fase 2) | Sitemaps partidos por tipo y JSON-LD comprobado con `check:jsonld`. Falta Search Console. El riesgo real sigue siendo el *index bloat* |
+| Indexación (fase 2) | Sitemaps partidos por tipo, JSON-LD comprobado con `check:jsonld` y Search Console dado de alta. El riesgo real sigue siendo el *index bloat* |
 | Sin verificación de modelos | **En marcha:** `worker:verify` acumula desde septiembre. Sirve a partir de ~60 días |
