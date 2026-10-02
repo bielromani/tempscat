@@ -107,6 +107,13 @@ dominio `.cat` y comprobar la marca antes de invertir en identidad.
 
 ## Costes mensuales
 
+> **Coste real en octubre de 2026:** Vercel **Pro** (20 $ al mes), el dominio `.cat`, y nada
+> más: Cloudflare R2 y el cron de Cloudflare caben en sus tramos gratuitos, GitHub Actions
+> también, y no hay base de datos —el plan de Neon y Upstash de abajo no llegó a usarse; los
+> datos vivos son ficheros en R2—. El plan gratuito de Vercel se quedó corto en septiembre:
+> la historia está en `docs/12`, «La cuenta de Vercel». Las tablas de abajo son la estimación
+> original.
+
 ### Fase de lanzamiento (sin monetizar)
 
 | Concepto | Coste |

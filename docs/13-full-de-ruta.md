@@ -1642,6 +1642,28 @@ cancelar nuestros workflows. No da acceso al código, no permite escribir en el
 repositorio, y **no llega a las credenciales de R2** — disparar un workflow no
 entrega sus secretos a quien lo dispara.
 
+## Revisión del usuario, del 29 de septiembre al 2 de octubre de 2026
+
+Lo que pidió, y cómo quedó. Está todo publicado; el detalle, en `docs/12`.
+
+| Lo que dijo | Qué se hizo |
+|---|---|
+| «Aún está muy mal»: analizar y proponer | Auditoría y tres bloques: credibilidad (una ficha ya no se contradice), frescura y producto |
+| «Quiero que sea el mejor portal del tiempo»: rediseño | Dirección «Cel», elegida entre dos maquetas: todo el sitio con el color del cielo, marca tempscat, ficha y portada nuevas |
+| «Lo de la lluvia a futuro es muy feo» | Fuera de `/radar`, del mapa interactivo y de la ficha; el radar es pasado y presente, y el campo de lluvia ya no se calcula |
+| Las páginas secundarias, «como la portada y las fichas» | Las 22 con `PageHero`: título, respuesta, cifras y mapa al lado |
+| «No puede haber caché»: salía la temperatura y el cielo de antes | Sin ISR en las páginas con datos; cinco minutos de CDN como máximo, sin servir nunca la copia vieja |
+| «El cielo sale todo negro aunque haya luz» | Altura real del sol, crepúsculos, nubes que nunca son negras y velo de contraste calculado |
+| «Demasiado gris, ni un resquicio de luz azul» | Cubierto en azul plomo, con el horizonte más claro y el cielo de debajo asomando |
+| La temperatura percibida | Vuelve, en el titular y en su baldosa, solo cuando es distinta de la temperatura |
+| «Text oficial de l'AEMET», sin «en castellà» | Cambiado en la tarjeta, el feed y el calendario |
+
+**Decisiones que salen de aquí y no se vuelven a discutir:** un solo tema; el radar no enseña
+futuro; las páginas con datos no se guardan más de cinco minutos; la sensación no se enseña
+cuando coincide con la temperatura.
+
+---
+
 ## Lo que se descarta, y por qué
 
 Dejarlo escrito ahorra que alguien lo vuelva a buscar.

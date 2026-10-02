@@ -188,6 +188,16 @@ aparte que **nunca** se poda. Son contenido SEO de alto valor y ocupan nada.
 
 ## Capa 5 — Renderizado y caché
 
+> **Esto es el diseño de agosto, y en producción ya no es así.** Desde el 2 de octubre de 2026
+> las páginas con datos de ahora **no usan ISR**: se generan en cada petición
+> (`dynamic = 'force-dynamic'`) y el CDN de Vercel las guarda cinco minutos, sin
+> `stale-while-revalidate`. ISR sirve primero la copia que tiene y la regenera después, y con
+> miles de páginas y pocas visitas por página eso quería decir que casi todo el mundo veía la
+> copia vieja —la temperatura y el cielo de hacía horas—. La lista de rutas y el porqué están
+> en `next.config.ts`, «Les pàgines amb dades d'ara»; el build pasa de 1.326 páginas a 29.
+> Tampoco hay `revalidateTag`: con cinco minutos de CDN no hace falta invalidar por eventos.
+> Lo de abajo se conserva como razonamiento original.
+
 ### Tres niveles de frescura sobre la misma página
 
 Una página de municipio no es una unidad de caché: son tres.

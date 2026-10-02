@@ -1301,6 +1301,19 @@ cuota para exactamente la misma información.
   plom i no tapa del tot, la capa tancada deixa juntes, i les textures porten un to blavós de
   dia.
 
+- **La sensació tèrmica només surt quan diu un número diferent, i això ho ha demanat
+  l'usuari.** Al redisseny es va perdre la fila fixa de «Sensació» —la llista de lectures va
+  passar a rajoles— i en tornar-la es va posar sempre a la vista; la resposta va ser que, si
+  és la mateixa que la temperatura, no cal. La regla, als dos llocs on surt (`LocationHero` i
+  `DetailTiles`): es compara **arrodonida**, que és com s'escriu, i si coincideix no hi ha ni
+  frase ni rajola. `apparentTemperature()` només se separa de la temperatura amb calor humida
+  o amb fred i vent, així que la majoria de dies no surt, i no és cap error.
+
+- **El rètol del text de l'AEMET és «Text oficial de l'AEMET», sense dir-ne l'idioma.** També
+  demanat per l'usuari. Surt a tres llocs —la targeta (`WarningBanner`), el feed Atom i el
+  calendari (`syndication.ts`)— i el text desplegat segueix portant `lang="es"`, que és per
+  als lectors de pantalla i no es veu.
+
 
 <!-- BEGIN:nextjs-agent-rules -->
 
