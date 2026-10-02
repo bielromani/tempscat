@@ -91,8 +91,10 @@ export function LocationHero({
    * La màxima d'avui és, com a mínim, la que ja s'ha fet: `todayMax` ve de
    * l'agregat de l'estació des de mitjanit. Igual per la mínima, cap avall.
    */
-  const dayMax = [today?.tMax, current?.todayMax].filter((v): v is number => v != null);
-  const dayMin = [today?.tMin, current?.todayMin].filter((v): v is number => v != null);
+  // I la lectura d'ara també hi compta: la mínima del dia no pot quedar per
+  // damunt de la temperatura que s'està ensenyant, ni la màxima per sota.
+  const dayMax = [today?.tMax, current?.todayMax, t].filter((v): v is number => v != null);
+  const dayMin = [today?.tMin, current?.todayMin, t].filter((v): v is number => v != null);
   const tMax = dayMax.length ? Math.max(...dayMax) : null;
   const tMin = dayMin.length ? Math.min(...dayMin) : null;
   const whole = t != null ? Math.trunc(t) : null;
