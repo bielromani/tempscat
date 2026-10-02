@@ -438,17 +438,19 @@ export function LocationHero({
           const ap = current?.apparent ?? null;
           const cause = ap != null && t != null ? feelsCause(t, ap, current!.windSpeed ?? null) : null;
           /*
-           * La sensació surt sempre que **digui un número diferent**.
+           * La sensació surt **sempre que n'hi ha**, també quan arrodonida és
+           * el mateix enter que la temperatura.
            *
-           * `feelsCause()` només en dona un quan la separació passa d'un grau, i
-           * aquesta targeta l'amagava del tot quan no n'hi havia: a Montblanc,
-           * amb 33,7 i sensació 34, no sortia. Però «34°» al costat de «33,7°»
-           * sí que és una dada — el que no ho seria és repetir el mateix enter.
+           * Fins al 2 d'octubre de 2026 només sortia quan deia un número
+           * diferent, amb l'argument que repetir l'enter no és cap dada. Però
+           * qui mira el temps la busca, i si no la troba no entén que és igual:
+           * entén que falta. «Sensació de 24°» al costat de «23,9°» diu que avui
+           * la humitat i el vent no hi fan res, que també és una resposta.
            *
            * Quan la causa es pot comprovar, es diu: de la xafogor s'escapa a
            * l'ombra i del vent no, i són dues coses diferents.
            */
-          const feels = ap == null || t == null || Math.round(ap) === Math.round(t)
+          const feels = ap == null
             ? null
             : cause === 'xafogor'
               ? `Xafogor: amb la humitat, se'n noten ${ap.toFixed(0)}°`
