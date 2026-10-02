@@ -25,19 +25,18 @@ import { WeatherIcon } from './WeatherIcon';
  *
  * ## Quina hora dibuixa
  *
- * La de la predicció que la pàgina ja està ensenyant. Així el cel i els números
- * del costat parlen sempre del mateix instant — i si la pàgina és vella, ho és
- * sencera i la línia de l'estació ho diu, en comptes de tenir un cel d'ara
- * damunt d'una temperatura d'abans.
+ * La del rellotge, amb els minuts (`hour`), i no l'hora en punt de la
+ * predicció: al capvespre el sol baixa un grau cada quatre minuts i l'hora en
+ * punt podia dibuixar el sol a dalt quan ja s'havia post. La nuvolositat i la
+ * pluja sí que són les de l'hora de la predicció.
  *
- * ## El vel de contrast no es toca
+ * ## El vel de contrast el calcula `sky.ts`
  *
- * És l'última capa abans del text i **no s'aprima cap amunt**: les textures de
- * núvol són clares i van per la part alta, que és justament on hi ha el
- * topònim. Sense ell, un núvol blanc que hi derivi per damunt es menja el nom
- * del poble durant vint segons cada dos minuts, i això no surt a cap captura.
- * `npm run test:sky` comprova el contrast contra el cel; el dels núvols s'ha de
- * mesurar al navegador amb les animacions aturades en diverses fases.
+ * És l'última capa abans del text i porta, a cada alçada, només l'opacitat que
+ * cal perquè el text blanc passi de 4,5:1 damunt del pitjor que hi pugui haver
+ * al darrere. Les textures de núvol es mouen, i un núvol blanc que derivi per
+ * damunt del topònim no surt a cap captura: per això es calcula contra el
+ * pitjor núvol possible i ho torna a mesurar `npm run test:sky`.
  */
 
 interface Props {
@@ -47,6 +46,8 @@ interface Props {
   current: CurrentConditions | null;
   nowHour: LocationForecast['hourly'][number] | null;
   today: LocationForecast['daily'][number] | null;
+  /** L'hora local d'ara, decimal: les 19.55 són 19,92. Ve de `localClockHour()`. */
+  hour: number;
   /** Sortida i posta del sol d'avui en aquest punt, en hores decimals. */
   sunriseH: number | null;
   sunsetH: number | null;
@@ -62,21 +63,15 @@ interface Props {
   rainWarned?: boolean;
 }
 
-/** `2026-09-15T14` → 14,0. L'hora que la pàgina ja ensenya. */
-function hourOf(iso: string | undefined): number {
-  if (!iso) return 12;
-  const h = Number(iso.slice(11, 13));
-  return Number.isFinite(h) ? h : 12;
-}
-
 export function LocationHero({
-  loc, comarcaLabel, breadcrumbs, current, nowHour, today, sunriseH, sunsetH, moonPhase,
+  loc, comarcaLabel, breadcrumbs, current, nowHour, today, hour, sunriseH, sunsetH, moonPhase,
   rainWarned = false,
 }: Props) {
   const sky = skyStyle({
-    hour: hourOf(nowHour?.time),
+    hour,
     sunriseH,
     sunsetH,
+    lat: loc.lat,
     cloudCover: nowHour?.cloudCover ?? null,
     code: nowHour?.weatherCode ?? null,
     precipitationMm: nowHour?.precipitation ?? null,
@@ -141,15 +136,12 @@ export function LocationHero({
       className="hero-bleed relative mb-2 overflow-hidden"
       style={{
         /*
-         * Un color pla a sota, i després el degradat.
-         *
-         * El degradat porta `color-mix()` per barrejar les dues franges de
-         * llum veïnes. Si un navegador no l'entén, la declaració sencera queda
-         * invàlida i el fons desapareix — i el que quedaria és **text blanc
-         * damunt de blanc**, que és pitjor que qualsevol cel. Amb un color
-         * sòlid a sota, el pitjor cas és un cel d'un sol to.
+         * Un color pla a sota, i després el degradat: si el degradat no es
+         * pintés, el que quedaria és **text blanc damunt de blanc**. El color
+         * és el del mateix cel, i no un blau fix: de nit un blau de migdia a
+         * sota es veuria un instant mentre carrega.
          */
-        backgroundColor: 'oklch(42% 0.09 250)',
+        backgroundColor: sky.skyBase,
         backgroundImage: sky.skyGradient,
       }}
     >
@@ -337,48 +329,16 @@ export function LocationHero({
       />
 
       {/*
-        El vel de contrast, i el perquè de cada parada.
+        El vel de contrast, calculat per a aquest cel: a cada alçada, només
+        l'opacitat que cal perquè el text blanc s'hi llegeixi. De nit és un fil;
+        un migdia amb núvols blancs, més de la meitat. Ver `contrastVeil` a
+        `sky.ts`.
 
-        **No s'aprima cap amunt** fins a l'última franja: les textures de núvol
-        són clares i van per la part alta, que és on hi ha el topònim. Si es
-        toca, s'ha de tornar a mesurar — no amb una captura, que agafa un sol
-        fotograma d'unes textures que es mouen.
+        En una pantalla ampla el text és a l'esquerra, i a la dreta —on hi ha
+        el sol, la lluna i els núvols— el vel s'aprima: és `.hero-veil` a
+        `globals.css`.
       */}
-      <div
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          background: 'linear-gradient(to top, oklch(17% 0.02 250 / 0.74) 0%, oklch(18% 0.024 250 / 0.66) 40%, oklch(19% 0.028 250 / 0.56) 72%, oklch(20% 0.03 250 / 0.5) 92%, oklch(21% 0.03 250 / 0.22) 100%)',
-        }}
-      />
-
-      {/*
-        I un segon vel a dalt, **en píxels i només quan cal**.
-
-        El vel de sobre va en tant per cent de l'alçada i a la franja de dalt
-        cedeix. Allà hi ha la ruta de navegació: dotze píxels, text petit, 4,5:1.
-        El que l'amenaça no és el cel —el cel sol dona 11:1— sinó les textures
-        de núvol, que són clares i van justament per la part alta.
-
-        Per això `scrimTop` el calcula `sky.ts` amb la cobertura i el brillo
-        reals d'aquell moment, i **un dia serè val zero**. Posat fix a 0,30, un
-        migdia de 33 °C sortia dibuixat com un capvespre.
-
-        En píxels i no en tant per cent perquè el text de dalt sempre és als
-        mateixos píxels de dalt: amb un titular més alt —una nota d'estació
-        llarga— una franja en tant per cent li cauria més amunt.
-      */}
-      {sky.scrimTop > 0 && (
-        <div
-          aria-hidden
-          className="absolute inset-x-0 top-0"
-          style={{
-            height: 300,
-            background: `linear-gradient(to bottom, oklch(17% 0.02 250 / ${sky.scrimTop}) 0px, `
-              + `oklch(17% 0.02 250 / ${(sky.scrimTop * 0.87).toFixed(3)}) 150px, transparent 300px)`,
-          }}
-        />
-      )}
+      <div aria-hidden className="hero-veil absolute inset-0" style={{ background: sky.contrastVeil }} />
 
       {/* A baix, el cel es fon amb el blau de la pàgina: no acaba en una vora. */}
       <div aria-hidden className="hero-fade absolute inset-x-0 bottom-0" />

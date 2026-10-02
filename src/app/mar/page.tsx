@@ -35,7 +35,12 @@ import { Fold } from '@/components/Fold';
  * Agrupa por municipio y no por tramo de costa porque «què hi ha al Maresme» no
  * es la pregunta que se hace nadie.
  */
-export const revalidate = 900;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Banderes de platja i estat del mar a Catalunya',

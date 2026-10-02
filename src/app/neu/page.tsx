@@ -50,7 +50,12 @@ import { Fold } from '@/components/Fold';
  * meteorológica **más alta con lectura vigente** — `mountain.stations` ya llega
  * ordenada de más alta a más baja y sin las paradas.
  */
-export const revalidate = 1800;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Gruix de neu al Pirineu, mesurat',

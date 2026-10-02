@@ -35,7 +35,12 @@ import { PageHero, Section } from '@/components/PageHero';
  * no en el fotograma grande: es el mismo fichero que la primera tarjeta de la
  * reja, así que el navegador lo baja una vez y la cabecera no cuesta nada.
  */
-export const revalidate = 900;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Càmeres de muntanya del Pirineu',

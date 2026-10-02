@@ -36,7 +36,12 @@ import { Fold } from '@/components/Fold';
  * la vista, i no dins de l'explicació plegada del final: és l'única frase de la
  * pàgina que parla de seguretat.
  */
-export const revalidate = 900;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Condicions per navegar: vent, onatge i període',

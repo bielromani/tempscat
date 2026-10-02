@@ -212,6 +212,13 @@ npm run test:narrative    # las frases, con perfiles de lluvia sintéticos, y co
 
 ## Cómo se trabaja: en una rama, y se fusiona por lotes
 
+> **Desde el 2 de octubre de 2026 esto ya no aprieta igual.** El proyecto está en el plan
+> Pro de Vercel, y un despliegue pesa **29 MB**, no un gigabyte: las páginas con datos de ahora
+> se generan en cada petición y ya no se pregeneran (ver «Les pàgines amb dades d'ara» en
+> `next.config.ts`). El build pasa de 1.326 páginas a 29. Se sigue trabajando en rama y
+> fusionando por lotes —por orden y porque `main` es lo publicado—, pero ya no por cuota. Lo
+> de abajo se queda como historia de por qué se llegó aquí.
+
 **Un despliegue de este proyecto pesa casi 1 GB.** No es una fuga: es lo que
 ocupan las 1.326 páginas que el build pregenera, a ~1,2 MB cada una —el HTML, su
 carga RSC, y otra vez la carga RSC dentro de `.segments/`, que Next 16 escribe
@@ -1258,6 +1265,35 @@ cuota para exactamente la misma información.
   pàgina li passa **una sola hora**, la més propera a l'últim marc del radar, i cap si és a més
   de 90 minuts. `InteractiveMap` cau a la primera hora quan no troba el marc, i per això n'hi
   ha prou.
+
+- **ISR serveix primer la còpia vella, i en un web de milers de pàgines això és gairebé
+  sempre.** La fitxa d'una ciutat ensenyava la temperatura de feia hores i **el cel de feia
+  hores** —la nit dibuixada a mig matí—, i en recarregar sortia la bona: és exactament el que fa
+  `stale-while-revalidate`, i a ISR no se li pot dir «si és més vella que això, espera't». Des
+  del 2 d'octubre de 2026 totes les pàgines amb dades d'ara porten `dynamic = 'force-dynamic'`
+  i el CDN de Vercel les guarda **cinc minuts** amb `Vercel-CDN-Cache-Control: max-age=300`,
+  sense `stale-while-revalidate`: passats els cinc minuts no se serveix la vella, es torna a
+  generar. La llista és `LIVE_PAGES` a `next.config.ts`. **Una pàgina nova amb dades d'ara va
+  als dos llocs**: amb només la capçalera, ISR segueix manant; amb només el `force-dynamic`, es
+  genera a cada visita sense cap memòria. I el termini de memòria de l'observació
+  (`cache-store.ts`) baixa de cinc minuts a dos, perquè no se sumi al del CDN.
+
+- **El cel del titular es dibuixava negre amb claror de sobres, per tres raons alhora.**
+  (1 d'octubre de 2026.) **L'altura del sol no era la de veritat**: el dia es repartia en una
+  fracció entre la sortida i la posta, i en pondre's el sol la llum queia a zero de cop, sense
+  crepuscle. Ara `sunAltitude()` la calcula en graus —també sota l'horitzó— a partir de la
+  sortida, la posta i la latitud, i el cel i la claror surten de taules per altura: civil fins
+  a −6°, nàutic fins a −12°, nit a −18°. **La claror dels núvols es restava**
+  (`0,26 − 0,34·nuvolositat`) i amb poc sol donava negatiu, o sigui negre: ara es multiplica
+  pel gruix del núvol i té un terra, perquè un cel tapat no és negre ni de nit. I **el vel de
+  contrast era una constant** —del 22 al 74 % d'opacitat a totes les hores—, que tapava una
+  nit serena igual que un migdia: ara `contrastVeil` porta, a cada alçada, només l'opacitat que
+  cal perquè el text blanc passi de 4,5:1 damunt del pitjor que hi pugui haver al darrere.
+  `scrimTop` ja no existeix. A més, el cel es dibuixa amb **l'hora del rellotge amb minuts**
+  (`localClockHour()`), no amb l'hora en punt de la predicció: a les 19.55 dibuixava les 19.00.
+  El que no es pot canviar: darrere del text el cel no pot ser més clar que un gris mitjà, i
+  per això un dia tapat és de color plom i no blanc. `npm run test:sky` ho mesura tot, i
+  `npm run cels` ensenya els divuit estats de costat.
 
 
 <!-- BEGIN:nextjs-agent-rules -->

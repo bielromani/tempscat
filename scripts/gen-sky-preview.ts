@@ -1,5 +1,5 @@
 /**
- * Els dotze cels de cop, per poder-los mirar de costat.
+ * Els cels de cop, per poder-los mirar de costat.
  *
  *   npm run cels     →  http://localhost:3000/__cels.html
  *
@@ -31,6 +31,16 @@ const CASOS: Array<[string, Omit<SkyInput, 'sunriseH' | 'sunsetH'>]> = [
   ['11 h · nevada', { hour: 11, cloudCover: 92, code: 73, precipitationMm: 3, moonPhase: 0.5 }],
   ['20 h · posta', { hour: 20.6, cloudCover: 30, code: 1, precipitationMm: 0, moonPhase: 0.5 }],
   ['22 h · nit plovent', { hour: 22, cloudCover: 95, code: 61, precipitationMm: 1.5, moonPhase: 0.2 }],
+  /*
+   * Els que van fallar: tapat amb claror. La posta és a les 21.20; abans, el
+   * primer sortia negre des de mitja hora abans de la posta.
+   */
+  ['20.9 h · tapat, sol baix', { hour: 20.9, cloudCover: 100, code: 3, precipitationMm: 0, moonPhase: 0.5 }],
+  ['21.8 h · +30 min, serè', { hour: 21.83, cloudCover: 5, code: 0, precipitationMm: 0, moonPhase: 0.5 }],
+  ['21.8 h · +30 min, tapat', { hour: 21.83, cloudCover: 100, code: 3, precipitationMm: 0, moonPhase: 0.5 }],
+  ['22.4 h · +1 h, mig ennuvolat', { hour: 22.4, cloudCover: 50, code: 2, precipitationMm: 0, moonPhase: 0.5 }],
+  ['02 h · nit tapada', { hour: 2, cloudCover: 100, code: 3, precipitationMm: 0, moonPhase: 0.5 }],
+  ['10 h · boira', { hour: 10, cloudCover: 30, code: 45, precipitationMm: 0, moonPhase: 0.5 }],
 ];
 
 const layer = (o: number) => (o > 0.004 ? `opacity:${o}` : 'display:none');
@@ -56,8 +66,7 @@ const cards = CASOS.map(([label, over]: [string, Omit<SkyInput, 'sunriseH' | 'su
     ${drawsRain(s) ? `<div class="l" style="opacity:${s.rainOpacity};overflow:hidden"><div style="position:absolute;inset:-20% -30%;background-image:repeating-linear-gradient(${s.rainAngle[1]}, transparent 0 9px, oklch(95% .012 240/.24) 9px 10px, transparent 10px 23px);background-size:160px 640px"></div><div style="position:absolute;inset:-20% -30%;filter:blur(2.4px);background-image:repeating-linear-gradient(${s.rainAngle[2]}, transparent 0 34px, oklch(99% .006 240/.55) 34px 37px, transparent 37px 74px);background-size:320px 1020px"></div></div>` : ''}
     ${drawsSnow(s) ? `<div class="l" style="opacity:${s.snowOpacity};overflow:hidden"><div style="position:absolute;inset:-24%;background-repeat:repeat;background-image:radial-gradient(circle, oklch(100% 0 0/.85) 0%, oklch(100% 0 0/.85) 5%, transparent 11%),radial-gradient(circle, oklch(100% 0 0/.62) 0%, oklch(100% 0 0/.62) 4%, transparent 9%);background-size:53px 53px,79px 79px"></div></div>` : ''}
     <div class="l relleu"></div>
-    <div class="l veil"></div>
-    <div class="l top"></div>
+    <div class="l" style="background:${s.contrastVeil}"></div>
     <div class="content">
       <div class="crumb">CATALUNYA › ALT EMPORDÀ</div>
       <div class="h1">Agullana</div>

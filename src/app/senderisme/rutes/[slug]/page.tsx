@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   axisBySlug, axisOfRoute, axisSlug, hoursText, networkLabel, refApart, routeBySlug, routeGeometry,
-  routeSlugs, routesOfComarca, variantsOf, walkingHours,
+  routesOfComarca, variantsOf, walkingHours,
   NAISMITH_KMH, NAISMITH_ASCENT_M_PER_H,
 } from '@/lib/routes';
 import { allComarques, locationById } from '@/lib/territory';
@@ -52,12 +52,12 @@ import { PageHero, Section, StatGrid, type HeroStat } from '@/components/PageHer
  * llista de dies no té on posar la cota de neu contra el punt més alt, que és
  * justament el que aquesta pàgina hi aporta.
  */
-export const revalidate = 3_600;
-export const dynamicParams = true;
-
-export function generateStaticParams() {
-  return routeSlugs().map((slug) => ({ slug }));
-}
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> },

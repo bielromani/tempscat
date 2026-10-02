@@ -23,9 +23,9 @@ import { allComarques } from '@/lib/territory';
  * Los verdes no llegan aquí: verde significa «sin aviso», y llenar la página con
  * eso restaría fuerza a los que sí importan.
  *
- * Se revalida cada cinco minutos, no cada quince como el worker. La diferencia no
- * es cosmética: en un episodio, quince minutos de retraso en una página que se
- * consulta **porque** hay un aviso son quince minutos de más.
+ * Se genera en cada petición y el CDN la guarda cinco minutos, no los quince del
+ * worker. La diferencia no es cosmética: en un episodio, quince minutos de retraso
+ * en una página que se consulta **porque** hay un aviso son quince minutos de más.
  *
  * ## El mapa de la cabecera va por zona, no por comarca
  *
@@ -37,7 +37,12 @@ import { allComarques } from '@/lib/territory';
  * la misma fórmula que el mapa de temperaturas (`projectToMap()`), así que las
  * dos capas cuadran sin una línea de JavaScript.
  */
-export const revalidate = 300;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Avisos meteorològics vigents a Catalunya',

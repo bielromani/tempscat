@@ -1530,3 +1530,23 @@ body { overflow-x: clip; }
 
 /* Si hi ha avisos, la franja ja ha pujat damunt del cel i la graella va a sota. */
 [data-hero] + * + .ficha-grid { margin-top: 16px; }
+
+/* ── El vel del titular, en una pantalla ampla ───────────────────────────────
+
+   El vel de contrast existeix perquè el text blanc es llegeixi, i en una
+   pantalla ampla el text és a l'esquerra: el nom més llarg i la nota de
+   l'estació no passen del 62 % de l'amplada. A la dreta hi ha el sol, la lluna
+   i els núvols, i allà el vel s'aprima fins a la meitat perquè el cel es vegi
+   com és. Al mòbil el text ocupa tota l'amplada i el vel no es toca.
+
+   Fora de la capa de components perquè no l'ha de poder desfer cap utilitat. */
+@media (min-width: 1024px) {
+  .hero-veil {
+    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 62%, rgb(0 0 0 / 0.5) 100%);
+    mask-image: linear-gradient(to right, #000 0%, #000 62%, rgb(0 0 0 / 0.5) 100%);
+  }
+  /* El cercador queda damunt d'aquella banda clara: porta el seu propi fons. */
+  body:has([data-hero]) > header input[type='search'] {
+    background: oklch(19% 0.028 250 / 0.5);
+  }
+}

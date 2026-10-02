@@ -27,7 +27,12 @@ import { Fold } from '@/components/Fold';
  * deja de publicar —pasó el 10 de septiembre de 2026— el último día completo
  * puede ser de hace una semana, y la cabecera diría que es de ayer.
  */
-export const revalidate = 3600;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Qualitat de l’aire mesurada a Catalunya',

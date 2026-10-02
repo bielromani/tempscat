@@ -16,14 +16,14 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
  * por "el tiempo en Barcelona". Ninguna se prerenderiza en el build.
  */
 /*
- * Se genera en cada petición, sin ISR, y el CDN de Vercel la guarda diez
- * minutos: la regla está en `next.config.ts`. Es una prueba de 48 horas desde
- * el 29 de septiembre de 2026, y el porqué también está allí.
+ * Se genera en cada petición, sin ISR, y el CDN de Vercel la guarda cinco
+ * minutos: la regla y el porqué están en `next.config.ts`, «Les pàgines amb
+ * dades d'ara». Empezó aquí como una prueba el 29 de septiembre de 2026 y
+ * desde el 2 de octubre van igual todas las páginas con datos de ahora.
  *
  * Con ISR estas ~3.300 eran las peores: las que menos visitas tienen cada una,
  * así que casi todo el mundo se llevaba la copia vieja —de horas— mientras su
  * visita pagaba la nueva para el siguiente, que a lo mejor no llegaba.
- * Generarla aquí cuesta lo mismo en renders y el que la paga es el que la ve.
  * Medido con `next start`: 350-500 ms en frío con `fichaData()`.
  */
 export const dynamic = 'force-dynamic';

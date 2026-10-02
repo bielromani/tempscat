@@ -27,7 +27,12 @@ import { Fold } from '@/components/Fold';
  * mou. Aquí hi ha les xifres i els llindars que existeixen fora d'aquest web
  * —Beaufort, la sensació pel vent—, i la decisió és de qui puja.
  */
-export const revalidate = 900;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Com està la muntanya: vent, fred i isoterma',

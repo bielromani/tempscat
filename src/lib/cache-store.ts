@@ -80,9 +80,15 @@ export interface Snapshot<T> {
  * teniendo los nuevos al lado.
  */
 const TTL_MS: Array<[RegExp, number]> = [
-  [/^xema-current$/, 5 * 60_000],       // el worker corre cada 10 min
-  [/^radar$/, 5 * 60_000],
-  [/^warnings$/, 5 * 60_000],
+  /*
+   * Dos minuts, i no cinc. Les pàgines es generen a la petició i el CDN les
+   * té cinc minuts: amb cinc més aquí, una lectura nova podia trigar deu a
+   * sortir. Tornar a preguntar és barat: va amb `If-None-Match` i gairebé
+   * sempre torna un 304 sense cos.
+   */
+  [/^xema-current$/, 2 * 60_000],       // el worker corre cada 10 min
+  [/^radar$/, 2 * 60_000],
+  [/^warnings$/, 2 * 60_000],
   [/^sea$/, 10 * 60_000],
   /*
    * Les cameres es refresquen cada hora, i el termini generic tambe es d'una

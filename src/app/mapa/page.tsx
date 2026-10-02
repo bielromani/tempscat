@@ -28,7 +28,12 @@ import { comarcaName, hourSpoken, num } from '@/lib/format';
  * de les comarques surten a set píxels, i és justament el que la portada ja
  * ensenya en petit. Així que va a sota, a l'ample de la pàgina.
  */
-export const revalidate = 900;
+/*
+ * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
+ * còpia vella: la regla i el perquè són a `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Mapa de temperatures de Catalunya, comarca a comarca',

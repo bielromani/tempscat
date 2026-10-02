@@ -3,15 +3,79 @@ import { join } from 'node:path';
 import type { NextConfig } from 'next';
 
 /*
- * Les 43 comarques, per acotar una capçalera a les fitxes de nucli.
+ * Les 43 comarques, per acotar la capçalera de les fitxes.
  *
- * `/:a/:b/:c` també casaria `/senderisme/rutes/<slug>` i `/api/lloc/<c>/<m>`,
- * que tenen la seva pròpia memòria cau. Amb el primer tram limitat als slugs de
- * comarca només hi entren les ~3.300 fitxes de nucli.
+ * `/:a/:b` i `/:a/:b/:c` també casarien `/api/lloc/<c>/<m>` o
+ * `/senderisme/rutes/eix/<ref>`, que tenen la seva pròpia memòria cau. Amb el
+ * primer tram limitat als slugs de comarca només hi entren les fitxes.
  */
 const COMARQUES = (JSON.parse(readFileSync(join(process.cwd(), 'data', 'build', 'comarques.json'), 'utf8')) as Array<{ slug: string }>)
   .map((c) => c.slug)
   .join('|');
+
+/*
+ * ── Les pàgines amb dades d'ara ─────────────────────────────────────────────
+ *
+ * Totes les que ensenyen una lectura, un radar, un avís o un cel calculat amb
+ * l'hora. Es generen **a cada petició** (`dynamic = 'force-dynamic'` a la
+ * pàgina) i el CDN de Vercel les guarda cinc minuts.
+ *
+ * ## Per què no ISR
+ *
+ * Perquè ISR serveix primer la còpia que té i la refà després, tingui l'edat
+ * que tingui. En un web amb milers de pàgines i poques visites per pàgina, això
+ * vol dir que qui entra veu gairebé sempre la còpia vella: la temperatura de fa
+ * hores i, a les fitxes, **el cel de fa hores** —la nit dibuixada a mig matí—,
+ * i en recarregar surt la bona. Mesurat el 29 de setembre de 2026: 20 de 40
+ * fitxes sortien amb 1,3 a 5,8 hores. No hi ha manera de dir-li a ISR «si és
+ * més vella que això, espera't».
+ *
+ * Amb la pàgina dinàmica i `max-age` al CDN —sense `stale-while-revalidate`—
+ * sí: passats els cinc minuts, el CDN no serveix la vella, la torna a demanar.
+ * Ningú no veu mai res de més de cinc minuts, i qui paga la generació és qui la
+ * veu.
+ *
+ * ## Per què cinc minuts
+ *
+ * La XEMA publica cada mitja hora i el worker la baixa cada deu: més curt no
+ * afegiria cap número nou. El que sí que es mou és el sol —un grau i quart en
+ * cinc minuts—, i això el cel del titular ho aguanta.
+ *
+ * `Vercel-CDN-Cache-Control` i no `Cache-Control` perquè només el llegeix el
+ * CDN de Vercel: el navegador no guarda res i torna a preguntar sempre.
+ *
+ * ## I el desplegament
+ *
+ * Aquestes pàgines ja no es pregeneren al build: 947 municipis, 683 itineraris
+ * i 189 estacions menys, que eren gairebé tot el gigabyte de cada desplegament.
+ *
+ * Si s'afegeix una pàgina amb dades d'ara, va a **tots dos llocs**: aquí i el
+ * `force-dynamic` de la pàgina. Amb només la capçalera, ISR segueix manant;
+ * amb només el `force-dynamic`, es genera a cada visita sense cap memòria.
+ */
+const LIVE_PAGES = [
+  '/',
+  `/:comarca(${COMARQUES})`,
+  `/:comarca(${COMARQUES})/:municipi`,
+  `/:comarca(${COMARQUES})/:municipi/:entitat`,
+  '/radar',
+  '/mapa',
+  '/mapa/interactiu',
+  '/avisos',
+  '/mar',
+  '/nautica',
+  '/neu',
+  '/senderisme',
+  '/senderisme/rutes/:slug',
+  '/cameres',
+  '/cameres/:slug',
+  '/estacions',
+  '/estacions/:codi',
+  '/ranquings',
+  '/aigua',
+  '/aire',
+  '/estat',
+];
 
 const nextConfig: NextConfig = {
   /*
@@ -71,29 +135,11 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
-      /*
-       * Les fitxes de nucli es generen a cada petició i el CDN de Vercel les
-       * guarda deu minuts. Prova de 48 hores, des del 29 de setembre de 2026.
-       *
-       * Amb ISR, una fitxa amb menys d'una visita diària se serveix gairebé
-       * sempre caducada: mesurat aquell dia, 20 de 40 sortien amb 1,3 a 5,8
-       * hores —el sostre era el darrer desplegament, que buida la memòria cau—
-       * i la resta es generaven en aquell moment. I la regeneració la paga
-       * qui s'endú la còpia vella.
-       *
-       * Deu minuts perquè la XEMA arriba cada mitja hora i amb 45-65 minuts de
-       * retard: més curt no afegiria cap número nou. `Vercel-CDN-Cache-Control`
-       * i no `Cache-Control` perquè només el llegeix el CDN de Vercel: el
-       * navegador no guarda res i torna a preguntar. Si la prova convenç, la
-       * fitxa de municipi va igual; si no, es treu aquesta regla i el
-       * `force-dynamic` de la pàgina de nucli.
-       */
-      {
-        source: `/:comarca(${COMARQUES})/:municipi/:entitat`,
-        headers: [
-          { key: 'Vercel-CDN-Cache-Control', value: 'max-age=600' },
-        ],
-      },
+      // Ver «Les pàgines amb dades d'ara», a dalt.
+      ...LIVE_PAGES.map((source) => ({
+        source,
+        headers: [{ key: 'Vercel-CDN-Cache-Control', value: 'max-age=300' }],
+      })),
     ];
   },
 };

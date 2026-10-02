@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { LocationView } from '@/components/LocationView';
 import { describeMunicipi, metaDescription } from '@/lib/describe';
 import {
-  breadcrumbs, comarcaOf, entitatsOfMunicipi, highPriorityPaths,
+  breadcrumbs, comarcaOf, entitatsOfMunicipi,
   locationByPath, neighboursOf,
 } from '@/lib/territory';
 import { fichaData } from '@/lib/ficha-data';
@@ -13,58 +13,23 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 /**
  * Página de municipio. 947 rutas.
  *
- * `dynamicParams` deja que las que no se prerenderizan se generen en la primera
- * visita y queden cacheadas: prerenderizar las 4.293 en cada despliegue
- * convertiría un build de dos minutos en uno de cuarenta, sin ninguna ganancia
- * para el usuario ni para el crawler.
+ * Se genera en cada petición, igual que la de núcleo, y el CDN la guarda cinco
+ * minutos: la regla y el porqué están en `next.config.ts`, «Les pàgines amb
+ * dades d'ara».
+ *
+ * Hasta el 2 de octubre de 2026 iba con ISR y una ventana de una hora, y el
+ * resultado es el que ISR da con menos de una visita por ficha y ventana:
+ * **sirve primero la copia vieja y la refresca después**, así que quien entraba
+ * veía la temperatura y el cielo de hacía horas —el titular dibujando la noche
+ * a media mañana— y tenía que recargar para ver la buena. La prueba con las
+ * fichas de núcleo, del 29 de septiembre, dio lo que se esperaba, y con el plan
+ * Pro de Vercel el coste de generar en cada visita ya no manda.
+ *
+ * De paso, estas 947 dejan de pregenerarse en cada despliegue.
  */
-export const dynamicParams = true;
-/*
- * Una hora, y media hora era comprar una frescura que no existe.
- *
- * El razonamiento anterior decía «la observación de la XEMA llega con 45-65 min
- * de retraso, así que media hora es la cadencia que le corresponde», y es
- * exactamente al revés: **si el dato tarda 45 minutos en existir, una ventana de
- * 30 reconstruye la página dos veces con la misma lectura**. La segunda no
- * añadía un solo número nuevo.
- *
- * Lo que sí añadía era la factura. Medido en septiembre de 2026, con las cifras
- * de la propia plataforma: 1.047.191 lecturas y 2.108.560 escrituras de ISR
- * —el doble exacto, que son el HTML y la carga RSC de cada regeneración— y
- * 29,19 GB de salida contra un techo de 10. Sale a 28 kB por lectura, que es lo
- * que pesa esta página comprimida: o sea que **prácticamente cada visita
- * regeneraba la ficha entera**.
- *
- * Con 4.293 fichas y menos de una visita diaria por ficha, ISR juega en contra:
- * su trato es repartir una regeneración entre muchos lectores, y aquí no hay
- * muchos lectores por página. Peor aún, el que paga la regeneración es el que se
- * lleva la copia vieja —ISR sirve primero y refresca después—, así que la
- * ventana corta no solo costaba más: hacía que casi todo el mundo viera el dato
- * caducado.
- *
- * Esto no arregla eso último, solo deja de pagar por ello. Lo que lo arregla es
- * sacar las cifras vivas del HTML y pedirlas al almacén desde el navegador, que
- * es una decisión con precio —el JavaScript que las fichas no tienen— y está
- * pendiente.
- *
- * Se estudió aislar ese bloque en su propio segmento cacheado y **se descartó
- * con el cronómetro delante**: un render completo cuesta 9-14 ms en caliente y
- * hasta 229 ms en frío, y con ISR nadie espera a esa regeneración. El mecanismo
- * de Next 16 es `cacheComponents`, que cambia el comportamiento por defecto de
- * toda la aplicación. Sesenta milisegundos en segundo plano no lo pagan.
- */
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 type Params = Promise<{ comarca: string; municipi: string }>;
-
-export async function generateStaticParams() {
-  return highPriorityPaths()
-    .filter((p) => p.split('/').filter(Boolean).length === 2)
-    .map((p) => {
-      const [comarca, municipi] = p.split('/').filter(Boolean);
-      return { comarca, municipi };
-    });
-}
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { comarca, municipi } = await params;
