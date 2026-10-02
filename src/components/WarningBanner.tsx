@@ -193,7 +193,7 @@ function Body({ g, showWhen = true }: { g: WarningGroup; showWhen?: boolean }) {
       {(g.official.descriptions.length > 0 || g.official.instructions.length > 0) && (
         <details className="mt-2">
           <summary className="cursor-pointer text-xs font-medium opacity-90">
-            Text oficial de l&apos;AEMET, en castellà
+            Text oficial de l&apos;AEMET
           </summary>
           <div className="mt-1 space-y-1 text-xs leading-snug opacity-90" lang="es">
             <p className="font-medium">{g.official.event}</p>

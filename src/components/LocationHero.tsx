@@ -91,8 +91,10 @@ export function LocationHero({
    * La màxima d'avui és, com a mínim, la que ja s'ha fet: `todayMax` ve de
    * l'agregat de l'estació des de mitjanit. Igual per la mínima, cap avall.
    */
-  const dayMax = [today?.tMax, current?.todayMax].filter((v): v is number => v != null);
-  const dayMin = [today?.tMin, current?.todayMin].filter((v): v is number => v != null);
+  // I la lectura d'ara també hi compta: la mínima del dia no pot quedar per
+  // damunt de la temperatura que s'està ensenyant, ni la màxima per sota.
+  const dayMax = [today?.tMax, current?.todayMax, t].filter((v): v is number => v != null);
+  const dayMin = [today?.tMin, current?.todayMin, t].filter((v): v is number => v != null);
   const tMax = dayMax.length ? Math.max(...dayMax) : null;
   const tMin = dayMin.length ? Math.min(...dayMin) : null;
   const whole = t != null ? Math.trunc(t) : null;
@@ -438,12 +440,9 @@ export function LocationHero({
           const ap = current?.apparent ?? null;
           const cause = ap != null && t != null ? feelsCause(t, ap, current!.windSpeed ?? null) : null;
           /*
-           * La sensació surt sempre que **digui un número diferent**.
-           *
-           * `feelsCause()` només en dona un quan la separació passa d'un grau, i
-           * aquesta targeta l'amagava del tot quan no n'hi havia: a Montblanc,
-           * amb 33,7 i sensació 34, no sortia. Però «34°» al costat de «33,7°»
-           * sí que és una dada — el que no ho seria és repetir el mateix enter.
+           * La sensació surt quan **diu un número diferent** del de la
+           * temperatura, i si és el mateix no surt: «Sensació de 24°» sota un
+           * 23,9° no afegeix res. Es compara arrodonida, que és com s'escriu.
            *
            * Quan la causa es pot comprovar, es diu: de la xafogor s'escapa a
            * l'ombra i del vent no, i són dues coses diferents.

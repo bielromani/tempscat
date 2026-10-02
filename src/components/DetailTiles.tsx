@@ -1,4 +1,4 @@
-import { msToKmh, seaLevelPressure, windCardinal } from '@/lib/variables';
+import { feelsCause, msToKmh, seaLevelPressure, windCardinal } from '@/lib/variables';
 import { aqiBand } from '@/lib/air-variables';
 import { douglas } from '@/lib/sea';
 import { fromDirection, num } from '@/lib/format';
@@ -8,8 +8,8 @@ import type { RainConditions } from '@/lib/conditions';
 import type { SeaNearby } from '@/lib/sea';
 
 /**
- * Les rajoles del detall d'ara: vent, humitat, pluja, UV, sol, pressió, aire i
- * mar.
+ * Les rajoles del detall d'ara: sensació, vent, humitat, pluja, UV, sol,
+ * pressió, aire i mar.
  *
  * Substitueixen «Ara mateix, tota la lectura», que era una llista de vuit
  * parells etiqueta-valor tots iguals. Cada rajola diu **un** número gran i
@@ -53,6 +53,27 @@ export function DetailTiles({
   stationAltitude: number | null;
 }) {
   const tiles: React.ReactNode[] = [];
+
+  // ── Sensació ── només quan diu un número diferent del de la temperatura, i
+  //    amb el perquè quan es pot comprovar. Si és el mateix, no hi ha rajola.
+  const tNow = current?.temperatureAdjusted ?? current?.temperature ?? null;
+  if (current?.apparent != null && tNow != null && Math.round(current.apparent) !== Math.round(tNow)) {
+    const ap = current.apparent;
+    const gap = ap - tNow;
+    const cause = feelsCause(tNow, ap, current.windSpeed ?? null);
+    tiles.push(
+      <Tile key="sensacio" icon="thermometer" label="Sensació">
+        <p className="tile-value tnum">{ap.toFixed(0)}<small>°C</small></p>
+        <p className="tile-note">
+          {cause === 'xafogor'
+            ? 'La humitat la fa més alta que la temperatura real.'
+            : cause === 'vent'
+              ? 'El vent la fa més baixa que la temperatura real.'
+              : `${num(Math.abs(gap), 1)} graus ${gap > 0 ? 'més' : 'menys'} que la temperatura real.`}
+        </p>
+      </Tile>,
+    );
+  }
 
   // ── Vent ── la brúixola apunta cap on va l'aire, que és com es llegeix un vent.
   if (current?.windSpeed != null) {
