@@ -440,19 +440,14 @@ export function LocationHero({
           const ap = current?.apparent ?? null;
           const cause = ap != null && t != null ? feelsCause(t, ap, current!.windSpeed ?? null) : null;
           /*
-           * La sensació surt **sempre que n'hi ha**, també quan arrodonida és
-           * el mateix enter que la temperatura.
-           *
-           * Fins al 2 d'octubre de 2026 només sortia quan deia un número
-           * diferent, amb l'argument que repetir l'enter no és cap dada. Però
-           * qui mira el temps la busca, i si no la troba no entén que és igual:
-           * entén que falta. «Sensació de 24°» al costat de «23,9°» diu que avui
-           * la humitat i el vent no hi fan res, que també és una resposta.
+           * La sensació surt quan **diu un número diferent** del de la
+           * temperatura, i si és el mateix no surt: «Sensació de 24°» sota un
+           * 23,9° no afegeix res. Es compara arrodonida, que és com s'escriu.
            *
            * Quan la causa es pot comprovar, es diu: de la xafogor s'escapa a
            * l'ombra i del vent no, i són dues coses diferents.
            */
-          const feels = ap == null
+          const feels = ap == null || t == null || Math.round(ap) === Math.round(t)
             ? null
             : cause === 'xafogor'
               ? `Xafogor: amb la humitat, se'n noten ${ap.toFixed(0)}°`
