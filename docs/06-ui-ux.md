@@ -1,5 +1,21 @@
 # 06 — UI/UX y visualización
 
+> **El aspecto actual es el rediseño «Cel»**, publicado el 1 de octubre de 2026, y este
+> documento es el planteamiento original. Lo que sigue valiendo de aquí son los principios
+> —la respuesta arriba y la profundidad debajo, el color como dato, los colores CAP de los
+> avisos sin tocar—. Lo que cambió:
+>
+> - **Un solo tema**, con el color del cielo: azul de noche y tarjetas de cristal. Ya no hay
+>   tema claro. Marca **tempscat**, letra Inter e iconos Meteocons.
+> - **La ficha:** el cielo calculado del lugar a todo el ancho; el resumen, las próximas 24
+>   horas, los 14 días y las baldosas del detalle; y el resto, plegado.
+> - **Las páginas de sección:** título, respuesta corta, cifras clave y el mapa al lado
+>   (`PageHero`); cada bloque en una tarjeta; la prosa larga, plegada al final.
+> - **El radar es pasado y presente.** La lluvia prevista no se pinta como un mapa.
+>
+> El detalle está en `docs/12-estado-y-continuacion.md` y, las reglas y las trampas, en
+> `AGENTS.md`.
+
 ## Principio
 
 El producto tiene dos usuarios y no hay que elegir entre ellos:

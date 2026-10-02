@@ -1,6 +1,6 @@
-# El temps a Catalunya, poble a poble
+# tempscat · el temps a Catalunya, poble a poble
 
-Plataforma meteorològica que arriba fins al **nucli de població**: no només els
+**[tempscat.cat](https://tempscat.cat)** — plataforma meteorològica que arriba fins al **nucli de població**: no només els
 947 municipis, sinó també les entitats i els nuclis que la resta de webs
 ignoren. **4.293 pàgines**, cadascuna amb la seva altitud real i l'estació
 automàtica que li correspon.
@@ -41,12 +41,18 @@ scripts/workers/   →   data/cache/   →   src/app/
 
 | | |
 |---|---|
-| **Next.js 16** amb App Router | Server components. **Cap `'use client'` a tot el projecte** |
+| **Next.js 16** amb App Router | Server components. Tres `'use client'` a tot el projecte —el cercador, la barra del radar i el mapa que es mou—, i cap a una fitxa de lloc |
 | **Node 24 executa el TypeScript directament** | Sense pas de compilació als scripts |
-| **Sense base de dades** | Instantànies JSON. L'esquema per migrar és a `db/migrations/` |
+| **Sense base de dades** | Instantànies JSON a Cloudflare R2, que escriuen els workers des de GitHub Actions. L'esquema per migrar és a `db/migrations/` |
+| **Sense còpia vella** | Les pàgines amb dades d'ara es generen a cada petició i el CDN les guarda cinc minuts; no fan servir ISR, que serveix primer la còpia que té i la refà després |
 
-Les pàgines territorials no porten JavaScript propi. Els mapes interactius i el
-tauler viuran a les seves pròpies rutes, i és allà on carregaran el seu codi.
+Les pàgines territorials no porten JavaScript propi. El mapa que es mou viu a la
+seva pròpia ruta, `/mapa/interactiu`, i és allà on carrega el seu codi.
+
+El titular de cada fitxa és **el cel d'aquell lloc, calculat**: l'altura del sol
+en graus, la nuvolositat, la pluja i la fase de la lluna, en CSS i tres textures.
+[`sky.ts`](src/lib/sky.ts) ho explica, i `npm run test:sky` comprova que el text
+s'hi llegeixi damunt de qualsevol cel.
 
 ## El territori
 
@@ -102,9 +108,17 @@ buit es diu en veu alta, en comptes de sortir en blanc.
 ### Comprovacions
 
 ```bash
+npm run check       # tot el que corre el CI menys el build: workflows, tipus, lint i proves
 npm run typecheck   # aplicació i scripts, són dos projectes
 npm run lint
-npm run test        # topònims, astronomia i frases
+npm run test        # topònims, astronomia, cercador, cel, avisos i frases
+```
+
+I dues que van contra l'HTML servit, després de cada desplegament:
+
+```bash
+npm run check:coherence   # que una fitxa no es contradigui a si mateixa
+npm run check:jsonld      # que cada tipus de pàgina porti el seu marcatge
 ```
 
 ## La restricció que mana
@@ -119,7 +133,8 @@ l'aire es demani **per cel·la de 0,1°** i no per punt — de 3.190 punts en su
 
 ## Estat
 
-Fase 1 tancada. El que ve i per quin ordre, a
+En producció a [tempscat.cat](https://tempscat.cat), amb el redisseny «Cel» des de
+l'octubre de 2026. El que ve i per quin ordre, a
 [`docs/13-full-de-ruta.md`](docs/13-full-de-ruta.md); on som exactament i —el que
 més temps estalvia— **les trampes ja descobertes de cada font**, a
 [`docs/12-estado-y-continuacion.md`](docs/12-estado-y-continuacion.md). Gairebé

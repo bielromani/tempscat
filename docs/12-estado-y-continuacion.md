@@ -4,9 +4,10 @@
 decisiones ya tomadas y —sobre todo— **las trampas que ya nos han costado horas**. Casi todas
 son fallos que no dan error: dan datos plausibles y equivocados.
 
-Última actualización: **2 de octubre de 2026**: el rediseño «Cel» está publicado, el proyecto
-está en el **plan Pro de Vercel**, las páginas con datos ya no usan ISR y el cielo del titular
-se calcula con la altura real del sol.
+Última actualización: **2 de octubre de 2026**. Todo lo descrito aquí está **publicado en
+tempscat.cat**: el rediseño «Cel» en todo el sitio, las páginas con datos sin ISR, el cielo del
+titular con la altura real del sol, y el proyecto en el **plan Pro de Vercel**. No hay ninguna
+rama ni pull request abierto con trabajo pendiente de fusionar.
 
 > La lista de trampas **más completa y al día** es la sección «Rarezas de las fuentes» de
 > `AGENTS.md`, que se carga sola en cada sesión. La de este documento es la de agosto y se
@@ -16,13 +17,19 @@ se calcula con la altura real del sol.
 
 ## Cómo retomar en una conversación nueva
 
-Basta con abrir Claude Code en `C:\Users\bromani\Desktop\Altres\Meteo` y decir:
+Basta con abrir Claude Code en la carpeta del proyecto y decir:
 
 > Lee `docs/12-estado-y-continuacion.md` y sigue con lo pendiente.
 
 `AGENTS.md` se carga solo en cada sesión y ya contiene las restricciones técnicas duras,
 incluido **cómo se trabaja** (rama, `npm run check`, fusión por lotes). Léelo antes de empujar
 nada a `main`.
+
+**Cómo se entrega** (acordado con el usuario el 29 de septiembre): cada cambio va a una rama y
+a su pull request en `bielromani/tempscat`, con `npm run check` pasado; cuando el CI está en
+verde se fusiona a `main` —con `gh pr merge N --merge`— y se le dice. El repositorio no permite
+la fusión automática de GitHub. Después de cada fusión se comprueba la web publicada con
+`npm run check:coherence` y `npm run check:jsonld`.
 
 ---
 
@@ -69,14 +76,70 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 **Datos vivos:** el inventario al día —qué trozo es cada cosa y por qué está partido— es
 `src/lib/shards.ts`. Una lista escrita aquí se quedaría vieja a la primera.
 
-**Medido el 20 de septiembre de 2026:** el build pregenera **1.326 páginas** y cada despliegue
-pesa **~1 GB**. La ficha de Malgrat pesa **570–700 kB** sin comprimir, y el **62 %** es la carga
-RSC —el mismo contenido escrito otra vez para hidratar—. Hay **tres** `'use client'`
-(`SiteSearch`, `RadarScrubber`, `InteractiveMap`) y ninguno en una ficha de lugar.
+**Medido el 2 de octubre de 2026:** el build genera **29 páginas** y `.next/server/app` pesa
+**29 MB** —eran 1.326 páginas y 956 MB—, porque las veinte rutas con datos de ahora se
+generan en cada petición (`LIVE_PAGES` en `next.config.ts`) y el CDN de Vercel las guarda
+cinco minutos. El CI entero, build incluido, tarda alrededor de un minuto. La ficha de Malgrat
+pesa unos 590 kB sin comprimir, y más de la mitad sigue siendo la carga RSC. Hay **tres**
+`'use client'` (`SiteSearch`, `RadarScrubber`, `InteractiveMap`) y ninguno en una ficha de
+lugar.
 
 ---
 
+## Hecho en octubre
+
+Todo publicado. Los pull requests, por orden: #4 (1 oct), #6, #7 y #8 (2 oct).
+
+**El rediseño «Cel», publicado (PR #4, 1 oct).** Lo que se describe más abajo, en
+«Rediseño "Cel"», salió entero en un solo despliegue, con el PR #5 —que deja de calcular el
+campo de lluvia— fusionado dentro.
+
+**Sin copia vieja (PR #6, 2 oct).** El usuario entraba en la ficha de una ciudad y veía la
+temperatura y el cielo de hacía horas; al recargar salía bien. Es lo que hace ISR: sirve
+primero la copia que tiene, tenga la edad que tenga, y la regenera después. Ahora las veinte
+rutas con datos de ahora —fichas de municipio y de núcleo, portada, comarcas, radar, mapas,
+avisos, mar, náutica, nieve, montaña, itinerarios, cámaras, estaciones, ránquings, agua, aire
+y estado— llevan `dynamic = 'force-dynamic'` y `Vercel-CDN-Cache-Control: max-age=300`, sin
+`stale-while-revalidate`: pasados cinco minutos no se sirve la vieja, se vuelve a generar.
+Comprobado en producción: la ficha de Barcelona da `MISS` y luego `HIT` con edad cero, y el
+navegador recibe `private, no-store`. `/dades`, la lista de itinerarios y los ejes siguen
+estáticos. El plazo de memoria de la observación, el radar y los avisos (`cache-store.ts`) baja
+de cinco minutos a dos.
+
+**El cielo del titular, con la luz de verdad (PR #6 y #8, 2 oct).** Salía **negro** en sitios
+nublados con claridad de sobra. Eran tres defectos y los tres están en `src/lib/sky.ts`:
+- La altura del sol no era la real: el día era una fracción entre la salida y la puesta, y al
+  ponerse el sol la luz caía a cero de golpe. Ahora `sunAltitude()` la da en grados, también
+  bajo el horizonte, y hay crepúsculo civil (−6°), náutico (−12°) y noche (−18°).
+- La luz de las nubes se restaba y con poco sol daba negativo. Ahora se multiplica por el
+  grosor de la nube y tiene un suelo: cubierto a mediodía 0,83; a la puesta 0,58; media hora
+  después 0,43; de noche 0,27.
+- El velo de contraste era el mismo a todas las horas. Ahora `contrastVeil` lleva, a cada
+  altura, solo la opacidad que hace falta para que el texto blanco pase de 4,5:1.
+
+Y dos cosas más: el cielo se dibuja con **la hora del reloj con minutos** (`localClockHour()`),
+no con la hora en punto de la predicción; y **cubierto no es gris** —el primer arreglo lo dejó
+de color cemento—: el velo de nubosidad es azul plomo, no tapa del todo el cielo de debajo, el
+horizonte es más claro que el cenit y las texturas llevan un tono azulado de día. En pantalla
+ancha el velo se aclara a la derecha, donde no hay texto. `npm run test:sky` vuelve a componer
+el titular capa a capa; `npm run cels` enseña los dieciocho estados de lado.
+
+**Lo que no se puede cambiar del cielo:** detrás del texto blanco el fondo no puede ser más
+claro que un gris medio, así que un día cubierto es azul plomo y no blanco.
+
+**La ficha (PR #7, 2 oct).**
+- **Sensación térmica:** al pasar de la lista de lecturas a las baldosas se perdió su fila.
+  Vuelve como baldosa propia y en el titular, **solo cuando redondeada es distinta de la
+  temperatura** —lo pidió así el usuario—, con la causa cuando se puede comprobar: la humedad
+  la sube o el viento la baja. Hoy, sin calor húmedo ni frío con viento, no sale en ninguna.
+- **«Text oficial de l'AEMET»**, sin «, en castellà»: en la tarjeta del aviso, en el feed y en
+  el calendario. El texto desplegado sigue marcado con `lang="es"`.
+- La máxima y la mínima del día cuentan también la lectura de ahora.
+
 ## Hecho en septiembre
+
+> Parte de lo que sigue ya no es así y se deja como historia: la columna de 38 rem, el
+> `revalidate` de 3.600 y la prueba de frescura de los núcleos los sustituyó lo de octubre.
 
 **Rediseño (15 sep).**
 - El titular de cada ficha es el **cielo calculado** del lugar (`src/lib/sky.ts` +
@@ -197,59 +260,57 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
 
 ## Lo que falta, por orden
 
-**Con fecha:**
+**Con fecha, y son del usuario:**
 
-0. ~~Revisar la prueba de frescura de los núcleos.~~ **Resuelto el 2 de octubre**: el usuario
-   vio en la ficha de una ciudad una temperatura y un cielo de hacía horas que se arreglaban
-   al recargar —ISR sirviendo la copia vieja—, y con el plan Pro ya contratado se extendió a
-   **todas las páginas con datos de ahora**: `force-dynamic` y cinco minutos en el CDN
-   (`LIVE_PAGES` en `next.config.ts`). El build pasa de 1.326 páginas a 29 y el despliegue,
-   de 956 MB a 29. Queda por mirar, sin prisa, cuánto suben las invocaciones en Vercel → Usage.
 1. **6 de octubre — apagar `r2.dev`.** R2 → bucket → Settings → *Public Development URL* →
    **Disable**, y comprobar la web y `/estat`. Es la única prueba de que nada sigue leyendo la
    dirección vieja: las dos sirven lo mismo, así que desde fuera no se distinguen.
-2. ~~Pro o gratuito.~~ **Decidido: plan Pro**, desde el 1-2 de octubre de 2026.
-3. **Hacia el 16 de octubre, `credencials.yml` empezará a fallar** avisando de que la clave de
+2. **Hacia el 16 de octubre, `credencials.yml` empezará a fallar** avisando de que la clave de
    AEMET caduca el **30 de noviembre**. Es a propósito: 45 días de margen. Se renueva gratis en
    `opendata.aemet.es`, y hay que actualizar `AEMET_API_KEY` y `AEMET_API_KEY_EXPIRES` en
    GitHub. `credencials.yml` no se ha lanzado nunca a mano.
+3. **Dar de alta Search Console.**
+
+**Por mirar después de lo de octubre:**
+
+4. **El cielo al atardecer y de noche, en una ficha real.** De día se ha visto en producción;
+   el crepúsculo y la noche solo en la rejilla de `npm run cels`. Si el usuario lo quiere con
+   más azul o más luz, los números están en `sky.ts`: el croma y la opacidad del velo de
+   nubosidad, y el suelo de la luz de las nubes.
+5. **Vercel → Usage, unos días después del 2 de octubre.** Sin ISR, cada visita que no acierta
+   el CDN es una invocación. Con el plan Pro no debería notarse, pero no se ha medido. Si
+   subiera demasiado, el número que se toca es el `max-age=300` de `next.config.ts`.
+6. **Lo que quedó en R2 bajo `field/`** —las imágenes del campo de lluvia que ya no se
+   hacen— se puede borrar a mano, **menos `field/voltant.json`**, que es el anillo del viento.
 
 **La decisión grande, pendiente del usuario:**
 
-4. **Caparazón estático + cifras vivas pedidas a R2 desde el navegador.** Arreglaría de una vez
-   tres cosas: que la ficha salga **caducada** —ISR sirve la copia vieja y regenera por detrás, y
-   con una visita al día casi todo el mundo ve la vieja—, el **peso** (el 62 % es carga RSC) y el
-   **coste**. Tiene dos precios, y los decide el usuario: rompe la regla de «cero JavaScript en
-   las fichas» y saca los números del HTML que lee el buscador.
-
-5. ~~El viento de `/mapa/interactiu` no salía desde el rediseño.~~ **Resuelto el 29 de
-   septiembre**, antes de fusionar: la página le pasa al mapa **una sola hora**, la del viento
-   más cercana al último marco del radar (y ninguna si está a más de 90 minutos), y el rótulo
-   dice de qué hora es. `InteractiveMap` ya caía a la primera hora cuando no encontraba el
-   marco, así que no hizo falta la barra de doce horas. La barra y el botón de reproducir solo
-   salen en «Pluja».
+7. **Sacar las cifras vivas del HTML y pedirlas desde el navegador.** Ya no hace falta para la
+   frescura —eso lo arregló quitar ISR—; lo que arreglaría es el **peso**: más de la mitad de
+   una ficha es la carga RSC, el mismo contenido escrito otra vez para hidratar. Tiene dos
+   precios, y los decide el usuario: rompe la regla de «cero JavaScript en las fichas» y saca
+   los números del HTML que lee el buscador.
 
 **Sin decisión pendiente:**
 
-6. ~~Pregenerar menos en el build.~~ **Hecho** el 2 de octubre, de rebote: municipios,
-   itinerarios y estaciones se generan en la petición.
-7. ~~Revisar a ojo las fichas de detalle~~ **Hecho** con el rediseño de las páginas de sección:
-   estación, cámara, itinerario, eje y comarca, a 390 y a 1.280 px.
 8. **Reescribir los textos** para que el sitio suene a portal profesional. Las reglas de tono
-   están en `AGENTS.md`, «Cómo se escribe lo que lee el usuario».
-9. **Lo que quedó de la rama `credibilitat`:** los rótulos de los iconos hora a hora (el
-   `<title>` y el `aria-label` de `WeatherIcon`) siguen diciendo «Pluja feble» bajo un aviso;
-   la antigüedad de `/estat` lee con `Date.parse` las marcas sin zona —las de Open-Meteo, que
-   son hora local— como si fueran UTC, y en Vercel salen dos horas cortas; la descripción
-   general del sitio (`layout.tsx`) prometía «consens multimodel», que es cierto en el 11 % de
-   los puntos —ya no—. Y `check:coherence` no lo lanza ningún workflow: se pasa a mano después de
-   cada fusión, como `check:jsonld`.
-10. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa) · el buscador
-   del móvil podría ser una pastilla «⌕ Cercar» · el trazador de Next avisa de que
-   `join(LOCAL, path)` en `cache-store.ts` engancha los 5.525 ficheros de `data/cache/`; hoy no
-   pasa nada porque no se versiona, y es una trampa esperando a que alguien lo haga.
+   están en `AGENTS.md`, «Cómo se escribe lo que lee el usuario». En el rediseño se acortaron
+   y se plegaron las explicaciones largas de las páginas de sección, pero no se han repasado
+   una a una.
+9. **Los rótulos de los iconos hora a hora** (el `<title>` y el `aria-label` de `WeatherIcon`)
+   siguen diciendo «Pluja feble» bajo un aviso. Y `check:coherence` no lo lanza ningún
+   workflow: se pasa a mano después de cada fusión, como `check:jsonld`.
+10. **Restos del campo de lluvia en el código:** `RadarFrame.kind` aún admite `'forecast'`, y
+   `InteractiveMap` y `RadarScrubber` tienen su rama; ya no la produce nada.
+11. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa) · el trazador
+   de Next avisa de que `join(LOCAL, path)` en `cache-store.ts` engancha los ficheros de
+   `data/cache/`; hoy no pasa nada porque no se versiona · el sol del titular puede quedar
+   detrás del final de un nombre largo en el móvil, y el velo de contraste no lo cuenta.
 
-**Del usuario, fuera del código:** dar de alta Search Console.
+**Cerrado desde la versión anterior de este documento:** la prueba de frescura de los núcleos
+(extendida a todas las páginas con datos), Pro o gratuito (Pro), pregenerar menos en el build
+(29 páginas), revisar a ojo las fichas de detalle, el viento del mapa interactivo, la
+descripción que prometía «consens multimodel» y la antigüedad de `/estat` en hora de Madrid.
 
 **Externo, no es nuestro:** la XVPCA no publica días completos desde el 24 de septiembre, y
 AEMET se cae a ratos (el 23 de septiembre, 16 ejecuciones en rojo). Esos correos siguen
@@ -471,7 +532,13 @@ Esta es la parte que más tiempo ahorra. **Todas son reales, todas costaron enco
 - **La astronomía se calcula, no se pide.** Cuota cero y da lo que ninguna API ofrece.
 - **Cero JavaScript propio en las páginas territoriales.** El mapa que se mueve vive en su
   propia dirección, `/mapa/interactiu`, y `/mapa` sigue siendo un SVG de servidor. Esta regla
-  es la que la decisión 4 de «Lo que falta» pondría en cuestión.
+  es la que la decisión 7 de «Lo que falta» pondría en cuestión.
+- **Un solo tema, el del cielo.** No hay tema claro ni oscuro (rediseño «Cel», octubre de 2026).
+- **El radar no enseña futuro.** Pasado y presente; dónde lloverá lo dicen las horas de la
+  ficha, en milímetros. El campo de lluvia del modelo ya no se calcula.
+- **Las páginas con datos de ahora no usan ISR** y no se guardan más de cinco minutos.
+- **La sensación térmica no se enseña cuando coincide con la temperatura.**
+- **El rótulo del texto de AEMET es «Text oficial de l'AEMET»**, sin decir el idioma.
 
 ---
 
