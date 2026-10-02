@@ -200,6 +200,7 @@ npm run test:hours        # qué tramo del reloj describe cada valor de la predi
 npm run check:credentials # a qué clave le queda poco. Lo corre `credencials.yml` cada lunes
 npm run check:jsonld      # que cada tipus de pàgina segueixi portant el seu marcatge
 npm run check:coherence   # que una fitxa no es contradigui · contra l'HTML servit, com l'anterior
+                          # els dos els corre `web.yml` després de cada desplegament i cada dia
 npm run check:workflows   # claus repetides, `npm run` inexistents i workflows sense feines
 npm run test:colors       # que el color que rep el mapa sigui el que pinta el navegador
 npm run test:wind         # que el vent vagi cap on ha d'anar · amb `-- --api`, contra la marinada

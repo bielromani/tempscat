@@ -28,8 +28,9 @@ nada a `main`.
 **Cómo se entrega** (acordado con el usuario el 29 de septiembre): cada cambio va a una rama y
 a su pull request en `bielromani/tempscat`, con `npm run check` pasado; cuando el CI está en
 verde se fusiona a `main` —con `gh pr merge N --merge`— y se le dice. El repositorio no permite
-la fusión automática de GitHub. Después de cada fusión se comprueba la web publicada con
-`npm run check:coherence` y `npm run check:jsonld`.
+la fusión automática de GitHub. Después de cada fusión, `web.yml` comprueba la web publicada
+con `check:coherence` y `check:jsonld` en cuanto Vercel da el despliegue por bueno, y otra vez
+cada mañana; se pueden seguir pasando a mano.
 
 ---
 
@@ -297,15 +298,17 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    están en `AGENTS.md`, «Cómo se escribe lo que lee el usuario». En el rediseño se acortaron
    y se plegaron las explicaciones largas de las páginas de sección, pero no se han repasado
    una a una.
-9. **Los rótulos de los iconos hora a hora** (el `<title>` y el `aria-label` de `WeatherIcon`)
-   siguen diciendo «Pluja feble» bajo un aviso. Y `check:coherence` no lo lanza ningún
-   workflow: se pasa a mano después de cada fusión, como `check:jsonld`.
-10. **Restos del campo de lluvia en el código:** `RadarFrame.kind` aún admite `'forecast'`, y
-   `InteractiveMap` y `RadarScrubber` tienen su rama; ya no la produce nada.
-11. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa) · el trazador
-   de Next avisa de que `join(LOCAL, path)` en `cache-store.ts` engancha los ficheros de
-   `data/cache/`; hoy no pasa nada porque no se versiona · el sol del titular puede quedar
-   detrás del final de un nombre largo en el móvil, y el velo de contraste no lo cuenta.
+9. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa; quitarla es
+   un ajuste de la cuenta y lo hace el usuario) · el sol del titular puede quedar detrás del
+   final de un nombre largo en el móvil, y el velo de contraste no lo cuenta — va con el
+   punto 4, porque se mira en el mismo sitio.
+
+**Cerrado el 2 de octubre, rama `neteja`:** los iconos de las 24 horas, de la tabla de 48 y
+de los 14 días ya no dicen «Pluja feble» en el `alt` bajo un aviso (`warnedIconLabel()`,
+con prueba en `test:narrative`); `check:coherence` y `check:jsonld` los lanza `web.yml`; el
+tipo `'forecast'` de los marcos y la rama de imagen única de `InteractiveMap` ya no existen;
+y `data/cache/` queda fuera del trazado de ficheros (`turbopackIgnore` en `cache-store.ts` y
+`outputFileTracingExcludes`).
 
 **Cerrado desde la versión anterior de este documento:** la prueba de frescura de los núcleos
 (extendida a todas las páginas con datos), Pro o gratuito (Pro), pregenerar menos en el build

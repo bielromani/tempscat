@@ -778,11 +778,10 @@ export interface RadarFrame {
    * D'on surt aquest marc.
    *
    * `past` i `nowcast` són del radar —observació i, si algun dia la font en
-   * torna, extrapolació—. `forecast` era **nostre**: el camp de pluja de la
-   * predicció, que ja no es fa des del 29 de setembre de 2026. Avui cap marc
-   * no porta aquest valor.
+   * torna, extrapolació—. Hi havia un tercer valor, `forecast`, per al camp de
+   * pluja de la predicció; es va deixar de fer el 29 de setembre de 2026.
    */
-  kind: 'past' | 'nowcast' | 'forecast';
+  kind: 'past' | 'nowcast';
 }
 
 export interface RadarData {

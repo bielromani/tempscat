@@ -221,7 +221,7 @@ export function LocationView({
           {forecast && forecast.hourly.length > 0 && (
             <section className="card" aria-labelledby="h-hores">
               <CardLabel id="h-hores" icon="clear-day">Pròximes 24 hores</CardLabel>
-              <HourStrip hourly={forecast.hourly} daily={forecast.daily} nowHour={nowIso} />
+              <HourStrip hourly={forecast.hourly} daily={forecast.daily} nowHour={nowIso} rainWarnings={narrative?.rainWarnings} />
               {zone && (
                 <p className="card-foot">
                   <Link href={`/radar?zona=${zone.key}`}>
@@ -235,7 +235,7 @@ export function LocationView({
           {forecast && forecast.daily.length > 0 && (
             <section className="card" aria-labelledby="h-dies">
               <CardLabel id="h-dies" icon="partly-cloudy-day">Els pròxims {forecast.daily.length} dies</CardLabel>
-              <DailyList daily={forecast.daily} today={today} />
+              <DailyList daily={forecast.daily} today={today} rainWarnings={narrative?.rainWarnings} />
             </section>
           )}
         </div>

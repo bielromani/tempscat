@@ -58,11 +58,17 @@ interface Props {
    * el llegiria dues vegades.
    */
   decorative?: boolean;
+  /**
+   * El nom que llegeix el lector de pantalla, quan no ha de ser el del codi.
+   * Amb avís de pluja és «Pluja» i no «Pluja feble»: ho decideix
+   * `warnedIconLabel()` a `narrative.ts`, no aquest component.
+   */
+  label?: string | null;
 }
 
-export function WeatherIcon({ code, isDay = true, size = 32, className, animated = false, decorative = false }: Props) {
+export function WeatherIcon({ code, isDay = true, size = 32, className, animated = false, decorative = false, label }: Props) {
   const name = weatherIconName(code, isDay);
-  const alt = decorative ? '' : weatherCode(code).caLong;
+  const alt = decorative ? '' : (label ?? weatherCode(code).caLong);
   const style = { flexShrink: 0 } as const;
 
   if (!animated || name === 'not-available') {

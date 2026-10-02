@@ -101,6 +101,23 @@ export function rainWarnedAt(warnings: RainWarning[], time: string): boolean {
   return warningsOver(warnings, time, time).length > 0;
 }
 
+/** Si algún aviso de lluvia o tormenta toca alguna hora de este día (`AAAA-MM-DD`). */
+export function rainWarnedOn(warnings: RainWarning[], date: string): boolean {
+  return warningsOver(warnings, `${date}T00`, `${date}T23`).length > 0;
+}
+
+/**
+ * El nombre que lleva el icono de una hora o de un día: el de siempre o, con
+ * aviso encima, el que no dice intensidad. Null cuando no hay que cambiarlo, y
+ * entonces el icono pone el suyo.
+ *
+ * El texto de la tabla ya lo hacía; el `alt` del icono no, y un lector de
+ * pantalla seguía leyendo «Pluja feble» debajo de un aviso naranja.
+ */
+export function warnedIconLabel(code: number | null, warned: boolean): string | null {
+  return warned ? unratedRainLabel(code) : null;
+}
+
 // ── Franjas del día ─────────────────────────────────────────────────────────
 
 /**

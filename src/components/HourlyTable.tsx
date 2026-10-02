@@ -4,7 +4,7 @@ import { msToKmh, windCardinal } from '@/lib/variables';
 import { weatherCode } from '@/lib/weather-codes';
 import { dateLong, dateShort, hour as hourLabel, num, relativeDay } from '@/lib/format';
 import type { HourlyPoint } from '@/lib/weather';
-import { rainWarnedAt, unratedRainLabel, type RainWarning } from '@/lib/narrative';
+import { rainWarnedAt, unratedRainLabel, warnedIconLabel, type RainWarning } from '@/lib/narrative';
 
 /**
  * Tabla horaria detallada.
@@ -96,6 +96,7 @@ export function HourlyTable({ hourly, hours = 48, today, rainWarnings = [] }: Pr
               </tr>
               {hs.map((h) => {
                 const w = weatherCode(h.weatherCode);
+                const warned = rainWarnedAt(rainWarnings, h.time);
                 return (
                   <tr key={h.time} className="border-b border-[var(--line-soft)] last:border-0">
                     <th scope="row" className="tnum sticky left-0 z-10 bg-[var(--surface)] px-3 py-1.5 text-left font-medium text-[var(--ink-2)]">
@@ -103,9 +104,9 @@ export function HourlyTable({ hourly, hours = 48, today, rainWarnings = [] }: Pr
                     </th>
                     <td className="px-2 py-1.5">
                       <span className="flex items-center gap-1.5">
-                        <WeatherIcon code={h.weatherCode} isDay={h.isDay} size={22} />
+                        <WeatherIcon code={h.weatherCode} isDay={h.isDay} size={22} label={warnedIconLabel(h.weatherCode, warned)} />
                         <span className="hidden text-xs text-[var(--muted)] sm:inline">
-                          {(rainWarnedAt(rainWarnings, h.time) && unratedRainLabel(h.weatherCode)) || w.ca}
+                          {(warned && unratedRainLabel(h.weatherCode)) || w.ca}
                         </span>
                       </span>
                     </td>
