@@ -86,7 +86,7 @@ export function atomFeed(warnings: Warning[], opts: FeedOptions): string {
     <category term="${xml(w.phenomenon)}"/>
     <summary type="text">${xml(`Vigent ${dateTimeLong(local(w.onset))} → ${dateTimeLong(local(w.expires))}${zones}
 
-      Text oficial de l'AEMET, en castella:
+      Text oficial de l'AEMET:
       ${w.headline}
       ${w.description}
       ${w.instruction}`.replace(/\s+\n/g, '\n').trim())}</summary>
@@ -198,7 +198,7 @@ export function icsFeed(warnings: Warning[], name: string): string {
       ].filter(Boolean).join(' · '))}`),
       fold(`DESCRIPTION:${escapeIcs([
         `Vigent ${dateTimeLong(local(w.onset))} → ${dateTimeLong(local(w.expires))}`,
-        'Text oficial de l\'AEMET, en castellà:',
+        'Text oficial de l\'AEMET:',
         [w.headline, w.description, w.instruction].filter(Boolean).join('\n\n'),
       ].join('\n\n'))}`),
       fold(`URL:${escapeIcs(w.web)}`),
