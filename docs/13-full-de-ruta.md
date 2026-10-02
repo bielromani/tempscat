@@ -1386,7 +1386,7 @@ Medido en producción el 9 de septiembre: los seis tipos, correctos.
 
 ### Lo que sigue faltando
 
-- **Search Console.** Nada de lo de arriba se puede evaluar sin mirar cuántas de
+- **Search Console** — dado de alta (octubre de 2026); falta leerlo. Nada de lo de arriba se puede evaluar sin mirar cuántas de
   las 4.293 entran de verdad en el índice. El sitemap ya va partido por tipo
   justamente para poder mirarlo por separado.
 - Los ejes de los itinerarios son la primera pieza que se hizo pensando en esto:

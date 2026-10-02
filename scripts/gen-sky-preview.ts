@@ -15,7 +15,7 @@
  * El fitxer que escriu va a `public/` perquè el serveixi el servidor de
  * desenvolupament, i està al `.gitignore`: no s'ha de publicar.
  */
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { skyStyle, drawsRain, drawsSnow, type Sky, type SkyInput } from '../src/lib/sky.ts';
 
 const CASOS: Array<[string, Omit<SkyInput, 'sunriseH' | 'sunsetH'>]> = [
@@ -39,29 +39,54 @@ const CASOS: Array<[string, Omit<SkyInput, 'sunriseH' | 'sunsetH'>]> = [
   ['21.8 h · +30 min, serè', { hour: 21.83, cloudCover: 5, code: 0, precipitationMm: 0, moonPhase: 0.5 }],
   ['21.8 h · +30 min, tapat', { hour: 21.83, cloudCover: 100, code: 3, precipitationMm: 0, moonPhase: 0.5 }],
   ['22.4 h · +1 h, mig ennuvolat', { hour: 22.4, cloudCover: 50, code: 2, precipitationMm: 0, moonPhase: 0.5 }],
+  /*
+   * Els que va veure l'usuari el 3 d'octubre de 2026, al mòbil: una nit amb
+   * quatre núvols tota negra i sense ni la silueta de la lluna, i un dia amb
+   * núvols que només eren núvols.
+   */
+  ['01 h · quatre núvols, lluna', { hour: 1.2, cloudCover: 30, code: 1, precipitationMm: 0, moonPhase: 0.72 }],
+  ['01 h · mig ennuvolat, lluna', { hour: 1.2, cloudCover: 55, code: 2, precipitationMm: 0, moonPhase: 0.72 }],
+  ['01 h · molt ennuvolat, lluna', { hour: 1.2, cloudCover: 78, code: 2, precipitationMm: 0, moonPhase: 0.72 }],
+  ['12 h · poc ennuvolat', { hour: 12, cloudCover: 30, code: 1, precipitationMm: 0, moonPhase: 0.5 }],
+  ['12 h · molt ennuvolat', { hour: 12, cloudCover: 75, code: 2, precipitationMm: 0, moonPhase: 0.5 }],
   ['02 h · nit tapada', { hour: 2, cloudCover: 100, code: 3, precipitationMm: 0, moonPhase: 0.5 }],
   ['10 h · boira', { hour: 10, cloudCover: 30, code: 45, precipitationMm: 0, moonPhase: 0.5 }],
 ];
+
+/** L'amplada d'un telèfon: és on es veia malament. */
+const W = 375;
+
+/*
+ * El moviment dels núvols surt de `globals.css` tal qual, no d'una còpia: la
+ * mida de les tessel·les, la velocitat i el punt de partida són el que s'ha de
+ * mirar aquí, i amb una còpia es miraria una altra cosa.
+ */
+const css = readFileSync('src/app/globals.css', 'utf8');
+const driftEnd = css.indexOf('\n}\n', css.indexOf('@keyframes cel-drift')) + 2;
+const drift = css.slice(css.indexOf('.cel-drift {'), driftEnd);
 
 const layer = (o: number) => (o > 0.004 ? `opacity:${o}` : 'display:none');
 
 const cards = CASOS.map(([label, over]: [string, Omit<SkyInput, 'sunriseH' | 'sunsetH'>]) => {
   const s: Sky = skyStyle({ sunriseH: 6.33, sunsetH: 21.33, ...over });
+  // Les targetes fan l'amplada d'un telèfon, i `--x` va en píxels i no en `vw`:
+  // aquí el titular no va d'una vora a l'altra de la finestra.
+  const x = (parseFloat(s.bodyLeft) / 100) * W;
   return `<figure style="margin:0">
-  <div class="hero" style="background:${s.skyGradient}">
+  <div class="hero" style="background:${s.skyGradient};--x:${x.toFixed(0)}px">
     <div class="l" style="background:${s.skyGradient}"></div>
-    ${s.sunVisible ? `<div class="l" style="left:${s.bodyLeft};top:${s.bodyTop};width:0;height:0;inset:auto"><div style="position:absolute;inset:-230px;border-radius:999px;background:radial-gradient(circle, ${s.sunScatter} 0%, transparent 64%)"></div></div>` : ''}
+    ${s.sunVisible ? `<div class="l" style="inset:auto;left:${s.bodyLeft};top:${s.bodyTop};width:0;height:0"><div style="position:absolute;inset:-230px;border-radius:999px;background:radial-gradient(circle, ${s.sunScatter} 0%, transparent 64%)"></div></div>` : ''}
     <div class="l stars" style="opacity:${s.starOpacity}"></div>
-    ${s.moonVisible ? `<div class="l" style="left:${s.bodyLeft};top:${s.bodyTop};inset:auto;width:76px;height:76px;margin:-38px 0 0 -38px"><svg viewBox="0 0 76 76" width="76" height="76"><circle cx="38" cy="38" r="24" fill="oklch(88% 0.03 250)" opacity=".2"/><path d="${s.moonPath}" fill="oklch(99% 0.015 100)"/></svg></div>` : ''}
-    ${s.sunVisible ? `<div class="l" style="left:${s.bodyLeft};top:${s.bodyTop};inset:auto;width:84px;height:84px;margin:-42px 0 0 -42px;opacity:${s.sunOpacity}">
+    <div class="l" style="opacity:${s.veilOpacity};background-image:${s.veilImage}"></div>
+    <div class="l" style="left:0;right:0;top:-2%;height:48%;bottom:auto;overflow:hidden;filter:${s.cloudFilter};${layer(s.wispOpacity)}"><div class="t cel-drift cel-wisps" style="background-image:url(/cel/wisps.webp)"></div></div>
+    ${s.moonVisible ? `<div class="l" style="inset:auto;left:${s.bodyLeft};top:${s.bodyTop};width:76px;height:76px;margin:-38px 0 0 -38px"><svg viewBox="0 0 76 76" width="76" height="76"><circle cx="38" cy="38" r="24" fill="oklch(88% 0.03 250)" opacity=".2"/><path d="${s.moonPath}" fill="oklch(99% 0.015 100)"/></svg></div>` : ''}
+    ${s.sunVisible ? `<div class="l" style="inset:auto;left:${s.bodyLeft};top:${s.bodyTop};width:84px;height:84px;margin:-42px 0 0 -42px;opacity:${s.sunOpacity}">
       <div style="position:absolute;inset:-86px;border-radius:999px;background:radial-gradient(circle, ${s.sunBloom} 0%, transparent 60%)"></div>
       <div style="position:absolute;left:-170px;right:-170px;top:50%;height:6px;margin-top:-3px;background:linear-gradient(90deg,transparent 0%,${s.sunStreak} 26%,${s.sunStreak} 74%,transparent 100%);filter:blur(3.5px)"></div>
       <div style="position:absolute;inset:20px;border-radius:999px;background:radial-gradient(circle,oklch(100% 0 0) 0%,oklch(100% 0 0) 36%,oklch(98% 0.07 92 / .8) 62%,transparent 100%);filter:blur(1.2px)"></div></div>` : ''}
-    <div class="l" style="opacity:${s.veilOpacity};background-image:${s.veilImage}"></div>
-    <div class="l" style="left:0;right:0;top:-2%;height:48%;bottom:auto;overflow:hidden;filter:${s.cloudFilter};${layer(s.wispOpacity)}"><div class="t" style="background-image:url(/cel/wisps.webp);background-size:1280px 100%"></div></div>
-    <div class="l" style="left:0;right:0;top:0;height:62%;bottom:auto;overflow:hidden;filter:${s.cloudFilter};${layer(s.cloudFarOpacity)}"><div class="t" style="background-image:url(/cel/cumulus.webp);background-size:900px 100%"></div></div>
-    <div class="l" style="left:0;right:0;top:-12%;height:82%;bottom:auto;overflow:hidden;filter:${s.cloudFilterNear};${layer(s.cloudNearOpacity)}"><div class="t" style="background-image:url(/cel/cumulus.webp);background-size:1900px 100%"></div></div>
-    <div class="l" style="left:0;right:0;top:-8%;height:80%;bottom:auto;overflow:hidden;filter:${s.cloudFilterNear};${layer(s.overcastOpacity)}"><div class="t" style="background-image:url(/cel/overcast.webp);background-size:1280px 100%"></div></div>
+    <div class="l" style="left:0;right:0;top:0;height:62%;bottom:auto;overflow:hidden;filter:${s.cloudFilter};${layer(s.cloudFarOpacity)}"><div class="t cel-drift cel-far" style="background-image:url(/cel/cumulus.webp)"></div></div>
+    <div class="l" style="left:0;right:0;top:-12%;height:82%;bottom:auto;overflow:hidden;filter:${s.cloudFilterNear};${layer(s.cloudNearOpacity)}"><div class="t cel-drift cel-near" style="background-image:url(/cel/cumulus.webp)"></div></div>
+    <div class="l" style="left:0;right:0;top:-8%;height:80%;bottom:auto;overflow:hidden;filter:${s.cloudFilterNear};${layer(s.overcastOpacity)}"><div class="t cel-drift cel-sheet" style="background-image:url(/cel/overcast.webp)"></div></div>
     ${s.thunder ? `<div class="l" style="background:radial-gradient(120% 74% at 64% 2%, oklch(99% .015 250/.95) 0%, oklch(92% .04 250/.42) 26%, transparent 62%);opacity:.5"></div>` : ''}
     ${drawsRain(s) ? `<div class="l" style="opacity:${s.rainOpacity};overflow:hidden"><div style="position:absolute;inset:-20% -30%;background-image:repeating-linear-gradient(${s.rainAngle[1]}, transparent 0 9px, oklch(95% .012 240/.24) 9px 10px, transparent 10px 23px);background-size:160px 640px"></div><div style="position:absolute;inset:-20% -30%;filter:blur(2.4px);background-image:repeating-linear-gradient(${s.rainAngle[2]}, transparent 0 34px, oklch(99% .006 240/.55) 34px 37px, transparent 37px 74px);background-size:320px 1020px"></div></div>` : ''}
     ${drawsSnow(s) ? `<div class="l" style="opacity:${s.snowOpacity};overflow:hidden"><div style="position:absolute;inset:-24%;background-repeat:repeat;background-image:radial-gradient(circle, oklch(100% 0 0/.85) 0%, oklch(100% 0 0/.85) 5%, transparent 11%),radial-gradient(circle, oklch(100% 0 0/.62) 0%, oklch(100% 0 0/.62) 4%, transparent 9%);background-size:53px 53px,79px 79px"></div></div>` : ''}
@@ -80,7 +105,8 @@ const cards = CASOS.map(([label, over]: [string, Omit<SkyInput, 'sunriseH' | 'su
 
 writeFileSync('public/__cels.html', `<!doctype html><meta charset=utf8><title>Cels</title>
 <style>
-body{margin:0;background:#111;font-family:system-ui,sans-serif;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;padding:10px}
+body{margin:0;background:#111;font-family:system-ui,sans-serif;display:grid;grid-template-columns:repeat(auto-fill,${W}px);gap:10px;padding:10px}
+${drift}
 .hero{position:relative;overflow:hidden;border-radius:16px;height:250px}
 .l{position:absolute;inset:0}
 .t{position:absolute;inset:0;background-repeat:repeat-x}

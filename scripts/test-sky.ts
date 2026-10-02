@@ -25,7 +25,7 @@
  * sobre el pitjor cas de debò —el cel més clar de l'any amb el vel de contrast
  * a sobre— i no sobre una captura.
  */
-import { skyStyle, sunAltitude, drawsRain, drawsSnow, type SkyInput } from '../src/lib/sky.ts';
+import { skyStyle, sunAltitude, drawsRain, drawsSnow, type Sky, type SkyInput } from '../src/lib/sky.ts';
 import { oklchToHex } from '../src/lib/scales.ts';
 
 let bad = 0;
@@ -278,7 +278,11 @@ console.log('\nEl text blanc del titular, contra el pitjor cel i el pitjor núvo
     .map(srgbLum);
 
   const SKY_AT = [0, 0.36, 0.72, 1];
-  const VEIL_S = srgbLum(oklchToHex('oklch(19% 0.028 250)'));
+  // El color del vel, llegit del que surt i no copiat: si canvia a `sky.ts`, la
+  // prova ha de mesurar el nou.
+  // El color del vel es llegeix de cada cel, perquè depèn de la llum i de la
+  // tempesta. Va amb alfa —`oklch(36% 0.110 258 / 0.420)`— i aquí es vol sense.
+  const veilOf = (s: Sky) => lumsOf(s.contrastVeil.replace(/\s*\/\s*[\d.]+\)/g, ')'))[0];
 
   const track = (stops: number[][], x: number) => {
     for (let i = 1; i < stops.length; i++) {
@@ -329,6 +333,10 @@ console.log('\nEl text blanc del titular, contra el pitjor cel i el pitjor núvo
           const veil2 = lumsOf(s.veilImage);
           if (sky4.length < 4 || veil2.length < 2) { fail('no s\'han pogut llegir els colors del cel'); continue; }
           const veilO = Number(s.veilOpacity);
+          const VEIL_S = veilOf(s);
+          // Sense color, cada comparació de sota surt amb `NaN` i cap no falla:
+          // la prova donaria «Infinity:1» en verd sense haver mesurat res.
+          if (!Number.isFinite(VEIL_S)) { fail('no s’ha pogut llegir el color del vel de contrast'); continue; }
           const far = whiteThrough(s.cloudFilter);
           const near = whiteThrough(s.cloudFilterNear);
 

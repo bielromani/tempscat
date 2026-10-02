@@ -1302,6 +1302,25 @@ cuota para exactamente la misma información.
   plom i no tapa del tot, la capa tancada deixa juntes, i les textures porten un to blavós de
   dia.
 
+- **Una textura de mida fixa en píxels no és el mateix cel al mòbil.** (3 d'octubre de 2026.)
+  Els núvols eren de 900 i 1.900 px d'ample i cada textura té **un sol forat**: en un telèfon
+  de 375 es veia un tros de banc de núvols continu, sense cel, ni sol ni lluna, i sense que es
+  notés que es movia fins que, al cap d'un minut, passava el forat. Ara la mida va en una
+  variable (`.cel-drift` a `globals.css`), és la meitat sota 640 px, i el primer fotograma
+  posa el forat de cada capa on es dibuixa el sol o la lluna (`--g`, mesurat sobre l'alfa de
+  cada fitxer; `--x`, que el titular calcula de `bodyLeft`). **Si canvies una textura, torna a
+  mesurar `--g`**: amb un forat que no és on diu, el cel tornarà a començar tapat i res no
+  fallarà.
+  Dues coses més que van sortir alhora: la lluna anava **sota les tres capes de núvols** i
+  amb quatre núvols ja no es veia —ara va damunt dels filaments—, i **el vel de contrast era
+  gairebé negre**, així que de dia, que n'ha de portar més de la meitat, el cel quedava de
+  color pissarra. Ara el color del vel depèn del cel: blau de dia, fosc amb poca llum, apagat
+  amb pluja. `test:sky` el llegeix de cada cel — tenir-lo copiat a la prova va fer que, en
+  canviar-lo, la prova donés **«Infinity:1» en verd** sense haver mesurat res.
+  I per mirar-ho: el panell del navegador d'aquest entorn té el moviment reduït activat i no
+  pinta fotogrames, així que la deriva no es veu en viu. Es comprova movent `currentTime`
+  de l'animació a mà i llegint `background-position`.
+
 - **La sensació tèrmica només surt quan diu un número diferent, i això ho ha demanat
   l'usuari.** Al redisseny es va perdre la fila fixa de «Sensació» —la llista de lectures va
   passar a rajoles— i en tornar-la es va posar sempre a la vista; la resposta va ser que, si

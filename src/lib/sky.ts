@@ -85,9 +85,14 @@ type LCH = readonly [number, number, number];
  * llum queia a zero de cop: un vespre ennuvolat sortia **negre** amb claror de
  * sobres per llegir al carrer.
  */
+/*
+ * La nit **no és negra**: és blau marí, i més clara a baix, on la claror dels
+ * pobles i de la lluna rebota a l'aire. Amb 17 % de lluminositat a dalt —com
+ * estava—, una nit amb quatre núvols es veia al mòbil com una pantalla apagada.
+ */
 const SKY_KEYS: ReadonlyArray<readonly [number, readonly [LCH, LCH, LCH, LCH]]> = [
-  [-18, [[17, 0.045, 268], [23, 0.055, 260], [29, 0.05, 252], [34, 0.04, 248]]],
-  [-12, [[20, 0.055, 266], [27, 0.065, 260], [35, 0.065, 254], [43, 0.06, 248]]],
+  [-18, [[21, 0.06, 266], [27, 0.07, 261], [34, 0.07, 255], [40, 0.06, 250]]],
+  [-12, [[23, 0.065, 266], [30, 0.075, 260], [38, 0.075, 254], [46, 0.065, 248]]],
   [-6, [[28, 0.08, 266], [39, 0.09, 262], [52, 0.09, 256], [65, 0.07, 40]]],
   [0, [[36, 0.09, 272], [48, 0.11, 292], [64, 0.14, 22], [78, 0.15, 52]]],
   [6, [[46, 0.13, 262], [62, 0.12, 250], [80, 0.10, 62], [86, 0.13, 56]]],
@@ -306,9 +311,6 @@ export function sunAltitude(hour: number, sunriseH: number, sunsetH: number, lat
   return (Math.asin(Math.max(-1, Math.min(1, sinAlt))) * 180) / Math.PI;
 }
 
-/** El color del vel de contrast, i la seva lluminositat. */
-const VEIL: LCH = [19, 0.028, 250];
-const VEIL_L = srgbLum(VEIL);
 /**
  * El sostre de lluminositat que encara dona 4,5:1 amb text blanc, amb un marge:
  * es calcula per a 4,8:1 perquè entre dues parades el producte de dos
@@ -447,7 +449,15 @@ export function skyStyle(input: SkyInput): Sky {
    */
   const shade = light * cover ** 2 * 0.5;
   const thick = 1 - 0.2 * cover ** 1.5 - (thunder ? 0.14 : 0) - (wet ? Math.min(0.14, intensity / 700) : 0);
-  const bright = mix(0.34, 1.04, light) * thick;
+  /*
+   * De nit, la lluna il·lumina els núvols: amb lluna plena són de color plata
+   * i es destaquen del blau, i sense lluna es queden en gris fosc. Abans el
+   * terra era el mateix tota la nit, i els núvols eren **més foscos que el cel
+   * que tapaven**: el que es veia era una taca negra.
+   */
+  const moonLit = (1 - Math.cos(2 * Math.PI * clamp01(input.moonPhase))) / 2;
+  const nightFloor = mix(0.4, 0.56, moonLit) * (1 - Math.min(0.5, (thunder ? 0.2 : 0) + (wet ? 0.15 : 0)));
+  const bright = mix(nightFloor, 1.04, light) * thick;
   const cloudContrast = 1.02 + cover * 0.08;
   // El to: càlid amb el sol baix, blau a l'ombra i de nit. Guanya el que pesa més.
   const warmAmt = warm * 0.42;
@@ -477,11 +487,18 @@ export function skyStyle(input: SkyInput): Sky {
    * alts i cúmuls alhora, com el de veritat. Passant d'una capa a l'altra per
    * trams, la nuvolositat 0,49 i la 0,51 serien dos cels diferents.
    */
-  const wispO = clamp01(cover * 3.2) * (1 - smoothStep(0.5, 0.92, cover));
-  const farO = clamp01((cover - 0.06) * 2) * (1 - smoothStep(0.72, 1, cover) * 0.55);
-  const nearO = clamp01((cover - 0.24) * 1.9) * (1 - smoothStep(0.78, 1, cover) * 0.6);
+  /*
+   * I **amb mig cel tapat s'ha de veure mig cel.** Les corbes d'abans posaven
+   * els cúmuls de lluny a opacitat plena amb el 56 % i la capa tancada ja
+   * començava al 50 %: un «mig ennuvolat» era, al mòbil, una paret grisa.
+   * Ara cada capa entra més tard i més fluixa, i el gris només és sencer
+   * quan el cel és cobert de veritat.
+   */
+  const wispO = clamp01(cover * 2.6) * (1 - smoothStep(0.5, 0.92, cover)) * 0.85;
+  const farO = clamp01((cover - 0.08) * 1.5) * (1 - smoothStep(0.72, 1, cover) * 0.5);
+  const nearO = clamp01((cover - 0.32) * 1.6) * (1 - smoothStep(0.8, 1, cover) * 0.55);
   // La capa tancada no arriba a opaca: per les juntes es veu el cel de sota.
-  const overO = clamp01((cover - 0.5) * 2.3) * 0.84;
+  const overO = clamp01((cover - 0.62) * 2.4) * 0.84;
 
   /*
    * El vel de nuvolositat: la capa plana i grisa que hi ha sota les textures.
@@ -504,8 +521,8 @@ export function skyStyle(input: SkyInput): Sky {
   const veilChroma = mix(0.03, 0.06, light) * (1 - storm / 24);
   const veilTop: LCH = [Math.max(17, mix(30, 70, light) - 6 * cover - storm), veilChroma, 246];
   const veilBottom: LCH = [Math.max(17, veilTop[0] + mix(2, 9, light)), veilChroma * 0.85, 240];
-  // No tapa del tot: un terç del cel de sota hi passa.
-  const veilO = cover ** 1.9 * 0.66;
+  // No tapa del tot: un terç del cel de sota hi passa. I amb poc núvol, gairebé res.
+  const veilO = cover ** 2.4 * 0.66;
 
   /*
    * ── El vel de contrast ───────────────────────────────────────────────────
@@ -539,6 +556,20 @@ export function skyStyle(input: SkyInput): Sky {
     if (p <= CLOUD_BANDS.over) comp = comp * (1 - overO) + nearL * overO;
     return comp;
   };
+  /*
+   * El color del vel, **que depèn del cel**.
+   *
+   * Era una constant, `19 % 0,028 250`: un blau tan apagat que era gris fosc,
+   * i com que de dia el vel ha de tapar més de la meitat —per si hi ha un
+   * núvol blanc darrere del nom—, un migdia amb quatre núvols es veia al
+   * mòbil d'un gris de pissarra, sense cap rastre de blau. De dia ara és **blau
+   * de cel**: n'ha de portar més per arribar al mateix contrast, però el que
+   * queda darrere del text és blau. Amb poca llum torna a ser el fosc d'abans,
+   * i amb pluja o tempesta s'apaga i perd el color: un xàfec no pot semblar un
+   * dia bo.
+   */
+  const veilColor: LCH = [mix(20, 36, light) - storm * 1.1, mix(0.03, 0.11, light) * (1 - storm / 15), 258];
+  const VEIL_L = srgbLum(veilColor);
   const MIN_VEIL = 0.1;
   const contrastStops = VEIL_AT.map((p): [number, number] => {
     // El pitjor de la franja: aquesta alçada i una mica a banda i banda, perquè
@@ -548,7 +579,7 @@ export function skyStyle(input: SkyInput): Sky {
     return [p, Number(Math.min(0.86, Math.max(MIN_VEIL, need)).toFixed(3))];
   });
   const contrastVeil = `linear-gradient(to bottom, ${contrastStops
-    .map(([p, a]) => `${css(VEIL, a)} ${(p * 100).toFixed(0)}%`).join(', ')})`;
+    .map(([p, a]) => `${css(veilColor, a)} ${(p * 100).toFixed(0)}%`).join(', ')})`;
 
   return {
     isDay,
@@ -571,8 +602,9 @@ export function skyStyle(input: SkyInput): Sky {
     sunRay: `oklch(97% 0.07 88 / ${mix(0.28, 0.05, cover).toFixed(2)})`,
     sunStreak: `oklch(99% 0.04 92 / ${mix(0.42, 0.06, cover).toFixed(2)})`,
 
-    // La lluna, quan el cel ja s'ha enfosquit prou per veure-la.
-    moonVisible: alt < -4 && Math.abs(phase - 0.5) < 0.46 && cover < 0.7,
+    // La lluna, quan el cel ja s'ha enfosquit prou per veure-la. Fins al 85 %
+    // de nuvolositat: va damunt dels filaments i es veu pels forats dels cúmuls.
+    moonVisible: alt < -4 && Math.abs(phase - 0.5) < 0.46 && cover < 0.85,
     moonPath,
 
     // Les primeres estrelles surten al crepuscle nàutic, no a la posta.

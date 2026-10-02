@@ -818,14 +818,52 @@ button:focus-visible,
    l'atribut `style`.
 
    El desplaçament de cada capa de núvols és **exactament l'amplada de la seva
-   tessel·la**: 1280, 900 o 1900 píxels. Amb qualsevol altre número el bucle
-   salta cada volta, i el salt es veu com un tremolor del cel sencer un cop
-   cada tants minuts — prou espaiat perquè ningú no en trobi la causa.        */
+   tessel·la** (`--s`). Amb qualsevol altre número el bucle salta cada volta,
+   i el salt es veu com un tremolor del cel sencer un cop cada tants minuts —
+   prou espaiat perquè ningú no en trobi la causa. Per això les quatre capes
+   fan servir la mateixa animació i la mida va en una variable: la mida i el
+   recorregut no es poden separar.
 
-@keyframes cel-wisps { from { background-position: 0 0; } to { background-position: -1280px 0; } }
-@keyframes cel-far { from { background-position: 0 0; } to { background-position: -900px 0; } }
-@keyframes cel-near { from { background-position: 0 0; } to { background-position: -1900px 0; } }
-@keyframes cel-sheet { from { background-position: 0 0; } to { background-position: -1280px 0; } }
+   ## Al mòbil, les tessel·les més petites
+
+   Eren de mida fixa —1.900 px la de prop— i un telèfon de 375 en veia un
+   cinquè: el banc de cúmuls l'omplia sencer i el cel, el sol i la lluna no
+   sortien mai. I com que el núvol era igual de dalt a baix, **no es veia que
+   es mogués**: calia esperar un minut llarg perquè passés l'únic forat. Sota
+   640 px les tessel·les són a la meitat, i la durada també, perquè els
+   núvols vagin a la mateixa velocitat en píxels.
+
+   ## I comencen amb el forat damunt del sol o de la lluna
+
+   Cada textura té **un** forat, i `--g` diu on és, en fracció de la seva
+   amplada (mesurat sobre el canal alfa: cúmuls 0,635, filaments 0,652,
+   capa 0,663). `--x` és on el titular dibuixa el sol o la lluna, en `vw`
+   perquè el titular va d'una vora a l'altra de la finestra. El primer
+   fotograma posa el forat allà: qui entra veu el cel, i després els núvols
+   hi passen per sobre, que és com es veu que es mouen. Amb el moviment
+   reduït el cel es queda quiet en aquest primer fotograma, que és el bo. */
+
+.cel-drift {
+  background-repeat: repeat-x;
+  background-size: var(--s) 100%;
+  background-position: calc(var(--x, 72vw) - var(--g) * var(--s)) 0;
+  animation: cel-drift var(--d) linear infinite;
+}
+.cel-wisps { --s: 1280px; --g: 0.652; --d: 320s; }
+.cel-far { --s: 900px; --g: 0.635; --d: 210s; }
+.cel-near { --s: 1900px; --g: 0.635; --d: 95s; }
+.cel-sheet { --s: 1280px; --g: 0.663; --d: 150s; }
+@media (max-width: 640px) {
+  .cel-wisps { --s: 760px; --d: 190s; }
+  .cel-far { --s: 560px; --d: 130s; }
+  .cel-near { --s: 900px; --d: 45s; }
+  .cel-sheet { --s: 820px; --d: 96s; }
+}
+
+@keyframes cel-drift {
+  from { background-position: calc(var(--x, 72vw) - var(--g) * var(--s)) 0; }
+  to { background-position: calc(var(--x, 72vw) - var(--g) * var(--s) - var(--s)) 0; }
+}
 
 /* Dues fogonades seguides i una de solitària més tard, com un llamp de debò. */
 @keyframes cel-bolt {

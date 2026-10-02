@@ -145,6 +145,8 @@ export function LocationHero({
          */
         backgroundColor: sky.skyBase,
         backgroundImage: sky.skyGradient,
+        // On cau el sol o la lluna, perquè les capes de núvols hi comencin amb el forat.
+        ['--x' as string]: `${parseFloat(sky.bodyLeft)}vw`,
       }}
     >
       {/* ── El cel ─────────────────────────────────────────────────────── */}
@@ -178,6 +180,29 @@ export function LocationHero({
         />
       )}
 
+      {/* El vel de nuvolositat: el que fa que un cel de pluja sigui fosc. */}
+      <div aria-hidden className="absolute inset-0" style={{ opacity: Number(sky.veilOpacity), backgroundImage: sky.veilImage }} />
+
+      {/* ── Les textures ───────────────────────────────────────────────── */}
+      {/*
+        La mida, la velocitat i el punt de partida de cada capa són a
+        `globals.css` (`.cel-drift`): al mòbil les tessel·les són més petites i
+        totes comencen amb el seu forat damunt del sol o de la lluna.
+      */}
+      {sky.wispOpacity > VISIBLE && (
+        <div aria-hidden className="absolute overflow-hidden" style={{ left: 0, right: 0, top: '-2%', height: '48%', filter: sky.cloudFilter, opacity: sky.wispOpacity }}>
+          <div className="cel-anim cel-drift cel-wisps absolute inset-0" style={{ backgroundImage: 'url(/cel/wisps.webp)' }} />
+        </div>
+      )}
+
+      {/*
+        El sol i la lluna, **damunt dels filaments i sota dels cúmuls**.
+
+        Un vel de cirrus deixa veure la lluna —més esmorteïda, però hi és— i
+        un cúmul no. Dibuixats sota totes les capes, una nit amb quatre núvols
+        no ensenyava ni la silueta de la lluna: tres textures semitransparents
+        una damunt de l'altra ja no deixen passar res.
+      */}
       {sky.moonVisible && (
         <div
           aria-hidden
@@ -234,28 +259,19 @@ export function LocationHero({
         </div>
       )}
 
-      {/* El vel de nuvolositat: el que fa que un cel de pluja sigui fosc. */}
-      <div aria-hidden className="absolute inset-0" style={{ opacity: Number(sky.veilOpacity), backgroundImage: sky.veilImage }} />
-
-      {/* ── Les textures ───────────────────────────────────────────────── */}
-      {sky.wispOpacity > VISIBLE && (
-        <div aria-hidden className="absolute overflow-hidden" style={{ left: 0, right: 0, top: '-2%', height: '48%', filter: sky.cloudFilter, opacity: sky.wispOpacity }}>
-          <div className="cel-anim absolute inset-0" style={{ backgroundImage: 'url(/cel/wisps.webp)', backgroundSize: '1280px 100%', backgroundRepeat: 'repeat-x', animation: 'cel-wisps 320s linear infinite' }} />
-        </div>
-      )}
       {sky.cloudFarOpacity > VISIBLE && (
         <div aria-hidden className="absolute overflow-hidden" style={{ left: 0, right: 0, top: 0, height: '62%', filter: sky.cloudFilter, opacity: sky.cloudFarOpacity }}>
-          <div className="cel-anim absolute inset-0" style={{ backgroundImage: 'url(/cel/cumulus.webp)', backgroundSize: '900px 100%', backgroundRepeat: 'repeat-x', animation: 'cel-far 210s linear infinite' }} />
+          <div className="cel-anim cel-drift cel-far absolute inset-0" style={{ backgroundImage: 'url(/cel/cumulus.webp)' }} />
         </div>
       )}
       {sky.cloudNearOpacity > VISIBLE && (
         <div aria-hidden className="absolute overflow-hidden" style={{ left: 0, right: 0, top: '-12%', height: '82%', filter: sky.cloudFilterNear, opacity: sky.cloudNearOpacity }}>
-          <div className="cel-anim absolute inset-0" style={{ backgroundImage: 'url(/cel/cumulus.webp)', backgroundSize: '1900px 100%', backgroundRepeat: 'repeat-x', animation: 'cel-near 95s linear infinite' }} />
+          <div className="cel-anim cel-drift cel-near absolute inset-0" style={{ backgroundImage: 'url(/cel/cumulus.webp)' }} />
         </div>
       )}
       {sky.overcastOpacity > VISIBLE && (
         <div aria-hidden className="absolute overflow-hidden" style={{ left: 0, right: 0, top: '-8%', height: '80%', filter: sky.cloudFilterNear, opacity: sky.overcastOpacity }}>
-          <div className="cel-anim absolute inset-0" style={{ backgroundImage: 'url(/cel/overcast.webp)', backgroundSize: '1280px 100%', backgroundRepeat: 'repeat-x', animation: 'cel-sheet 150s linear infinite' }} />
+          <div className="cel-anim cel-drift cel-sheet absolute inset-0" style={{ backgroundImage: 'url(/cel/overcast.webp)' }} />
         </div>
       )}
 
