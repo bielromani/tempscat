@@ -1,4 +1,5 @@
 import { WeatherIcon } from './WeatherIcon';
+import { rainWarnedAt, warnedIconLabel, type RainWarning } from '@/lib/narrative';
 import type { DailyPoint, HourlyPoint } from '@/lib/forecast-types';
 
 /**
@@ -28,12 +29,14 @@ type Item =
   | { kind: 'sunrise' | 'sunset'; hm: string };
 
 export function HourStrip({
-  hourly, daily, nowHour, hours = 24,
+  hourly, daily, nowHour, hours = 24, rainWarnings = [],
 }: {
   hourly: HourlyPoint[];
   daily: DailyPoint[];
   nowHour: string;
   hours?: number;
+  /** Amb avís, la icona no diu «feble»: vegeu `warnedIconLabel()`. */
+  rainWarnings?: RainWarning[];
 }) {
   const from = Math.max(0, hourly.findIndex((h) => h.time.slice(0, 13) === nowHour));
   const slice = hourly.slice(from, from + hours);
@@ -59,7 +62,12 @@ export function HourStrip({
           return (
             <li key={h.time}>
               <span className="hs-time tnum">{it.first ? 'Ara' : h.time.slice(11, 13)}</span>
-              <WeatherIcon code={h.weatherCode} isDay={h.isDay} size={36} />
+              <WeatherIcon
+                code={h.weatherCode}
+                isDay={h.isDay}
+                size={36}
+                label={warnedIconLabel(h.weatherCode, rainWarnedAt(rainWarnings, h.time))}
+              />
               <span className="hs-temp tnum">{h.temperature != null ? `${Math.round(h.temperature)}°` : '—'}</span>
               <span className="hs-prob tnum">{p >= 20 ? `${p} %` : ''}</span>
             </li>

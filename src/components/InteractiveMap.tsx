@@ -67,18 +67,15 @@ export interface MapFrame {
   time: number;
   /** L'etiqueta que es llegeix: hora local. */
   label: string;
-  kind: 'past' | 'nowcast' | 'forecast';
+  kind: 'past' | 'nowcast';
   /**
-   * D'on surt la imatge.
+   * El mosaic de tessel·les del marc, amb `{z}`, `{x}` i `{y}`.
    *
-   * Els marcs de radar són un mosaic de tessel·les i porten una plantilla amb
-   * `{z}`, `{x}` i `{y}`; els del camp de predicció són una sola imatge i
-   * porten els quatre cantons en graus. Són dues menes de font de MapLibre i
-   * per això no es poden unificar en una.
+   * Fins al 29 de setembre de 2026 hi havia també marcs del camp de pluja de
+   * la predicció, que eren una sola imatge amb els quatre cantons en graus.
+   * Ja no es fan: tots els marcs són de radar.
    */
-  tiles?: string;
-  image?: string;
-  corners?: [[number, number], [number, number], [number, number], [number, number]];
+  tiles: string;
 }
 
 interface Props {
@@ -86,9 +83,9 @@ interface Props {
   /**
    * Les hores del camp de vent, amb la graella que les descriu.
    *
-   * Són **les mateixes hores** que les de la pluja: les pinta el mateix worker
-   * de la mateixa sèrie. Si un dia no ho fossin, la barra de temps ensenyaria
-   * el vent d'una hora damunt de la pluja d'una altra.
+   * La pàgina en passa una sola, la més propera a l'últim marc del radar: la
+   * barra és només de radar, i cap hora del vent no hi coincideix. Si no troba
+   * el marc, el mapa cau a la primera hora.
    */
   wind: {
     width: number; height: number;
@@ -326,9 +323,7 @@ export default function InteractiveMap({
     if (!m || !f || built.current.has(n)) return;
 
     const id = `marc-${n}`;
-    m.addSource(id, f.tiles
-      ? { type: 'raster', tiles: [f.tiles], tileSize: 512, minzoom: 7, maxzoom: 7 }
-      : { type: 'image', url: f.image, coordinates: f.corners });
+    m.addSource(id, { type: 'raster', tiles: [f.tiles], tileSize: 512, minzoom: 7, maxzoom: 7 });
 
     m.addLayer({
       id,
@@ -706,9 +701,7 @@ export default function InteractiveMap({
               {capa === 'vent' && windShown ? `${windShown.name.slice(8, 10)}:00` : f.label}
             </span>
             <span className="ml-2 text-[var(--muted)]">
-              {capa === 'vent'
-                ? 'predicció'
-                : f.kind === 'forecast' ? 'predicció' : 'radar'}
+              {capa === 'vent' ? 'predicció' : 'radar'}
             </span>
           </p>
         ) : null}

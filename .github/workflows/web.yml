@@ -1,0 +1,47 @@
+name: El web publicat
+
+# Les dues comprovacions que van contra l'HTML servit i no contra el codi:
+# `check:coherence` —que una fitxa no es contradigui— i `check:jsonld` —que cada
+# tipus de pàgina segueixi portant el seu marcatge—. Fins ara es passaven a mà
+# després de cada fusió, i una comprovació que depèn que algú se'n recordi és
+# la que no es passa el dia que fa falta.
+#
+# Dues ocasions, i les dues fan falta:
+#
+#  · **Quan Vercel acaba un desplegament de producció.** Vercel escriu l'estat
+#    del desplegament a GitHub, i això dispara `deployment_status`. És el moment
+#    en què un canvi de marcatge pot haver deixat una regla sense casar.
+#  · **Cada dia.** Les contradiccions surten de les dades, no del codi: la de
+#    Malgrat —«Pluja feble» sota un avís taronja— només es podia veure un dia
+#    d'avisos. Un dia sense desplegament també pot publicar-ne una.
+#
+# Va en un workflow a part, i no dins de `ci.yml`, perquè mira producció: un
+# vermell aquí vol dir «el web publicat diu una cosa que no pot dir», no «aquest
+# canvi no compila».
+on:
+  deployment_status:
+  schedule:
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  publicat:
+    # De tots els estats que Vercel escriu —en cua, construint, error—, només
+    # l'èxit de producció. Els de previsualització estan apagats, però si mai
+    # tornessin no s'han de comprovar contra tempscat.cat.
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      # `success` arriba quan el desplegament està llest, i el domini hi apunta
+      # un instant després. Un minut és de sobres i evita comprovar l'anterior.
+      - if: github.event_name == 'deployment_status'
+        run: sleep 60
+      - run: npm run check:coherence -- https://tempscat.cat --sample=30
+      - if: always()
+        run: npm run check:jsonld

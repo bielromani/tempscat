@@ -47,7 +47,7 @@ export interface ScrubFrame {
   time: number;
   /** Hora local, ja sense la `Z`. */
   local: string;
-  kind: 'past' | 'nowcast' | 'forecast';
+  kind: 'past' | 'nowcast';
 }
 
 const hhmm = (local: string) => local.slice(11, 16);
@@ -105,11 +105,9 @@ export function RadarScrubber({
       <div className="mb-1 flex items-baseline justify-between gap-3">
         <span className="sr-only tnum">{hhmm(frame.local)}</span>
         <span className="text-[12.5px] text-[var(--muted)]">
-          {frame.kind === 'forecast'
-            ? 'predicció, no radar'
-            : frame.kind === 'nowcast'
-              ? 'predicció immediata'
-              : i === lastPast ? 'l’última imatge' : 'observació'}
+          {frame.kind === 'nowcast'
+            ? 'predicció immediata'
+            : i === lastPast ? 'l’última imatge' : 'observació'}
         </span>
       </div>
 

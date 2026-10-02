@@ -54,7 +54,15 @@ import { get as httpsGet } from 'node:https';
  * con su hora bien puesta es infinitamente mejor que un hueco.
  */
 
-const LOCAL = join(process.cwd(), 'data', 'cache');
+/*
+ * El comentari de dins no és decoració. El traçador de fitxers de Next veu un
+ * `join(process.cwd(), …)` i, com que no sap on acabarà, enganxa al
+ * desplegament tot el que hi penja —`data/cache/` sencer, si existeix al
+ * disc del build—. Avui no passa perquè no es versiona, però és l'avís que
+ * sortia a cada build. Amb `turbopackIgnore` no hi entra; i per si de cas,
+ * `outputFileTracingExcludes` de `next.config.ts` el deixa fora també.
+ */
+const LOCAL = join(/* turbopackIgnore: true */ process.cwd(), 'data', 'cache');
 
 /** Base pública del almacén, sin barra final. Vacío = modo disco. */
 const REMOTE = process.env.DATA_BASE_URL?.replace(/\/$/, '') ?? '';

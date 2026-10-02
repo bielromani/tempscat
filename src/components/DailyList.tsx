@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import { WeatherIcon } from './WeatherIcon';
 import { temperatureColor } from '@/lib/scales';
 import { num, relativeDayTiny, dateTiny } from '@/lib/format';
+import { rainWarnedOn, warnedIconLabel, type RainWarning } from '@/lib/narrative';
 import type { DailyPoint } from '@/lib/forecast-types';
 
 /**
@@ -23,7 +24,12 @@ import type { DailyPoint } from '@/lib/forecast-types';
  *  un model determinista comença a tenir poca traça. */
 const CONFIDENT_DAYS = 7;
 
-export function DailyList({ daily, today }: { daily: DailyPoint[]; today: string }) {
+export function DailyList({ daily, today, rainWarnings = [] }: {
+  daily: DailyPoint[];
+  today: string;
+  /** Un dia amb avís de pluja no porta «feble» a la icona: vegeu `warnedIconLabel()`. */
+  rainWarnings?: RainWarning[];
+}) {
   const all = daily.flatMap((d) => [d.tMax, d.tMin]).filter((v): v is number => v != null);
   if (!all.length) return null;
   const lo = Math.min(...all);
@@ -49,7 +55,7 @@ export function DailyList({ daily, today }: { daily: DailyPoint[]; today: string
                     data no afegeix res i ocupa lloc. */}
                 {i > 1 && <span className="dl-date tnum">{dateTiny(d.date)}</span>}
               </span>
-              <WeatherIcon code={d.weatherCode} size={34} />
+              <WeatherIcon code={d.weatherCode} size={34} label={warnedIconLabel(d.weatherCode, rainWarnedOn(rainWarnings, d.date))} />
               <span className="dl-rain tnum">
                 {d.precipProbability >= 20 && <span>{d.precipProbability} %</span>}
                 {!trend && d.precipitation >= 0.5 && <small>{num(d.precipitation, 1)} mm</small>}

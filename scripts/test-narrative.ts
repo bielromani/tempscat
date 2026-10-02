@@ -12,7 +12,8 @@
  * tromba, y el tramo entero se lee igual en los dos casos.
  */
 import {
-  dayNotes, dayParts, narrativeFor, rainIntensity, rainWindows, unratedRainLabel, type RainWarning,
+  dayNotes, dayParts, narrativeFor, rainIntensity, rainWarnedAt, rainWarnedOn, rainWindows, unratedRainLabel,
+  warnedIconLabel, type RainWarning,
 } from '../src/lib/narrative.ts';
 import type { HourlyPoint } from '../src/lib/forecast-types.ts';
 
@@ -226,6 +227,19 @@ const taronja: RainWarning = { level: 'taronja', phenomenon: 'PR', from: `${DAY}
   expect('el titular del cel sap que hi ha avís ara', n?.rainWarnedNow === true, String(n?.rainWarnedNow));
   expect('«Pluja», no «Pluja feble»', unratedRainLabel(61) === 'Pluja' && unratedRainLabel(80) === 'Ruixats', `${unratedRainLabel(61)} · ${unratedRainLabel(80)}`);
   expect('la tempesta no es toca', unratedRainLabel(95) === null, String(unratedRainLabel(95)));
+}
+
+{
+  /*
+   * Les icones hora a hora i dels catorze dies: el text de la taula ja deia
+   * «Pluja», però el `alt` de la icona seguia dient «Pluja feble».
+   */
+  const at = (h: string) => warnedIconLabel(61, rainWarnedAt([taronja], `${DAY}T${h}`));
+  expect('icona d’una hora amb avís: «Pluja»', at('12') === 'Pluja', String(at('12')));
+  expect('icona d’una hora sense avís: la de sempre', at('20') === null, String(at('20')));
+  expect('icona del dia amb avís: «Pluja»', warnedIconLabel(61, rainWarnedOn([taronja], DAY)) === 'Pluja', DAY);
+  const next = new Date(Date.parse(`${DAY}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  expect('icona de l’endemà, sense avís', warnedIconLabel(61, rainWarnedOn([taronja], next)) === null, next);
 }
 
 {

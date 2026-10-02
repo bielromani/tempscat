@@ -98,6 +98,18 @@ const nextConfig: NextConfig = {
   },
 
   /*
+   * I a l'inrevés: les dades vives no viatgen mai dins d'un desplegament.
+   *
+   * `cache-store.ts` construeix la ruta de `data/cache/` en temps d'execució, i
+   * el traçador, que no la pot resoldre, avisava que podia enganxar-ho tot.
+   * En producció es llegeix del magatzem; si un dia el directori existís al
+   * disc del build, pujaria centenars de megues que ningú no llegiria.
+   */
+  outputFileTracingExcludes: {
+    '/**': ['./data/cache/**', './data/raw/**'],
+  },
+
+  /*
    * El relleu no canvia mai, i porta la versio al nom.
    *
    * Next serveix `public/` amb `max-age=0, must-revalidate`, que per a una
