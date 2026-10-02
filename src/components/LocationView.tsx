@@ -26,7 +26,7 @@ import { gaugeName } from '@/lib/water';
 import {
   aComarca, aName, comarcaName, deComarca, deName, int, monthName, num, signed,
 } from '@/lib/format';
-import { localNowHour, localToday } from '@/lib/weather';
+import { localClockHour, localNowHour, localToday } from '@/lib/weather';
 import type {
   AirQuality as AirQualityData, Astronomy, CurrentConditions, LocationForecast,
   StationHistory, WarningGroup,
@@ -205,6 +205,7 @@ export function LocationView({
         current={current}
         nowHour={nowHour}
         today={forecast?.daily[0] ?? null}
+        hour={localClockHour()}
         sunriseH={decimalHour(astro?.sunrise)}
         sunsetH={decimalHour(astro?.sunset)}
         moonPhase={astro?.moon.phase ?? 0}

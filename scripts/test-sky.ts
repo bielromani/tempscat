@@ -25,7 +25,7 @@
  * sobre el pitjor cas de debò —el cel més clar de l'any amb el vel de contrast
  * a sobre— i no sobre una captura.
  */
-import { skyStyle, drawsRain, drawsSnow, type SkyInput } from '../src/lib/sky.ts';
+import { skyStyle, sunAltitude, drawsRain, drawsSnow, type SkyInput } from '../src/lib/sky.ts';
 import { oklchToHex } from '../src/lib/scales.ts';
 
 let bad = 0;
@@ -157,7 +157,6 @@ console.log('\nLa nit és més fosca que el dia, mesurat en píxels:\n');
   /** La lluminositat mitjana de les quatre parades, de 0 a 1. */
   const lum = (gradient: string): number => {
     const stops = [...gradient.matchAll(/oklch\([^)]+\)/g)].map((m) => m[0]);
-    // Amb `color-mix` es queda amb el primer dels dos, que és el que pesa més.
     const hexes = stops.map(oklchToHex).filter((h) => /^#[0-9a-f]{6}$/.test(h));
     const rel = hexes.map((h) => {
       const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
@@ -178,27 +177,91 @@ console.log('\nLa nit és més fosca que el dia, mesurat en píxels:\n');
   else ok(`el cel de les 3 de la matinada està al ${(nit * 100).toFixed(0)} % de lluminositat`);
 }
 
+// ── L'altura del sol ───────────────────────────────────────────────────────
+console.log('\nL\'altura del sol, en graus:\n');
+{
+  const LAT = 41.7;
+  const casos: Array<[string, number, { sunriseH: number; sunsetH: number }, number, number]> = [
+    ['migdia solar de juliol', 13.83, ESTIU, 66, 74],
+    ['a la sortida', ESTIU.sunriseH, ESTIU, -1, 1],
+    ['a la posta', ESTIU.sunsetH, ESTIU, -1, 1],
+    ['mitja hora després de la posta', ESTIU.sunsetH + 0.5, ESTIU, -7, -3],
+    ['mitjanit de juliol', 1.83, ESTIU, -28, -22],
+    ['migdia solar de desembre', 12.83, HIVERN, 22, 28],
+    ['mitjanit de desembre', 0.83, HIVERN, -75, -68],
+  ];
+  for (const [label, hour, dia, lo, hi] of casos) {
+    const a = sunAltitude(hour, dia.sunriseH, dia.sunsetH, LAT);
+    if (a < lo || a > hi) fail(`${label}: ${a.toFixed(1)}° i hauria de ser entre ${lo}° i ${hi}°`);
+    else ok(`${label} → ${a.toFixed(1)}°`);
+  }
+}
+
+// ── La llum: un cel tapat no és negre ──────────────────────────────────────
+console.log('\nLa llum dels núvols i del crepuscle:\n');
+{
+  const brightnessOf = (filter: string) => Number(filter.match(/brightness\(([\d.]+)\)/)?.[1] ?? 1);
+
+  /*
+   * El que va fallar a producció: un lloc ennuvolat, amb claror de sobres, i
+   * el titular **negre**. La claror de les textures es restava en comptes de
+   * multiplicar-se, i amb poc sol donava zero.
+   */
+  let darkest = Infinity;
+  let darkestAt = '';
+  for (let h = 0; h < 24; h += 0.25) {
+    for (const cc of [60, 80, 100]) {
+      for (const code of [3, 63, 95]) {
+        const s = sky({ hour: h, cloudCover: cc, code, precipitationMm: code === 3 ? 0 : 6 });
+        const b = brightnessOf(s.cloudFilterNear);
+        if (b < darkest) { darkest = b; darkestAt = `${h.toFixed(2)} h, ${cc} %, codi ${code}`; }
+      }
+    }
+  }
+  if (darkest < 0.12) fail(`hi ha un núvol a ${darkest.toFixed(3)} de claror (${darkestAt}): és negre`);
+  else ok(`el núvol més fosc de tot el dia i tot el temps està a ${darkest.toFixed(2)} (${darkestAt})`);
+
+  // Tapat al migdia: gris clar. Més clar que tapat al capvespre, i aquest més que de nit.
+  const migdia = brightnessOf(sky({ hour: 14, cloudCover: 100, code: 3 }).cloudFilter);
+  const posta = brightnessOf(sky({ hour: ESTIU.sunsetH, cloudCover: 100, code: 3 }).cloudFilter);
+  const civil = brightnessOf(sky({ hour: ESTIU.sunsetH + 0.5, cloudCover: 100, code: 3 }).cloudFilter);
+  const nit = brightnessOf(sky({ hour: 2, cloudCover: 100, code: 3 }).cloudFilter);
+  if (!(migdia > posta && posta > civil && civil > nit)) {
+    fail(`tapat: migdia ${migdia} · posta ${posta} · +30 min ${civil} · nit ${nit}: no van en ordre`);
+  } else ok(`cel tapat: migdia ${migdia} > posta ${posta} > +30 min ${civil} > nit ${nit}`);
+  if (migdia < 0.75) fail(`un cel tapat al migdia hauria de ser gris clar i està a ${migdia}`);
+  if (posta < 0.45) fail(`a la posta encara hi ha més de la meitat de la claror, i el núvol està a ${posta}`);
+
+  // Mitja hora després de la posta no és de nit.
+  const dusk = sky({ hour: ESTIU.sunsetH + 0.5, cloudCover: 0 });
+  if (dusk.light < 0.15) fail(`mitja hora després de la posta la claror és ${dusk.light}: massa fosc`);
+  else ok(`mitja hora després de la posta: sol a ${dusk.sunAltitude}°, claror ${dusk.light}`);
+  if (Number(dusk.starOpacity) > 0.05) fail('mitja hora després de la posta encara no es veuen estrelles');
+  const late = sky({ hour: ESTIU.sunsetH + 2.2, cloudCover: 0 });
+  if (late.light > 0.02) fail(`dues hores després de la posta la claror és ${late.light}: hauria de ser nit`);
+  else ok(`dues hores després de la posta: sol a ${late.sunAltitude}°, nit tancada`);
+
+  // La boira tapa el cel.
+  if (sky({ code: 45, cloudCover: 10 }).cover < 0.9) fail('amb boira el cel no es veu');
+  else ok('boira amb 10 % de núvols → es dibuixa tapat');
+}
+
 // ── El contrast del titular ────────────────────────────────────────────────
 console.log('\nEl text blanc del titular, contra el pitjor cel i el pitjor núvol:\n');
 {
   /*
-   * Això es fa en dues meitats perquè hi ha dues coses darrere del text.
-   *
-   * **El cel** es pot calcular exactament: és un degradat de quatre parades i
-   * el vel n'és un altre, i els dos s'han d'emparellar **per alçada**. La
-   * primera versió d'aquesta comprovació agafava la parada més clara de tot el
-   * degradat i la posava sota la franja més transparent del vel, i deia que el
-   * titular quedava a 1,83:1. Aquella combinació no existeix enlloc: el cel
-   * s'aclareix cap avall i el vel s'enfosqueix cap avall, justament perquè es
-   * compensin.
+   * Es torna a compondre el titular **capa a capa i en l'ordre en què les
+   * dibuixa el component**: el cel, el vel de nuvolositat, les quatre textures
+   * i, a sobre, el vel de contrast. Tot llegit del que `skyStyle()` retorna
+   * —les cadenes de CSS que van a la pàgina—, no dels seus números interns:
+   * si un dia el càlcul del vel i el que es pinta se separen, es veu aquí.
    *
    * **Els núvols** són textures que es mouen, i el que hi ha darrere d'una
    * lletra concreta depèn del fotograma. Però el pitjor cas sí que es pot
    * mesurar: les tres imatges arriben a **blanc pur amb alfa sencera** —mesurat
    * amb sharp damunt dels fitxers que se serveixen—, així que el pitjor que pot
    * passar darrere d'una lletra és un núvol opac i blanc amb el filtre de
-   * lluminositat de l'hora a sobre. Això es compon capa per capa, en l'ordre en
-   * què les dibuixa el component.
+   * lluminositat de l'hora a sobre.
    *
    * La composició es fa en sRGB i no en lineal perquè és on la fa el navegador;
    * la conversió a lineal es deixa per al final, que és el que demana WCAG.
@@ -209,24 +272,13 @@ console.log('\nEl text blanc del titular, contra el pitjor cel i el pitjor núvo
       + 0.0722 * parseInt(hex.slice(5, 7), 16)) / 255;
   const toLinear = (v: number) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  const lumsOf = (cssText: string) => [...cssText.matchAll(/oklch\([^)/]+\)/g)]
+    .map((m) => oklchToHex(m[0]))
+    .filter((x) => /^#[0-9a-f]{6}$/.test(x))
+    .map(srgbLum);
 
   const SKY_AT = [0, 0.36, 0.72, 1];
-  /** Les parades del vel, de baix a dalt (`to top`), amb la seva alfa. */
-  const VEIL = [[0, 0.74], [0.4, 0.66], [0.72, 0.56], [0.92, 0.5], [1, 0.22]];
   const VEIL_S = srgbLum(oklchToHex('oklch(19% 0.028 250)'));
-
-  /*
-   * El segon vel, el de dalt, va en **píxels** i el seu valor el calcula
-   * `sky.ts` a partir de la cobertura i el brillo reals d'aquell moment: un dia
-   * serè en porta zero. Per comprovar-lo cal una alçada de titular, i com que depèn del
-   * contingut es prova tot el rang que s'ha mesurat al navegador —d'un titular
-   * curt sense estació a un de llarg amb nota de correcció—. Com més alt és el
-   * titular, més amunt queda el text en tant per cent i més fluix hi és el
-   * primer vel: el pitjor cas és el titular **més alt**, i per això es
-   * comproven tots.
-   */
-  const topStops = (a: number) => [[0, a], [150, a * 0.87], [300, 0]];
-  const HEIGHTS = [340, 420, 500, 560, 640];
 
   const track = (stops: number[][], x: number) => {
     for (let i = 1; i < stops.length; i++) {
@@ -238,79 +290,83 @@ console.log('\nEl text blanc del titular, contra el pitjor cel i el pitjor núvo
     return stops.at(-1)![1];
   };
 
-  /** El `brightness(x)` que porta una cadena de filtre. */
-  const brightnessOf = (filter: string) => Number(filter.match(/brightness\(([\d.]+)\)/)?.[1] ?? 1);
+  /** El que deixa passar el filtre d'una textura blanca: `brightness()` i `contrast()`. */
+  const whiteThrough = (filter: string) => {
+    const b = Math.min(1, Number(filter.match(/brightness\(([\d.]+)\)/)?.[1] ?? 1));
+    const c = Number(filter.match(/contrast\(([\d.]+)\)/)?.[1] ?? 1);
+    return Math.max(0, Math.min(1, (b - 0.5) * c + 0.5));
+  };
 
   /*
-   * D'on cap avall hi ha text, **mesurat al navegador i no suposat**.
-   *
-   * Des del 2 %: des que la barra del web va **dins** del titular, el text que
-   * surt més amunt són els seus enllaços, i són de 14 píxels. La ruta de
-   * navegació ve just a sota, al 6 %, amb 12.
-   *
-   * La primera versió donava per fet que no hi havia text fins al 22 % i deia
-   * que tot passava; el que passava és que no s'estava mirant on hi ha el text.
+   * Fins on arriba cada textura, en fracció de l'alçada: són les caixes del
+   * component (`top` i `height` de cada capa a `LocationHero.tsx`).
+   */
+  const BANDS = { wisp: 0.46, far: 0.62, near: 0.70, over: 0.72 };
+
+  /*
+   * D'on cap avall hi ha text, **mesurat al navegador i no suposat**: des del
+   * 2 %, que és on cauen els enllaços de la barra del web d'ençà que va dins
+   * del titular.
    */
   const TEXT_FROM = 0.02;
 
-  let worstSky = Infinity;
-  let worstSkyAt = '';
-  let worstAll = Infinity;
-  let worstAllAt = '';
+  let worst = Infinity;
+  let worstAt = '';
+  let lightest = 0;
+  let lightestAt = '';
 
-  for (let h = 0; h < 24; h += 0.25) {
-    for (const cc of [0, 20, 40, 60, 80, 100]) {
-      const s = skyStyle({
-        hour: h, ...ESTIU, cloudCover: cc, code: 0, precipitationMm: 0, moonPhase: 0.5,
-      });
-      const stops = [...s.skyGradient.matchAll(/oklch\([^)]+\)/g)]
-        .map((m) => oklchToHex(m[0]))
-        .filter((x) => /^#[0-9a-f]{6}$/.test(x))
-        .map(srgbLum);
-      if (stops.length < 4) continue;
-      const sky4 = stops.slice(0, 4);
+  for (const dia of [ESTIU, HIVERN]) {
+    for (let h = 0; h < 24; h += 0.25) {
+      for (const cc of [0, 10, 20, 40, 60, 80, 100]) {
+        for (const [code, mm] of [[0, 0], [3, 0], [63, 4], [95, 9], [45, 0]] as const) {
+          const s = skyStyle({ hour: h, ...dia, cloudCover: cc, code, precipitationMm: mm, moonPhase: 0.5 });
+          const sky4 = lumsOf(s.skyGradient);
+          const veil2 = lumsOf(s.veilImage);
+          if (sky4.length < 4 || veil2.length < 2) { fail('no s\'han pogut llegir els colors del cel'); continue; }
+          const veilO = Number(s.veilOpacity);
+          const far = whiteThrough(s.cloudFilter);
+          const near = whiteThrough(s.cloudFilterNear);
 
-      const bFar = Math.min(1, brightnessOf(s.cloudFilter));
-      const bNear = Math.min(1, brightnessOf(s.cloudFilterNear));
-      /** Les quatre capes, en l'ordre en què es dibuixen, amb la seva lluminositat. */
-      const clouds: Array<[number, number]> = [
-        [s.wispOpacity, bFar],
-        [s.cloudFarOpacity, bFar],
-        [s.cloudNearOpacity, bNear],
-        [s.overcastOpacity, bNear],
-      ];
+          for (let p = TEXT_FROM; p <= 1.0001; p += 0.01) {
+            let comp = track(SKY_AT.map((a, i) => [a, sky4[i]]), Math.min(1, p));
+            comp = comp * (1 - veilO) + lerp(veil2[0], veil2[1], p) * veilO;
+            if (p <= BANDS.wisp) comp = comp * (1 - s.wispOpacity) + far * s.wispOpacity;
+            if (p <= BANDS.far) comp = comp * (1 - s.cloudFarOpacity) + far * s.cloudFarOpacity;
+            if (p <= BANDS.near) comp = comp * (1 - s.cloudNearOpacity) + near * s.cloudNearOpacity;
+            if (p <= BANDS.over) comp = comp * (1 - s.overcastOpacity) + near * s.overcastOpacity;
 
-      for (const H of HEIGHTS) {
-        for (let p = TEXT_FROM; p <= 1.0001; p += 0.02) {
-          const alpha = track(VEIL, 1 - Math.min(1, p));
-          const top = track(topStops(s.scrimTop), Math.min(300, p * H));
-          const skyS = track(SKY_AT.map((a, i) => [a, sky4[i]]), Math.min(1, p));
-
-          // Només el cel.
-          const bs1 = skyS * (1 - alpha) + VEIL_S * alpha;
-          const behindSky = bs1 * (1 - top) + VEIL_S * top;
-          const rSky = 1.05 / (toLinear(behindSky) + 0.05);
-          if (rSky < worstSky) { worstSky = rSky; worstSkyAt = `${h.toFixed(2)} h, ${cc} %, al ${(p * 100).toFixed(0)} % d'un titular de ${H} px`; }
-
-          // I amb el pitjor núvol possible a sobre: blanc opac, capa a capa.
-          let comp = skyS;
-          for (const [op, b] of clouds) comp = comp * (1 - op) + b * op;
-          const ba1 = comp * (1 - alpha) + VEIL_S * alpha;
-          const behindAll = ba1 * (1 - top) + VEIL_S * top;
-          const rAll = 1.05 / (toLinear(behindAll) + 0.05);
-          if (rAll < worstAll) { worstAll = rAll; worstAllAt = `${h.toFixed(2)} h, ${cc} % de núvols, al ${(p * 100).toFixed(0)} % d'un titular de ${H} px`; }
+            const alpha = track(s.contrastStops, Math.min(1, p));
+            const behind = comp * (1 - alpha) + VEIL_S * alpha;
+            const ratio = 1.05 / (toLinear(behind) + 0.05);
+            const at = `${h.toFixed(2)} h, ${cc} % de núvols, codi ${code}, al ${(p * 100).toFixed(0)} % de l'alçada`;
+            if (ratio < worst) { worst = ratio; worstAt = at; }
+            if (behind > lightest) { lightest = behind; lightestAt = at; }
+          }
         }
       }
     }
   }
 
-  console.log(`  només cel   · pitjor punt: ${worstSkyAt}`);
-  if (worstSky < 4.5) fail(`damunt del cel el text queda a ${worstSky.toFixed(2)}:1`);
-  else ok(`damunt del cel: ${worstSky.toFixed(2)}:1`);
+  console.log(`  pitjor punt · ${worstAt}`);
+  if (worst < 4.5) fail(`el text queda a ${worst.toFixed(2)}:1, i el mínim és 4,5:1`);
+  else ok(`el text blanc, damunt del pitjor cel i el pitjor núvol: ${worst.toFixed(2)}:1`);
+  ok(`el fons més clar que queda darrere del text: ${(lightest * 100).toFixed(0)} % (${lightestAt})`);
 
-  console.log(`  amb núvol   · pitjor punt: ${worstAllAt}`);
-  if (worstAll < 4.5) fail(`damunt d'un núvol blanc opac el text queda a ${worstAll.toFixed(2)}:1, i el mínim és 4,5:1`);
-  else ok(`damunt d'un núvol blanc opac: ${worstAll.toFixed(2)}:1`);
+  /*
+   * I l'altra meitat, que és la raó del canvi: **el vel no tapa el que ja és
+   * fosc**. De nit n'hi ha prou amb un fil, i un capvespre tapat no n'ha de
+   * portar més que un migdia.
+   */
+  const maxAlpha = (over: Partial<SkyInput>) => Math.max(...sky(over).contrastStops.map(([, a]) => a));
+  const nitSerena = maxAlpha({ hour: 2, cloudCover: 0 });
+  const nitTapada = maxAlpha({ hour: 2, cloudCover: 100, code: 3 });
+  const migdia = maxAlpha({ hour: 14, cloudCover: 40, code: 2 });
+  if (nitSerena > 0.15) fail(`de nit el vel arriba a ${nitSerena}: tapa un cel que ja és fosc`);
+  else ok(`nit serena: el vel no passa de ${nitSerena}`);
+  if (nitTapada > 0.15) fail(`una nit tapada porta un vel de ${nitTapada}: sortiria negra`);
+  else ok(`nit tapada: el vel no passa de ${nitTapada}`);
+  if (migdia < 0.4) fail(`un migdia amb núvols blancs només porta ${migdia} de vel`);
+  else ok(`migdia amb núvols: el vel arriba a ${migdia}`);
 }
 
 if (bad) {

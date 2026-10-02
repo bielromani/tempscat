@@ -71,6 +71,18 @@ export function localNowHour(): string {
     .slice(0, 13);
 }
 
+/**
+ * L'hora local d'ara, decimal i amb els minuts: les 19.55 són 19,92.
+ *
+ * Per al cel del titular, que es calcula amb l'altura del sol: quinze graus
+ * per hora, així que l'hora en punt no n'hi ha prou a prop de la posta.
+ */
+export function localClockHour(): number {
+  const hm = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).slice(11, 16);
+  const [h, m] = hm.split(':').map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h + m / 60 : 12;
+}
+
 /** El día de hoy en hora local de Madrid, 2026-08-31. */
 export function localToday(): string {
   return localNowHour().slice(0, 10);
