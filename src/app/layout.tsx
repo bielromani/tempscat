@@ -5,8 +5,8 @@ import { Logo } from '@/components/Logo';
 import { IS_PRODUCTION, SITE_URL } from '@/lib/site';
 import { PRIMARY, SECTIONS } from '@/lib/nav';
 import { SiteSearch } from '@/components/SiteSearch';
+import { MenuClose } from '@/components/MenuClose';
 import './globals.css';
-import { External } from '@/components/External';
 import { JsonLd, graph } from '@/components/JsonLd';
 import { absolute } from '@/lib/site';
 
@@ -85,7 +85,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           * del cel del lloc (ver `body:has([data-hero])` a `globals.css`).
           */}
         <header className="site-top">
-          <div className="mx-auto flex h-16 max-w-[70rem] items-center gap-x-6 px-5">
+          {/* `relative`: al mòbil, els suggeriments del cercador es col·loquen contra aquesta fila. */}
+          <div className="relative mx-auto flex h-16 max-w-[70rem] items-center gap-x-6 px-5">
             <Link href="/" aria-label="tempscat, a la portada" className="shrink-0 no-underline">
               <Logo id="top" />
             </Link>
@@ -111,10 +112,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SiteSearch />
 
             {/*
-              El menú, **sense una línia de JavaScript**: és un `<details>` i
-              l'obre el navegador. Només al mòbil, on els enllaços no hi caben.
+              El menú és un `<details>` i l'obre el navegador. Només al mòbil, on
+              els enllaços no hi caben. `MenuClose` el tanca en clicar un enllaç:
+              la navegació no recarrega la capçalera i, sense ell, es quedava
+              obert damunt de la pàgina nova.
             */}
             <details className="menu relative shrink-0 md:hidden">
+              <MenuClose />
               <summary
                 aria-label="Menú"
                 className="flex size-10 cursor-pointer items-center justify-center rounded-full text-[var(--ink)]"
@@ -219,15 +223,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/dades" className="text-[var(--ink-2)] no-underline hover:underline">
                   Tot es pot llegir en JSON i en CSV
                 </Link>
-                . El codi és a{' '}
-                <External
-                  href="https://github.com/bielromani/tempscat"
-                  className="text-[var(--ink-2)] no-underline hover:underline"
-                >
-                  GitHub
-                </External>
                 . La predicció és orientativa: per a decisions de seguretat,
                 consulteu el Meteocat i Protecció Civil.
+              </p>
+
+              <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+                <Link href="/avis-legal" className="text-[var(--ink-2)] no-underline hover:underline">Avís legal</Link>
+                <Link href="/privacitat" className="text-[var(--ink-2)] no-underline hover:underline">Privadesa i galetes</Link>
               </p>
             </div>
           </div>

@@ -9,9 +9,10 @@ import { KIND_LABEL, type SearchSuggestion } from '@/lib/search-kinds';
  *
  * ## L'únic `'use client'` que va a **totes** les pàgines, i per què
  *
- * N'hi ha tres al projecte —aquest, `RadarScrubber` a `/radar` i
- * `InteractiveMap` a `/mapa/interactiu`— però els altres dos viuen a la seva
- * adreça i no els carrega ningú més. Aquest sí: és a la capçalera.
+ * N'hi ha quatre al projecte —aquest, `RadarScrubber` a `/radar`,
+ * `InteractiveMap` a `/mapa/interactiu` i `MenuClose`, que només tanca el menú
+ * del mòbil—. Els dos del mig viuen a la seva adreça i no els carrega ningú
+ * més. Aquest sí: és a la capçalera.
  *
  * La regla del web és que les pàgines territorials no porten JavaScript propi,
  * i segueix sent certa: això no en canvia ni una. El que sí que canvia és que
@@ -156,7 +157,16 @@ export function SiteSearch({
   const header = variant === 'header';
 
   return (
-    <div ref={box} className={header ? 'relative ms-auto flex min-w-0 flex-1 items-center justify-end' : 'relative max-w-xl'}>
+    /*
+     * Al mòbil la caixa **no** és el punt de referència de la llista.
+     *
+     * La llista s'alineava per la dreta amb el quadre i feia 335 px; el quadre
+     * acaba abans del botó del menú, a 291 px, així que la llista començava 44 px
+     * fora de la pantalla per l'esquerra i els resultats sortien tallats. Sota
+     * `sm` la caixa és `static` i la llista es col·loca contra la fila de la
+     * capçalera (que és `relative`), d'una vora a l'altra amb el mateix marge.
+     */
+    <div ref={box} className={header ? 'relative ms-auto flex min-w-0 flex-1 items-center justify-end max-sm:static' : 'relative max-w-xl'}>
       <form
         action="/cerca"
         method="get"
@@ -211,7 +221,7 @@ export function SiteSearch({
           id={listId}
           role="listbox"
           aria-label="Suggeriments"
-          className="absolute end-0 top-full z-50 mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-2.5rem))] list-none overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]"
+          className={`absolute end-0 top-full z-50 mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-2.5rem))] list-none overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]${header ? ' max-sm:inset-x-4 max-sm:mt-0 max-sm:w-auto' : ''}`}
         >
           {hits.map((h, i) => (
             <li
