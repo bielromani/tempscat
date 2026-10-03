@@ -81,9 +81,9 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 **29 MB** —eran 1.326 páginas y 956 MB—, porque las veinte rutas con datos de ahora se
 generan en cada petición (`LIVE_PAGES` en `next.config.ts`) y el CDN de Vercel las guarda
 cinco minutos. El CI entero, build incluido, tarda alrededor de un minuto. La ficha de Malgrat
-pesa unos 590 kB sin comprimir, y más de la mitad sigue siendo la carga RSC. Hay **tres**
-`'use client'` (`SiteSearch`, `RadarScrubber`, `InteractiveMap`) y ninguno en una ficha de
-lugar.
+pesa unos 590 kB sin comprimir, y más de la mitad sigue siendo la carga RSC. Hay **cuatro**
+`'use client'` (`SiteSearch`, `RadarScrubber`, `InteractiveMap` y `MenuClose`) y ninguno
+cambia una ficha de lugar.
 
 ---
 
@@ -303,6 +303,17 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    un ajuste de la cuenta y lo hace el usuario) · el sol del titular puede quedar detrás del
    final de un nombre largo en el móvil, y el velo de contraste no lo cuenta — va con el
    punto 4, porque se mira en el mismo sitio.
+
+**El móvil y las páginas legales (4 de octubre, rama `mobil-i-legal`).**
+- Las sugerencias del buscador salían 44 px fuera de la pantalla por la izquierda: se
+  alineaban por la derecha con el cuadro, que acaba antes del botón del menú. Por debajo de
+  `sm` se colocan contra la fila de la cabecera, de borde a borde con 16 px de margen.
+- El menú del móvil se quedaba abierto al pulsar un enlace: `MenuClose` lo cierra.
+- Fuera el enlace a GitHub del pie. El repositorio sigue público: hacerlo privado dejaría la
+  ingesta sin minutos de Actions (~450 al día).
+- `/avis-legal` y `/privacitat`, enlazadas desde el pie. El titular es Biel Romaní, con su
+  correo (`src/lib/owner.ts`). Sin NIF ni dirección: solo los exige la LSSI con actividad
+  económica, y el día que haya publicidad hay que añadirlos.
 
 **El cielo en el móvil (3 de octubre, rama `cel-mobil`).** El usuario lo vio en el teléfono:
 una noche con pocas nubes salía negra y sin luna, y de día las nubes lo tapaban todo y no se
@@ -597,7 +608,7 @@ npm run build    # desde el ordenador del trabajo falla por el proxy al leer R2;
 |---|---|
 | `forecast.json` de 42 MB en el bundle de Vercel | **Resuelto.** 43 trozos por comarca; el mayor, 2 MB |
 | Discrepancia de hidratación en producción por un `<title>` de SVG con tres hijos | **Resuelto** en `WindRose`. React descartaba el HTML servido y rehacía el árbol en el navegador, sin dar ningún error visible |
-| 167 KB de runtime de React y Next en cada página territorial | **Sin resolver, y probablemente sin arreglo dentro del App Router.** No lo pone ningún componente nuestro: los tres `'use client'` que hay no están en las fichas. Medido en `AGENTS.md` |
+| 167 KB de runtime de React y Next en cada página territorial | **Sin resolver, y probablemente sin arreglo dentro del App Router.** No lo pone ningún componente nuestro: los `'use client'` que hay no tocan el contenido de las fichas. Medido en `AGENTS.md` |
 | Una ficha pesa 570–700 kB y cada despliegue ~1 GB | **Abierto.** El 62 % es carga RSC. Ver «Lo que falta», 4 y 5 |
 | La ficha se sirve caducada a quien la visita | **Abierto.** Es cómo funciona ISR con pocas visitas por página. Ver «Lo que falta», 4 |
 | El plan gratuito de Vercel no cabe | **Mitigado** con el plan Pro y el arreglo del 20 de septiembre. Decisión el ~20 de octubre |

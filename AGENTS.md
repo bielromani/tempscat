@@ -310,7 +310,7 @@ páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado.
 **Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
 interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí.
 
-Hay **tres** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
+Hay **cuatro** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
 
 - `SiteSearch.tsx`, el cuadro de búsqueda de la cabecera. Va en todas las páginas, así que el
   coste se midió antes de ponerlo: **1.546 bytes en gzip**, la diferencia de sumar todos los
@@ -324,9 +324,13 @@ Hay **tres** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
   servidor de 10 kB que enlazan las 43 comarcas, y las dos páginas se enlazan entre sí
   diciendo qué es la otra. MapLibre son unos 200 kB y entra con un `import()` dentro
   del efecto: ninguna otra ruta lo toca.
+- `MenuClose.tsx`, dentro del menú del móvil (4 de octubre de 2026). No renderiza nada:
+  cierra el `<details>` al pulsar un enlace, fuera o Escape. Sin él el menú se quedaba
+  abierto encima de la página nueva, porque `<Link>` navega sin recargar la cabecera. Lo
+  abre siempre el navegador, así que sin JavaScript el menú funciona igual que antes.
 
-Los dos son mejoras **encima** de algo que ya funcionaba sin JavaScript, y los dos lo dejan
-funcionando: el buscador sigue siendo un `<form method="get">` y el radar sigue siendo los
+El buscador, el radar y el menú son mejoras **encima** de algo que ya funcionaba sin
+JavaScript, y lo dejan funcionando: el buscador sigue siendo un `<form method="get">` y el radar sigue siendo los
 radios ocultos con sus reglas de `:checked`. La barra del radar no dibuja ni oculta ningún
 fotograma — solo marca el radio que toca —, y las pastillas con la hora de cada instante siguen
 en el HTML: se ocultan con una clase que el componente pone **al montarse**, así que sin
@@ -1328,6 +1332,17 @@ cuota para exactamente la misma información.
   `DetailTiles`): es compara **arrodonida**, que és com s'escriu, i si coincideix no hi ha ni
   frase ni rajola. `apparentTemperature()` només se separa de la temperatura amb calor humida
   o amb fred i vent, així que la majoria de dies no surt, i no és cap error.
+
+- **La política de privadesa diu «cap galeta», i ha de seguir sent veritat.** `/privacitat`
+  (4 d'octubre de 2026) afirma que el lloc no posa galetes, no fa servir `localStorage`, no
+  té analítica i que el navegador no demana res a cap tercer — comprovat contra producció:
+  cap `Set-Cookie`. Per això no hi ha bàner. **El dia que entri qualsevol d'aquestes coses**
+  —una analítica, una font de Google, el `localStorage` del tauler— la pàgina s'ha de
+  canviar en el mateix PR, i potser cal un bàner. El titular i el correu són a
+  `src/lib/owner.ts`, que llegeixen `/avis-legal` i `/privacitat`.
+  I el repositori **segueix sent públic, sense enlaç des del web**: la ingesta gasta uns
+  450 minuts d'Actions al dia (mesurat el 4 d'octubre), que en un repositori públic són
+  gratis i en un de privat superarien de molt els 2.000 del mes.
 
 - **El rètol del text de l'AEMET és «Text oficial de l'AEMET», sense dir-ne l'idioma.** També
   demanat per l'usuari. Surt a tres llocs —la targeta (`WarningBanner`), el feed Atom i el

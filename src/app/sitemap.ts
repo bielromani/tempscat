@@ -70,6 +70,8 @@ async function thematic(lastModified: Date): Promise<MetadataRoute.Sitemap> {
     ['/estat', 0.4],
     ['/cameres', 0.7],
     ['/senderisme/rutes', 0.7],
+    ['/avis-legal', 0.1],
+    ['/privacitat', 0.1],
   ];
 
   return [
