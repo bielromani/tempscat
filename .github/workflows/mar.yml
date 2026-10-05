@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   ingesta:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       # Secret o variable, indiferent. Els dos calaixos de GitHub s'assemblen

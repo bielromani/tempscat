@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
   tessel-les:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Baixar 2.315 tessel·les, reescriure-les i pujar-les.
     timeout-minutes: 60
     env:

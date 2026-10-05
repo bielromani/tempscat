@@ -33,7 +33,7 @@ jobs:
       github.event_name != 'deployment_status' ||
       (github.event.deployment_status.state == 'success' &&
        github.event.deployment.environment == 'Production')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5

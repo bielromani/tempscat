@@ -6,6 +6,7 @@ import {
 } from '../../src/lib/shards.ts';
 import { fetchWithRetry } from './http.ts';
 import { ROOT } from './paths.ts';
+import { instantOf } from '../../src/lib/format.ts';
 
 /**
  * Almacén de datos vivos (observación, predicción, avisos).
@@ -315,6 +316,13 @@ export interface FreshnessEntry {
   lastError?: string;
   lastErrorAt?: string;
   /**
+   * Quan es va avisar per última vegada que aquesta font ha caducat, o sigui
+   * l'última vegada que un run va sortir en vermell per ella. Serveix perquè
+   * una caiguda llarga faci **un** correu i no un per volta: vegeu
+   * `reportFailure()`.
+   */
+  alertedAt?: string;
+  /**
    * Quan caduca la clau d'aquesta font, si en té una que caduqui.
    *
    * Es registra aquí perquè el panell públic ho pugui dir sense que la data
@@ -383,6 +391,7 @@ export function recordFreshness(entry: FreshnessEntry): void {
     lastDataTs: failed && entry.lastDataTs == null ? (previous?.lastDataTs ?? null) : entry.lastDataTs,
     lastError: entry.error ?? previous?.lastError,
     lastErrorAt: entry.error ? new Date().toISOString() : previous?.lastErrorAt,
+    alertedAt: entry.alertedAt ?? previous?.alertedAt,
   };
 
   writeFileSync(dest, JSON.stringify(stored, null, 1), 'utf8');
@@ -413,6 +422,65 @@ export async function reportFailure(entry: FreshnessEntry, err: unknown): Promis
     console.error(`I el motiu no s'ha pogut publicar: ${String(pubErr).slice(0, 160)}`);
   }
   console.error(err);
+
+  /*
+   * ## Un correu quan la dada caduca, i no un per volta
+   *
+   * Un run en vermell és un correu de GitHub, i el 5 d'octubre de 2026 en van
+   * arribar set en una tarda per coses que no eren del web: el portal de la
+   * Generalitat tornant `HTTP 500` cinc cops seguits, i una incidència de
+   * GitHub que no va donar màquina a cap feina. Deu minuts després tot anava
+   * bé. L'usuari ho va dir clar: correu **només quan sigui important**.
+   *
+   * I important vol dir **que el que veu el lector ja és vell**. Mentre la
+   * instantània anterior estigui dins del seu límit, el web segueix ensenyant
+   * una dada bona amb la seva hora, i aquest error queda escrit a `/estat`
+   * («últim ensopec») sense fer soroll. Quan la dada passa del límit
+   * —`stalenessLimitMin`, el mateix que posa `/estat` en vermell, i comptat
+   * igual, contra la data de la dada amb `instantOf`— el run surt en vermell.
+   *
+   * **Una sola vegada.** La caiguda de Vall de Núria del 4 d'octubre va fer
+   * vint-i-nou correus, un per hora; passat el límit, aquesta regla sola
+   * n'hauria fet vint-i-sis. Ara es desa `alertedAt` i es torna a avisar
+   * només si entremig la font ha anat bé —és una caiguda nova— o si fa més de
+   * 24 hores del primer avís —segueix caiguda, i val la pena recordar-ho—.
+   *
+   * Si no se sap de quan és l'última dada —un worker que no ha anat bé mai, o
+   * que peta abans de `syncState()`—, vermell: no saber-ho és el cas perillós.
+   */
+  const stored = readFreshness()[entry.source];
+  const lastTs = stored?.lastDataTs ?? stored?.lastSuccessAt ?? '';
+  const ageMin = lastTs ? (Date.now() - instantOf(lastTs)) / 60_000 : Infinity;
+  if (Number.isFinite(ageMin) && ageMin <= entry.stalenessLimitMin) {
+    console.error(
+      `
+Fallada tolerada: la dada publicada té ${Math.round(ageMin)} min i el límit `
+      + `d'aquesta font és de ${entry.stalenessLimitMin}. Queda escrit a /estat; `
+      + 'el run no surt en vermell fins que la dada caduqui.',
+    );
+    process.exit(0);
+  }
+
+  const alerted = stored?.alertedAt ? Date.parse(stored.alertedAt) : NaN;
+  const recoveredSince = stored?.lastSuccessAt && Number.isFinite(alerted)
+    ? Date.parse(stored.lastSuccessAt) > alerted
+    : true;
+  const remind = Number.isFinite(alerted) && Date.now() - alerted > 24 * 3600_000;
+  if (Number.isFinite(alerted) && !recoveredSince && !remind) {
+    console.error(
+      `
+La dada fa ${Math.round(ageMin)} min que va caducar i ja es va avisar el `
+      + `${stored!.alertedAt}. No es torna a avisar fins que la font torni o passin 24 hores.`,
+    );
+    process.exit(0);
+  }
+
+  recordFreshness({ ...entry, error: String(err).slice(0, 300), alertedAt: new Date().toISOString() });
+  try {
+    await publish();
+  } catch {
+    // Si no es pot desar l'avís, el pitjor que passa és un correu de més.
+  }
   process.exit(1);
 }
 

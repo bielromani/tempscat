@@ -18,7 +18,7 @@ on:
 
 jobs:
   claus:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
       AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
