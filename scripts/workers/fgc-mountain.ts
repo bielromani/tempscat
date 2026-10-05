@@ -371,6 +371,8 @@ async function main() {
 
   // ── Les estacions i el seu comunicat ─────────────────────────────────────
   const resorts: Resort[] = [];
+  /** Les estacions on FGC es contradiu sobre si són obertes. Surten, però sense dir-ho. */
+  const unconfirmed: string[] = [];
 
   for (const r of states) {
     if (!r.coordenades) {
@@ -380,24 +382,32 @@ async function main() {
 
     /*
      * `is_open` i `open_status` diuen el mateix dues vegades, i per tant poden
-     * arribar a dir coses diferents. Si algun dia passa, val més plantar-se que
-     * triar-ne un a l'atzar: obert i tancat no és un matís.
+     * arribar a dir coses diferents. Quan passa, **no es tria cap dels dos**:
+     * obert i tancat no és un matís, i l'estació surt «sense confirmar» —que no
+     * compta com a oberta— fins que FGC els torni a fer coincidir.
+     *
+     * El que no es fa és plantar el worker sencer, que és el que feia abans.
+     * El 4 d'octubre de 2026 FGC va publicar tot el dia Vall de Núria amb
+     * `is_open=1` i `open_status="closed"`: vint-i-nou execucions en vermell,
+     * un correu cada hora, i **cap de les sis estacions** actualitzada durant
+     * vint-i-quatre hores per una contradicció d'una sola. Llançar es reserva
+     * per quan el que es publicaria seria fals; aquí n'hi ha prou de no dir-ho.
      */
     let label = '';
-    let openValue = '';
+    let openValue: string | null = null;
     try {
       const parsed = JSON.parse(r.open_status) as { value: string; literals: Record<string, string> };
       openValue = parsed.value;
       label = parsed.literals?.ca ?? '';
     } catch {
-      throw new Error(`${r.name_bu}: open_status no és JSON vàlid (${r.open_status.slice(0, 60)}).`);
+      console.log(`  ⚠ ${r.name_bu}: open_status no és JSON vàlid (${r.open_status.slice(0, 60)}). Sense confirmar.`);
     }
-    const open = r.is_open === 1;
-    if ((openValue === 'open') !== open) {
-      throw new Error(
-        `${r.name_bu}: is_open=${r.is_open} i open_status="${openValue}" no diuen el mateix.`,
-      );
+    const agree = openValue != null && (openValue === 'open') === (r.is_open === 1);
+    if (openValue != null && !agree) {
+      console.log(`  ⚠ ${r.name_bu}: is_open=${r.is_open} i open_status="${openValue}" no diuen el mateix. Sense confirmar.`);
     }
+    if (!agree) unconfirmed.push(r.name_bu.trim());
+    const open = agree && r.is_open === 1;
 
     // «No aplica» és el que tria l'estació quan no hi ha neu. No és una qualitat.
     const quality = r.snow_quality_literals_ca?.trim();
@@ -411,7 +421,7 @@ async function main() {
       lon: r.coordenades.lon,
       nearest: nearestOf(r.coordenades.lat, r.coordenades.lon),
       open,
-      openLabel: label || (open ? 'Obert' : 'Tancat'),
+      openLabel: !agree ? 'Sense confirmar' : label || (open ? 'Obert' : 'Tancat'),
       reportAt: reportInstant(r.last_update).toISOString(),
       snowMinCm: numberOf(r.snow_min_snow),
       snowMaxCm: numberOf(r.snow_max_snow),
@@ -533,6 +543,9 @@ async function main() {
   // ── Informe ──────────────────────────────────────────────────────────────
   const fresh = resorts.filter((r) => Date.now() - Date.parse(r.reportAt) < 24 * 3600_000);
   console.log(`Estacions: ${resorts.length} · ${fresh.length} amb comunicat de menys de 24 h`);
+  if (unconfirmed.length) {
+    console.log(`  Sense confirmar si són obertes: ${unconfirmed.join(', ')}`);
+  }
   for (const r of resorts) {
     const age = Math.round((Date.now() - Date.parse(r.reportAt)) / 3600_000);
     const snow = r.snowMaxCm != null ? `neu ${r.snowMinCm}–${r.snowMaxCm} cm` : 'sense neu comunicada';

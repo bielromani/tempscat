@@ -890,6 +890,13 @@ cuota para exactamente la misma información.
   veure perquè un comunicat de les 09:13 «+00:00» quedava mitja hora al futur. Llegit com a UTC,
   tot comunicat sembla dues hores més fresc del que és. El worker el reinterpreta i comprova que
   cap no quedi al futur, que és l'única direcció on l'error es veu.
+- **`is_open` i `open_status` d'FGC es poden contradir, i una estació no pot aturar les
+  altres cinc.** El 4 d'octubre de 2026 Vall de Núria va sortir tot el dia amb `is_open=1` i
+  `open_status="closed"`. El worker llançava davant de qualsevol contradicció, així que hi va
+  haver 29 execucions en vermell —un correu cada hora— i **cap** estació es va actualitzar en
+  vint-i-quatre hores. Ara aquella estació surt «Sense confirmar» (no compta com a oberta) i
+  la resta es publica. Llançar és per quan el que es publicaria seria fals per a tothom, com
+  els comunicats que quedarien al futur si FGC canviés de conveni horari.
 - **D'`FGC meteo-tim` no es publica ni la pressió ni la velocitat del vent, i és a posta.** La
   pressió ve reduïda al nivell del mar —per tant no diu res que la XEMA no digui millor— i una
   de les nou dona 1.056,6 hPa, que no existeix. El `VentActual` de Boí Taüll va estar clavat a
