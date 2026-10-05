@@ -94,7 +94,8 @@ const nextConfig: NextConfig = {
    * dentro de un despliegue: se leen del almacén de objetos.
    */
   outputFileTracingIncludes: {
-    '/**': ['./data/build/**'],
+    // I la lletra de les imatges per compartir, que `src/lib/og.tsx` llegeix igual: en temps d'execució.
+    '/**': ['./data/build/**', './assets/fonts/**'],
   },
 
   /*

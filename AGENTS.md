@@ -310,7 +310,7 @@ páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado.
 **Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
 interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí.
 
-Hay **cuatro** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
+Hay **cinco** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
 
 - `SiteSearch.tsx`, el cuadro de búsqueda de la cabecera. Va en todas las páginas, así que el
   coste se midió antes de ponerlo: **1.546 bytes en gzip**, la diferencia de sumar todos los
@@ -328,6 +328,9 @@ Hay **cuatro** `'use client'` en el proyecto, y ninguno cambia una ficha de luga
   cierra el `<details>` al pulsar un enlace, fuera o Escape. Sin él el menú se quedaba
   abierto encima de la página nueva, porque `<Link>` navega sin recargar la cabecera. Lo
   abre siempre el navegador, así que sin JavaScript el menú funciona igual que antes.
+- `src/app/error.tsx`, la página de cuando algo falla en el servidor (5 de octubre de 2026).
+  Next obliga a que una frontera de errores sea de cliente. No tiene estado ni efectos, y solo
+  actúa cuando hay un error.
 
 El buscador, el radar y el menú son mejoras **encima** de algo que ya funcionaba sin
 JavaScript, y lo dejan funcionando: el buscador sigue siendo un `<form method="get">` y el radar sigue siendo los
@@ -1350,6 +1353,16 @@ cuota para exactamente la misma información.
   I el repositori **segueix sent públic, sense enlaç des del web**: la ingesta gasta uns
   450 minuts d'Actions al dia (mesurat el 4 d'octubre), que en un repositori públic són
   gratis i en un de privat superarien de molt els 2.000 del mes.
+
+- **La imatge per compartir no porta cap número d'ara, i és a posta.** (5 d'octubre de
+  2026.) WhatsApp i les xarxes desen la imatge el primer cop i la tornen a ensenyar durant
+  dies: un «23°» sortiria a les tres de la matinada sense hora ni estació. Porta el nom, la
+  comarca i l'altitud (`src/lib/og.tsx`, i un `opengraph-image.tsx` a l'arrel, a la comarca, al
+  municipi i al nucli — **el nucli necessita el seu**, o heretaria el del municipi i Lilla es
+  compartiria amb el nom de Montblanc). Satori no entén OKLCH ni WOFF2: els colors van en hex
+  i la lletra, en WOFF a `assets/fonts/`, que `outputFileTracingIncludes` fa viatjar.
+  El manifest (`manifest.ts`) deixa afegir el web a la pantalla d'inici **sense service
+  worker**: tot el que s'ensenya és d'ara i no hi ha res a desar.
 
 - **El rètol del text de l'AEMET és «Text oficial de l'AEMET», sense dir-ne l'idioma.** També
   demanat per l'usuari. Surt a tres llocs —la targeta (`WarningBanner`), el feed Atom i el

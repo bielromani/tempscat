@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import { Inter } from 'next/font/google';
 import { Logo } from '@/components/Logo';
@@ -20,6 +20,12 @@ import { absolute } from '@/lib/site';
  */
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
+/**
+ * El color de la barra del navegador al mòbil, i el de l'app afegida a la
+ * pantalla d'inici: `--paper` en hex, el mateix que porta `manifest.ts`.
+ */
+export const viewport: Viewport = { themeColor: '#0e1e35' };
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -30,6 +36,8 @@ export const metadata: Metadata = {
     'El temps a cada poble de Catalunya: l’observació de l’estació més propera, corregida per l’altitud, i la predicció hora a hora i a catorze dies.',
   alternates: { canonical: '/' },
   openGraph: { locale: 'ca_ES', type: 'website', siteName: 'tempscat' },
+  // La imatge gran en compartir: la fan els `opengraph-image.tsx` (vegeu `src/lib/og.tsx`).
+  twitter: { card: 'summary_large_image' },
   /*
    * Un preview no se indexa. Vercel da una URL nueva a cada despliegue de
    * prueba, y sin esto acabarías con cuarenta copias del sitio compitiendo

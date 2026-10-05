@@ -81,3 +81,16 @@ export const SECTIONS: NavGroup[] = [
     ],
   },
 ];
+
+/** Les quatre capitals, amb el seu camí. Les fa servir la portada per a les targetes d'ara. */
+export const CAPITAL_PATHS = ['/barcelones/barcelona', '/girones/girona', '/segria/lleida', '/tarragones/tarragona'];
+
+/**
+ * Els accessos ràpids de sota el cercador: les capitals i dos llocs de muntanya.
+ * Surten a la portada i a la pàgina de «no trobada», que han de dir el mateix.
+ */
+export const QUICK_PLACES = [
+  ...CAPITAL_PATHS,
+  '/val-d-aran/vielha-e-mijaran/vielha',
+  '/cerdanya/puigcerda',
+];

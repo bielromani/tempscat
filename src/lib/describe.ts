@@ -150,6 +150,6 @@ export function describeMunicipi(
 export function metaDescription(loc: Location, comarca: Comarca): string {
   const alt = loc.altitud != null ? ` (${loc.altitud} m)` : '';
   const base = `El temps ${aName(loc.nom)}, ${comarca.nom}${alt}: predicció hora a hora, `
-    + `7 dies i observació real de l'estació més propera.`;
+    + `14 dies i observació real de l'estació més propera.`;
   return base.length > 158 ? `${base.slice(0, 155)}…` : base;
 }
