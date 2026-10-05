@@ -162,7 +162,8 @@ de escrituras de ISR (techo 200.000) y 90 GB de almacenamiento de despliegues (t
 causa: **casi cada visita regeneraba la ficha entera**, porque con 4.293 fichas y menos de una
 visita diaria por ficha ISR no amortiza nada. Se arregló con:
 - el plan **Pro**;
-- un `robots.txt` que bloquea 26 recolectores de IA y de SEO y las 6 rutas de imágenes;
+- un `robots.txt` que bloquea 26 recolectores de IA y de SEO y las 6 rutas de imágenes (el 5 de
+  octubre se abrió a los asistentes que citan: ver «Robots de IA» arriba);
 - `revalidate` de 1800 a **3600** en las fichas: la XEMA llega con 45-65 min de retraso, así
   que media hora reconstruía la página dos veces con la misma lectura.
 
@@ -303,6 +304,13 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    un ajuste de la cuenta y lo hace el usuario) · el sol del titular puede quedar detrás del
    final de un nombre largo en el móvil, y el velo de contraste no lo cuenta — va con el
    punto 4, porque se mira en el mismo sitio.
+
+**Robots de IA (5 de octubre, rama `robots-ia`).** `robots.txt` deja entrar a los asistentes que
+leen la página en el momento de la pregunta y la citan con enlace —búsqueda de ChatGPT, Claude,
+Perplexity— y a `Google-Extended` y `Applebot-Extended`, que son las señales para Gemini y
+Apple Intelligence (Google no separa entrenamiento y respuesta). Siguen bloqueados los de
+entrenamiento masivo (`GPTBot`, `ClaudeBot`, `CCBot`, `Bytespider`…) y los de SEO. **Pendiente:
+mirar Vercel → Usage hacia el 12 de octubre**; si uno se dispara, se le cierra a él.
 
 **Compartir y errores (5 de octubre, rama `compartir-i-errors`).**
 - Imagen para compartir en cada ficha, comarca y en el resto del web: nombre, comarca y

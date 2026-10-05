@@ -12,23 +12,61 @@ import { IS_PRODUCTION, absolute } from '@/lib/site';
  * Son 29,19 GB contra un techo de 10, y las cuentas salen a 28 kB por lectura,
  * que es justo lo que pesa una ficha comprimida.
  *
- * Ninguno de estos agentes manda un lector. Los buscadores de verdad
- * —Googlebot, Bingbot, Applebot, el de Yandex— no están en la lista y siguen
- * entrando por todas partes: el proyecto existe para que alguien encuentre «el
- * temps a Lilla» escribiéndolo en un buscador.
+ * Ninguno de estos agentes manda un lector: se llevan el sitio entero para
+ * entrenar, y un modelo entrenado con la predicción de hoy «sabrá» dentro de
+ * un mes un tiempo que ya pasó. Los buscadores de verdad —Googlebot, Bingbot,
+ * Applebot, el de Yandex— no están en la lista y siguen entrando por todas
+ * partes.
  *
- * `Google-Extended` y `Applebot-Extended` no son rastreadores: son la señal de
- * exclusión del entrenamiento de Gemini y de Apple Intelligence. Bloquearlas no
- * quita ni una visita de Google ni de Siri, y va aquí por lo mismo que lo demás.
+ * `Claude-Web` y `anthropic-ai` se quedan aunque Anthropic ya no los use: un
+ * nombre retirado en la lista no cuesta nada, y alguien puede seguir
+ * rastreando con él.
  */
 const MODEL_CRAWLERS = [
-  'GPTBot', 'OAI-SearchBot', 'ChatGPT-User',
+  'GPTBot',
   'ClaudeBot', 'Claude-Web', 'anthropic-ai',
-  'CCBot', 'Bytespider', 'PerplexityBot', 'Perplexity-User',
+  'CCBot', 'Bytespider',
   'Amazonbot', 'meta-externalagent', 'FacebookBot',
   'Diffbot', 'Omgilibot', 'Timpibot', 'YouBot', 'ImagesiftBot',
+];
+
+/*
+ * Los que **sí** pueden entrar, y por qué no están arriba.
+ *
+ * Hasta el 5 de octubre de 2026 estaban todos en la lista de bloqueo. Lo que
+ * los separa es que estos leen la página **en el momento** en que alguien
+ * pregunta —«quin temps fa a Lilla»— y contestan citándola con un enlace: es
+ * el mismo trato que un buscador, y es justo lo que este sitio quiere. Con el
+ * plan Pro y la caché de cinco minutos del CDN, además, una visita de robot ya
+ * no regenera nada que no se regenerara igual.
+ *
+ *  · `OAI-SearchBot` y `ChatGPT-User`: la búsqueda de ChatGPT y las páginas que
+ *    abre cuando un usuario se lo pide.
+ *  · `Claude-SearchBot` y `Claude-User`: lo mismo para Claude.
+ *  · `PerplexityBot` y `Perplexity-User`.
+ *  · `Google-Extended` y `Applebot-Extended` no son rastreadores: son la señal
+ *    con la que Google y Apple deciden si pueden usar lo que ya han rastreado
+ *    Googlebot y Applebot en Gemini y en Apple Intelligence. Google no separa
+ *    el entrenamiento de la respuesta —es una sola señal para las dos cosas—,
+ *    así que para salir en Gemini hay que aceptar las dos. Los datos ya son
+ *    CC BY, y se aceptan.
+ *
+ * No van en ninguna regla propia: caen en la de `*`, que les deja leerlo todo
+ * menos las rutas de imágenes. Se listan aquí para que nadie los vuelva a
+ * meter arriba creyendo que se han olvidado, y si alguien lo hace, el build
+ * falla. Si el consumo de Vercel subiera
+ * por alguno de ellos, se le vuelve a cerrar a él, no a todos.
+ */
+const ANSWER_AGENTS = [
+  'OAI-SearchBot', 'ChatGPT-User',
+  'Claude-SearchBot', 'Claude-User',
+  'PerplexityBot', 'Perplexity-User',
   'Google-Extended', 'Applebot-Extended',
 ];
+
+// Si uno acaba en las dos listas, el bloqueo gana sin que nadie lo vea: que pete el build.
+const both = ANSWER_AGENTS.filter((a) => MODEL_CRAWLERS.includes(a));
+if (both.length) throw new Error(`robots.ts: ${both.join(', ')} és alhora a ANSWER_AGENTS i a MODEL_CRAWLERS.`);
 
 /*
  * Los agentes de SEO, por el mismo motivo y sin el matiz.
@@ -75,8 +113,9 @@ const ASSET_PATHS = ['/radar/t/', '/base/', '/relleu/', '/camp/', '/vent/', '/ca
  *
  * ## Lo que sí
  *
- * Las seis rutas de imágenes, para todo el mundo, y los recolectores de modelos
- * y de SEO, enteros. El porqué de cada grupo está en su constante.
+ * Las seis rutas de imágenes, para todo el mundo, y los recolectores de
+ * entrenamiento y de SEO, enteros. Los asistentes que citan (`ANSWER_AGENTS`)
+ * entran como cualquier buscador. El porqué de cada grupo está en su constante.
  *
  * ## Y lo que esto no es
  *
