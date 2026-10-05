@@ -305,6 +305,11 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    final de un nombre largo en el móvil, y el velo de contraste no lo cuenta — va con el
    punto 4, porque se mira en el mismo sitio.
 
+**Menos correos (5 de octubre, rama `menys-correus`).** Un worker que falla ya no sale en rojo
+—y no manda correo— mientras el dato publicado esté dentro de su límite; cuando caduca, avisa
+una vez y recuerda cada 24 horas. Las máquinas, fijadas en `ubuntu-24.04`. **Pendiente**:
+probar Ubuntu 26 a propósito en una rama antes de mover la versión.
+
 **Robots de IA (5 de octubre, rama `robots-ia`).** `robots.txt` deja entrar a los asistentes que
 leen la página en el momento de la pregunta y la citan con enlace —búsqueda de ChatGPT, Claude,
 Perplexity— y a `Google-Extended` y `Applebot-Extended`, que son las señales para Gemini y

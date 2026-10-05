@@ -893,6 +893,19 @@ cuota para exactamente la misma información.
   veure perquè un comunicat de les 09:13 «+00:00» quedava mitja hora al futur. Llegit com a UTC,
   tot comunicat sembla dues hores més fresc del que és. El worker el reinterpreta i comprova que
   cap no quedi al futur, que és l'única direcció on l'error es veu.
+- **Un run en vermell és un correu, i només n'ha de sortir quan la dada ja és vella.** (5
+  d'octubre de 2026.) Aquell dia van arribar set «Run failed» en una tarda —el portal de la
+  Generalitat tornant `HTTP 500` i una incidència de GitHub sense màquines— i deu minuts després
+  tot anava bé. Ara `reportFailure()` (a `scripts/lib/store.ts`) surt **en verd** mentre la dada
+  publicada estigui dins del seu `stalenessLimitMin` —el mateix límit, comptat igual, que posa
+  `/estat` en vermell—, i l'error queda a `/estat` com a «últim ensopec». Quan caduca, surt en
+  vermell **un cop**: es desa `alertedAt` i no es torna a avisar fins que la font hagi anat bé
+  entremig o passin 24 hores. Si no se sap de quan és la dada, vermell.
+  El que **no** es pot evitar: quan GitHub no dona màquina («The job was not acquired by
+  Runner»), el nostre codi ni arrenca i el run surt vermell igualment. I les màquines van
+  fixades a `ubuntu-24.04` i no a `ubuntu-latest`, que el 19 d'octubre de 2026 passa a Ubuntu
+  26: un canvi de sistema s'ha de provar a posta, no trobar-se'l un matí amb tots els workers
+  en vermell.
 - **`is_open` i `open_status` d'FGC es poden contradir, i una estació no pot aturar les
   altres cinc.** El 4 d'octubre de 2026 Vall de Núria va sortir tot el dia amb `is_open=1` i
   `open_status="closed"`. El worker llançava davant de qualsevol contradicció, així que hi va
