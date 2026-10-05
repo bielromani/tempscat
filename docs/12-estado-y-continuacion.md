@@ -81,9 +81,9 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 **29 MB** —eran 1.326 páginas y 956 MB—, porque las veinte rutas con datos de ahora se
 generan en cada petición (`LIVE_PAGES` en `next.config.ts`) y el CDN de Vercel las guarda
 cinco minutos. El CI entero, build incluido, tarda alrededor de un minuto. La ficha de Malgrat
-pesa unos 590 kB sin comprimir, y más de la mitad sigue siendo la carga RSC. Hay **cuatro**
-`'use client'` (`SiteSearch`, `RadarScrubber`, `InteractiveMap` y `MenuClose`) y ninguno
-cambia una ficha de lugar.
+pesa unos 590 kB sin comprimir, y más de la mitad sigue siendo la carga RSC. Hay **cinco**
+`'use client'` (`SiteSearch`, `RadarScrubber`, `InteractiveMap`, `MenuClose` y la página de
+error) y ninguno cambia una ficha de lugar.
 
 ---
 
@@ -303,6 +303,14 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    un ajuste de la cuenta y lo hace el usuario) · el sol del titular puede quedar detrás del
    final de un nombre largo en el móvil, y el velo de contraste no lo cuenta — va con el
    punto 4, porque se mira en el mismo sitio.
+
+**Compartir y errores (5 de octubre, rama `compartir-i-errors`).**
+- Imagen para compartir en cada ficha, comarca y en el resto del web: nombre, comarca y
+  altitud, sin ningún número de ahora (`src/lib/og.tsx`). Antes no salía ninguna.
+- Página de «no trobada» en catalán, con el buscador y los accesos rápidos; antes era la de
+  Next en inglés. Y página de error del servidor (`error.tsx`).
+- `manifest.ts` e iconos en `public/icons/app/`: el web se puede añadir a la pantalla de inicio.
+- La descripción de las fichas decía «7 dies»; la predicción es de 14.
 
 **El móvil y las páginas legales (4 de octubre, rama `mobil-i-legal`).**
 - Las sugerencias del buscador salían 44 px fuera de la pantalla por la izquierda: se

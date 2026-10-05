@@ -9,9 +9,9 @@ import { KIND_LABEL, type SearchSuggestion } from '@/lib/search-kinds';
  *
  * ## L'únic `'use client'` que va a **totes** les pàgines, i per què
  *
- * N'hi ha quatre al projecte —aquest, `RadarScrubber` a `/radar`,
- * `InteractiveMap` a `/mapa/interactiu` i `MenuClose`, que només tanca el menú
- * del mòbil—. Els dos del mig viuen a la seva adreça i no els carrega ningú
+ * N'hi ha cinc al projecte —aquest, `RadarScrubber` a `/radar`,
+ * `InteractiveMap` a `/mapa/interactiu`, `MenuClose`, que només tanca el menú
+ * del mòbil, i la pàgina d'error—. Els dos del mig viuen a la seva adreça i no els carrega ningú
  * més. Aquest sí: és a la capçalera.
  *
  * La regla del web és que les pàgines territorials no porten JavaScript propi,

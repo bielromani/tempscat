@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { SECTIONS } from '@/lib/nav';
+import { CAPITAL_PATHS as CAPITALS, QUICK_PLACES as QUICK, SECTIONS } from '@/lib/nav';
 import { allComarques, buildSummary, locationByPath, type Location } from '@/lib/territory';
 import { rankings } from '@/lib/rankings';
 import {
@@ -27,16 +27,8 @@ export const dynamic = 'force-dynamic';
  * com està la seva ciutat o la més propera. Són quatre trossos de predicció
  * —el Barcelonès en fa 77 kB i els altres tres, entre 570 i 770— que es llegeixen
  * al servidor com a molt un cop cada deu minuts: al lector no li arriba res
- * d'això, només les quatre targetes.
+ * d'això, només les quatre targetes. La llista és `CAPITAL_PATHS`, a `nav.ts`.
  */
-const CAPITALS = ['/barcelones/barcelona', '/girones/girona', '/segria/lleida', '/tarragones/tarragona'];
-
-/** Els accessos ràpids de sota el cercador: les capitals i dos llocs de muntanya. */
-const QUICK = [
-  ...CAPITALS,
-  '/val-d-aran/vielha-e-mijaran/vielha',
-  '/cerdanya/puigcerda',
-];
 
 async function capitalNow(loc: Location) {
   const [current, forecast] = await Promise.all([currentFor(loc), forecastFor(loc, 48)]);
