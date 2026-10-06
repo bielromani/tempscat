@@ -19,7 +19,7 @@ import { comarcaName, hourSpoken, num } from '@/lib/format';
  * **No carrega ni una línia de JavaScript.** És un SVG del servidor amb 43
  * camins, i cada comarca és un enllaç a la seva pàgina. El mapa que sí que en
  * necessita —radar, temperatura municipi a municipi, vent— és a
- * `/mapa/interactiu`.
+ * `/radar`, que des del 6 d'octubre de 2026 és el mapa que es mou.
  *
  * ## Per què el mapa no va a la capçalera
  *
@@ -149,7 +149,7 @@ export default async function MapaPage() {
           />
         </div>
         <p className="card-foot">
-          <Link href="/mapa/interactiu">
+          <Link href="/radar">
             El mapa que es pot moure, amb el radar i cada municipi ›
           </Link>
         </p>

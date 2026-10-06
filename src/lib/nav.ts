@@ -48,7 +48,7 @@ export const SECTIONS: NavGroup[] = [
   {
     title: 'El temps ara',
     links: [
-      { href: '/radar', label: 'Radar de pluja', blurb: 'On plou ara i on ha plogut les dues últimes hores.', icon: 'rain' },
+      { href: '/radar', label: 'Radar de pluja', blurb: 'On plou ara, en un mapa que s’amplia, amb la temperatura i el vent.', icon: 'rain' },
       { href: '/mapa', label: 'Mapa de temperatures', blurb: 'La temperatura de cada comarca, ara mateix.', icon: 'thermometer' },
       { href: '/avisos', label: 'Avisos oficials', blurb: 'Els avisos vigents de l’AEMET.', icon: 'code-orange' },
       { href: '/ranquings', label: 'Rànquings del dia', blurb: 'On fa més calor, més fred i on ha plogut més.', icon: 'clear-day' },

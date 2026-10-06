@@ -273,7 +273,7 @@ export default async function AvisosPage() {
               una zona en té més d&apos;un, el color és el del més alt.
             </p>
             <p className="card-foot">
-              <Link href="/mapa/interactiu">Al mapa que es pot moure, amb el radar ›</Link>
+              <Link href="/radar?avisos=1">Al mapa del radar, que es pot moure ›</Link>
             </p>
           </section>
         ) : undefined}

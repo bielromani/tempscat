@@ -1,59 +1,52 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { radar, type RadarFrame } from '@/lib/weather';
-import { allComarques, comarcaPathsOn, municipisOfComarca, relief } from '@/lib/territory';
+import { radar, windField } from '@/lib/weather';
+import { allComarques, comarcaPathsOn, locationByPath, municipisOfComarca } from '@/lib/territory';
 import { project } from '@/lib/mercator';
 import { radarZones } from '@/lib/radar-zones';
-import { ago, dateLong, hour, hourSpoken } from '@/lib/format';
-import { RadarScrubber } from '@/components/RadarScrubber';
+import { municipalTemperatures, warningOverlay } from '@/lib/map';
+import { ago, dateLong, hour, hourSpoken, num } from '@/lib/format';
+import RadarMap, { type RadarMapFrame, type RadarMapZone } from '@/components/RadarMap';
+import { TemperatureLegend } from '@/components/TemperatureMap';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
+import { MAP_BOX } from '@/lib/webmap';
 
 /**
- * Radar de precipitación.
+ * El radar: on plou ara, en un mapa que es mou.
  *
- * ## Cómo puede haber un mapa sin JavaScript
+ * ## Una pàgina i no dues
  *
- * Las teselas del radar y las fronteras del ICGC están en la misma proyección
- * —Web Mercator—, así que un solo SVG puede llevar las imágenes dentro y los
- * límites administrativos encima, en el mismo sistema de coordenadas. El
- * viewBox hace de recorte y da la relación de aspecto, así que no hay salto de
- * layout ni un pixel de script.
+ * Fins al 6 d'octubre de 2026 hi havia `/radar`, una imatge fixa amb el
+ * reproductor fet de CSS i sis zones per acostar-s'hi, i `/mapa/interactiu`,
+ * el mapa de MapLibre amb la pluja, la temperatura, el vent i els avisos. La
+ * segona era la que deixava veure **on cau exactament** la pluja, i era la que
+ * costava més de trobar. Ara n'hi ha una: el mapa que es mou, amb els controls
+ * del radar. `/mapa/interactiu` redirigeix aquí (`next.config.ts`).
  *
- * ## El movimiento, sin un pixel de script
+ * ## Sense JavaScript
  *
- * Los trece marcos —dos horas en pasos de diez minutos— están todos en el
- * mismo SVG, uno por grupo, y los mueve una animación de CSS: cada grupo tiene
- * el mismo `@keyframes` con un retardo distinto, así que se encienden por
- * turnos. Play y pausa son una casilla; `animation-play-state` hace el resto.
+ * Es veu l'última imatge del radar dibuixada pel servidor: les mateixes
+ * tessel·les, les fronteres de l'ICGC i les ciutats de referència. És el que
+ * llegeix un cercador i el que veu qui no executa res; amb JavaScript, el mapa
+ * la tapa, i les imatges ja baixades són les mateixes adreces que demana.
  *
- * **No arranca sola.** Movimiento que nadie ha pedido es movimiento que
- * molesta, y quien lo quiera lo pide con un clic. Mientras está parada se ve el
- * último marco, que es lo que alguien viene a mirar.
+ * ## Les adreces
  *
- * Las 52 teselas que eso mete en la página no cuestan lo que parece: cada URL
- * lleva la marca de tiempo dentro y se sirve `immutable` con un año de caché
- * —ver la route handler—, así que el CDN las guarda y el almacén las ve una
- * vez.
- *
- * ## Y las zonas sí van por URL
- *
- * El instante (`?t=…`) y la zona (`?zona=…`) siguen siendo direcciones: cada
- * uno se puede compartir y el crawler ve una imagen de verdad. Lo que no puede
- * ir por URL es el movimiento, porque el movimiento **es** el producto.
- *
- * Por qué zonas y no zoom libre está escrito en `src/lib/radar-zones.ts`: el
- * tilecache público se acaba en el zoom 7 y un píxel son 460 metros.
+ * `?zona=pirineu` obre una de les sis zones, `?lloc=/conca-de-barbera/…` obre
+ * centrat en un lloc amb una agulla —és on porta l'enllaç de cada fitxa— i
+ * `?avisos=1` obre amb els avisos encesos, que és com s'hi arriba des de
+ * `/avisos`. Sense res, Catalunya sencera i els avisos apagats: pintats
+ * d'entrada tapaven la pluja que es ve a mirar.
  *
  * ## Lo que un radar no es
  *
- * Mide gotas en el aire, no lluvia en el suelo, y eso cambia cómo hay que
- * presentarlo. En verano, con la capa baja seca, media Catalunya ve ecos que se
- * evaporan antes de llegar abajo; en el Pirineo el relieve tapa el haz y hay
- * valles enteros que el radar no ve. Un mapa que no lo advierte hace que la
- * gente crea que el radar se ha equivocado, cuando lo que ha fallado es la
- * explicación.
+ * Mide gotas en el aire, no lluvia en el suelo. En verano, con la capa baja
+ * seca, media Catalunya ve ecos que se evaporan antes de llegar abajo; en el
+ * Pirineo el relieve tapa el haz y hay valles enteros que el radar no ve. Un
+ * mapa que no lo advierte hace que la gente crea que el radar se ha
+ * equivocado, cuando lo que ha fallado es la explicación.
  */
 /*
  * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
@@ -63,22 +56,34 @@ import { Fold } from '@/components/Fold';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Radar de precipitació a Catalunya',
+  title: 'Radar de pluja a Catalunya',
   description:
-    'On plou ara mateix a Catalunya. Imatge de radar de l\'última hora sobre els '
-    + 'límits comarcals oficials, amb els avisos de què pot i què no pot veure un radar.',
+    'On plou ara mateix a Catalunya: el radar de les dues últimes hores en un mapa '
+    + 'que es pot moure i ampliar, amb la temperatura de cada municipi, el vent '
+    + 'previst i els avisos oficials. Cartografia de l’ICGC.',
   alternates: { canonical: '/radar' },
 };
 
-type Params = Promise<{ t?: string; zona?: string }>;
+type Params = Promise<{ zona?: string; lloc?: string; avisos?: string }>;
 
 /**
- * Ciudades de referencia.
+ * Quant pot distar l'hora del vent de l'última imatge del radar.
  *
- * Sin nombres el mapa es una mancha de colores sobre una silueta: la gente
- * necesita un ancla para situar la lluvia. Se eligen por población y se descartan
- * las que caen a menos de 32 km de una ya aceptada — así no salen cinco
- * etiquetas apiladas sobre el área metropolitana y ninguna en Ponent.
+ * El vent es publica per hores en punt i el radar cada deu minuts, així que
+ * l'hora més propera és, com a molt, a mitja hora — i a una hora i poc quan la
+ * predicció ja ha descartat l'hora en curs. Més enllà, el radar o el vent estan
+ * endarrerits, i ensenyar-los junts seria posar el vent d'una tarda damunt de
+ * la pluja d'una altra.
+ */
+const WIND_MAX_GAP_S = 90 * 60;
+
+/**
+ * Ciutats de referència per a la imatge sense JavaScript.
+ *
+ * Sense noms, el mapa és una taca de colors damunt d'una silueta. Es trien per
+ * població i es descarten les que cauen a menys de 32 km d'una ja triada: així
+ * no surten cinc etiquetes apilades a l'àrea metropolitana i cap a Ponent. El
+ * mapa que es mou no les necessita: la cartografia de l'ICGC ja porta els noms.
  */
 function referenceCities(limit = 9): Array<{ nom: string; lat: number; lon: number; path: string }> {
   const all = allComarques()
@@ -100,8 +105,13 @@ function referenceCities(limit = 9): Array<{ nom: string; lat: number; lon: numb
 }
 
 export default async function RadarPage({ searchParams }: { searchParams: Params }) {
-  const data = await radar();
-  const { t, zona } = await searchParams;
+  const [data, air, temps, warnings, params] = await Promise.all([
+    radar(),
+    windField(),
+    municipalTemperatures(),
+    warningOverlay(),
+    searchParams,
+  ]);
 
   const trail = [
     { nom: 'Catalunya', path: '/' },
@@ -129,100 +139,97 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
    * Només passat i present.
    *
    * Fins al 29 de setembre de 2026 la línia de temps seguia endavant amb la
-   * predicció pintada com un camp (`forecast-field.ts`). Es va treure: un
-   * model no es mou com un eco de radar, i a la pantalla semblava que la pluja
-   * saltava d'un lloc a un altre en passar del present al futur. El que diu
-   * si plourà aquí és la predicció de cada fitxa, en hores i mil·límetres.
+   * predicció pintada com un camp. Es va treure: un model no es mou com un eco
+   * de radar, i a la pantalla semblava que la pluja saltava d'un lloc a un
+   * altre en passar del present al futur. El que diu si plourà aquí és la
+   * predicció de cada fitxa, en hores i mil·límetres.
    */
-  const frames: RadarFrame[] = data.frames;
-  const asked = t ? frames.findIndex((f) => String(f.time) === t) : -1;
+  const frames: RadarMapFrame[] = data.frames.map((f) => ({
+    time: f.time, label: hour(f.local), kind: f.kind,
+  }));
+  const lastPast = data.frames.map((f) => f.kind).lastIndexOf('past');
+  const frame = data.frames[Math.max(lastPast, 0)];
+
+  // ── On obre ───────────────────────────────────────────────────────────────
+  const zones: RadarMapZone[] = [
+    { key: 'ca', label: 'Catalunya', box: [MAP_BOX.west, MAP_BOX.south, MAP_BOX.east, MAP_BOX.north] },
+    ...radarZones(),
+  ];
+  const place = params.lloc ? locationByPath(params.lloc) : undefined;
+  const focus = place?.lat != null && place.lon != null
+    ? { point: { lon: place.lon, lat: place.lat, name: place.nom } }
+    : zones.some((z) => z.key === params.zona) ? { zone: params.zona } : null;
+
+  // ── El vent d'ara, i una sola hora ────────────────────────────────────────
   /*
-   * Sense `?t=`, el marc que s'ensenya és **l'última observació**, no l'últim
-   * de la llista. Qui obre el radar ve a veure on plou ara; obrir-lo dotze
-   * hores endavant seria contestar una pregunta que no ha fet.
+   * L'hora de la predicció més propera a l'última imatge del radar, que és el
+   * «ara» de la pàgina, i només si hi és prou a prop. El rellotge no entra
+   * aquí: l'instant de referència és el del radar, que ja és una dada.
    */
-  const lastPast = frames.map((f) => f.kind).lastIndexOf('past');
-  const current = asked >= 0 ? asked : Math.max(lastPast, 0);
-  const frame = frames[current];
+  const nearest = air
+    ? air.hours.reduce((best, h) => (
+      Math.abs(h.time - frame.time) < Math.abs(best.time - frame.time) ? h : best
+    ))
+    : null;
+  const windHour = nearest && Math.abs(nearest.time - frame.time) <= WIND_MAX_GAP_S ? nearest : null;
 
-  // Recorte: el mosaico de teselas cubre más de lo que interesa —llega hasta
-  // Mallorca por el este—, así que el viewBox se ajusta a Catalunya con margen.
-  const [xa, ya] = project(grid, 0.05, 42.95);
-  const [xb, yb] = project(grid, 3.45, 40.45);
-  const full = { key: 'ca', label: 'Catalunya', x: xa, y: ya, w: xb - xa, h: yb - ya };
-
-  const zones = radarZones(grid, full);
-  const view = zones.find((z) => z.key === zona) ?? full;
-  const aspect = (view.w / view.h).toFixed(4);
-
-  /*
-   * La animación: dos `@keyframes` y un retardo por marco.
-   *
-   * Cada grupo está encendido durante una franja del ciclo y apagado el resto;
-   * el retardo de cada uno lo coloca en su turno. **Positivo**, no negativo: un
-   * retardo negativo adelanta la animación en vez de retrasarla, y con eso la
-   * secuencia salía al revés — del marco más viejo al más nuevo pasando por
-   * el final.
-   *
-   * El último marco ocupa **tres franjas** en lugar de una. Es el que alguien
-   * quiere ver, y así el bucle se para un instante en el presente antes de
-   * volver a empezar. Con un ciclo de N franjas justas no habría esa pausa; con
-   * N+2 y todos los marcos de una franja, el mapa se quedaría en blanco dos
-   * turnos.
-   */
-  const n = frames.length;
-  const SLOT_S = 0.55;
-  const slots = n + 2;
-  const cycleS = slots * SLOT_S;
-  const one = 100 / slots;
-  const hold = (100 * 3) / slots;
-
-  const css = [
-    `@keyframes rframe{0%,${one.toFixed(3)}%{opacity:1}${(one + 0.001).toFixed(3)}%,100%{opacity:0}}`,
-    `@keyframes rframe-last{0%,${hold.toFixed(3)}%{opacity:1}${(hold + 0.001).toFixed(3)}%,100%{opacity:0}}`,
-    // Mientras se reproduce manda la animación; parada, manda el marco elegido.
-    '#rplay:checked~.rmap .rframe{animation:rframe var(--rcycle) linear infinite}',
-    '#rplay:checked~.rmap .rframes>g:last-of-type{animation-name:rframe-last}',
-    /*
-     * El marc triat s'encén **només amb l'animació parada**.
-     *
-     * Sense el `#rplay:not(:checked)` del davant, aquell marc es quedava a 1
-     * durant tota la reproducció — mentre l'animació no li toca el torn no li
-     * aporta cap valor, i la regla estàtica manava. I com que es dibuixa per
-     * ordre del document, el més nou tapava tots els altres: l'animació corria
-     * i no es veia.
-     *
-     * Les tres condicions són germanes en aquest ordre — casella, radios,
-     * mapa — així que el combinador `~` les enfila sense `:has()`.
-     */
-    frames
-      .map((f, i) => (
-        `#rplay:not(:checked)~#rf-${f.time}:checked~.rmap .rframes>g:nth-of-type(${i + 1})`
-      ))
-      .join(',') + '{opacity:1}',
-    frames
-      .map((f) => `#rf-${f.time}:checked~.rbar label[for="rf-${f.time}"]`)
-      .join(',')
-      + '{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}',
-    /*
-     * El rètol de l'hora, amb l'animació dels marcs.
-     *
-     * Són exactament les mateixes regles que el mapa, amb el mateix
-     * `@keyframes` i el mateix retard per posició: així el rètol i la imatge
-     * no es poden desincronitzar, perquè no hi ha dos càlculs sinó un.
-     */
-    '#rplay:checked~.rbar .rtime>span{animation:rframe var(--rcycle) linear infinite}',
-    '#rplay:checked~.rbar .rtime>span:last-of-type{animation-name:rframe-last}',
-    frames
-      .map((f, i) => (
-        `#rplay:not(:checked)~#rf-${f.time}:checked~.rbar .rtime>span:nth-of-type(${i + 1})`
-      ))
-      .join(',') + '{opacity:1}',
-  ].join('');
-
+  // ── La imatge sense JavaScript ────────────────────────────────────────────
+  const [xa, ya] = project(grid, MAP_BOX.west, MAP_BOX.north);
+  const [xb, yb] = project(grid, MAP_BOX.east, MAP_BOX.south);
   const paths = comarcaPathsOn(grid);
-  const terrain = relief();
   const cities = referenceCities();
+
+  /*
+   * Aquest element i els peus de sota porten `key` encara que no siguin una
+   * llista: un element que el servidor passa per props a un component de
+   * client hi arriba sense validar, i React demana la clau a la consola.
+   */
+  const fallback = (
+    <div key="fallback" className="flex min-h-0 flex-1 flex-col">
+      <svg
+        viewBox={`${xa.toFixed(1)} ${ya.toFixed(1)} ${(xb - xa).toFixed(1)} ${(yb - ya).toFixed(1)}`}
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label={`Radar de precipitació sobre Catalunya a ${hour(frame.local)}`}
+        className="min-h-0 w-full flex-1"
+      >
+        {tiles.map((tile) => (
+          <image
+            key={`${tile.x}_${tile.y}`}
+            href={`/radar/t/${frame.time}/${grid.z}_${tile.x}_${tile.y}.png`}
+            x={(tile.x - grid.x0) * grid.size}
+            y={(tile.y - grid.y0) * grid.size}
+            width={grid.size}
+            height={grid.size}
+          />
+        ))}
+        <g fill="none" strokeLinejoin="round">
+          {paths.map((d, i) => (
+            <path key={i} d={d} stroke="oklch(99% 0 0)" strokeWidth={0.6} opacity={0.6} />
+          ))}
+        </g>
+        {cities.map((c) => {
+          const [x, y] = project(grid, c.lon, c.lat);
+          return (
+            <g key={c.path}>
+              <circle cx={x} cy={y} r={1.6} fill="oklch(99% 0 0)" />
+              <text
+                x={x + 5} y={y + 3.5}
+                fontSize={11} fontWeight={600}
+                fill="oklch(99% 0 0)"
+                stroke="oklch(20% 0.02 250)" strokeWidth={2.4} paintOrder="stroke"
+              >{c.nom}</text>
+            </g>
+          );
+        })}
+      </svg>
+      <p className="p-3 text-[13px] text-[var(--muted)]">
+        L’última imatge del radar. Per moure el mapa, ampliar-lo i veure la
+        seqüència, la temperatura i el vent cal JavaScript.
+      </p>
+    </div>
+  );
+
   const { ageMin, lastObserved } = data;
 
   return (
@@ -235,298 +242,84 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         icon="rain"
         title="On plou ara mateix"
         lead={(
-          /*
-           * Un marc de model no es pot anunciar com una imatge de radar.
-           *
-           * Els tres tipus van pel mateix carril —tota la pàgina compta
-           * grups— i aquest text es va quedar amb dues branques: la del
-           * `nowcast` i «la resta». Amb el futur concatenat, «la resta» va
-           * passar a incloure'l, i el capçal d'una hora de predicció deia
-           * «Imatge del radar de dimecres a les 10:00» d'un dibuix que no ha
-           * vist cap radar. La frase que ho desmentia era el peu, tres
-           * pantalles avall.
-           */
-          frame.kind === 'nowcast' ? (
-            <>
-              Previsió immediata per a {hourSpoken(frame.local)}: no és una imatge
-              observada, és una extrapolació del moviment dels ecos.
-            </>
-          ) : (
-            <>
-              Imatge del radar de {dateLong(frame.local)}, a{' '}
-              <strong className="tnum">{hourSpoken(frame.local)}</strong>
-              {ageMin != null && frame.time === lastObserved?.time && <>, {ago(ageMin)}</>}.
-            </>
-          )
+          <>
+            Imatge del radar de {dateLong(frame.local)}, a{' '}
+            <strong className="tnum">{hourSpoken(frame.local)}</strong>
+            {ageMin != null && frame.time === lastObserved?.time && <>, {ago(ageMin)}</>}.
+            {' '}Podeu moure el mapa i ampliar-lo per veure on cau.
+          </>
         )}
       />
 
-      {/*
-        La durada del cicle va a la figura i no al mapa.
-        L'animen dues coses —les imatges i el rètol de l'hora— i viuen en
-        branques diferents. Amb `--rcycle` només a `.rmap`, la barra no la
-        heretava, `animation: rframe var(--rcycle)…` es quedava sense valor i
-        **tota la drecera** era invàlida: el rètol no s'animava i no hi havia
-        cap error enlloc, només un `animation-name: none` a l'inspector.
-
-        A l'escriptori, el mapa a l'esquerra i els controls a la dreta.
-        `.radar` és una columna flex a `globals.css`, que no porta capa, i una
-        utilitat de Tailwind sí: per això `lg:grid!` porta el signe d'important,
-        que és l'única manera que una utilitat guanyi una regla sense capa. La
-        primera columna fa exactament l'amplada del mapa —la mateixa fórmula
-        que `.rmap`, amb el `--raspect` de la zona—, així que el mapa no queda
-        centrat amb dos buits als costats i els controls agafen la resta.
-        Les regles de germans no en saben res: miren l'ordre del DOM, no la
-        graella.
-      */}
-      <figure
-        className="radar card m-0 lg:grid! lg:grid-cols-[minmax(0,calc(60vh*var(--raspect)))_minmax(16rem,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start lg:gap-x-8"
-        style={{ ['--rcycle' as string]: `${cycleS}s`, ['--raspect' as string]: aspect }}
-      >
-        {/*
-          * Els controls van primer i germans del mapa: `~` no surt del pare.
-          *
-          * Al DOM van aquí i a la pantalla van entre el mapa i la barra, que
-          * `globals.css` els hi posa amb `order`. Si anessin posicionats en
-          * absolut a dalt, enfocar-los faria saltar la pàgina — hi va passar.
-          */}
-        <input type="checkbox" id="rplay" />
-        {frames.map((f, i) => (
-          <input
-            key={f.time}
-            type="radio"
-            name="rf"
-            id={`rf-${f.time}`}
-            defaultChecked={i === current}
-          />
-        ))}
-        <style dangerouslySetInnerHTML={{ __html: css }} />
-
-        <div
-          className="rmap overflow-hidden rounded-2xl border border-[var(--line-soft)] lg:col-start-1 lg:row-span-3 lg:row-start-1"
-          style={{
-            background: 'var(--surface-2)',
-            // La relació d'aspecte de la zona, perquè el CSS pugui limitar
-            // l'alçada sense retallar. El perquè, a `globals.css`.
-            ['--raspect' as string]: aspect,
-          }}
-        >
-          <svg
-            viewBox={`${view.x.toFixed(1)} ${view.y.toFixed(1)} ${view.w.toFixed(1)} ${view.h.toFixed(1)}`}
-            width="100%"
-            role="img"
-            aria-label={
-              frame.kind === 'past'
-                ? `Radar de precipitació sobre ${view.label} a ${hour(frame.local)}`
-                : `Predicció de pluja sobre ${view.label} a ${hour(frame.local)}`
-            }
-            style={{ display: 'block' }}
-          >
-            {/*
-              * El relleu, a sota de tot.
-              *
-              * Sense ell el radar és una taca de colors damunt d'una silueta;
-              * amb ell s'entén el que ensenya — per què plou al vessant nord i
-              * no al sud, i on cauen els ecos respecte de les serralades.
-              *
-              * És una imatge feta un sol cop: ni canvia ni es recalcula. Quadra
-              * exactament amb les tessel·les perquè les dues coses són Web
-              * Mercator del mateix mosaic — el perquè és a
-              * `scripts/11-relief.ts`.
-              */}
-            <image
-              className="relief"
-              href={terrain.src}
-              x={terrain.x}
-              y={terrain.y}
-              width={terrain.w}
-              height={terrain.h}
-            />
-
-            {/*
-              * Els marcs, un grup cadascun i tots amagats.
-              *
-              * El grup embolcall importa: `nth-of-type` compta per etiqueta, i
-              * si les fronteres fossin germanes dels marcs tots els índexs
-              * anirien correguts. Ja va passar amb les pestanyes.
-              */}
-            <g className="rframes">
-              {frames.map((f, i) => (
-                <g
-                  key={f.time}
-                  className="rframe"
-                  /*
-                   * Només el retard. L'`opacity: 0` va al full d'estils i no
-                   * aquí: un estil en línia guanya a una regla normal, i la
-                   * regla que encén el marc triat no hauria pogut apagar-lo.
-                   * L'animació sí que hi guanya, així que reproduint anava —
-                   * i parat no es veia res.
-                   */
-                  style={{ animationDelay: `${(i * SLOT_S).toFixed(2)}s` }}
-                >
-                  {tiles.map((tile) => (
-                    <image
-                      key={`${tile.x}_${tile.y}`}
-                      href={`/radar/t/${f.time}/${grid.z}_${tile.x}_${tile.y}.png`}
-                      x={(tile.x - grid.x0) * grid.size}
-                      y={(tile.y - grid.y0) * grid.size}
-                      width={grid.size}
-                      height={grid.size}
-                      // Sense això el navegador suavitza les tessel·les i l'eco
-                      // —que ja ve interpolat per RainViewer— perd la poca vora
-                      // que li queda.
-                      style={{ imageRendering: 'auto' }}
-                    />
-                  ))}
-                </g>
-              ))}
-            </g>
-
-            {/* Els límits van damunt del radar, i en dos traços: un fosc ample
-                a sota i un clar fi a dalt. Un sol color desapareix sobre blau
-                intens o sobre fons buit, segúns el dia. */}
-            <g fill="none" strokeLinejoin="round">
-              {paths.map((d, i) => (
-                <path key={`s${i}`} d={d} stroke="oklch(20% 0.02 250)" strokeWidth={1.6} opacity={0.35} />
-              ))}
-              {paths.map((d, i) => (
-                <path key={`l${i}`} d={d} stroke="oklch(99% 0 0)" strokeWidth={0.6} opacity={0.7} />
-              ))}
-            </g>
-
-            {cities.map((c) => {
-              const [x, y] = project(grid, c.lon, c.lat);
-              return (
-                <g key={c.path}>
-                  <circle cx={x} cy={y} r={2.8} fill="oklch(20% 0.02 250)" opacity={0.8} />
-                  <circle cx={x} cy={y} r={1.3} fill="oklch(99% 0 0)" />
-                  <text
-                    x={x + 5} y={y + 3.5}
-                    fontSize={11} fontWeight={600}
-                    fill="oklch(99% 0 0)"
-                    stroke="oklch(20% 0.02 250)" strokeWidth={2.4} paintOrder="stroke"
-                  >{c.nom}</text>
-                </g>
-              );
-            })}
-          </svg>
-        </div>
-
-        {/* Reproduir i els instants. Les etiquetes són els controls; els radios
-            queden invisibles però enfocables, i el focus es pinta a l'etiqueta. */}
-        <div className="rbar mt-4 lg:col-start-2 lg:row-start-1 lg:mt-0">
-          <p className="card-label">
-            {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
-            <img src="/icons/w/rain.svg" width={22} height={22} alt="" />
-            Les dues últimes hores
+      <RadarMap
+        frames={frames}
+        tiles={{ z: grid.z, xy: tiles }}
+        zones={zones}
+        focus={focus}
+        warnings={warnings}
+        warningsOn={params.avisos === '1'}
+        wind={air && windHour
+          ? {
+            width: air.width,
+            height: air.height,
+            box: air.box,
+            hours: [{
+              time: windHour.time,
+              name: windHour.name,
+              label: `${Number(windHour.iso.slice(11, 13))} h`,
+              maxKmh: Math.round(windHour.maxMs * 3.6),
+            }],
+          }
+          : null}
+        colors={temps.colors}
+        degrees={temps.degrees}
+        observed={temps.observed}
+        total={temps.total}
+        range={temps.min != null && temps.max != null ? { min: temps.min, max: temps.max } : null}
+        radarLegend={(
+          <p key="radar">
+            Radar de {data.source}, una imatge cada deu minuts. Un píxel del radar
+            són uns 460 metres: acostant-s’hi, el mapa de sota guanya detall i la
+            pluja s’amplia.
           </p>
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            {/*
-              L'hora del marc que s'està veient.
-
-              Reproduint, la seqüència no deia de quan era cada imatge: es veia
-              passar la pluja sense saber si allò era de fa dues hores o de fa
-              deu minuts, que és la meitat del que un radar explica.
-
-              No cal gens de JavaScript. Els instants són N i les etiquetes són
-              N, apilades a la mateixa cel·la d'una graella, i cada una porta
-              **la mateixa animació i el mateix retard** que el seu marc del
-              mapa: quan s'encén la imatge s'encén el seu rètol. Parat, mana el
-              radio triat, com a tot arreu d'aquesta pàgina.
-
-              Apilades i no en fila perquè totes ocupen la cel·la 1/1: l'amplada
-              la posa la més ampla i el rètol no balla en canviar d'hora.
-            */}
-            <span
-              className="rtime tnum"
-              aria-live="off"
-              // En gran: és l'hora de la imatge que es veu, i la primera cosa que
-              // es busca al costat d'un radar. `.rtime` porta mida i marge al full
-              // global, sense capa, i per això va en línia.
-              style={{ marginLeft: 0, fontSize: 34, fontWeight: 650, letterSpacing: '-0.02em', lineHeight: 1 }}
-            >
-              {frames.map((f, i) => (
-                <span key={f.time} style={{ animationDelay: `${(i * SLOT_S).toFixed(2)}s` }}>
-                  {hour(f.local)}
-                </span>
-              ))}
-            </span>
-            <label htmlFor="rplay" className="rplay-btn">
-              <span className="rplay-on">Reprodueix les 2 hores</span>
-              <span className="rplay-off">Atura</span>
-            </label>
+        )}
+        temperatureLegend={(
+          <div key="temperatura">
+            {temps.min != null && temps.max != null ? (
+              <TemperatureLegend span={{ min: temps.min, max: temps.max }} />
+            ) : null}
+            <p className="mt-2">
+              La temperatura de cada municipi, corregida per l’altitud des de
+              l’estació del Meteocat que li toca. Els que no surten pintats no en
+              tenen cap prou a prop.
+              {temps.min != null && temps.max != null ? (
+                <>
+                  {' '}Ara hi ha{' '}
+                  <strong className="tnum text-[var(--ink-2)]">{num(temps.max - temps.min, 1)} graus</strong>{' '}
+                  entre el més càlid i el més fred.
+                </>
+              ) : null}
+            </p>
           </div>
-
-          {/* La barra arrossegable. Substitueix les pastilles quan hi ha
-              JavaScript; sense, no es dibuixa i les pastilles es queden. */}
-          <RadarScrubber frames={frames} current={current} />
-
-          <nav aria-label="Instants disponibles" className="rf-chips mt-3">
-            <ol className="flex flex-wrap gap-1.5">
-              {frames.map((f) => (
-                <li key={f.time}>
-                  <label htmlFor={`rf-${f.time}`} className="rf-chip tnum">
-                    {hour(f.local)}
-                    {f.kind !== 'past' && <span className="ml-1">•</span>}
-                  </label>
-                </li>
-              ))}
-            </ol>
-          </nav>
-        </div>
-
-        {/* Les zones sí van per URL: cada una es pot compartir. */}
-        <nav aria-label="Zones" className="mt-5 lg:col-start-2 lg:row-start-2">
-          <p className="mb-2 text-[12.5px] font-semibold uppercase tracking-[0.04em] text-[var(--muted)]">
-            Zones
+        )}
+        windLegend={windHour ? (
+          <p key="vent">
+            Cada fil és una partícula que segueix el vent, i com més marcat, més
+            força. <strong className="font-medium text-[var(--ink-2)]">És vent
+            previst, no mesurat</strong>: el mesurat és a la fitxa de cada lloc, amb
+            la seva estació i la seva hora.
           </p>
-          <ol className="chips">
-            {zones.map((z) => {
-              const active = z.key === view.key;
-              return (
-                <li key={z.key}>
-                  <Link
-                    href={z.key === 'ca' ? '/radar' : `/radar?zona=${z.key}`}
-                    aria-current={active ? 'true' : undefined}
-                    // La triada, com el botó de capa del mapa que es mou: plena.
-                    style={active
-                      ? { background: 'var(--ink)', borderColor: 'var(--ink)', color: 'var(--paper)', fontWeight: 600 }
-                      : undefined}
-                  >
-                    {z.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-
-        <figcaption className="mt-4 text-[13px] leading-relaxed text-[var(--muted)] lg:col-start-2 lg:row-start-3">
-          {frames.some((f) => f.kind === 'nowcast') && (
-            <p className="mb-2">Els instants marcats amb un punt són previsió immediata, no observació.</p>
-          )}
-          {/*
-            * Una cosa que es veu de seguida i decebria sense avisar: ampliar
-            * una zona no afina la imatge. El tilecache públic s'acaba al zoom
-            * 7, on un píxel són uns 460 metres, i les zones només la fan més
-            * gran. El que sí guanya definició és el que hi va a sobre: les
-            * fronteres i els noms són vectors.
-            */}
-          <p>
-            Les zones amplien la mateixa imatge: un píxel de radar són uns 460
-            metres, i ampliant-la no n’apareixen més. Sí que s’afinen les
-            fronteres i els noms.{' '}
-            <Link href="/mapa/interactiu" className="text-[var(--accent)] no-underline hover:underline">
-              Al mapa que es pot moure
-            </Link>
-            , la mateixa seqüència va damunt de la cartografia de l’ICGC.
+        ) : null}
+        warningsLegend={warnings ? (
+          <p key="avisos" className="mt-2">
+            Les taques de color són els{' '}
+            <Link href="/avisos">avisos oficials de l’AEMET</Link> vigents, per zona
+            de Meteoalerta: dins d’una zona pintada, l’avís no distingeix un poble
+            d’un altre. Quan una zona en té més d’un, el color és el del més alt.
           </p>
-          <p className="source">
-            Radar: {data.source}, una imatge cada deu minuts. Límits comarcals:
-            Institut Cartogràfic i Geològic de Catalunya. Relleu: {terrain.source}.
-          </p>
-        </figcaption>
-      </figure>
+        ) : null}
+        fallback={fallback}
+      />
 
       <Fold title="Què veu i què no veu un radar" summary="Gotes a l’aire, que no sempre són pluja a terra">
         <div className="card prose">
@@ -549,28 +342,6 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
             es fonen just per sobre del terra, el radar exagera la intensitat. Per
             saber si nevarà, la cota de neu de cada fitxa és més fiable que aquesta
             imatge.
-          </p>
-        </div>
-      </Fold>
-
-      <Fold title="D’on surt la imatge" summary={`${data.source}, ICGC i EU-DEM`}>
-        <div className="card prose">
-          <p>
-            Imatges de {data.source}. Límits comarcals de l&apos;Institut
-            Cartogràfic i Geològic de Catalunya. Les tessel·les es descarreguen
-            cada deu minuts i les serveix aquest mateix domini: la vostra visita
-            no arriba a cap tercer.
-          </p>
-          {/*
-            * L'atribució que demana la font del relleu, tal com la demana.
-            *
-            * No és una fórmula que ens haguem inventat: és la cadena exacta que
-            * exigeix l'EU-DEM, i va aquí perquè la imatge del relleu es publica
-            * dins d'aquesta pàgina.
-            */}
-          <p>
-            El relleu surt de {terrain.source}, calculat un sol cop.{' '}
-            <span lang="en">{terrain.attribution}</span>
           </p>
         </div>
       </Fold>

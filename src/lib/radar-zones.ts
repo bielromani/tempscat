@@ -1,21 +1,19 @@
 import 'server-only';
 import { comarquesGeoJson } from './territory';
-import { project, type TileGrid } from './mercator';
 
 /**
  * Les zones del radar.
  *
- * ## Per què zones i no zoom lliure
+ * ## Per què n'hi havia, i per què n'hi segueix havent
  *
- * Perquè no hi ha més resolució. El tilecache públic de RainViewer arriba al
- * zoom 7 — del 8 en amunt retorna un cartell que diu «Zoom Level Not
- * Supported» amb codi 200 i tipus `image/png`, així que ni tan sols falla de
- * manera visible. Al zoom 7 amb tessel·les de 512 píxels, un píxel són uns
- * **460 metres** a la latítud de Catalunya.
- *
- * Amb això, una comarca de trenta quilòmetres són seixanta-cinc píxels: ampliada
- * a l'amplada d'una pantalla és una taca. Una zona de cent-cinquanta, en canvi,
- * es llegeix. Així que s'ofereix el que la imatge aguanta i prou.
+ * Fins al 6 d'octubre de 2026 el radar era una imatge fixa i les zones eren
+ * l'única manera d'acostar-s'hi. Ara és un mapa que es mou, i les zones han
+ * quedat de dreceres. El sostre de resolució, en canvi, no ha canviat: el
+ * tilecache públic de RainViewer arriba al zoom 7 — del 8 en amunt retorna un
+ * cartell que diu «Zoom Level Not Supported» amb codi 200 i tipus
+ * `image/png`, així que ni tan sols falla de manera visible. Al zoom 7 amb
+ * tessel·les de 512 píxels, un píxel són uns **460 metres** a la latitud de
+ * Catalunya: acostant-s'hi més, el mapa de sota guanya detall i la pluja no.
  *
  * ## Per què les caixes no són a ull
  *
@@ -68,47 +66,28 @@ const ZONES: RadarZone[] = [
   },
 ];
 
-/**
- * A quina zona del radar cau una comarca.
- *
- * Existeix perquè des d'una fitxa de poble no hi havia manera d'arribar al
- * radar del seu tros: la única porta era el menú, que obre Catalunya sencera,
- * i des d'allà calia endevinar en quina de les sis zones és el teu poble. Ara
- * la fitxa hi enllaça directament.
- *
- * No projecta res ni llegeix cap geometria: només mira la taula de dalt, que
- * és la mateixa que fa servir `radarZones()`. Amb una segona llista, un dia una
- * comarca hauria acabat enllaçant a la zona del costat.
- */
-export function radarZoneOf(comarcaCodi: string): { key: string; label: string } | null {
-  const z = ZONES.find((zone) => zone.comarques.includes(comarcaCodi));
-  return z ? { key: z.key, label: z.label } : null;
-}
-
-export interface ZoneView {
+export interface ZoneBox {
   key: string;
   label: string;
-  /** Rectangle en unitats del mosaic, ja projectat i amb marge. */
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  /** La caixa en graus, ja amb marge: oest, sud, est, nord. */
+  box: [number, number, number, number];
 }
 
 /** Marge al voltant de la zona, en tant per u del seu costat més llarg. */
 const PAD = 0.06;
 
-let memo: { key: string; zones: ZoneView[] } | null = null;
+let memo: ZoneBox[] | null = null;
 
 /**
- * Les zones amb la seva caixa projectada, més Catalunya sencera al davant.
+ * Les sis zones amb la seva caixa en graus.
  *
- * `full` és el retall de sempre: el mosaic cobreix fins a Mallorca per l'est i
- * no té sentit ensenyar-ho.
+ * Des del 6 d'octubre de 2026 ja no retallen cap imatge: el radar es mira en un
+ * mapa que es mou i s'amplia, i les zones són dreceres per anar-hi d'un clic.
+ * Al mòbil, on fer zoom amb dos dits sobre un tros concret costa, segueixen
+ * sent la manera més ràpida d'arribar al Pirineu o a l'Ebre.
  */
-export function radarZones(grid: TileGrid, full: ZoneView): ZoneView[] {
-  const memoKey = `${grid.z}:${grid.x0}:${grid.y0}:${grid.size}`;
-  if (memo?.key === memoKey) return memo.zones;
+export function radarZones(): ZoneBox[] {
+  if (memo) return memo;
 
   const geo = comarquesGeoJson();
   const boxes = new Map<string, { lo: number[]; hi: number[] }>();
@@ -149,8 +128,7 @@ export function radarZones(grid: TileGrid, full: ZoneView): ZoneView[] {
     throw new Error(`comarques sense zona de radar: ${missing.join(', ')}`);
   }
 
-  const zones: ZoneView[] = [full];
-  for (const z of ZONES) {
+  memo = ZONES.map((z) => {
     let minLon = Infinity; let minLat = Infinity;
     let maxLon = -Infinity; let maxLat = -Infinity;
     for (const c of z.comarques) {
@@ -160,20 +138,12 @@ export function radarZones(grid: TileGrid, full: ZoneView): ZoneView[] {
       maxLon = Math.max(maxLon, b.hi[0]);
       maxLat = Math.max(maxLat, b.hi[1]);
     }
-    // Nord-oest i sud-est: a Mercator la y creix cap al sud.
-    const [x0, y0] = project(grid, minLon, maxLat);
-    const [x1, y1] = project(grid, maxLon, minLat);
-    const pad = Math.max(x1 - x0, y1 - y0) * PAD;
-    zones.push({
+    const pad = Math.max(maxLon - minLon, maxLat - minLat) * PAD;
+    return {
       key: z.key,
       label: z.label,
-      x: x0 - pad,
-      y: y0 - pad,
-      w: (x1 - x0) + pad * 2,
-      h: (y1 - y0) + pad * 2,
-    });
-  }
-
-  memo = { key: memoKey, zones };
-  return zones;
+      box: [minLon - pad, minLat - pad, maxLon + pad, maxLat + pad] as [number, number, number, number],
+    };
+  });
+  return memo;
 }
