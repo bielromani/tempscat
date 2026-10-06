@@ -242,6 +242,20 @@ export function directionPrep(cardinal: string): string {
   return /^[EO]/.test(cardinal) ? "de l'" : 'del ';
 }
 
+/**
+ * «l'Ametlla de Mar», i no «Ametlla de Mar, l'».
+ *
+ * Alguns registres de la Generalitat —el de platges, el de la qualitat de
+ * l'aire— escriuen el municipi amb l'article al final, com en un índex. A la
+ * pàgina es llegeix com una falta. Un nom sense article al final torna igual.
+ */
+export function articleFirst(nom: string): string {
+  const m = /^(.+),\s*(el|la|els|les|l'|l’)$/i.exec(nom.trim());
+  if (!m) return nom;
+  const art = m[2].toLowerCase().replace('’', "'");
+  return art.endsWith("'") ? `${art}${m[1]}` : `${art} ${m[1]}`;
+}
+
 /** «al Prat de Llobregat», «a l'Aldea», «a Amposta». */
 export function aName(nom: string): string {
   const { article, rest } = splitArticle(nom);

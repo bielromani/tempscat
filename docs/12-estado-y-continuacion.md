@@ -305,6 +305,23 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    final de un nombre largo en el móvil, y el velo de contraste no lo cuenta — va con el
    punto 4, porque se mira en el mismo sitio.
 
+**Platges, la muestra del nuevo estilo de las páginas de sección (6 de octubre, rama
+`platges`).** El usuario vio que las páginas generales se quedaban atrás de las fichas: eran
+volcados de tablas que en el móvil partían cada cifra en dos líneas. `/mar` es la primera
+rehecha y la que marca el estilo para las demás (montaña, navegar, aire, itinerarios,
+ránquings):
+- **Arriba, la respuesta y con lugar.** La frase dice cómo está el agua, cómo está el mar y qué
+  dicen las banderas; las cifras son el agua más cálida, la más fría y la ola más alta, cada una
+  con dónde.
+- **Nada de tablas anchas.** Filas de `.rows`: el nombre y una línea de detalle a la izquierda,
+  una o dos cifras a la derecha (la temperatura con `temp-pill`). Agrupadas como se pregunta: por
+  costa.
+- **Menos texto en el cuerpo**; lo que explica, plegado al final.
+Y dos defectos de paso: «1 platges tenen parte», y los puntos del modelo se casaban con su playa
+solo por el nombre —hay más de una «Platja Gran» y la de Palamós caía en el Maresme—; ahora es
+la más cercana con ese nombre. Los municipios del registro de playas llegan como «Ametlla de
+Mar, l'» y se escriben con `articleFirst()` (`format.ts`, con prueba en `test:catalan`).
+
 **Un solo radar (6 de octubre, rama `radar-unic`).** `/radar` y `/mapa/interactiu` eran dos
 caras de lo mismo; ahora `/radar` es el mapa de MapLibre con los controles del radar (la hora en
 grande, «Reprodueix les 2 hores», la barra) y las capas Pluja, Temperatura y Vent. Los avisos
