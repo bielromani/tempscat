@@ -381,23 +381,6 @@ button:focus-visible,
 }
 .radar-toggle[aria-pressed='true'] .radar-toggle-dot { opacity: 1; }
 
-/* Les dreceres, amb l'aspecte de les pastilles de `.chips`. */
-.radar-zone {
-  padding: 6px 13px;
-  border-radius: 999px;
-  background: var(--glass);
-  border: 1px solid var(--glass-line);
-  color: var(--ink);
-  font-size: 14px;
-}
-.radar-zone:hover { background: oklch(100% 0 0 / 0.12); border-color: var(--line); }
-.radar-zone[aria-pressed='true'] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
-  font-weight: 600;
-}
-
 /* L'agulla del lloc d'on es ve, damunt del mapa clar de l'ICGC. */
 .radar-pin {
   display: flex;
