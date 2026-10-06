@@ -77,3 +77,21 @@ for (const [n, want] of stat) {
 
 console.log(`\nlevenshtein("consul","consol") = ${levenshtein('consul', 'consol')}`);
 console.log(ff === 0 ? '\nEMPAREJAMIENTO OK' : `\n${ff} FALLOS DE EMPAREJAMIENTO`);
+
+// ── articleFirst, la del web ────────────────────────────────────────────────
+// La mateixa feina que `toNaturalName`, però a `src/lib/format.ts` perquè la
+// fa servir la pàgina de platges. Són dues còpies: aquí es comprova que diguin
+// el mateix, i si no, la prova falla.
+import { articleFirst } from '../src/lib/format.ts';
+
+console.log('\n── articleFirst ──');
+let af = 0;
+for (const [indexed, expectedName] of [...cases, ['Escala, l’', "l'Escala"]] as [string, string][]) {
+  const got = articleFirst(indexed);
+  if (got !== expectedName) af++;
+  console.log(`${got === expectedName ? 'ok  ' : 'FALLO'} ${indexed.padEnd(28)} → ${got}`);
+}
+if (af > 0) {
+  console.log(`\n${af} FALLOS DE articleFirst`);
+  process.exitCode = 1;
+}
