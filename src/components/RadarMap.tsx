@@ -82,24 +82,12 @@ export interface RadarMapFrame {
   kind: 'past' | 'nowcast';
 }
 
-export interface RadarMapZone {
-  key: string;
-  label: string;
-  /** Oest, sud, est, nord. */
-  box: [number, number, number, number];
-}
-
 interface Props {
   frames: RadarMapFrame[];
   /** Les tessel·les de cada marc: totes al mateix zoom i les mateixes per a tots. */
   tiles: { z: number; xy: Array<{ x: number; y: number }> };
-  /** Les dreceres: Catalunya sencera i les sis zones. */
-  zones: RadarMapZone[];
-  /** On obre: una zona (`?zona=`) o un lloc (`?lloc=`), que va marcat. */
-  focus: {
-    zone?: string;
-    point?: { lon: number; lat: number; name: string };
-  } | null;
+  /** On obre: Catalunya sencera, o un lloc (`?lloc=`), que va marcat. */
+  focus: { point: { lon: number; lat: number; name: string } } | null;
   /**
    * Les hores del camp de vent, amb la graella que les descriu.
    *
@@ -189,7 +177,7 @@ type MapLike = {
 };
 
 export default function RadarMap({
-  frames, tiles, zones, focus, wind, warnings, warningsOn, colors, degrees, observed, total, range,
+  frames, tiles, focus, wind, warnings, warningsOn, colors, degrees, observed, total, range,
   radarLegend, temperatureLegend, windLegend, warningsLegend, fallback,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
@@ -217,7 +205,6 @@ export default function RadarMap({
   const [hover, setHover] = useState<{ name: string; t: number | null } | null>(null);
   const [loadingTemp, setLoadingTemp] = useState(false);
   const [avisos, setAvisos] = useState(warningsOn);
-  const [zone, setZone] = useState<string | null>(focus?.point ? null : (focus?.zone ?? 'ca'));
 
   useEffect(() => {
     if (fallbackBox.current) fallbackBox.current.hidden = !error;
@@ -294,9 +281,8 @@ export default function RadarMap({
 
         /*
          * On obre. Un lloc va centrat i a prop, amb una agulla: s'hi arriba des
-         * de la fitxa, i la pregunta és «plourà aquí». Una zona, encaixada.
+         * de la fitxa, i la pregunta és «plourà aquí».
          */
-        const z = focus?.zone ? zones.find((zz) => zz.key === focus.zone) : null;
         if (focus?.point) {
           m.jumpTo({ center: [focus.point.lon, focus.point.lat], zoom: 8.6 });
           const pin = document.createElement('div');
@@ -305,19 +291,12 @@ export default function RadarMap({
           new maplibre.Marker({ element: pin, anchor: 'left', offset: [-6, 0] })
             .setLngLat([focus.point.lon, focus.point.lat])
             .addTo(m);
-        } else if (z) {
-          m.fitBounds([[z.box[0], z.box[1]], [z.box[2], z.box[3]]], { padding: 8, animate: false });
         } else {
           m.fitBounds(
             [[MAP_BOX.west, MAP_BOX.south], [MAP_BOX.east, MAP_BOX.north]],
             { padding: 12, animate: false },
           );
         }
-
-        // Moure el mapa a mà treu la drecera de triada: ja no és on s'és.
-        m.on('movestart', (e) => {
-          if ((e as { originalEvent?: unknown }).originalEvent) setZone(null);
-        });
 
         m.on('load', () => {
           if (dead) return;
@@ -352,7 +331,7 @@ export default function RadarMap({
     })();
 
     return () => { dead = true; instance?.remove(); map.current = null; };
-    // L'arrencada és una: el focus i les zones només compten en obrir.
+    // L'arrencada és una: el focus només compta en obrir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -558,24 +537,44 @@ export default function RadarMap({
     }
   }, [ready, capa, avisos]);
 
-  const goTo = (z: RadarMapZone) => {
-    const m = map.current;
-    if (!m) return;
-    m.fitBounds([[z.box[0], z.box[1]], [z.box[2], z.box[3]]], { padding: 8, duration: 700 });
-    setZone(z.key);
-    // L'adreça diu on s'és, i es pot compartir; no és una navegació nova.
-    window.history.replaceState(null, '', z.key === 'ca' ? '/radar' : `/radar?zona=${z.key}`);
-  };
-
   const f = frames[i] ?? frames[frames.length - 1];
   const span = Math.max(1, frames.length - 1);
 
+  /*
+   * L'ordre és el de llegir-lo de dalt a baix: què es mira (les tres capes),
+   * el mapa, i a sota el que el mou. Amb la pluja, primer la barra —que és el
+   * que es toca— i sota l'hora i el botó, a tocar del dit que l'arrossega.
+   *
+   * No hi ha dreceres a zones: fins al 6 d'octubre de 2026 n'hi havia sis
+   * («Pirineu i Aran», «Ponent»…), que venien del radar d'imatge fixa. En un
+   * mapa que s'amplia amb els dits, sobraven.
+   */
   return (
-    <figure className="card m-0 grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-7">
+    <figure className="card m-0 flex flex-col gap-4">
+      {/* Les tres capes són excloents: o pluja, o temperatura, o vent. */}
+      <div role="group" aria-label="Què s'ensenya al mapa" className="radar-seg sm:max-w-md">
+        {([
+          ['radar', 'Pluja'],
+          ['temperatura', 'Temperatura'],
+          ...(wind ? [['vent', 'Vent'] as const] : []),
+        ] as const).map(([k, text]) => (
+          <button
+            key={k}
+            type="button"
+            // L'aturada va aquí i no a un efecte: canviar d'estat dins d'un
+            // efecte encadena un segon dibuix.
+            onClick={() => { setCapa(k); if (k !== 'radar') setPlaying(false); }}
+            aria-pressed={capa === k}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+
       <div className="relative overflow-hidden rounded-2xl border border-[var(--line-soft)]">
         <div
           ref={box}
-          className="h-[min(62vh,520px)] min-h-[340px] w-full bg-[#cfdae4] lg:h-[min(74vh,660px)]"
+          className="h-[min(62vh,520px)] min-h-[340px] w-full bg-[#cfdae4] lg:h-[min(72vh,640px)]"
           // El mapa el dibuixa MapLibre en un `canvas`: el que porta informació
           // —l'hora, el peu, les xifres— és text de la pàgina.
           role="presentation"
@@ -617,161 +616,106 @@ export default function RadarMap({
         ) : null}
       </div>
 
-      <div className="flex min-w-0 flex-col gap-5">
-        {/* Les tres capes són excloents: o pluja, o temperatura, o vent. */}
-        <div role="group" aria-label="Què s'ensenya al mapa" className="radar-seg">
-          {([
-            ['radar', 'Pluja'],
-            ['temperatura', 'Temperatura'],
-            ...(wind ? [['vent', 'Vent'] as const] : []),
-          ] as const).map(([k, text]) => (
-            <button
-              key={k}
-              type="button"
-              // L'aturada va aquí i no a un efecte: canviar d'estat dins d'un
-              // efecte encadena un segon dibuix.
-              onClick={() => { setCapa(k); if (k !== 'radar') setPlaying(false); }}
-              aria-pressed={capa === k}
-            >
-              {text}
-            </button>
-          ))}
-        </div>
-
-        {capa === 'radar' && (
-          <div>
-            <p className="card-label">
-              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
-              <img src="/icons/w/rain.svg" width={22} height={22} alt="" />
-              Les dues últimes hores
-            </p>
-            <div className="flex items-center justify-between gap-4">
-              <span className="radar-big tnum" aria-live="off">{f?.label}</span>
-              {frames.length > 1 && (
-                <button
-                  type="button"
-                  className="rplay-btn"
-                  aria-pressed={playing}
-                  onClick={() => setPlaying((p) => !p)}
-                >
-                  {playing ? 'Atura' : 'Reprodueix les 2 hores'}
-                </button>
-              )}
+      {capa === 'radar' && (
+        <div>
+          {frames.length > 1 && (
+            <>
+              <input
+                type="range"
+                min={0}
+                max={frames.length - 1}
+                step={1}
+                value={i}
+                aria-label="Instant del radar"
+                aria-valuetext={`${f?.label}, ${f?.kind === 'past' ? 'observació' : 'predicció'}`}
+                onChange={(e) => { setPlaying(false); setI(Number(e.target.value)); }}
+                className="rscrub w-full"
+              />
+              <div className="mt-1 flex justify-between text-[11px] text-[var(--muted)]">
+                <span className="tnum">{frames[0].label}</span>
+                <span className="tnum">{frames[Math.max(0, lastPast)]?.label} · ara</span>
+                {lastPast < span && <span className="tnum">{frames[frames.length - 1].label}</span>}
+              </div>
+            </>
+          )}
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <div>
+              <p className="radar-big tnum" aria-live="off">{f?.label}</p>
+              <p className="mt-1 text-[12.5px] text-[var(--muted)]">
+                {f?.kind === 'nowcast'
+                  ? 'predicció immediata'
+                  : i === lastPast ? 'l’última imatge' : 'observació'}
+              </p>
             </div>
-            <p className="mt-1 text-[12.5px] text-[var(--muted)]">
-              {f?.kind === 'nowcast'
-                ? 'predicció immediata'
-                : i === lastPast ? 'l’última imatge' : 'observació'}
-            </p>
             {frames.length > 1 && (
-              <>
-                <input
-                  type="range"
-                  min={0}
-                  max={frames.length - 1}
-                  step={1}
-                  value={i}
-                  aria-label="Instant del radar"
-                  aria-valuetext={`${f?.label}, ${f?.kind === 'past' ? 'observació' : 'predicció'}`}
-                  onChange={(e) => { setPlaying(false); setI(Number(e.target.value)); }}
-                  className="rscrub mt-3 w-full"
-                />
-                <div className="mt-1 flex justify-between text-[11px] text-[var(--muted)]">
-                  <span className="tnum">{frames[0].label}</span>
-                  <span className="tnum">{frames[Math.max(0, lastPast)]?.label} · ara</span>
-                  {lastPast < span && <span className="tnum">{frames[frames.length - 1].label}</span>}
-                </div>
-              </>
+              <button
+                type="button"
+                className="rplay-btn"
+                aria-pressed={playing}
+                onClick={() => setPlaying((p) => !p)}
+              >
+                {playing ? 'Atura' : 'Reprodueix les 2 hores'}
+              </button>
             )}
           </div>
-        )}
+        </div>
+      )}
 
-        {capa === 'temperatura' && (
-          <div>
-            <p className="card-label">
-              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
-              <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
-              Ara, municipi a municipi
-            </p>
-            <p className="radar-big tnum">
-              {hover
-                ? (hover.t != null ? `${deg(hover.t)}°` : '—')
-                : range ? `${deg(range.min)}° a ${deg(range.max)}°` : '—'}
-            </p>
-            <p className="mt-1 text-[12.5px] text-[var(--muted)]">
-              {hover
-                ? (hover.t != null ? hover.name : `${hover.name}, sense observació`)
-                : `del municipi més fred al més càlid · ${observed} de ${total} amb observació`}
-            </p>
-          </div>
-        )}
-
-        {capa === 'vent' && windShown && (
-          <div>
-            <p className="card-label">
-              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
-              <img src="/icons/w/wind.svg" width={22} height={22} alt="" />
-              Vent previst
-            </p>
-            <p className="radar-big tnum">{windShown.label}</p>
-            <p className="mt-1 text-[12.5px] text-[var(--muted)]">
-              a deu metres del terra · fins a {windShown.maxKmh} km/h
-            </p>
-          </div>
-        )}
-
-        {/*
-          L'interruptor dels avisos, separat de les capes: aquelles són
-          excloents i aquest no. A la mateixa filera diria que triar-lo apaga
-          la pluja, que és el contrari del que fa.
-        */}
-        {warnings && warnings.zones > 0 ? (
-          <button
-            type="button"
-            onClick={() => setAvisos((v) => !v)}
-            aria-pressed={avisos}
-            className="radar-toggle"
-          >
-            <span
-              aria-hidden
-              className="radar-toggle-dot"
-              style={{ background: `var(--cap-${
-                { verd: 'green', groc: 'yellow', taronja: 'orange', vermell: 'red' }[warnings.worst ?? 'groc']
-              })` }}
-            />
-            {avisos ? 'Amaga els avisos' : 'Mostra els avisos'}
-            <span className="ml-auto text-[var(--muted)] tnum">
-              {warnings.zones} {warnings.zones === 1 ? 'zona' : 'zones'}
-            </span>
-          </button>
-        ) : null}
-
-        <nav aria-label="Zones">
-          <p className="mb-2 text-[12.5px] font-semibold uppercase tracking-[0.04em] text-[var(--muted)]">
-            Anar a
+      {capa === 'temperatura' && (
+        <div>
+          <p className="radar-big tnum">
+            {hover
+              ? (hover.t != null ? `${deg(hover.t)}°` : '—')
+              : range ? `${deg(range.min)}° a ${deg(range.max)}°` : '—'}
           </p>
-          <ul className="chips">
-            {zones.map((z) => (
-              <li key={z.key}>
-                <button
-                  type="button"
-                  onClick={() => goTo(z)}
-                  aria-pressed={zone === z.key}
-                  className="radar-zone"
-                >
-                  {z.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
+          <p className="mt-1 text-[12.5px] text-[var(--muted)]">
+            {hover
+              ? (hover.t != null ? hover.name : `${hover.name}, sense observació`)
+              : `ara, del municipi més fred al més càlid · ${observed} de ${total} amb observació`}
+          </p>
+        </div>
+      )}
 
-        <figcaption className="text-[13px] leading-relaxed text-[var(--muted)]">
-          {capa === 'radar' ? radarLegend : capa === 'vent' ? windLegend : temperatureLegend}
-          {/* Els avisos conviuen amb les tres capes: el seu peu va a part. */}
-          {warnings && avisos ? warningsLegend : null}
-        </figcaption>
-      </div>
+      {capa === 'vent' && windShown && (
+        <div>
+          <p className="radar-big tnum">{windShown.label}</p>
+          <p className="mt-1 text-[12.5px] text-[var(--muted)]">
+            vent previst a deu metres del terra · fins a {windShown.maxKmh} km/h
+          </p>
+        </div>
+      )}
+
+      {/*
+        L'interruptor dels avisos, separat de les capes: aquelles són
+        excloents i aquest no. A la mateixa filera diria que triar-lo apaga
+        la pluja, que és el contrari del que fa.
+      */}
+      {warnings && warnings.zones > 0 ? (
+        <button
+          type="button"
+          onClick={() => setAvisos((v) => !v)}
+          aria-pressed={avisos}
+          className="radar-toggle sm:max-w-md"
+        >
+          <span
+            aria-hidden
+            className="radar-toggle-dot"
+            style={{ background: `var(--cap-${
+              { verd: 'green', groc: 'yellow', taronja: 'orange', vermell: 'red' }[warnings.worst ?? 'groc']
+            })` }}
+          />
+          {avisos ? 'Amaga els avisos' : 'Mostra els avisos'}
+          <span className="ml-auto text-[var(--muted)] tnum">
+            {warnings.zones} {warnings.zones === 1 ? 'zona' : 'zones'}
+          </span>
+        </button>
+      ) : null}
+
+      <figcaption className="measure text-[13px] leading-relaxed text-[var(--muted)]">
+        {capa === 'radar' ? radarLegend : capa === 'vent' ? windLegend : temperatureLegend}
+        {/* Els avisos conviuen amb les tres capes: el seu peu va a part. */}
+        {warnings && avisos ? warningsLegend : null}
+      </figcaption>
     </figure>
   );
 }

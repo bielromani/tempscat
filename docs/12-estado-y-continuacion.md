@@ -308,8 +308,10 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
 **Un solo radar (6 de octubre, rama `radar-unic`).** `/radar` y `/mapa/interactiu` eran dos
 caras de lo mismo; ahora `/radar` es el mapa de MapLibre con los controles del radar (la hora en
 grande, «Reprodueix les 2 hores», la barra) y las capas Pluja, Temperatura y Vent. Los avisos
-van con su interruptor y **arrancan apagados**; desde `/avisos` se llega con `?avisos=1`. Las
-seis zonas siguen como atajos, y la ficha de cada lugar enlaza `/radar?lloc=<camino>`, que abre
+van con su interruptor y **arrancan apagados**; desde `/avisos` se llega con `?avisos=1`. El orden,
+pedido por el usuario: las tres capas encima del mapa; debajo, la barra, y debajo de la barra la
+hora y «Reprodueix». Los atajos a las seis zonas se quitaron el mismo día: el mapa ya se amplía
+con los dedos. La ficha de cada lugar enlaza `/radar?lloc=<camino>`, que abre
 centrado allí con una aguja. `/mapa/interactiu` redirige a `/radar`. Arreglado de paso: **la
 lluvia no salía en el móvil hasta hacer zoom** — el radar iba como fuente de teselas con
 `minzoom: 7` y un teléfono abre al 6,3; ahora cada tesela es una fuente `image`. Fuera los

@@ -3,10 +3,9 @@ import Link from 'next/link';
 import { radar, windField } from '@/lib/weather';
 import { allComarques, comarcaPathsOn, locationByPath, municipisOfComarca } from '@/lib/territory';
 import { project } from '@/lib/mercator';
-import { radarZones } from '@/lib/radar-zones';
 import { municipalTemperatures, warningOverlay } from '@/lib/map';
 import { ago, dateLong, hour, hourSpoken, num } from '@/lib/format';
-import RadarMap, { type RadarMapFrame, type RadarMapZone } from '@/components/RadarMap';
+import RadarMap, { type RadarMapFrame } from '@/components/RadarMap';
 import { TemperatureLegend } from '@/components/TemperatureMap';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero } from '@/components/PageHero';
@@ -34,8 +33,8 @@ import { MAP_BOX } from '@/lib/webmap';
  *
  * ## Les adreces
  *
- * `?zona=pirineu` obre una de les sis zones, `?lloc=/conca-de-barbera/…` obre
- * centrat en un lloc amb una agulla —és on porta l'enllaç de cada fitxa— i
+ * `?lloc=/conca-de-barbera/…` obre centrat en un lloc amb una agulla —és on
+ * porta l'enllaç de cada fitxa— i
  * `?avisos=1` obre amb els avisos encesos, que és com s'hi arriba des de
  * `/avisos`. Sense res, Catalunya sencera i els avisos apagats: pintats
  * d'entrada tapaven la pluja que es ve a mirar.
@@ -64,7 +63,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/radar' },
 };
 
-type Params = Promise<{ zona?: string; lloc?: string; avisos?: string }>;
+type Params = Promise<{ lloc?: string; avisos?: string }>;
 
 /**
  * Quant pot distar l'hora del vent de l'última imatge del radar.
@@ -151,14 +150,10 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
   const frame = data.frames[Math.max(lastPast, 0)];
 
   // ── On obre ───────────────────────────────────────────────────────────────
-  const zones: RadarMapZone[] = [
-    { key: 'ca', label: 'Catalunya', box: [MAP_BOX.west, MAP_BOX.south, MAP_BOX.east, MAP_BOX.north] },
-    ...radarZones(),
-  ];
   const place = params.lloc ? locationByPath(params.lloc) : undefined;
   const focus = place?.lat != null && place.lon != null
     ? { point: { lon: place.lon, lat: place.lat, name: place.nom } }
-    : zones.some((z) => z.key === params.zona) ? { zone: params.zona } : null;
+    : null;
 
   // ── El vent d'ara, i una sola hora ────────────────────────────────────────
   /*
@@ -254,7 +249,6 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
       <RadarMap
         frames={frames}
         tiles={{ z: grid.z, xy: tiles }}
-        zones={zones}
         focus={focus}
         warnings={warnings}
         warningsOn={params.avisos === '1'}
