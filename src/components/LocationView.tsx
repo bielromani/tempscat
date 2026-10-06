@@ -20,11 +20,10 @@ import { SeaBlock } from './SeaBlock';
 import { CameraBlock } from './CameraBlock';
 import { ResortBlock } from './ResortBlock';
 import { networkLabel, refApart, type Route } from '@/lib/routes';
-import { radarZoneOf } from '@/lib/radar-zones';
 import { aqiBand } from '@/lib/air-variables';
 import { gaugeName } from '@/lib/water';
 import {
-  aComarca, aName, comarcaName, deComarca, deName, int, monthName, num, signed,
+  aName, comarcaName, deComarca, deName, int, monthName, num, signed,
 } from '@/lib/format';
 import { localClockHour, localNowHour, localToday } from '@/lib/weather';
 import type {
@@ -172,7 +171,6 @@ export function LocationView({
     : null;
   // La comarca se nombra con su artículo: és «l'Alt Camp», no «Alt Camp».
   const comarcaLabel = comarcaName(comarca.nom);
-  const zone = radarZoneOf(comarca.codi);
   const nowHour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
 
   return (
@@ -222,10 +220,11 @@ export function LocationView({
             <section className="card" aria-labelledby="h-hores">
               <CardLabel id="h-hores" icon="clear-day">Pròximes 24 hores</CardLabel>
               <HourStrip hourly={forecast.hourly} daily={forecast.daily} nowHour={nowIso} rainWarnings={narrative?.rainWarnings} />
-              {zone && (
+              {/* El radar obre centrat aquí, amb el lloc marcat: d'on ve la pluja i cap on va. */}
+              {loc.lat != null && loc.lon != null && (
                 <p className="card-foot">
-                  <Link href={`/radar?zona=${zone.key}`}>
-                    El radar {aComarca(comarca.nom)} i rodalia ›
+                  <Link href={`/radar?lloc=${loc.path}`}>
+                    El radar al voltant {deName(loc.nom)} ›
                   </Link>
                 </p>
               )}

@@ -4,7 +4,7 @@
 decisiones ya tomadas y —sobre todo— **las trampas que ya nos han costado horas**. Casi todas
 son fallos que no dan error: dan datos plausibles y equivocados.
 
-Última actualización: **2 de octubre de 2026**. Todo lo descrito aquí está **publicado en
+Última actualización: **6 de octubre de 2026**. Todo lo descrito aquí está **publicado en
 tempscat.cat**: el rediseño «Cel» en todo el sitio, las páginas con datos sin ISR, el cielo del
 titular con la altura real del sol, y el proyecto en el **plan Pro de Vercel**. No hay ninguna
 rama ni pull request abierto con trabajo pendiente de fusionar.
@@ -81,9 +81,9 @@ Diseño completo en [`docs/`](.). Empieza por [00 — Resumen ejecutivo](00-resu
 **29 MB** —eran 1.326 páginas y 956 MB—, porque las veinte rutas con datos de ahora se
 generan en cada petición (`LIVE_PAGES` en `next.config.ts`) y el CDN de Vercel las guarda
 cinco minutos. El CI entero, build incluido, tarda alrededor de un minuto. La ficha de Malgrat
-pesa unos 590 kB sin comprimir, y más de la mitad sigue siendo la carga RSC. Hay **cinco**
-`'use client'` (`SiteSearch`, `RadarScrubber`, `InteractiveMap`, `MenuClose` y la página de
-error) y ninguno cambia una ficha de lugar.
+pesa unos 590 kB sin comprimir, y más de la mitad sigue siendo la carga RSC. Hay **cuatro**
+`'use client'` (`SiteSearch`, `RadarMap`, `MenuClose` y la página de error) y ninguno cambia
+una ficha de lugar.
 
 ---
 
@@ -304,6 +304,17 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    un ajuste de la cuenta y lo hace el usuario) · el sol del titular puede quedar detrás del
    final de un nombre largo en el móvil, y el velo de contraste no lo cuenta — va con el
    punto 4, porque se mira en el mismo sitio.
+
+**Un solo radar (6 de octubre, rama `radar-unic`).** `/radar` y `/mapa/interactiu` eran dos
+caras de lo mismo; ahora `/radar` es el mapa de MapLibre con los controles del radar (la hora en
+grande, «Reprodueix les 2 hores», la barra) y las capas Pluja, Temperatura y Vent. Los avisos
+van con su interruptor y **arrancan apagados**; desde `/avisos` se llega con `?avisos=1`. Las
+seis zonas siguen como atajos, y la ficha de cada lugar enlaza `/radar?lloc=<camino>`, que abre
+centrado allí con una aguja. `/mapa/interactiu` redirige a `/radar`. Arreglado de paso: **la
+lluvia no salía en el móvil hasta hacer zoom** — el radar iba como fuente de teselas con
+`minzoom: 7` y un teléfono abre al 6,3; ahora cada tesela es una fuente `image`. Fuera los
+bloques «D'on surt…» de las dos páginas y «Cercar un lloc» del menú: `/cerca` sigue existiendo
+porque es adonde va el formulario del buscador al pulsar Intro.
 
 **Menos correos (5 de octubre, rama `menys-correus`).** Un worker que falla ya no sale en rojo
 —y no manda correo— mientras el dato publicado esté dentro de su límite; cuando caduca, avisa
@@ -587,7 +598,7 @@ Esta es la parte que más tiempo ahorra. **Todas son reales, todas costaron enco
 - **Los avisos oficiales no se reescriben ni se recolorean.** Los verdes no se muestran.
 - **La astronomía se calcula, no se pide.** Cuota cero y da lo que ninguna API ofrece.
 - **Cero JavaScript propio en las páginas territoriales.** El mapa que se mueve vive en su
-  propia dirección, `/mapa/interactiu`, y `/mapa` sigue siendo un SVG de servidor. Esta regla
+  propia dirección, `/radar`, y `/mapa` sigue siendo un SVG de servidor. Esta regla
   es la que la decisión 7 de «Lo que falta» pondría en cuestión.
 - **Un solo tema, el del cielo.** No hay tema claro ni oscuro (rediseño «Cel», octubre de 2026).
 - **El radar no enseña futuro.** Pasado y presente; dónde lloverá lo dicen las horas de la

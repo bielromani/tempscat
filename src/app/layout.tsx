@@ -140,7 +140,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   {PRIMARY.map((l) => (
                     <li key={l.href}><Link href={l.href}>{l.label}</Link></li>
                   ))}
-                  <li><Link href="/cerca">Cercar un lloc</Link></li>
                 </ul>
               </nav>
             </details>

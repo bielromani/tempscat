@@ -60,7 +60,6 @@ const LIVE_PAGES = [
   `/:comarca(${COMARQUES})/:municipi/:entitat`,
   '/radar',
   '/mapa',
-  '/mapa/interactiu',
   '/avisos',
   '/mar',
   '/nautica',
@@ -137,6 +136,8 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: '/bolets', destination: '/ranquings', permanent: true },
+      // El mapa que es mou i el radar es van fer una sola pàgina el 6 d'octubre de 2026.
+      { source: '/mapa/interactiu', destination: '/radar', permanent: true },
     ];
   },
 

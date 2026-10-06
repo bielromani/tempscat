@@ -27,7 +27,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/build/routes.json` | Índice de los 683: nombre, código, km, cotas, comarcas. **Se versiona** |
 | `data/build/routes/<slug>.json` | Trazado y perfil de alturas de uno. Solo lo lee su ficha |
 | `data/cache/base/` | Teselas del mapa base del ICGC, ya en WebP. Las sirve una route handler |
-| `data/cache/wind/` | El viento previsto de las doce horas siguientes, una rejilla u/v por hora en PNG. Lo mueve `/mapa/interactiu` |
+| `data/cache/wind/` | El viento previsto de las doce horas siguientes, una rejilla u/v por hora en PNG. Lo mueve el mapa de `/radar` |
 | `data/cache/field/` | Solo `voltant.json`: la predicción de viento de 129 puntos de fuera de Catalunya, que lee únicamente el worker del viento. El campo de lluvia que daba nombre a la carpeta **ya no se hace**: ver «El futuro del radar» |
 | `src/app/` | Rutas Next.js |
 | `data/build/` | Territorio construido. **Se versiona** |
@@ -310,20 +310,22 @@ páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado.
 **Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
 interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí.
 
-Hay **cinco** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
+Hay **cuatro** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
 
 - `SiteSearch.tsx`, el cuadro de búsqueda de la cabecera. Va en todas las páginas, así que el
   coste se midió antes de ponerlo: **1.546 bytes en gzip**, la diferencia de sumar todos los
   fragmentos de `.next/static/chunks` con y sin él. Es tan poco porque el runtime ya estaba
   —ver la tabla de abajo—. Lo que **no** se hizo fue bajar el índice al navegador: los
   sugerimientos los contesta `/api/cerca`, que solo llama quien escribe.
-- `RadarScrubber.tsx`, la línea de tiempo del radar, y solo en `/radar`.
-- `InteractiveMap.tsx`, el mapa que se puede mover, y solo en `/mapa/interactiu`.
-  Este **no** es una mejora encima de algo que ya funcionaba: sin script no hay mapa
-  que se mueva. Por eso vive en una dirección propia, `/mapa` sigue siendo el SVG de
-  servidor de 10 kB que enlazan las 43 comarcas, y las dos páginas se enlazan entre sí
-  diciendo qué es la otra. MapLibre son unos 200 kB y entra con un `import()` dentro
-  del efecto: ninguna otra ruta lo toca.
+- `RadarMap.tsx`, el radar, y solo en `/radar` (6 de octubre de 2026). Es el mapa de MapLibre
+  que se mueve, con la pluja de las dos últimas horas, la temperatura municipio a municipio, el
+  viento y los avisos, y los controles del radar: la hora en grande, «Reprodueix» y la barra.
+  Hasta ese día eran dos páginas —`/radar`, una imagen fija con el reproductor hecho de CSS, y
+  `/mapa/interactiu`— y la que dejaba ver dónde cae la lluvia era la que costaba encontrar.
+  `/mapa/interactiu` redirige a `/radar`. Este **no** es una mejora encima de algo que ya
+  funcionaba: sin script, lo que se ve es la última imagen del radar dibujada por el servidor.
+  `/mapa` sigue siendo el SVG de servidor de 10 kB que enlazan las 43 comarcas. MapLibre son
+  unos 200 kB y entra con un `import()` dentro del efecto: ninguna otra ruta lo toca.
 - `MenuClose.tsx`, dentro del menú del móvil (4 de octubre de 2026). No renderiza nada:
   cierra el `<details>` al pulsar un enlace, fuera o Escape. Sin él el menú se quedaba
   abierto encima de la página nueva, porque `<Link>` navega sin recargar la cabecera. Lo
@@ -332,12 +334,9 @@ Hay **cinco** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar
   Next obliga a que una frontera de errores sea de cliente. No tiene estado ni efectos, y solo
   actúa cuando hay un error.
 
-El buscador, el radar y el menú son mejoras **encima** de algo que ya funcionaba sin
-JavaScript, y lo dejan funcionando: el buscador sigue siendo un `<form method="get">` y el radar sigue siendo los
-radios ocultos con sus reglas de `:checked`. La barra del radar no dibuja ni oculta ningún
-fotograma — solo marca el radio que toca —, y las pastillas con la hora de cada instante siguen
-en el HTML: se ocultan con una clase que el componente pone **al montarse**, así que sin
-JavaScript no se ocultan nunca.
+El buscador y el menú son mejoras **encima** de algo que ya funcionaba sin JavaScript, y lo
+dejan funcionando: el buscador sigue siendo un `<form method="get">` que abre `/cerca` —por eso
+esa página existe aunque ya no esté en el menú— y el menú es un `<details>`.
 
 Lo que hay que dejar de decir es la cifra que acompañaba a la regla.
 Medido con `next start` sobre `/maresme/malgrat-de-mar`:
@@ -1288,11 +1287,10 @@ cuota para exactamente la misma información.
   lletra, desplaçaments i la separació entre rètols. Qualsevol mapa nou que vagi petit l'ha de
   portar.
 
-- **El vent del mapa interactiu és el d'ara, no una sèrie.** Des que la barra és només radar,
+- **El vent del mapa del radar és el d'ara, no una sèrie.** Des que la barra és només radar,
   cap hora del vent coincidia amb un marc i el botó «Vent» no sortia —sense cap error—. La
   pàgina li passa **una sola hora**, la més propera a l'últim marc del radar, i cap si és a més
-  de 90 minuts. `InteractiveMap` cau a la primera hora quan no troba el marc, i per això n'hi
-  ha prou.
+  de 90 minuts, i el rètol diu aquella hora.
 
 - **ISR serveix primer la còpia vella, i en un web de milers de pàgines això és gairebé
   sempre.** La fitxa d'una ciutat ensenyava la temperatura de feia hores i **el cel de feia
@@ -1384,6 +1382,18 @@ cuota para exactamente la misma información.
 
 
 <!-- BEGIN:nextjs-agent-rules -->
+
+- **Una font de tessel·les amb `minzoom` no es dibuixa per sota d'aquell zoom, i no dona cap
+  error.** (6 d'octubre de 2026.) El radar només existeix al zoom 7, i al mapa que es mou anava
+  declarat com a font `raster` amb `minzoom: 7`. Un telèfon obre Catalunya sencera al 6,3: el
+  mapa sortia sense pluja fins que s'hi feia zoom, i semblava espatllat. Ara cada tessel·la és
+  una font `image` amb els quatre cantons en graus (`tileCorners()` a `RadarMap.tsx`), que es
+  dibuixa a qualsevol zoom.
+- **Un element que el servidor passa per props a un component de client hi arriba sense
+  validar.** Els peus del radar i la imatge sense JavaScript són elements que escriu la pàgina
+  i pinta `RadarMap`: React avisava «Each child in a list should have a unique "key" prop»
+  sense que hi hagués cap llista. Porten `key`, i un fragment `<>…</>` en aquesta posició
+  arriba com una llista: va dins d'un element.
 
 # This is NOT the Next.js you know
 

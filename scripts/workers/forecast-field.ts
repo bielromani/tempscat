@@ -4,7 +4,7 @@
  * ## Què és
  *
  * Una graella regular de vent —les components u i v— per a cadascuna de les
- * dotze hores següents, que `/mapa/interactiu` mou amb partícules. Surt de la
+ * dotze hores següents, que el mapa de `/radar` mou amb partícules. Surt de la
  * predicció que ja es baixa per als 3.190 punts, més un anell de punts de fora
  * —el mar, França i l'Aragó— perquè el camp no s'acabi a la ratlla. La forma
  * del fitxer i com es llegeix són a `src/lib/wind.ts`.

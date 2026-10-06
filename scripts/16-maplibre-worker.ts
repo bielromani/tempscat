@@ -73,7 +73,7 @@ try {
   }).version;
 } catch {
   throw new Error(
-    'No hi ha `maplibre-gl` instal·lat. El mapa de /mapa/interactiu no pot funcionar sense.',
+    'No hi ha `maplibre-gl` instal·lat. El mapa de /radar no pot funcionar sense.',
   );
 }
 
