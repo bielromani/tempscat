@@ -218,6 +218,16 @@ export default function RadarMap({
 
     (async () => {
       try {
+        /*
+         * MapLibre 6 necessita WebGL2. Un mòbil vell o amb la gràfica a la llista
+         * negra del navegador no en té, i el mapa petava amb un missatge tècnic.
+         * Abans de baixar-se els 200 kB, es pregunta; si no n'hi ha, queda
+         * l'última imatge del radar que ha dibuixat el servidor, amb una frase.
+         */
+        if (!document.createElement('canvas').getContext('webgl2')) {
+          if (!dead) setError('Aquest navegador no pot dibuixar el mapa que es mou. Aquí teniu l’última imatge del radar.');
+          return;
+        }
         const maplibre = await import('maplibre-gl');
         if (dead || !box.current) return;
 

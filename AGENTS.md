@@ -1394,6 +1394,14 @@ cuota para exactamente la misma información.
   i pinta `RadarMap`: React avisava «Each child in a list should have a unique "key" prop»
   sense que hi hagués cap llista. Porten `key`, i un fragment `<>…</>` en aquesta posició
   arriba com una llista: va dins d'un element.
+- **Un web fosc que no diu que és fosc el torna a enfosquir el navegador.** (9 d'octubre de
+  2026.) En un Android amb Chrome, el mapa de la portada i el radar no sortien i a l'altre mòbil
+  sí: Chrome amb el tema fosc i «enfosquir els llocs web» —de sèrie en molts telèfons—
+  enfosqueix pel seu compte les pàgines que no declaren `color-scheme`. El que ja era fosc es
+  veia igual; els colors clars dels mapes quedaven apagats damunt del blau. Ara `:root` porta
+  `color-scheme: dark` i el `viewport` de `layout.tsx`, `colorScheme: 'dark'`. I el radar
+  pregunta si hi ha WebGL2 abans de carregar MapLibre: si no n'hi ha, ho diu i deixa l'última
+  imatge del servidor.
 
 # This is NOT the Next.js you know
 

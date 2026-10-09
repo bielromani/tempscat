@@ -24,7 +24,17 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'sw
  * El color de la barra del navegador al mòbil, i el de l'app afegida a la
  * pantalla d'inici: `--paper` en hex, el mateix que porta `manifest.ts`.
  */
-export const viewport: Viewport = { themeColor: '#0e1e35' };
+/*
+ * `colorScheme: 'dark'` no és decoració: diu al navegador que el web ja és fosc.
+ *
+ * Sense això, Chrome a l'Android amb el tema fosc i «enfosquir els llocs web»
+ * activat —en molts telèfons ho porta de sèrie— enfosqueix la pàgina pel seu
+ * compte. Tot el que ja és fosc es veu igual, i el que és clar —els colors de
+ * temperatura del mapa de la portada, la cartografia de l'ICGC del radar— queda
+ * apagat fins a desaparèixer damunt del fons blau. Es va veure el 9 d'octubre
+ * de 2026: en un mòbil sortia el mapa i en un altre no, amb el mateix web.
+ */
+export const viewport: Viewport = { themeColor: '#0e1e35', colorScheme: 'dark' };
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
