@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { windCardinal } from '@/lib/variables';
-import { articleFirst, dateShort, dateTimeLong, dayTiny, deWord, fromDirection, num } from '@/lib/format';
+import { aName, articleFirst, dateShort, dateTimeLong, dayTiny, deName, deWord, fromDirection, num } from '@/lib/format';
+import { fold, match, matchWithContext } from '@/lib/search-match';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { douglas, flagStyle, parseJellyfish, FLAG_SHOW_HOURS, type Beach } from '@/lib/sea';
 import { nauticalConditions, type SeaStretch } from '@/lib/activities';
@@ -64,9 +65,11 @@ export const metadata: Metadata = {
 };
 
 interface Tram {
+  /** L'àncora de la targeta, perquè el cercador de la pàgina hi pugui portar. */
+  id: string;
   stretch: SeaStretch;
   beaches: Beach[];
-  /** Els municipis de les seves platges, de nord a sud: el nom del tram. */
+  /** Els municipis de les seves platges, de nord a sud. */
   towns: string[];
   coast: string;
 }
@@ -76,17 +79,78 @@ function d2(aLat: number, aLon: number, bLat: number, bLon: number): number {
   return (aLat - bLat) ** 2 + ((aLon - bLon) * Math.cos((aLat * Math.PI) / 180)) ** 2;
 }
 
-/** El nom d'un tram: «Llançà, el Port de la Selva i Roses». */
+/**
+ * El nom d'un tram: «Roses i Castelló d'Empúries», o «De Vilassar de Mar a
+ * Montgat» quan n'hi ha més de dos.
+ *
+ * Abans era «Vilassar de Mar, Premià de Mar i 5 més», i no hi havia manera de
+ * saber quins eren els cinc. Ara el nom diu d'on a on va, i a dins de la
+ * targeta hi ha tots els pobles amb les seves platges.
+ */
 function tramName(towns: string[]): string {
-  if (towns.length <= 1) return towns[0] ?? '';
-  if (towns.length <= 3) return `${towns.slice(0, -1).join(', ')} i ${towns.at(-1)}`;
-  return `${towns.slice(0, 2).join(', ')} i ${towns.length - 2} més`;
+  const cap = (t: string) => `${t[0].toUpperCase()}${t.slice(1)}`;
+  if (towns.length <= 1) return cap(towns[0] ?? '');
+  // «Vandellòs i l'Hospitalet de l'Infant i l'Ametlla de Mar» no es llegeix: amb
+  // una «i» dins d'un nom, es diu d'on a on.
+  if (towns.length === 2 && !towns.some((t) => / i /.test(t))) return cap(`${towns[0]} i ${towns[1]}`);
+  return cap(`${deName(towns[0])} ${aName(towns.at(-1)!)}`);
+}
+
+/** El poble sol, perquè «calella» trobi les platges de Calella i no només les que en porten el nom. */
+function match2(fq: string, town: string): number {
+  return Math.round(match(fq, town) * 0.9);
+}
+
+/** «Costa Brava» → `costa-brava`, per a les àncores. */
+const slug = (s: string) => fold(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+/**
+ * Les targetes: cada platja al punt del model més proper, i cada punt partit
+ * per costa.
+ *
+ * El punt de davant de Montgat és el més proper de les platges de Vilassar de
+ * Mar fins a Barcelona. Posat sencer sota la costa de la majoria de les seves
+ * platges, Vilassar i Premià sortien al Barcelonès. Ara aquell punt fa dues
+ * targetes —una al Maresme i una al Barcelonès— amb les mateixes xifres del
+ * model, que és el que són: el mateix tros de mar.
+ */
+function buildTrams(stretches: SeaStretch[], beaches: Beach[]): Tram[] {
+  const byPoint = stretches.map(() => new Map<string, Beach[]>());
+  for (const b of beaches) {
+    let best = 0;
+    for (let k = 1; k < stretches.length; k++) {
+      if (d2(b.lat, b.lon, stretches[k].lat, stretches[k].lon)
+        < d2(b.lat, b.lon, stretches[best].lat, stretches[best].lon)) best = k;
+    }
+    const list = byPoint[best].get(b.coast) ?? [];
+    list.push(b);
+    byPoint[best].set(b.coast, list);
+  }
+
+  const out: Tram[] = [];
+  stretches.forEach((stretch, k) => {
+    const parts = [...byPoint[k]]
+      .map(([coast, list]) => [coast, list.slice().sort((a, b) => b.lat - a.lat)] as const)
+      .sort((a, b) => b[1][0].lat - a[1][0].lat);
+    for (const [coast, list] of parts) {
+      out.push({
+        id: `t-${k}-${slug(coast)}`,
+        stretch,
+        beaches: list,
+        towns: [...new Set(list.map((b) => articleFirst(b.municipality)))],
+        coast,
+      });
+    }
+  });
+  return out;
 }
 
 const LEVEL_WORD = { verd: 'verd', groc: 'groc', taronja: 'taronja', vermell: 'vermell' } as const;
 
-export default async function MarPage() {
-  const [data, warnings] = await Promise.all([nauticalConditions(), activeWarnings()]);
+type Params = Promise<{ q?: string }>;
+
+export default async function MarPage({ searchParams }: { searchParams: Params }) {
+  const [data, warnings, params] = await Promise.all([nauticalConditions(), activeWarnings(), searchParams]);
   const stretches = data?.stretches ?? [];
 
   if (!data || !stretches.length) {
@@ -103,30 +167,7 @@ export default async function MarPage() {
     );
   }
 
-  // ── Cada platja al seu tram ──────────────────────────────────────────────
-  /*
-   * Al punt del model més proper. El nom del tram surt dels municipis de les
-   * seves platges, que és com la gent diu on va: «a Roses», no «al punt 3».
-   */
-  const groups = stretches.map(() => [] as Beach[]);
-  for (const b of data.beaches) {
-    let best = 0;
-    for (let k = 1; k < stretches.length; k++) {
-      if (d2(b.lat, b.lon, stretches[k].lat, stretches[k].lon)
-        < d2(b.lat, b.lon, stretches[best].lat, stretches[best].lon)) best = k;
-    }
-    groups[best].push(b);
-  }
-
-  const trams: Tram[] = stretches.map((stretch, k) => {
-    const beaches = groups[k].slice().sort((a, b) => b.lat - a.lat);
-    const towns = [...new Set(beaches.map((b) => articleFirst(b.municipality)))];
-    // La costa del tram és la de la majoria de les seves platges.
-    const count = new Map<string, number>();
-    for (const b of beaches) count.set(b.coast, (count.get(b.coast) ?? 0) + 1);
-    const coast = [...count].sort((x, y) => y[1] - x[1])[0]?.[0] ?? 'Costa';
-    return { stretch, beaches, towns: towns.length ? towns : [stretch.near], coast };
-  });
+  const trams = buildTrams(stretches, data.beaches);
 
   const coasts: Array<[string, Tram[]]> = [];
   for (const t of trams) {
@@ -176,7 +217,8 @@ export default async function MarPage() {
     : null;
 
   const geo = mapOutline();
-  const coastPoints: CoastPoint[] = trams.map((t) => {
+  // Un punt per punt del model, encara que en surtin dues targetes.
+  const coastPoints: CoastPoint[] = trams.filter((t, i) => trams.findIndex((o) => o.stretch === t.stretch) === i).map((t) => {
     const flagged = t.beaches.find((b) => b.ageHours <= FLAG_SHOW_HOURS);
     return {
       id: t.stretch.near,
@@ -189,6 +231,29 @@ export default async function MarPage() {
       beachCode: flagged?.code ?? t.beaches[0]?.code ?? null,
     };
   });
+
+  // ── El cercador de la pàgina ─────────────────────────────────────────────
+  /*
+   * Només platges i pobles de costa, i sense JavaScript: el formulari torna a
+   * aquesta mateixa pàgina amb `?q=`, i el servidor ensenya les que hi casen,
+   * cada una amb les xifres del seu tram i un enllaç a la targeta. Els
+   * suggeriments mentre s'escriu els dona el navegador amb un `<datalist>`.
+   */
+  const q = (params.q ?? '').trim().slice(0, 60);
+  const fq = fold(q);
+  const hits = fq
+    ? trams
+      .flatMap((t) => t.beaches.map((b) => ({
+        t, b, score: Math.max(matchWithContext(fq, b.name), match2(fq, articleFirst(b.municipality))),
+      })))
+      .filter((h) => h.score > 0)
+      .sort((x, y) => y.score - x.score || y.b.lat - x.b.lat)
+      .slice(0, 40)
+    : [];
+  const suggestions = [...new Set([
+    ...data.beaches.map((b) => articleFirst(b.municipality)),
+    ...data.beaches.map((b) => b.name),
+  ])].sort((x, y) => x.localeCompare(y, 'ca'));
 
   const pill = (t: number) => ({ background: temperatureColor(t), color: temperatureInk(t) });
   const windAge = stretches.find((s) => s.wind)?.wind?.ageMin ?? null;
@@ -237,8 +302,7 @@ export default async function MarPage() {
           <>L’últim parte d’un socorrista és del {dateShort(lastReport)}.</>
         ) : undefined}
         aside={(
-          // Al mòbil el mapa no hi és: la llista de trams ja va de nord a sud.
-          <section className="card hidden lg:block" aria-label="La costa, ara">
+          <section className="card" aria-label="La costa, ara">
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/tide-high.svg" width={22} height={22} alt="" />
@@ -275,11 +339,63 @@ export default async function MarPage() {
         </Link>
       )}
 
+      <form action="/mar#cerca" method="get" role="search" id="cerca" className="mar-search">
+        <label htmlFor="mar-q" className="sr-only">Cerca una platja o un poble de costa</label>
+        <input
+          id="mar-q"
+          name="q"
+          type="search"
+          defaultValue={q}
+          list="mar-llocs"
+          placeholder="Cerca una platja o un poble de costa"
+          autoComplete="off"
+        />
+        <button type="submit">Cerca</button>
+        <datalist id="mar-llocs">
+          {suggestions.map((n) => <option key={n} value={n} />)}
+        </datalist>
+      </form>
+
+      {q && (
+        <section className="card mb-6" aria-label={`Resultats per ${q}`}>
+          <p className="card-label">
+            {hits.length > 0
+              ? `${hits.length === 40 ? 'Les primeres 40' : hits.length === 1 ? 'Una platja' : `${hits.length} platges`} per «${q}»`
+              : `Cap platja ni poble de costa no es diu «${q}»`}
+          </p>
+          {hits.length > 0 && (
+            <ul className="rows">
+              {hits.map(({ t, b }) => {
+                const shown = b.ageHours <= FLAG_SHOW_HOURS;
+                return (
+                  <li key={b.code}>
+                    <a href={`#${t.id}`} className="row-main">
+                      <span className="row-title">{b.name}</span>
+                      <span className="row-sub">
+                        {articleFirst(b.municipality)}
+                        {t.stretch.waveHeight != null && <> · onada {num(t.stretch.waveHeight, 1)} m, {douglas(t.stretch.waveHeight)}</>}
+                      </span>
+                    </a>
+                    <span className="flex shrink-0 items-center gap-2">
+                      {shown && <FlagMark flag={b.flag} size={18} />}
+                      {t.stretch.sst != null && (
+                        <span className="temp-pill" style={pill(t.stretch.sst)}>{num(t.stretch.sst, 1)}°</span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="card-foot"><Link href="/mar">Totes les platges ›</Link></p>
+        </section>
+      )}
+
       {/* Les costes, per saltar-hi. Són àncores: no cal cap script. */}
       <nav aria-label="Costes" className="mb-2">
         <ul className="chips">
           {coasts.map(([name]) => (
-            <li key={name}><a href={`#costa-${name.toLowerCase().replace(/[^a-z]+/g, '-')}`}>{name}</a></li>
+            <li key={name}><a href={`#costa-${slug(name)}`}>{name}</a></li>
           ))}
         </ul>
       </nav>
@@ -290,7 +406,7 @@ export default async function MarPage() {
         return (
           <section
             key={name}
-            id={`costa-${name.toLowerCase().replace(/[^a-z]+/g, '-')}`}
+            id={`costa-${slug(name)}`}
             className="section scroll-mt-4"
             aria-labelledby={`h-${name}`}
           >
@@ -302,7 +418,7 @@ export default async function MarPage() {
               </p>
             </div>
             <ul className="card-grid">
-              {list.map((t) => <TramCard key={t.stretch.near} tram={t} townPath={townPath} pill={pill} />)}
+              {list.map((t) => <TramCard key={t.id} tram={t} townPath={townPath} pill={pill} />)}
             </ul>
           </section>
         );
@@ -361,7 +477,7 @@ function TramCard({
   const s = tram.stretch;
   const w = s.wind;
   return (
-    <li className="card tram">
+    <li className="card tram scroll-mt-4" id={tram.id}>
       <h3 className="tram-name">{tramName(tram.towns)}</h3>
 
       <dl className="tram-now">
@@ -406,34 +522,40 @@ function TramCard({
         </div>
       )}
 
+      {/*
+        Les platges, poble a poble: el nom del tram diu d'on a on va, i aquí hi
+        ha tots els pobles. Cada platja porta el seu `id` perquè el cercador del
+        web hi porta.
+      */}
       {tram.beaches.length > 0 && (
-        <ul className="tram-beaches" aria-label="Platges">
-          {tram.beaches.map((b) => {
-            const shown = b.ageHours <= FLAG_SHOW_HOURS;
-            const jellies = shown ? parseJellyfish(b.jellyfish) : [];
-            const href = townPath.get(b.municipalityIne5);
-            const label = (
-              <>
-                {shown && <FlagMark flag={b.flag} size={14} />}
-                {b.name}
-                {/* Dues platges del mateix nom al mateix tram: es diu de quin poble és cada una. */}
-                {tram.beaches.some((o) => o !== b && o.name === b.name) && (
-                  <span className="text-[var(--muted)]">({articleFirst(b.municipality)})</span>
-                )}
-              </>
-            );
+        <ul className="tram-towns" aria-label="Platges">
+          {tram.towns.map((town) => {
+            const list = tram.beaches.filter((b) => articleFirst(b.municipality) === town);
+            const href = townPath.get(list[0].municipalityIne5);
             return (
-              <li
-                key={b.code}
-                id={`p-${b.code}`}
-                title={shown ? `${flagStyle(b.flag).label} · ${articleFirst(b.municipality)}` : articleFirst(b.municipality)}
-              >
-                {href ? <Link href={href}>{label}</Link> : label}
-                {jellies.length > 0 && (
-                  <span className="ml-1">
-                    {jellies.map((j) => <JellyfishMark key={j.species} species={j.species} amount={j.amount} />)}
-                  </span>
-                )}
+              <li key={town}>
+                {href ? <Link href={href} className="tram-town">{town}</Link> : <span className="tram-town">{town}</span>}
+                <span className="tram-beaches">
+                  {list.map((b) => {
+                    const shown = b.ageHours <= FLAG_SHOW_HOURS;
+                    const jellies = shown ? parseJellyfish(b.jellyfish) : [];
+                    return (
+                      <span
+                        key={b.code}
+                        id={`p-${b.code}`}
+                        title={shown ? `Bandera ${flagStyle(b.flag).label.toLowerCase()}` : undefined}
+                      >
+                        {shown && <FlagMark flag={b.flag} size={14} />}
+                        {b.name}
+                        {jellies.length > 0 && (
+                          <span className="ml-1">
+                            {jellies.map((j) => <JellyfishMark key={j.species} species={j.species} amount={j.amount} />)}
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </span>
               </li>
             );
           })}

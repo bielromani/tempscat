@@ -1414,14 +1414,30 @@ a.card:hover, .card-link:hover { background: oklch(100% 0 0 / 0.11); border-colo
 .tram-days-label { margin: 0 0 6px; font-size: 11.5px; color: var(--muted); }
 .tram-days li { display: flex; flex-direction: column; font-size: 13px; line-height: 1.35; color: var(--ink-2); }
 .tram-days li > span:first-child { font-size: 11.5px; color: var(--muted); }
-.tram-beaches {
-  display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 10px 0 0; list-style: none;
+.tram-towns {
+  display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 10px 0 0; list-style: none;
   border-top: 1px solid var(--line-soft);
-  font-size: 13px; color: var(--ink-2);
 }
-.tram-beaches li { display: inline-flex; align-items: center; gap: 4px; }
-.tram-beaches a { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-2); text-decoration: none; }
-.tram-beaches a:hover { color: var(--ink); text-decoration: underline; }
+.tram-town { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); text-decoration: none; }
+a.tram-town:hover { text-decoration: underline; }
+.tram-beaches { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; color: var(--ink-2); }
+.tram-beaches > span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* El cercador de /mar: el mateix aspecte que el de la portada, més petit. */
+.mar-search {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 16px; max-width: 34rem;
+  padding: 6px 6px 6px 16px; border-radius: 16px; background: #fff; box-shadow: var(--shadow);
+}
+.mar-search input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+  font-size: 15px; color: #0b1220;
+}
+.mar-search input::placeholder { color: #64748b; }
+.mar-search button {
+  flex-shrink: 0; padding: 7px 14px; border-radius: 12px;
+  background: var(--accent); color: #0b1220; font-size: 14px; font-weight: 600;
+}
+.mar-search:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tram-src { margin: -4px 0 0; font-size: 11.5px; color: var(--muted); }
 
 /* Una xifra de temperatura amb el seu color de fons. El color el posa la
