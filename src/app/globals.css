@@ -13,6 +13,11 @@
  */
 
 :root {
+  /* El web és fosc, i ho diu: sense això Chrome a l'Android l'enfosqueix pel seu
+     compte i els mapes, que són clars, desapareixen. Ho repeteix el `viewport`
+     de `layout.tsx` amb la metaetiqueta. */
+  color-scheme: dark;
+
   /*
    * «Cel»: el tema del lloc, i n'hi ha un de sol.
    *
