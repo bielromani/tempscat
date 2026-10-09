@@ -325,6 +325,13 @@ de Gemini que trajo él, quedándose con lo que los datos aguantan:
   licencia para reservirlas), geolocalización «a prop meva» (pediría un componente de
   cliente; se puede hacer después si hace falta) y UV por playa (habría que leer los
   trozos de predicción de once comarcas para una sola página: está en cada ficha).
+Y el mismo día, lo que pidió el usuario al verla: **el mapa también en el móvil**; **un
+buscador propio** solo de playas y pueblos de costa (`?q=` contra la misma página, sin script, con
+`<datalist>` para las sugerencias); y los tramos bien puestos: el punto de delante de Montgat
+recogía de Vilassar de Mar a Barcelona y la tarjeta entera salía en el Barcelonès. Ahora cada
+punto se parte por la costa de sus playas —dos tarjetas con las mismas cifras del modelo—, el
+nombre dice de dónde a dónde va («De Vilassar de Mar a Montgat») y dentro salen todos los
+pueblos con sus playas, en vez de «i 5 més».
 De la versión del 6 se quedan `articleFirst()` (con prueba en `test:catalan`) y el arreglo
 de «1 platges».
 
