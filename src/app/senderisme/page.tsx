@@ -8,7 +8,7 @@ import { gustColor, temperatureColor, temperatureInk } from '@/lib/scales';
 import { ago, fromDirection, int, num } from '@/lib/format';
 import { allRoutes } from '@/lib/routes';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
-import { PageHero, Section } from '@/components/PageHero';
+import { PageHero } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
 
 /**
@@ -55,6 +55,24 @@ function gustInk(kmh: number): string {
   return kmh >= HARD_KMH ? 'oklch(100% 0 0)' : 'oklch(20% 0.02 250)';
 }
 
+/**
+ * Les serralades, per agrupar les estacions com es pregunta: «com està el
+ * Pirineu de Lleida», no «com està l'estació 2.4».
+ *
+ * Les agrupacions són nostres i van per comarca. Una comarca que no hi sigui
+ * va a «Altres serres», i no es perd cap estació.
+ */
+const ZONES: Array<[string, string[]]> = [
+  ['Pirineu de Lleida', ["Val d'Aran", 'Alta Ribagorça', 'Pallars Sobirà', 'Pallars Jussà', 'Alt Urgell']],
+  ['Cerdanya i Prepirineu', ['Cerdanya', 'Solsonès', 'Berguedà']],
+  ['Pirineu de Girona', ['Ripollès', 'Garrotxa', 'Alt Empordà']],
+];
+const OTHER = 'Altres serres';
+
+/** «Pirineu de Lleida» → `pirineu-de-lleida`, per a les àncores. */
+const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
 export default async function SenderismePage() {
   const routeCount = allRoutes().routes.length;
   const data = await hikingConditions();
@@ -70,16 +88,11 @@ export default async function SenderismePage() {
     .sort((a, b) => (b.snowCm ?? 0) - (a.snowCm ?? 0))[0];
   const fz = data?.freezing;
 
-  /*
-   * Dues columnes que a l'estiu no tenen res a dir.
-   *
-   * La sensació pel vent només existeix per sota de 10 °C, i la neu, doncs
-   * quan n'hi ha. Una columna sencera de guionets sembla que estigui trencada;
-   * el que passa és que aquella dada avui no aplica. Si no la té ningú, la
-   * columna no hi és.
-   */
-  const anyChill = stations.some((s) => s.windChill != null);
-  const anySnow = snowiest != null;
+  const zones: Array<[string, typeof stations]> = [...ZONES.map(([z]) => z), OTHER]
+    .map((z) => [z, stations
+      .filter((s) => (ZONES.find(([, cs]) => cs.includes(s.comarcaNom ?? ''))?.[0] ?? OTHER) === z)
+      .sort((a, b) => b.altitud - a.altitud)] as [string, typeof stations])
+    .filter(([, list]) => list.length > 0);
 
   const geo = mapOutline();
   const gusty = stations.filter((s) => s.gustKmh != null);
@@ -246,77 +259,101 @@ export default async function SenderismePage() {
         </Link>
       </div>
 
-      {stations.length > 0 && (
-        <Section id="estacions" title={`Les estacions per damunt dels ${int(MOUNTAIN_M)} metres`}>
-          <div className="card">
-            <div className="scroll-x">
-              <table className="data-table [&_td.num]:whitespace-nowrap">
-                <thead>
-                  <tr>
-                    <th scope="col">Estació</th>
-                    <th scope="col" className="num">Alçada</th>
-                    <th scope="col" className="num">Temp.</th>
-                    {anyChill && <th scope="col" className="num">Es noten</th>}
-                    <th scope="col" className="num">Ratxa (km/h)</th>
-                    {anySnow && <th scope="col" className="num">Neu</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {stations.map((s) => (
-                    <tr key={s.codi}>
-                      <td>
-                        {/* L'alçada ja té columna: el nom va sense el parèntesi. */}
-                        <Link href={`/estacions/${s.codi}`}>{bare(s.nom)}</Link>
-                        {s.comarcaNom && (
-                          <span className="block text-xs text-[var(--muted)]">{s.comarcaNom}</span>
-                        )}
-                      </td>
-                      <td className="num">{int(s.altitud)} m</td>
-                      <td className="num">
+      {/* Les zones, per saltar-hi. Són àncores: no cal cap script. */}
+      {zones.length > 1 && (
+        <nav aria-label="Zones" className="mt-6 mb-2">
+          <ul className="chips">
+            {zones.map(([name]) => (
+              <li key={name}><a href={`#zona-${slug(name)}`}>{name}</a></li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
+      {/*
+        Les estacions, zona per zona.
+
+        Fins al 9 d'octubre de 2026 era una taula de sis columnes ordenada per
+        alçada, que al mòbil calia arrossegar de costat i que no deia si el vent
+        era a l'Aran o al Montseny. Ara, com a /mar: una targeta per estació amb
+        la temperatura, la ratxa i el que se'n nota, agrupades per serralada.
+      */}
+      {zones.map(([name, list]) => {
+        const gusts = list.map((s) => s.gustKmh).filter((v): v is number => v != null);
+        const temps = list.map((s) => s.temperature).filter((v): v is number => v != null);
+        return (
+          <section key={name} id={`zona-${slug(name)}`} className="section scroll-mt-4" aria-labelledby={`h-${slug(name)}`}>
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
+              <h2 id={`h-${slug(name)}`} className="card-title">{name}</h2>
+              <p className="text-[13px] text-[var(--muted)] tnum">
+                {temps.length > 0 && <>de {num(Math.min(...temps), 0)} a {num(Math.max(...temps), 0)} °C</>}
+                {temps.length > 0 && gusts.length > 0 && ' · '}
+                {gusts.length > 0 && <>ratxes fins a {Math.max(...gusts)} km/h</>}
+              </p>
+            </div>
+            <ul className="card-grid">
+              {list.map((s) => (
+                <li key={s.codi} className="card tram">
+                  <h3 className="tram-name">
+                    <Link href={`/estacions/${s.codi}`} className="text-[var(--ink)] no-underline hover:underline">{(() => { const n = bare(s.nom); return n[0].toUpperCase() + n.slice(1); })()}</Link>
+                    <span className="block text-[12.5px] font-normal text-[var(--muted)]">
+                      {int(s.altitud)} m{s.comarcaNom && <> · {s.comarcaNom}</>}
+                    </span>
+                  </h3>
+                  <dl className="tram-now">
+                    <div>
+                      <dt>Temperatura</dt>
+                      <dd>
                         {s.temperature != null ? (
-                          <span
-                            className="temp-pill"
-                            style={{ background: temperatureColor(s.temperature), color: temperatureInk(s.temperature) }}
-                          >
+                          <span className="temp-pill" style={{ background: temperatureColor(s.temperature), color: temperatureInk(s.temperature) }}>
                             {num(s.temperature, 1)}°
                           </span>
                         ) : '—'}
-                      </td>
-                      {anyChill && (
-                        <td className="num">{s.windChill != null ? `${num(s.windChill, 0)} °C` : '—'}</td>
-                      )}
-                      <td className="num">
+                        {s.windChill != null && Math.round(s.windChill) !== Math.round(s.temperature ?? NaN) && (
+                          <small>es nota com {num(s.windChill, 0)}°</small>
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Ratxa</dt>
+                      <dd>
                         {s.gustKmh != null ? (
-                          <>
-                            <span className="mr-1.5 text-xs text-[var(--muted)]">
-                              F{beaufort(s.gustKmh).force}
-                              {s.windDir != null && ` · ${windCardinal(s.windDir)}`}
-                            </span>
-                            <span
-                              className="temp-pill"
-                              style={{ background: gustColor(s.gustKmh), color: gustInk(s.gustKmh) }}
-                            >
-                              {s.gustKmh}
-                            </span>
-                          </>
+                          <span className="temp-pill" style={{ background: gustColor(s.gustKmh), color: gustInk(s.gustKmh) }}>
+                            {s.gustKmh} km/h
+                          </span>
                         ) : '—'}
-                      </td>
-                      {anySnow && (
-                        <td className="num">{s.snowCm != null && s.snowCm > 0 ? `${int(s.snowCm)} cm` : '—'}</td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {stations[0] && (
-              <p className="source">
-                Ratxa en km/h, amb la força de Beaufort i d&apos;on ve el vent. Lectures{' '}
-                {ago(stations[0].ageMin)}. {data?.source}
-              </p>
-            )}
-          </div>
-        </Section>
+                        {s.gustKmh != null && (
+                          <small>
+                            força {beaufort(s.gustKmh).force}
+                            {s.windDir != null && ` ${fromDirection(windCardinal(s.windDir))}`}
+                          </small>
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{s.snowCm != null && s.snowCm > 0 ? 'Neu' : 'Humitat'}</dt>
+                      <dd>
+                        {s.snowCm != null && s.snowCm > 0
+                          ? <>{int(s.snowCm)} cm</>
+                          : s.humidity != null ? <>{int(s.humidity)} %</> : '—'}
+                      </dd>
+                    </div>
+                  </dl>
+                  {s.gustKmh != null && (
+                    <p className="tram-src">{beaufort(s.gustKmh).note}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+
+      {stations[0] && (
+        <p className="source mt-6">
+          Ratxa en km/h, amb la força de Beaufort i d&apos;on ve el vent. Lectures{' '}
+          {ago(stations[0].ageMin)}. {data?.source}
+        </p>
       )}
 
       <div className="folds">
