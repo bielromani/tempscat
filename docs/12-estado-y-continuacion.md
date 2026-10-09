@@ -305,22 +305,28 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
    final de un nombre largo en el móvil, y el velo de contraste no lo cuenta — va con el
    punto 4, porque se mira en el mismo sitio.
 
-**Platges, la muestra del nuevo estilo de las páginas de sección (6 de octubre, rama
-`platges`).** El usuario vio que las páginas generales se quedaban atrás de las fichas: eran
-volcados de tablas que en el móvil partían cada cifra en dos líneas. `/mar` es la primera
-rehecha y la que marca el estilo para las demás (montaña, navegar, aire, itinerarios,
-ránquings):
-- **Arriba, la respuesta y con lugar.** La frase dice cómo está el agua, cómo está el mar y qué
-  dicen las banderas; las cifras son el agua más cálida, la más fría y la ola más alta, cada una
-  con dónde.
-- **Nada de tablas anchas.** Filas de `.rows`: el nombre y una línea de detalle a la izquierda,
-  una o dos cifras a la derecha (la temperatura con `temp-pill`). Agrupadas como se pregunta: por
-  costa.
-- **Menos texto en el cuerpo**; lo que explica, plegado al final.
-Y dos defectos de paso: «1 platges tenen parte», y los puntos del modelo se casaban con su playa
-solo por el nombre —hay más de una «Platja Gran» y la de Palamós caía en el Maresme—; ahora es
-la más cercana con ese nombre. Los municipios del registro de playas llegan como «Ametlla de
-Mar, l'» y se escriben con `articleFirst()` (`format.ts`, con prueba en `test:catalan`).
+**Platges, por tramos (9 de octubre, rama `mar-trams`).** La primera versión de la muestra
+(6 oct) no convenció al usuario: «difícil de entender». Se rehízo partiendo de una propuesta
+de Gemini que trajo él, quedándose con lo que los datos aguantan:
+- **La unidad es el tramo, no la playa.** El modelo de mar tiene 20 puntos; cada uno es una
+  tarjeta con su nombre por los municipios de sus playas («Roses i Castelló d'Empúries») y
+  todo junto: agua, ola, viento medido en la estación de la orilla, los **tres días** del
+  modelo (ola más alta y agua de cada día) y las playas del tramo, con la bandera al lado
+  cuando es reciente. Poner una temperatura a cada una de las 230 playas sería fingir 230
+  medidas teniendo 20.
+- Arriba, la frase, dos cifras con lugar, y el **aviso de fenómenos costeros** de la AEMET si
+  lo hay. Fuera de temporada se dice una vez («l'últim parte és del 8 d'octubre») en vez de
+  enseñar banderas viejas.
+- Atajos a cada costa con anclas (sin script). El mapa solo en escritorio.
+- Cada playa conserva su `id` `p-<codi>` (el buscador lleva ahí) y enlaza a la ficha de su
+  municipio, que tiene el UV y la predicción.
+- **Descartado de la propuesta, y por qué:** mareas (en la costa catalana son unos 20 cm),
+  horario de socorristas (no lo publica ninguna fuente), webcams de playa (ninguna con
+  licencia para reservirlas), geolocalización «a prop meva» (pediría un componente de
+  cliente; se puede hacer después si hace falta) y UV por playa (habría que leer los
+  trozos de predicción de once comarcas para una sola página: está en cada ficha).
+De la versión del 6 se quedan `articleFirst()` (con prueba en `test:catalan`) y el arreglo
+de «1 platges».
 
 **Un solo radar (6 de octubre, rama `radar-unic`).** `/radar` y `/mapa/interactiu` eran dos
 caras de lo mismo; ahora `/radar` es el mapa de MapLibre con los controles del radar (la hora en

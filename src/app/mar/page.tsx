@@ -1,40 +1,52 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { windCardinal } from '@/lib/variables';
-import { ago, articleFirst, dateTiny, dateTimeLong, deName, fromDirection, num } from '@/lib/format';
+import { articleFirst, dateShort, dateTimeLong, dayTiny, deWord, fromDirection, num } from '@/lib/format';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import {
-  allBeaches, douglas, flagStyle, parseJellyfish, seaPoints,
-  FLAG_SHOW_HOURS,
-} from '@/lib/sea';
-import { FlagLegend, FlagMark, JellyfishMark } from '@/components/SeaMarks';
+import { douglas, flagStyle, parseJellyfish, FLAG_SHOW_HOURS, type Beach } from '@/lib/sea';
+import { nauticalConditions, type SeaStretch } from '@/lib/activities';
+import { activeWarnings } from '@/lib/weather';
+import { phenomenonName, zoneName } from '@/lib/warning-labels';
+import { allComarques, municipisOfComarca } from '@/lib/territory';
+import { FlagMark, JellyfishMark } from '@/components/SeaMarks';
 import { CoastMap, type CoastPoint } from '@/components/CoastMap';
 import { mapOutline } from '@/lib/map';
-import { ListFilter, groupsOf } from '@/components/ListFilter';
-import { PageHero, Section } from '@/components/PageHero';
+import { PageHero } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
 
 /**
- * El mar: banderas de playa y estado del agua.
+ * El mar: com està cada tros de costa, i les platges que hi ha.
  *
- * La página existe para poner una al lado de la otra dos cosas que la gente
- * mezcla: **la bandera la pone una persona mirando el agua** y solo existe donde
- * hay socorrista de servicio; **el oleaje y la temperatura salen de un modelo** y
- * están en toda la costa, también de noche y también en enero.
+ * ## La unitat és el tram, no la platja
  *
- * La bandera gana siempre que exista y sea reciente. El modelo es lo que queda
- * cuando no la hay.
+ * El model de mar té **vint punts** de Portbou a Alcanar, a uns cinc
+ * quilòmetres de la costa. Posar-li una temperatura de l'aigua a cadascuna de
+ * les 230 platges seria fer veure que en sabem 230 quan en sabem vint: totes
+ * les platges d'un tram tindrien la mateixa xifra repetida, cada una amb
+ * l'aparença d'una mesura pròpia. Així que la pàgina es llegeix per **trams**
+ * —cada punt del model, amb les platges que té més a prop— i a cada tram hi ha
+ * junt tot el que hi ha: l'aigua i l'onada del model, el vent que mesura
+ * l'estació de la vora, els tres dies següents, i les platges amb la bandera
+ * quan el socorrista n'ha posat una fa poc.
  *
- * ## Y el registro entero, siempre
+ * Fins al 9 d'octubre de 2026 la mateixa informació anava en tres blocs
+ * separats —les banderes, una taula de l'onatge i un registre de platges— i
+ * calia creuar-los a mà.
  *
- * Fuera de temporada `recent` está **vacío** —ningún socorrista de servicio,
- * ninguna bandera de menos de doce horas— y la página se quedaba sin una sola
- * playa: un resultado del buscador llegaba a `/mar#p-…` y no encontraba nada
- * donde aterrizar. La tabla de abajo lleva las 229 con su municipio y la fecha
- * de su último parte, y **la bandera solo cuando es reciente**: lo que se retira
- * fuera de horario es el color, no la playa.
+ * ## La bandera, quan hi és
  *
- * Agrupa por municipio y no por tramo de costa porque «què hi ha al Maresme» no
- * es la pregunta que se hace nadie.
+ * La posa un socorrista de servei. Fora de temporada no n'hi ha cap de
+ * recent, i la pàgina ho diu una vegada a dalt en comptes d'ensenyar 230
+ * banderes velles. Cada platja segueix tenint el seu `id` (`p-<codi>`) perquè
+ * el cercador hi porta.
+ *
+ * ## Què s'ha deixat fora, i per què
+ *
+ * Les marees —a la costa catalana són d'uns vint centímetres i no decideixen
+ * res—, les hores del servei de socorrisme —no hi ha cap font que les
+ * publiqui— i les càmeres de platja —cap no té una llicència que ens deixi
+ * tornar-les a servir—. L'índex UV és a la fitxa de cada municipi, amb la
+ * predicció del seu punt.
  */
 /*
  * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
@@ -44,164 +56,142 @@ import { Fold } from '@/components/Fold';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Banderes de platja i estat del mar a Catalunya',
+  title: 'Platges i estat del mar a Catalunya',
   description:
-    'Quina bandera hi ha a cada platja, amb l’hora del parte, i la temperatura de '
-    + 'l’aigua i l’onatge a tota la costa catalana.',
+    'La temperatura de l’aigua, l’onatge, el vent i la bandera de les platges, '
+    + 'tram a tram de Portbou a Alcanar, i la previsió del mar dels pròxims dies.',
   alternates: { canonical: '/mar' },
 };
 
-export default async function MarPage() {
-  const data = await allBeaches();
-  const sea = await seaPoints();
+interface Tram {
+  stretch: SeaStretch;
+  beaches: Beach[];
+  /** Els municipis de les seves platges, de nord a sud: el nom del tram. */
+  towns: string[];
+  coast: string;
+}
 
-  if (!data?.list.length) {
+/** Distància aproximada, només per triar el punt més proper. */
+function d2(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  return (aLat - bLat) ** 2 + ((aLon - bLon) * Math.cos((aLat * Math.PI) / 180)) ** 2;
+}
+
+/** El nom d'un tram: «Llançà, el Port de la Selva i Roses». */
+function tramName(towns: string[]): string {
+  if (towns.length <= 1) return towns[0] ?? '';
+  if (towns.length <= 3) return `${towns.slice(0, -1).join(', ')} i ${towns.at(-1)}`;
+  return `${towns.slice(0, 2).join(', ')} i ${towns.length - 2} més`;
+}
+
+const LEVEL_WORD = { verd: 'verd', groc: 'groc', taronja: 'taronja', vermell: 'vermell' } as const;
+
+export default async function MarPage() {
+  const [data, warnings] = await Promise.all([nauticalConditions(), activeWarnings()]);
+  const stretches = data?.stretches ?? [];
+
+  if (!data || !stretches.length) {
     return (
       <article>
-        <h1 className="text-3xl font-semibold tracking-tight">El mar</h1>
-        <p className="mt-4 text-[var(--muted)]">
-          Encara no hi ha dades descarregades. Apareixen quan el worker del mar
-          hagi corregut per primera vegada.
-        </p>
+        <PageHero
+          crumbs={[{ nom: 'Catalunya', path: '/' }, { nom: 'El mar', path: '/mar' }]}
+          eyebrow="Platges i mar"
+          icon="tide-high"
+          title="Com està el mar"
+          lead="Encara no hi ha dades del mar."
+        />
       </article>
     );
   }
 
-  const recent = data.list.filter((b) => b.ageHours <= FLAG_SHOW_HOURS);
-
-  const byFlag = new Map<string, number>();
-  for (const b of recent) byFlag.set(b.flag, (byFlag.get(b.flag) ?? 0) + 1);
-
-  const jelly = recent.filter((b) => b.jellyfish);
-
+  // ── Cada platja al seu tram ──────────────────────────────────────────────
   /*
-   * La platja de cada punt del model.
-   *
-   * `SeaPoint.near` és el nom de la platja que li dona nom, però els noms es
-   * repeteixen —hi ha més d'una «Platja Gran»— i buscant només pel nom el punt
-   * de Palamós queia al Maresme. Es pren, d'entre les que porten aquell nom, la
-   * més propera al punt. Si no n'hi ha cap, el punt queda sense costa i sense
-   * anell, i no s'inventa res.
+   * Al punt del model més proper. El nom del tram surt dels municipis de les
+   * seves platges, que és com la gent diu on va: «a Roses», no «al punt 3».
    */
-  const beachOf = (p: { near: string; lat: number; lon: number }) => {
-    let best: (typeof data.list)[number] | null = null;
-    let bestD = Infinity;
-    for (const b of data.list) {
-      if (b.name !== p.near) continue;
-      const d = (b.lat - p.lat) ** 2 + ((b.lon - p.lon) * Math.cos((p.lat * Math.PI) / 180)) ** 2;
-      if (d < bestD) { bestD = d; best = b; }
+  const groups = stretches.map(() => [] as Beach[]);
+  for (const b of data.beaches) {
+    let best = 0;
+    for (let k = 1; k < stretches.length; k++) {
+      if (d2(b.lat, b.lon, stretches[k].lat, stretches[k].lon)
+        < d2(b.lat, b.lon, stretches[best].lat, stretches[best].lon)) best = k;
     }
-    return best;
-  };
-
-  // L'aigua i l'onatge d'ara, de nord a sud, amb la costa de cada tram.
-  const strip = sea
-    ? sea.points
-      .slice()
-      .sort((a, b) => b.lat - a.lat)
-      .map((p) => ({
-        near: p.near,
-        coast: beachOf(p)?.coast || 'Altres trams',
-        sst: p.sst[sea.index] ?? null,
-        wave: p.waveHeight[sea.index] ?? null,
-        period: p.wavePeriod[sea.index] ?? null,
-        dir: p.waveDirection[sea.index] ?? null,
-      }))
-    : [];
-
-  /*
-   * Els trams per costa, i les costes de nord a sud.
-   *
-   * Fins al 6 d'octubre de 2026 era una taula de cinc columnes i vint files: al
-   * mòbil cada xifra es partia en dues línies («21,6 / °C») i calia arrossegar
-   * de costat per veure el període. Agrupada per costa es llegeix com es
-   * pregunta —«com està la Costa Brava»— i cada fila hi cap sencera.
-   */
-  const coasts = new Map<string, typeof strip>();
-  for (const s of strip) {
-    const arr = coasts.get(s.coast) ?? [];
-    arr.push(s);
-    coasts.set(s.coast, arr);
+    groups[best].push(b);
   }
 
+  const trams: Tram[] = stretches.map((stretch, k) => {
+    const beaches = groups[k].slice().sort((a, b) => b.lat - a.lat);
+    const towns = [...new Set(beaches.map((b) => articleFirst(b.municipality)))];
+    // La costa del tram és la de la majoria de les seves platges.
+    const count = new Map<string, number>();
+    for (const b of beaches) count.set(b.coast, (count.get(b.coast) ?? 0) + 1);
+    const coast = [...count].sort((x, y) => y[1] - x[1])[0]?.[0] ?? 'Costa';
+    return { stretch, beaches, towns: towns.length ? towns : [stretch.near], coast };
+  });
+
+  const coasts: Array<[string, Tram[]]> = [];
+  for (const t of trams) {
+    const last = coasts.at(-1);
+    if (last && last[0] === t.coast) last[1].push(t);
+    else coasts.push([t.coast, [t]]);
+  }
+
+  // La fitxa de cada municipi, per enllaçar-hi des de la platja.
+  const townPath = new Map<string, string>();
+  for (const c of allComarques()) {
+    for (const m of municipisOfComarca(c.codi)) {
+      if (m.municipiIne5) townPath.set(m.municipiIne5, m.path);
+    }
+  }
+
+  // ── El resum de dalt ─────────────────────────────────────────────────────
+  const withSst = stretches.filter((s) => s.sst != null);
+  const withWave = stretches.filter((s) => s.waveHeight != null);
+  const sstMin = withSst.length ? Math.min(...withSst.map((s) => s.sst!)) : null;
+  const sstMax = withSst.length ? Math.max(...withSst.map((s) => s.sst!)) : null;
+  const roughest = withWave.reduce<SeaStretch | null>((a, s) => (!a || s.waveHeight! > a.waveHeight! ? s : a), null);
+  const calmest = withWave.reduce<SeaStretch | null>((a, s) => (!a || s.waveHeight! < a.waveHeight! ? s : a), null);
+  const tramOf = (s: SeaStretch | null) => trams.find((t) => t.stretch === s) ?? null;
+
+  const fresh = data.beaches.filter((b) => b.ageHours <= FLAG_SHOW_HOURS);
+  const red = fresh.filter((b) => b.flag === 'vermella').length;
+  const lastReport = data.beaches.reduce<string | null>((a, b) => (!a || b.at > a ? b.at : a), null);
+
+  /*
+   * Els avisos de fenòmens costaners de l'AEMET: el que de veritat diu si el
+   * mar estarà dolent, i el que la gent busca abans de baixar a la platja.
+   */
+  const coastal = warnings
+    .filter((w) => w.phenomenon === 'CO' && w.level !== 'verd')
+    .sort((a, b) => b.level.localeCompare(a.level));
+  const coastalZones = [...new Set(coastal.flatMap((w) => w.zones.map(zoneName)))];
+  const worstCoastal = coastal.reduce<(typeof coastal)[number] | null>(
+    (a, w) => (!a || ['groc', 'taronja', 'vermell'].indexOf(w.level) > ['groc', 'taronja', 'vermell'].indexOf(a.level) ? w : a),
+    null,
+  );
+
+  const seaWords = calmest && roughest
+    ? (douglas(calmest.waveHeight!) === douglas(roughest.waveHeight!)
+      ? douglas(roughest.waveHeight!)
+      : `${deWord(douglas(calmest.waveHeight!))} a ${douglas(roughest.waveHeight!)}`)
+    : null;
+
   const geo = mapOutline();
-  const coast: CoastPoint[] = (sea?.points ?? []).map((p) => {
-    const beach = beachOf(p);
-    const fresh = beach && beach.ageHours <= FLAG_SHOW_HOURS ? beach : null;
+  const coastPoints: CoastPoint[] = trams.map((t) => {
+    const flagged = t.beaches.find((b) => b.ageHours <= FLAG_SHOW_HOURS);
     return {
-      id: p.id,
-      lat: p.lat,
-      lon: p.lon,
-      near: p.near,
-      sst: p.sst[sea!.index] ?? null,
-      wave: p.waveHeight[sea!.index] ?? null,
-      flag: fresh?.flag ?? null,
-      beachCode: beach?.code ?? null,
+      id: t.stretch.near,
+      lat: t.stretch.lat,
+      lon: t.stretch.lon,
+      near: tramName(t.towns),
+      sst: t.stretch.sst,
+      wave: t.stretch.waveHeight,
+      flag: flagged?.flag ?? null,
+      beachCode: flagged?.code ?? t.beaches[0]?.code ?? null,
     };
   });
 
-  // Els extrems, amb el seu lloc: la pregunta que ve després de «22 °C» és «on».
-  const withSst = strip.filter((s) => s.sst != null);
-  const withWave = strip.filter((s) => s.wave != null);
-  const warmest = withSst.reduce<(typeof strip)[number] | null>((a, s) => (!a || s.sst! > a.sst! ? s : a), null);
-  const coldest = withSst.reduce<(typeof strip)[number] | null>((a, s) => (!a || s.sst! < a.sst! ? s : a), null);
-  const roughest = withWave.reduce<(typeof strip)[number] | null>((a, s) => (!a || s.wave! > a.wave! ? s : a), null);
-  const calmest = withWave.reduce<(typeof strip)[number] | null>((a, s) => (!a || s.wave! < a.wave! ? s : a), null);
-
-  const flagGroups = groupsOf(recent, (b) => (
-    b.flag ? { key: b.flag, label: flagStyle(b.flag).label } : null
-  ));
-
-  /*
-   * El registre sencer, ordenat per municipi.
-   *
-   * Existeix per dues raons. La primera és que fora de temporada `recent` és
-   * **buit** —cap socorrista de servei, cap bandera de menys de dotze hores— i
-   * la pàgina es quedava sense ni una platja: un resultat del cercador hi
-   * arribava (`/mar#p-…`) i no trobava res. La segona és que agrupar per tram
-   * de costa contesta «què hi ha al Maresme» i no «què hi ha al meu poble».
-   *
-   * Aquí no hi ha cap bandera caducada fent-se passar per bandera: hi ha el
-   * nom, el municipi i **quan va ser l'últim parte**.
-   */
-  const registry = data.list
-    .slice()
-    .sort((a, b) => a.municipality.localeCompare(b.municipality, 'ca')
-      || a.name.localeCompare(b.name, 'ca'));
-
-  const townGroups = groupsOf(registry, (b) => (
-    b.municipality ? { key: b.municipalityIne5, label: articleFirst(b.municipality) } : null
-  ));
-
-  const byCoast = new Map<string, typeof recent>();
-  for (const b of recent) {
-    const arr = byCoast.get(b.coast) ?? [];
-    arr.push(b);
-    byCoast.set(b.coast, arr);
-  }
-
-  const flagsSorted = [...byFlag].sort((a, b) => b[1] - a[1]);
-  const red = recent.filter((b) => flagStyle(b.flag).label === 'Vermella').length;
-
-  /*
-   * La resposta, en una frase: com és l'aigua, com és la mar i què diuen les
-   * banderes. «1 platges tenen parte» va sortir publicat: el singular es tria.
-   */
-  const seaLine = coldest && warmest && calmest && roughest ? (() => {
-    const a = douglas(calmest.wave!);
-    const b = douglas(roughest.wave!);
-    return `L’aigua és entre ${num(coldest.sst!, 0)} i ${num(warmest.sst!, 0)} °C i la mar, ${a === b ? a : `${a} a ${b}`}.`;
-  })() : null;
-  const flagLine = recent.length > 0
-    ? `${recent.length === 1 ? 'Una platja té' : `${recent.length} platges tenen`} bandera de les últimes ${FLAG_SHOW_HOURS} hores: ${
-      flagsSorted
-        .map(([f, n]) => (n === 1 && recent.length === 1
-          ? flagStyle(f).label.toLowerCase()
-          : `${n} ${n === 1 ? flagStyle(f).label.toLowerCase() : flagStyle(f).plural}`))
-        .join(', ')}.`
-    : 'Ara cap platja té bandera recent: les posen els socorristes quan són de servei.';
-
   const pill = (t: number) => ({ background: temperatureColor(t), color: temperatureInk(t) });
+  const windAge = stretches.find((s) => s.wind)?.wind?.ageMin ?? null;
 
   return (
     <article data-wide>
@@ -209,250 +199,250 @@ export default async function MarPage() {
         crumbs={[{ nom: 'Catalunya', path: '/' }, { nom: 'El mar', path: '/mar' }]}
         eyebrow="Platges i mar"
         icon="tide-high"
-        title="Es pot fer un bany?"
+        title="Com està el mar"
         lead={(
           <>
-            {seaLine}{seaLine && ' '}{flagLine}
-            {jelly.length > 0 && (
-              <> {jelly.length === 1 ? 'Una ha' : `${jelly.length} han`} reportat meduses.</>
+            {sstMin != null && sstMax != null && (
+              <>L’aigua és entre {num(sstMin, 0)} i {num(sstMax, 0)} °C</>
             )}
+            {seaWords && <> i la mar, {seaWords}</>}.
+            {' '}
+            {fresh.length > 0
+              ? `${fresh.length === 1 ? 'Una platja té' : `${fresh.length} platges tenen`} bandera de les últimes ${FLAG_SHOW_HOURS} hores.`
+              : 'Ara cap platja té bandera: només en posen els socorristes quan són de servei.'}
           </>
         )}
         stats={[
-          warmest && {
-            label: 'Aigua més càlida', icon: 'thermometer',
-            value: num(warmest.sst!, 1), unit: '°C',
-            sub: <>davant {deName(warmest.near)}</>,
-          },
-          coldest && {
-            label: 'Aigua més freda', icon: 'thermometer',
-            value: num(coldest.sst!, 1), unit: '°C',
-            sub: <>davant {deName(coldest.near)}</>,
+          sstMin != null && sstMax != null && {
+            label: 'Aigua', icon: 'thermometer',
+            value: `${num(sstMin, 0)}–${num(sstMax, 0)}`, unit: '°C',
+            sub: withSst.length > 1
+              ? <>la més càlida, a {tramName(tramOf(withSst.reduce((a, s) => (s.sst! > a.sst! ? s : a)))?.towns ?? [])}</>
+              : null,
           },
           roughest && {
             label: 'Onada més alta', icon: 'tide-high',
-            value: num(roughest.wave!, 1), unit: 'm',
-            sub: <>{douglas(roughest.wave!)}, davant {deName(roughest.near)}</>,
+            value: num(roughest.waveHeight!, 1), unit: 'm',
+            sub: <>{douglas(roughest.waveHeight!)}, a {tramName(tramOf(roughest)?.towns ?? [])}</>,
           },
-          red > 0 && {
-            label: 'Bany prohibit', icon: 'code-red', value: String(red),
-            sub: red === 1 ? 'platja amb bandera vermella' : 'platges amb bandera vermella',
-          },
-          jelly.length > 0 && {
-            label: 'Meduses', value: String(jelly.length),
-            sub: jelly.length === 1 ? "platja n'ha reportat" : "platges n'han reportat",
+          fresh.length > 0 && {
+            label: 'Banderes', icon: red > 0 ? 'code-red' : undefined,
+            value: String(fresh.length),
+            sub: red > 0
+              ? `${red === 1 ? 'una vermella' : `${red} vermelles`}: no us hi banyeu`
+              : 'cap de vermella',
           },
         ]}
-        note={(
-          <>
-            La bandera la posa el socorrista mirant l&apos;aigua. L&apos;aigua i l&apos;onatge són
-            d&apos;un model de mar obert, a uns cinc quilòmetres de la costa.
-          </>
-        )}
-        aside={coast.length > 0 && (
-          <section className="card" aria-label="La costa, ara">
+        note={fresh.length === 0 && lastReport ? (
+          <>L’últim parte d’un socorrista és del {dateShort(lastReport)}.</>
+        ) : undefined}
+        aside={(
+          // Al mòbil el mapa no hi és: la llista de trams ja va de nord a sud.
+          <section className="card hidden lg:block" aria-label="La costa, ara">
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/tide-high.svg" width={22} height={22} alt="" />
-              La costa, ara
+              L’aigua, tram a tram
             </p>
             <CoastMap
               outline={geo.features}
               projection={geo.projection}
               width={geo.width}
               height={geo.height}
-              points={coast}
+              points={coastPoints}
             />
-            {recent.length > 0 && (
-              <div className="mt-3 border-t border-[var(--line-soft)] pt-3">
-                <FlagLegend flags={recent.map((b) => b.flag)} />
-              </div>
-            )}
           </section>
         )}
       />
 
-      {/*
-        * ── Banderes ──
-        *
-        * El filtre és per bandera i no per costa: les costes ja són les
-        * seccions. Amb un sol color —115 verdes, que és el normal— `ListFilter`
-        * no dibuixa res: el filtre apareix el dia que hi ha alguna cosa a filtrar.
-        */}
-      {recent.length > 0 && (
-        <Section id="banderes" title="Les banderes d'ara">
-          <ListFilter
-            id="fm"
-            groups={flagGroups}
-            legend="Filtra per bandera"
-            allLabel="Totes les banderes"
-          >
-            {[...byCoast].map(([coastName, list]) => (
-              <section key={coastName} className="lf-section mb-6">
-                <h3 className="card-label">
-                  {coastName}
-                  <span className="lf-total"> · {list.length}</span>
-                </h3>
-                <ul className="card-grid">
-                  {list.map((b) => {
-                    const style = flagStyle(b.flag);
-                    const jellies = parseJellyfish(b.jellyfish);
-                    return (
-                      <li
-                        key={b.code}
-                        data-lf={b.flag}
-                        className="rounded-2xl border border-[var(--glass-line)] bg-[var(--glass)] px-4 py-3"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="min-w-0">
-                            <span className="row-title">{b.name}</span>
-                            <span className="row-sub">{articleFirst(b.municipality)}</span>
-                          </span>
-                          <span
-                            className="flex shrink-0 items-center gap-1.5 text-[13px] font-semibold text-[var(--ink-2)]"
-                            style={{ opacity: b.ageHours <= 3 ? 1 : 0.55 }}
-                          >
-                            <FlagMark flag={b.flag} size={22} />
-                            {style.label}
-                          </span>
-                        </div>
-                        <p className="mt-1.5 text-xs text-[var(--muted)]">
-                          {[b.seaState && `mar ${b.seaState}`, b.temperature && `aigua a ${b.temperature} °C`]
-                            .filter(Boolean).join(' · ')}
-                          {(b.seaState || b.temperature) && ' · '}{ago(b.ageHours * 60)}
-                        </p>
-                        {jellies.length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            {jellies.map((j) => (
-                              <JellyfishMark key={j.species} species={j.species} amount={j.amount} />
-                            ))}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ))}
-          </ListFilter>
-        </Section>
+      {/* Els avisos de mar, abans que res: és el que diu si avui s'hi pot anar. */}
+      {worstCoastal && (
+        <Link
+          href="/avisos"
+          className="card mb-6 flex items-start gap-3 no-underline"
+          style={{ borderColor: `var(--cap-${{ groc: 'yellow', taronja: 'orange', vermell: 'red' }[worstCoastal.level as 'groc']})` }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+          <img src={`/icons/w/code-${{ groc: 'yellow', taronja: 'orange', vermell: 'red' }[worstCoastal.level as 'groc']}.svg`} width={32} height={32} alt="" />
+          <span>
+            <strong className="block text-[var(--ink)]">
+              Avís {LEVEL_WORD[worstCoastal.level]} per {phenomenonName('CO').toLowerCase()}
+            </strong>
+            <span className="text-sm text-[var(--ink-2)]">
+              {coastalZones.join(' · ')} · fins {dateTimeLong(new Date(worstCoastal.expires).toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).replace(' ', 'T'))} ›
+            </span>
+          </span>
+        </Link>
       )}
 
-      {/* ── El model, costa per costa i de nord a sud ── */}
-      {coasts.size > 0 && (
-        <Section id="onatge" title="L'aigua i l'onatge, costa per costa">
-          <ul className="card-grid">
-            {[...coasts].map(([name, list]) => {
-              const ts = list.map((s) => s.sst).filter((v): v is number => v != null);
-              const ws = list.map((s) => s.wave).filter((v): v is number => v != null);
-              return (
-                <li key={name} className="card">
-                  <h3 className="card-label mb-1!">{name}</h3>
-                  <p className="mb-3 text-[13px] text-[var(--muted)] tnum">
-                    {ts.length > 0 && <>aigua {num(Math.min(...ts), 0)}–{num(Math.max(...ts), 0)} °C</>}
-                    {ts.length > 0 && ws.length > 0 && ' · '}
-                    {ws.length > 0 && <>onades fins a {num(Math.max(...ws), 1)} m</>}
-                  </p>
-                  <ul className="rows">
-                    {list.map((s) => (
-                      <li key={s.near}>
-                        <span className="row-main">
-                          <span className="row-title">{s.near}</span>
-                          <span className="row-sub">
-                            {[
-                              s.wave != null && douglas(s.wave),
-                              s.period != null && `${num(s.period, 0)} s`,
-                              s.dir != null && `ve ${fromDirection(windCardinal(s.dir))}`,
-                            ].filter(Boolean).join(' · ')}
-                          </span>
-                        </span>
-                        <span className="flex shrink-0 items-center gap-2.5">
-                          {s.wave != null && (
-                            <span className="row-value text-[var(--ink-2)]!">{num(s.wave, 1)} m</span>
-                          )}
-                          {s.sst != null && (
-                            <span className="temp-pill" style={pill(s.sst)}>{num(s.sst, 1)}°</span>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="source">
-            Model d&apos;onatge i temperatura de l&apos;aigua a uns cinc quilòmetres de la costa
-            {sea && sea.points[0] && <>, de {dateTimeLong(sea.points[0].times[sea.index])}</>}.
-            Estat de la mar amb l&apos;escala Douglas; el període és el temps entre dues onades.
-          </p>
-        </Section>
-      )}
+      {/* Les costes, per saltar-hi. Són àncores: no cal cap script. */}
+      <nav aria-label="Costes" className="mb-2">
+        <ul className="chips">
+          {coasts.map(([name]) => (
+            <li key={name}><a href={`#costa-${name.toLowerCase().replace(/[^a-z]+/g, '-')}`}>{name}</a></li>
+          ))}
+        </ul>
+      </nav>
 
-      <Section id="platges" title={`Les ${registry.length} platges, poble a poble`}>
-        <div className="card">
-          <ListFilter
-            id="fp"
-            groups={townGroups}
-            legend="Filtra per municipi"
-            allLabel="Tots els municipis"
+      {coasts.map(([name, list]) => {
+        const ts = list.map((t) => t.stretch.sst).filter((v): v is number => v != null);
+        const ws = list.map((t) => t.stretch.waveHeight).filter((v): v is number => v != null);
+        return (
+          <section
+            key={name}
+            id={`costa-${name.toLowerCase().replace(/[^a-z]+/g, '-')}`}
+            className="section scroll-mt-4"
+            aria-labelledby={`h-${name}`}
           >
-            <ul className="rows rows-cols">
-              {registry.map((b) => {
-                const shown = b.ageHours <= FLAG_SHOW_HOURS;
-                return (
-                  <li key={b.code} id={`p-${b.code}`} data-lf={b.municipalityIne5}>
-                    <span className="row-main">
-                      <span className="row-title">{b.name}</span>
-                      <span className="row-sub">{articleFirst(b.municipality)}</span>
-                    </span>
-                    {shown ? (
-                      <span className="flex shrink-0 items-center gap-1.5 text-[13px] text-[var(--ink-2)]">
-                        <FlagMark flag={b.flag} size={16} />
-                        {flagStyle(b.flag).label}
-                      </span>
-                    ) : (
-                      <span className="shrink-0 text-[12px] text-[var(--muted)] tnum" title="Dia de l’últim parte">
-                        {dateTiny(b.at)}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
+              <h2 id={`h-${name}`} className="card-title">{name}</h2>
+              <p className="text-[13px] text-[var(--muted)] tnum">
+                {ts.length > 0 && <>aigua {num(Math.min(...ts), 0)}–{num(Math.max(...ts), 0)} °C</>}
+                {ws.length > 0 && <> · onades fins a {num(Math.max(...ws), 1)} m</>}
+              </p>
+            </div>
+            <ul className="card-grid">
+              {list.map((t) => <TramCard key={t.stretch.near} tram={t} townPath={townPath} pill={pill} />)}
             </ul>
-          </ListFilter>
-          <p className="source">
-            Al costat de cada platja, el dia de l&apos;últim parte; la bandera només hi surt quan és de les últimes {FLAG_SHOW_HOURS} hores. {data.source}.
-          </p>
-        </div>
-      </Section>
+          </section>
+        );
+      })}
+
+      <p className="source mt-6">
+        L’aigua i l’onatge, d’un model de mar obert a uns cinc quilòmetres de la costa. El vent,
+        mesurat a l’estació del Meteocat més propera{windAge != null && <>, fa {windAge} min</>}.
+        Les banderes les posen els socorristes, i només surten si són de les últimes {FLAG_SHOW_HOURS} hores. {data.source}.
+      </p>
 
       <div className="section">
         <Fold
           id="que-vol-dir"
           title="Què vol dir cada dada, i què no"
-          summary="La bandera caduca, l'onatge és de mar obert i les meduses porten el nom científic"
+          summary="L'onatge és de mar obert, la bandera caduca i les meduses porten el nom científic"
         >
           <div className="card prose">
             <p>
-              <strong>Una bandera caduca.</strong> La posa un socorrista quan és de servei, i fora
-              d&apos;horari no s&apos;actualitza: la que consta pot ser de fa hores. Per això cada una
-              porta l&apos;hora del seu parte, i les de més de {FLAG_SHOW_HOURS} hores no surten.
+              <strong>L&apos;onatge del model és de mar obert</strong>, a uns cinc quilòmetres de la
+              costa. No recull el que passa dins d&apos;una cala ni els corrents de ressaca, que són
+              la causa principal dels ofegaments: mig metre d&apos;onada pot ser una platja tranquil·la
+              o una on no s&apos;hi ha d&apos;entrar, segons el fons. L&apos;estat de la mar fa servir
+              l&apos;escala Douglas: arrissada, marejol, maror…
             </p>
             <p>
-              <strong>L&apos;onatge del model és de mar obert</strong>, a uns cinc quilòmetres de la
-              costa. No recull el que passa dins d&apos;una cala ni les corrents de ressaca, que són
-              la causa principal dels ofegaments: mig metre d&apos;onada pot ser una platja tranquil·la
-              o una on no s&apos;hi ha d&apos;entrar, segons el fons.
+              <strong>Una bandera caduca.</strong> La posa un socorrista quan és de servei, i fora
+              d&apos;horari no s&apos;actualitza. Per això cada una porta l&apos;hora del seu parte,
+              i les de més de {FLAG_SHOW_HOURS} hores no surten.
             </p>
             <p>
               <strong>Les meduses</strong> les reporten els socorristes amb el nom científic. Al
               costat hi va el nom corrent i què se&apos;n sap de la picada; una espècie que no
-              consti a la taula surt com a desconeguda i s&apos;ha de tractar com si piqués.
+              consti a la taula s&apos;ha de tractar com si piqués.
             </p>
           </div>
         </Fold>
       </div>
     </article>
+  );
+}
+
+/**
+ * Un tram de costa: tot el que se'n sap, junt.
+ *
+ * Quatre xifres a dalt —aigua, onada, vent i la tendència— i a sota les
+ * platges, que porten la bandera al costat quan n'hi ha una de recent.
+ */
+function TramCard({
+  tram, townPath, pill,
+}: {
+  tram: Tram;
+  townPath: Map<string, string>;
+  pill: (t: number) => React.CSSProperties;
+}) {
+  const s = tram.stretch;
+  const w = s.wind;
+  return (
+    <li className="card tram">
+      <h3 className="tram-name">{tramName(tram.towns)}</h3>
+
+      <dl className="tram-now">
+        <div>
+          <dt>Aigua</dt>
+          <dd>
+            {s.sst != null
+              ? <span className="temp-pill" style={pill(s.sst)}>{num(s.sst, 1)}°</span>
+              : '—'}
+          </dd>
+        </div>
+        <div>
+          <dt>Onada</dt>
+          <dd>
+            {s.waveHeight != null ? <>{num(s.waveHeight, 1)} m</> : '—'}
+            {s.waveHeight != null && <small>{douglas(s.waveHeight)}</small>}
+          </dd>
+        </div>
+        <div>
+          <dt>Vent</dt>
+          <dd>
+            {w?.kmh != null ? <>{w.kmh} km/h</> : '—'}
+            {w?.direction != null && w.kmh != null && w.kmh > 0 && (
+              <small>{fromDirection(windCardinal(w.direction))}</small>
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      {s.days.length > 1 && (
+        <div>
+        <p className="tram-days-label">Els pròxims dies · onada més alta i aigua</p>
+        <ol className="tram-days" aria-label="Els pròxims dies">
+          {s.days.map((d, i) => (
+            <li key={d.date}>
+              <span>{i === 0 ? 'avui' : dayTiny(`${d.date}T12:00`)}</span>
+              <span className="tnum">{d.waveMax != null ? `${num(d.waveMax, 1)} m` : '—'}</span>
+              <span className="tnum text-[var(--muted)]">{d.sst != null ? `${num(d.sst, 0)}°` : ''}</span>
+            </li>
+          ))}
+        </ol>
+        </div>
+      )}
+
+      {tram.beaches.length > 0 && (
+        <ul className="tram-beaches" aria-label="Platges">
+          {tram.beaches.map((b) => {
+            const shown = b.ageHours <= FLAG_SHOW_HOURS;
+            const jellies = shown ? parseJellyfish(b.jellyfish) : [];
+            const href = townPath.get(b.municipalityIne5);
+            const label = (
+              <>
+                {shown && <FlagMark flag={b.flag} size={14} />}
+                {b.name}
+                {/* Dues platges del mateix nom al mateix tram: es diu de quin poble és cada una. */}
+                {tram.beaches.some((o) => o !== b && o.name === b.name) && (
+                  <span className="text-[var(--muted)]">({articleFirst(b.municipality)})</span>
+                )}
+              </>
+            );
+            return (
+              <li
+                key={b.code}
+                id={`p-${b.code}`}
+                title={shown ? `${flagStyle(b.flag).label} · ${articleFirst(b.municipality)}` : articleFirst(b.municipality)}
+              >
+                {href ? <Link href={href}>{label}</Link> : label}
+                {jellies.length > 0 && (
+                  <span className="ml-1">
+                    {jellies.map((j) => <JellyfishMark key={j.species} species={j.species} amount={j.amount} />)}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {w?.kmh != null && (
+        <p className="tram-src">vent mesurat a {w.station}, a {w.distKm} km</p>
+      )}
+    </li>
   );
 }

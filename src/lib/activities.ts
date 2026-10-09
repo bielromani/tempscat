@@ -223,6 +223,12 @@ export interface SeaStretch {
   swellHeight: number | null;
   /** Onada màxima de les pròximes 24 h, i a quina hora. */
   peak: { time: string; height: number } | null;
+  /**
+   * Els pròxims dies del model, de l'hora d'ara endavant: l'onada més alta de
+   * cada dia i la temperatura mitjana de l'aigua. El model en porta tres; el
+   * primer és el que queda d'avui.
+   */
+  days: Array<{ date: string; waveMax: number | null; sst: number | null }>;
   /** Vent mesurat a l'estació costanera més propera. */
   wind: {
     station: string;
@@ -282,6 +288,21 @@ export async function nauticalConditions(): Promise<NauticalConditions | null> {
         if (!peak || h > peak.height) peak = { time: p.times[k], height: h };
       }
 
+      // Dia a dia, pel calendari de l'hora local que ja porta `times`.
+      const byDay = new Map<string, { waves: number[]; ssts: number[] }>();
+      for (let k = i; k < p.times.length; k++) {
+        const date = p.times[k].slice(0, 10);
+        const d = byDay.get(date) ?? { waves: [], ssts: [] };
+        if (p.waveHeight[k] != null) d.waves.push(p.waveHeight[k] as number);
+        if (p.sst[k] != null) d.ssts.push(p.sst[k] as number);
+        byDay.set(date, d);
+      }
+      const days = [...byDay].slice(0, 3).map(([date, d]) => ({
+        date,
+        waveMax: d.waves.length ? Math.max(...d.waves) : null,
+        sst: d.ssts.length ? d.ssts.reduce((x, y) => x + y, 0) / d.ssts.length : null,
+      }));
+
       let best: { codi: string; nom: string; km: number } | null = null;
       for (const s of coastal) {
         const km = distKm(p.lat, p.lon, s.lat, s.lon);
@@ -301,6 +322,7 @@ export async function nauticalConditions(): Promise<NauticalConditions | null> {
         waveDirection: p.waveDirection[i] ?? null,
         swellHeight: p.swellHeight[i] ?? null,
         peak,
+        days,
         wind: best && o
           ? {
             station: best.nom,
