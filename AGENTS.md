@@ -92,6 +92,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/warning-zones.ts` | On viu el contorn de les 21 zones de Meteoalerta, i per què va a part |
 | `src/lib/sky.ts` | De la nuvolositat, l'hora i la lluna a les capes del cel del titular |
 | `src/lib/recent-rain.ts` | La pluja d'avui i d'ahir, que la sèrie diària encara no té, i la ratxa seca |
+| `src/lib/temperature-check.ts` | Quina temperatura desmenteixen les veïnes de la mateixa cota |
 
 ## Dónde viven los datos vivos
 
@@ -208,6 +209,7 @@ npm run test:warnings     # que la pila d'avisos d'un lloc no perdi mai cap aví
 npm run test:sky          # que el cel del titular digui el temps, i el contrast del text
 npm run cels              # els dotze cels de cop a /__cels.html, per mirar-los de costat
 npm run test:rain         # la pluja dels dos dies que la sèrie diària encara no té
+npm run test:qc           # quina temperatura es descarta per les veïnes, i sobretot quina no
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos, y con aviso encima
 ```
 
@@ -1402,6 +1404,26 @@ cuota para exactamente la misma información.
   `color-scheme: dark` i el `viewport` de `layout.tsx`, `colorScheme: 'dark'`. I el radar
   pregunta si hi ha WebGL2 abans de carregar MapLibre: si no n'hi ha, ho diu i deixa l'última
   imatge del servidor.
+
+- **Un termòmetre espatllat va directe al primer lloc dels rànquings.** (10 d'octubre de 2026.)
+  El 6 d'octubre, a les 17:30 i les 18:30 UTC, Alguaire (371 m) va marcar 1,3 i 0,5 °C entre un
+  22 i un 17, i `/ranquings` el va posar com «el més fred d'ara» —per sota de les estacions de
+  més de 2.400 m—, i la fitxa de la Saira, que en depèn, també. La llista d'extrems és justament
+  on va a parar una lectura dolenta. Ara el worker d'observació passa cada temperatura (la d'ara
+  i els quatre extrems d'avui i d'ahir) per `suspectTemperatures()`: es compara amb la mediana
+  de les estacions a menys de 40 km **i a menys de 250 m de cota**, i si se'n separa més de 12 °C
+  es descarta. La cota és el que la fa segura: corregint pel gradient, el fons d'una vall amb
+  inversió semblaria un error al costat dels cims. Una clotada de fred fa sis o vuit graus, no
+  dotze; mesurat una nit qualsevol, la diferència més gran va ser de 6,7. `npm run test:qc` té
+  més casos dels que no s'han de tocar que dels que sí.
+- **Les pàgines de secció segueixen el patró de `/mar`** (9 i 10 d'octubre de 2026): una
+  entradilla que contesta, les xifres, el mapa a `aside` també al mòbil, un cercador
+  `<form method="get">` que torna a la mateixa pàgina amb `?q=` (i `<datalist>` per als
+  suggeriments), unes píndoles `.chips` que són àncores als grups, i targetes o files agrupades
+  per zona en comptes d'una taula ampla. Fet a Platges, Navegar, Muntanya, Aire, Itineraris
+  (els vuit àmbits del Pla territorial) i Rànquings (per tema). Llegir `searchParams` fa dinàmica
+  la pàgina, i per això `/senderisme/rutes` és a `LIVE_PAGES` encara que no tingui dades d'ara.
+  `ListFilter` ja només el fa servir `/cameres`.
 
 # This is NOT the Next.js you know
 

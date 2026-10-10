@@ -6,7 +6,7 @@ import { TemperatureLegend } from '@/components/TemperatureMap';
 import { mapOutline } from '@/lib/map';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import {
-  aName, ago, comarcaName, dateLong, deName, int, num, signed,
+  aName, ago, capFirst, comarcaName, dateLong, deName, int, num, signed, stationShort,
 } from '@/lib/format';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
@@ -76,7 +76,7 @@ function StationList({
           <span className="flex min-w-0 items-center gap-3">
             <Rank n={i + 1} />
             <span className="row-main">
-              <Link href={`/estacions/${r.codi}`} className="row-title">{r.nom}</Link>
+              <Link href={`/estacions/${r.codi}`} className="row-title">{capFirst(stationShort(r.nom))}</Link>
               <span className="row-sub">
                 {r.comarcaNom && comarcaName(r.comarcaNom)}
                 {r.altitud != null && ` · ${int(r.altitud)}\u00a0m`}
@@ -121,7 +121,7 @@ function PlaceList({ rows }: { rows: PlaceRow[] }) {
               <span className="row-sub">
                 {r.comarcaNom && comarcaName(r.comarcaNom)}
                 {r.altitud != null && ` · ${int(r.altitud)}\u00a0m`}
-                {' · '}estació {deName(r.stationNom)}
+                {' · '}estació {deName(stationShort(r.stationNom))}
                 {r.dAltM != null && Math.abs(r.dAltM) >= 25 && ` (${signed(r.dAltM, 0, 'm')})`}
               </span>
             </span>
@@ -176,6 +176,11 @@ export default async function RanquingsPage() {
   const outline = mapOutline();
   const cold = r.stations.nowColdest[0];
   const warm = r.stations.nowWarmest[0];
+  const hottest = r.stations.dayMax[0];
+  const rain = r.stations.rain[0];
+  const rain24 = r.stations.rain24;
+  const gust = r.stations.gust[0];
+  const short = (x: StationRow) => capFirst(stationShort(x.nom));
 
   return (
     <article data-wide>
@@ -188,8 +193,15 @@ export default async function RanquingsPage() {
         title="Els extrems d'avui"
         lead={cold && warm ? (
           <>
-            Entre l&apos;estació més freda i la més càlida hi ha ara{' '}
-            <strong className="tnum">{num(warm.value - cold.value, 1)} graus</strong> de diferència.
+            Ara fa més fred {aName(stationShort(cold.nom))}, amb{' '}
+            <strong className="tnum">{num(cold.value, 1)} °C</strong>, i més calor{' '}
+            {aName(stationShort(warm.nom))}, amb <strong className="tnum">{num(warm.value, 1)} °C</strong>:{' '}
+            {num(warm.value - cold.value, 0)} graus de diferència.
+            {rain
+              ? <> Avui on més ha plogut és {aName(stationShort(rain.nom))}, {num(rain.value, 1)} mm.</>
+              : rain24
+                ? <> Des de la mitjanit no ha plogut enlloc; en les últimes 24 hores, on més ha plogut és {aName(stationShort(rain24.nom))}, {num(rain24.value, 1)} mm.</>
+                : ' Fa un dia que no plou en cap estació.'}
           </>
         ) : undefined}
         note={(
@@ -273,7 +285,7 @@ export default async function RanquingsPage() {
                   </p>
                   <p className="stat-value tnum">{num(row.value, 1)}<small>°C</small></p>
                   <div className="stat-sub">
-                    <Link href={`/estacions/${row.codi}`} className="font-semibold">{row.nom}</Link>
+                    <Link href={`/estacions/${row.codi}`} className="font-semibold">{short(row)}</Link>
                     <span className="block text-[var(--muted)]">
                       {row.comarcaNom && comarcaName(row.comarcaNom)}
                       {row.altitud != null && ` · ${int(row.altitud)}\u00a0m`}
@@ -287,33 +299,87 @@ export default async function RanquingsPage() {
                 </li>
               );
             })}
+            {hottest && (
+              <li className="stat">
+                <p className="stat-label">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+                  <img src="/icons/w/thermometer.svg" width={20} height={20} alt="" />
+                  Màxima d&apos;avui
+                </p>
+                <p className="stat-value tnum">{num(hottest.value, 1)}<small>°C</small></p>
+                <p className="stat-sub">
+                  <Link href={`/estacions/${hottest.codi}`}>{short(hottest)}</Link>
+                </p>
+              </li>
+            )}
+            {gust && (
+              <li className="stat">
+                <p className="stat-label">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+                  <img src="/icons/w/wind.svg" width={20} height={20} alt="" />
+                  Ratxa més forta
+                </p>
+                <p className="stat-value tnum">{num(gust.value, 0)}<small>km/h</small></p>
+                <p className="stat-sub">
+                  <Link href={`/estacions/${gust.codi}`}>{short(gust)}</Link>
+                </p>
+              </li>
+            )}
           </ul>
         )}
       </PageHero>
 
-      <Section id="dia" title="Extrems del dia">
+      {/* Les seccions, per saltar-hi. Són àncores: no cal cap script. */}
+      <nav aria-label="Seccions" className="mt-6 mb-2">
+        <ul className="chips">
+          <li><a href="#temperatura">Temperatura</a></li>
+          <li><a href="#pluja-vent">Pluja i vent</a></li>
+          <li><a href="#pobles">Als pobles</a></li>
+        </ul>
+      </nav>
+
+      {/*
+        Fins al 10 d'octubre de 2026 eren sis llistes seguides sota «Extrems del
+        dia», amb la més freda d'ara i sense la més càlida. Ara van per tema, i
+        les d'ara mateix fan parella.
+      */}
+      <Section id="temperatura" title="Temperatura">
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
-          <Block title="Màximes més altes" icon="thermometer" hint="Des de la mitjanit d'avui">
+          <Block title="Ara, les més fredes" icon="thermometer">
+            <StationList rows={r.stations.nowColdest} unit="°C" colored empty="Sense observació." />
+          </Block>
+          <Block title="Ara, les més càlides" icon="thermometer">
+            <StationList rows={r.stations.nowWarmest} unit="°C" colored empty="Sense observació." />
+          </Block>
+          <Block title="Màximes més altes d'avui" icon="thermometer" hint="Des de la mitjanit">
             <StationList rows={r.stations.dayMax} unit="°C" colored empty="Encara no hi ha màximes del dia." />
           </Block>
-          <Block title="Mínimes més baixes" icon="thermometer" hint="Des de la mitjanit d'avui">
+          <Block title="Mínimes més baixes d'avui" icon="thermometer" hint="Des de la mitjanit">
             <StationList rows={r.stations.dayMin} unit="°C" colored empty="Encara no hi ha mínimes del dia." />
           </Block>
           <Block
-            title="Més amplitud tèrmica"
+            title="Més diferència entre la màxima i la mínima"
             icon="thermometer"
-            hint="Diferència entre la màxima i la mínima del dia: el número que separa el clima continental del litoral"
+            hint="L'amplitud del dia: gran terra endins, petita a la costa"
           >
             <StationList rows={r.stations.range} unit="°C" empty="Encara no es pot calcular." />
           </Block>
+        </div>
+      </Section>
+
+      <Section id="pluja-vent" title="Pluja i vent">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
           <Block title="Més pluja" icon="raindrops" hint="Acumulada des de la mitjanit">
-            <StationList rows={r.stations.rain} unit="mm" empty="No ha plogut en cap estació." />
+            <StationList
+              rows={r.stations.rain}
+              unit="mm"
+              empty={rain24
+                ? `Des de la mitjanit no ha plogut en cap estació. En les últimes 24 hores, on més ha plogut és ${aName(stationShort(rain24.nom))}, ${num(rain24.value, 1)} mm.`
+                : 'No ha plogut en cap estació en les últimes 24 hores.'}
+            />
           </Block>
-          <Block title="Ratxes més fortes" icon="wind" hint="Ratxa màxima de l'última lectura, no del dia">
+          <Block title="Ratxes més fortes" icon="wind" hint="La de l'última lectura, no la del dia">
             <StationList rows={r.stations.gust} unit="km/h" decimals={0} empty="Sense dades de ratxa." />
-          </Block>
-          <Block title="Ara mateix, les més fresques" icon="thermometer">
-            <StationList rows={r.stations.nowColdest} unit="°C" colored empty="Sense observació." />
           </Block>
         </div>
       </Section>

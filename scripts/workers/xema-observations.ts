@@ -22,6 +22,7 @@ import {
   DAILY_LIMITS, QuotaGuard, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { XEMA_TO_SLUG, type VariableSlug } from '../../src/lib/variables.ts';
+import { suspectTemperatures, type TempPoint } from '../../src/lib/temperature-check.ts';
 import type { Station } from '../04-fetch-stations.ts';
 
 const DATASET = 'nzvn-apee';
@@ -256,6 +257,36 @@ async function main() {
   put(prevMax, 'yesterday', 'tMax');
   put(prevMin, 'yesterday', 'tMin');
   put(prevSum, 'yesterday', 'precip');
+
+  /*
+   * Les lectures que les veïnes desmenteixen, fora.
+   *
+   * Alguaire va marcar 1,3 i 0,5 °C dues mitges hores del 6 d'octubre de 2026,
+   * entre un 22 i un 17, i va sortir com el lloc més fred de Catalunya. La
+   * prova i el perquè dels llindars són a `src/lib/temperature-check.ts`. Es
+   * passa a la lectura d'ara i als quatre extrems del dia, cadascun contra el
+   * mateix extrem de les veïnes: una mínima amb les mínimes.
+   */
+  const located = new Map(stations.map((s) => [s.codi, s]));
+  const checks: Array<[string, (o: StationObservation) => number | null | undefined, (o: StationObservation) => void]> = [
+    ['ara', (o) => o.values.temperature?.value, (o) => { delete o.values.temperature; }],
+    ['màx. avui', (o) => o.today?.tMax, (o) => { o.today!.tMax = null; }],
+    ['mín. avui', (o) => o.today?.tMin, (o) => { o.today!.tMin = null; }],
+    ['màx. ahir', (o) => o.yesterday?.tMax, (o) => { o.yesterday!.tMax = null; }],
+    ['mín. ahir', (o) => o.yesterday?.tMin, (o) => { o.yesterday!.tMin = null; }],
+  ];
+  for (const [label, read, drop] of checks) {
+    const points: TempPoint[] = [];
+    for (const o of byStation.values()) {
+      const s = located.get(o.station);
+      const t = read(o);
+      if (s && s.altitud != null && t != null) points.push({ codi: s.codi, lat: s.lat, lon: s.lon, altitud: s.altitud, t });
+    }
+    for (const x of suspectTemperatures(points)) {
+      drop(byStation.get(x.codi)!);
+      console.log(`  descartada (${label}): ${located.get(x.codi)?.nom} ${x.t} °C, les ${x.n} veïnes en diuen ${x.median}`);
+    }
+  }
 
   const withToday = [...byStation.values()].filter((o) => o.today?.tMax != null).length;
   const withYesterday = [...byStation.values()].filter((o) => o.yesterday?.tMax != null).length;

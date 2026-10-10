@@ -86,6 +86,12 @@ export interface Rankings {
     dayMax: StationRow[];
     dayMin: StationRow[];
     rain: StationRow[];
+    /**
+     * On més ha plogut en 24 hores, per al dia que des de la mitjanit encara
+     * no ha plogut enlloc: a les tres de la matinada la llista d'avui és buida
+     * i el ruixat de les onze del vespre segueix sent notícia.
+     */
+    rain24: StationRow | null;
     gust: StationRow[];
     range: StationRow[];
     total: number;
@@ -158,9 +164,18 @@ export async function rankings(): Promise<Rankings | null> {
     })
     .filter((x): x is { r: Row; v: number; hi: number; lo: number } => x != null);
 
+  /*
+   * Només les que han plogut des de la mitjanit. Fins al 10 d'octubre de 2026
+   * hi entraven també les que només tenien pluja en 24 hores, i la llista
+   * «Més pluja · des de la mitjanit» s'omplia de «0,0 mm».
+   */
   const rainRows = rows
-    .map((r) => ({ r, v: r.o.today?.precip ?? null, v24: r.o.precip24h ?? null }))
-    .filter((x) => (x.v ?? 0) > 0 || (x.v24 ?? 0) > 0);
+    .map((r) => ({ r, v: r.o.today?.precip ?? 0, v24: r.o.precip24h ?? null }))
+    .filter((x) => x.v > 0);
+  const wettest24 = rows
+    .map((r) => ({ r, v: r.o.precip24h ?? 0 }))
+    .filter((x) => x.v > 0)
+    .sort((a, b) => b.v - a.v)[0];
 
   const gustRows = rows
     .map((r) => ({ r, v: r.o.values.wind_gust?.value }))
@@ -214,14 +229,15 @@ export async function rankings(): Promise<Rankings | null> {
       dayMin: top(dayMinRows, (x) => x.v, 'asc').map((x) => describe(x.r.s, x.v)),
       range: top(rangeRows, (x) => x.v, 'desc').map((x) =>
         describe(x.r.s, x.v, `de ${x.lo.toFixed(1).replace('.', ',')} a ${x.hi.toFixed(1).replace('.', ',')} °C`)),
-      rain: top(rainRows, (x) => x.v ?? x.v24 ?? 0, 'desc').map((x) =>
+      rain: top(rainRows, (x) => x.v, 'desc').map((x) =>
         describe(
           x.r.s,
-          x.v ?? x.v24 ?? 0,
-          x.v24 != null && x.v != null && x.v24 > x.v
+          x.v,
+          x.v24 != null && x.v24 > x.v
             ? `${x.v24.toFixed(1).replace('.', ',')} mm en 24 h`
             : undefined,
         )),
+      rain24: wettest24 ? describe(wettest24.r.s, wettest24.v) : null,
       gust: top(gustRows, (x) => x.v, 'desc').map((x) =>
         describe(x.r.s, Math.round(msToKmh(x.v)))),
       total: rows.length,

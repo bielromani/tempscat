@@ -65,6 +65,7 @@ const LIVE_PAGES = [
   '/nautica',
   '/neu',
   '/senderisme',
+  '/senderisme/rutes', // no és d'ara, però el cercador (`?q=`) la fa dinàmica
   '/senderisme/rutes/:slug',
   '/cameres',
   '/cameres/:slug',

@@ -335,6 +335,30 @@ pueblos con sus playas, en vez de «i 5 més».
 De la versión del 6 se quedan `articleFirst()` (con prueba en `test:catalan`) y el arreglo
 de «1 platges».
 
+**El patrón de Platges, en el resto de secciones (9 y 10 de octubre, PR #23 y rama
+`seccions-2`).** El usuario lo pidió para todas «menos radar, inicio y las fichas de cada
+lugar». Se quitaron las tablas anchas que en el móvil había que arrastrar de lado:
+- **Navegar** (`/nautica`): una tarjeta por tramo —los mismos de Platges, de `src/lib/coast.ts`—
+  con viento, ola y periodo, y la ola más alta de los tres días. El aviso costero arriba
+  (`CoastalWarning`, compartido con `/mar`).
+- **Muntanya** (`/senderisme`): las estaciones en tarjetas por zona (Pirineu de Lleida,
+  Cerdanya i Prepirineu, Pirineu de Girona, altres serres).
+- **Aire** (`/aire`): tarjetas por zona con NO₂, PM10 y O₃, y buscador por estación o pueblo.
+- **Itineraris** (`/senderisme/rutes`): buscador por nombre, código, pueblo de salida o comarca;
+  las 683 filas agrupadas por los ocho ámbitos del Pla territorial según la comarca de salida;
+  y el mapa del lado con un círculo por comarca (683 puntos eran unos 100 kB de SVG, dos veces).
+  El `<datalist>` lleva los nombres sin la etapa («Senda Pirenaica» una vez, no cuarenta).
+- **Rànquings**: la entradilla dice dónde hace más frío y más calor y dónde ha llovido; cuatro
+  cifras (con la máxima del día y la ratxa); las listas por tema, y las de «ara» en pareja.
+  «Més pluja» solo lleva estaciones con lluvia desde medianoche: antes se llenaba de «0,0 mm»
+  —y la portada podía decir «Més pluja avui · 0,0 mm»—; si no ha llovido, se dice dónde ha
+  llovido en 24 horas.
+- **Y la causa del «Alguaire 1,3 °C»**: un termómetro averiado dos medias horas del 6 de
+  octubre. El worker de observación ya descarta la temperatura que desmienten las vecinas de la
+  misma cota (`src/lib/temperature-check.ts`, `npm run test:qc`); el porqué de los umbrales,
+  en `AGENTS.md`.
+Quedan por mirar con el mismo ojo: `/neu`, `/aigua`, `/cameres`, `/estacions` y `/avisos`.
+
 **Un solo radar (6 de octubre, rama `radar-unic`).** `/radar` y `/mapa/interactiu` eran dos
 caras de lo mismo; ahora `/radar` es el mapa de MapLibre con los controles del radar (la hora en
 grande, «Reprodueix les 2 hores», la barra) y las capas Pluja, Temperatura y Vent. Los avisos
