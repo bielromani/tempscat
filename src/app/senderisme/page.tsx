@@ -5,7 +5,7 @@ import { windCardinal } from '@/lib/variables';
 import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
 import { gustColor, temperatureColor, temperatureInk } from '@/lib/scales';
-import { ago, fromDirection, int, num } from '@/lib/format';
+import { ago, capFirst, fromDirection, int, num, stationShort } from '@/lib/format';
 import { allRoutes } from '@/lib/routes';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero } from '@/components/PageHero';
@@ -45,10 +45,6 @@ export const metadata: Metadata = {
 /** A partir d'aquí costa caminar dret en una carena: força 8 de Beaufort. */
 const HARD_KMH = 61;
 
-/** El nom d'una estació sense l'alçada entre parèntesis: «Boí (2.537 m)» → «Boí». */
-function bare(nom: string): string {
-  return nom.replace(/\s*\([^)]*\)\s*$/, '');
-}
 
 /** La tinta del número damunt del color de la ratxa: el mateix tall que el mapa. */
 function gustInk(kmh: number): string {
@@ -179,7 +175,7 @@ export default async function SenderismePage() {
                 fill: gustColor(s.gustKmh as number),
                 ink: gustInk(s.gustKmh as number),
                 value: String(Math.round(s.gustKmh as number)),
-                label: bare(s.nom),
+                label: stationShort(s.nom),
                 tip: `${s.nom}: ratxa de ${Math.round(s.gustKmh as number)} km/h${
                   s.temperature != null ? ` · ${num(s.temperature, 1)} °C` : ''}`,
               }))}
@@ -295,7 +291,7 @@ export default async function SenderismePage() {
               {list.map((s) => (
                 <li key={s.codi} className="card tram">
                   <h3 className="tram-name">
-                    <Link href={`/estacions/${s.codi}`} className="text-[var(--ink)] no-underline hover:underline">{(() => { const n = bare(s.nom); return n[0].toUpperCase() + n.slice(1); })()}</Link>
+                    <Link href={`/estacions/${s.codi}`} className="text-[var(--ink)] no-underline hover:underline">{capFirst(stationShort(s.nom))}</Link>
                     <span className="block text-[12.5px] font-normal text-[var(--muted)]">
                       {int(s.altitud)} m{s.comarcaNom && <> · {s.comarcaNom}</>}
                     </span>

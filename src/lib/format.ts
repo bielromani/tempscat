@@ -464,3 +464,17 @@ export function ordinal(n: number): string {
   if (n === 4) return '4t';
   return `${n}è`;
 }
+
+/**
+ * El nom d'una estació sense l'alçada entre parèntesis: «Boí (2.537 m)» → «Boí».
+ * La XEMA la porta dins del nom de les de muntanya, i on ja hi ha una columna
+ * d'altitud sortia dues vegades a la mateixa línia.
+ */
+export function stationShort(nom: string): string {
+  return nom.replace(/\s*\([^)]*\)\s*$/, '');
+}
+
+/** La primera lletra en majúscula: «la Tosa d'Alp» a començament de línia. */
+export function capFirst(s: string): string {
+  return s ? `${s[0].toUpperCase()}${s.slice(1)}` : s;
+}
