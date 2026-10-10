@@ -1,18 +1,19 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { windCardinal } from '@/lib/variables';
-import { aName, articleFirst, dateShort, dateTimeLong, dayTiny, deName, deWord, fromDirection, num } from '@/lib/format';
+import { articleFirst, dateShort, dayTiny, deWord, fromDirection, num } from '@/lib/format';
 import { fold, match, matchWithContext } from '@/lib/search-match';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { douglas, flagStyle, parseJellyfish, FLAG_SHOW_HOURS, type Beach } from '@/lib/sea';
+import { douglas, flagStyle, parseJellyfish, FLAG_SHOW_HOURS } from '@/lib/sea';
 import { nauticalConditions, type SeaStretch } from '@/lib/activities';
+import { buildTrams, slug, tramName, type Tram } from '@/lib/coast';
 import { activeWarnings } from '@/lib/weather';
-import { phenomenonName, zoneName } from '@/lib/warning-labels';
 import { allComarques, municipisOfComarca } from '@/lib/territory';
 import { FlagMark, JellyfishMark } from '@/components/SeaMarks';
 import { CoastMap, type CoastPoint } from '@/components/CoastMap';
 import { mapOutline } from '@/lib/map';
 import { PageHero } from '@/components/PageHero';
+import { CoastalWarning } from '@/components/CoastalWarning';
 import { Fold } from '@/components/Fold';
 
 /**
@@ -64,88 +65,11 @@ export const metadata: Metadata = {
   alternates: { canonical: '/mar' },
 };
 
-interface Tram {
-  /** L'àncora de la targeta, perquè el cercador de la pàgina hi pugui portar. */
-  id: string;
-  stretch: SeaStretch;
-  beaches: Beach[];
-  /** Els municipis de les seves platges, de nord a sud. */
-  towns: string[];
-  coast: string;
-}
-
-/** Distància aproximada, només per triar el punt més proper. */
-function d2(aLat: number, aLon: number, bLat: number, bLon: number): number {
-  return (aLat - bLat) ** 2 + ((aLon - bLon) * Math.cos((aLat * Math.PI) / 180)) ** 2;
-}
-
-/**
- * El nom d'un tram: «Roses i Castelló d'Empúries», o «De Vilassar de Mar a
- * Montgat» quan n'hi ha més de dos.
- *
- * Abans era «Vilassar de Mar, Premià de Mar i 5 més», i no hi havia manera de
- * saber quins eren els cinc. Ara el nom diu d'on a on va, i a dins de la
- * targeta hi ha tots els pobles amb les seves platges.
- */
-function tramName(towns: string[]): string {
-  const cap = (t: string) => `${t[0].toUpperCase()}${t.slice(1)}`;
-  if (towns.length <= 1) return cap(towns[0] ?? '');
-  // «Vandellòs i l'Hospitalet de l'Infant i l'Ametlla de Mar» no es llegeix: amb
-  // una «i» dins d'un nom, es diu d'on a on.
-  if (towns.length === 2 && !towns.some((t) => / i /.test(t))) return cap(`${towns[0]} i ${towns[1]}`);
-  return cap(`${deName(towns[0])} ${aName(towns.at(-1)!)}`);
-}
-
 /** El poble sol, perquè «calella» trobi les platges de Calella i no només les que en porten el nom. */
 function match2(fq: string, town: string): number {
   return Math.round(match(fq, town) * 0.9);
 }
 
-/** «Costa Brava» → `costa-brava`, per a les àncores. */
-const slug = (s: string) => fold(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
-/**
- * Les targetes: cada platja al punt del model més proper, i cada punt partit
- * per costa.
- *
- * El punt de davant de Montgat és el més proper de les platges de Vilassar de
- * Mar fins a Barcelona. Posat sencer sota la costa de la majoria de les seves
- * platges, Vilassar i Premià sortien al Barcelonès. Ara aquell punt fa dues
- * targetes —una al Maresme i una al Barcelonès— amb les mateixes xifres del
- * model, que és el que són: el mateix tros de mar.
- */
-function buildTrams(stretches: SeaStretch[], beaches: Beach[]): Tram[] {
-  const byPoint = stretches.map(() => new Map<string, Beach[]>());
-  for (const b of beaches) {
-    let best = 0;
-    for (let k = 1; k < stretches.length; k++) {
-      if (d2(b.lat, b.lon, stretches[k].lat, stretches[k].lon)
-        < d2(b.lat, b.lon, stretches[best].lat, stretches[best].lon)) best = k;
-    }
-    const list = byPoint[best].get(b.coast) ?? [];
-    list.push(b);
-    byPoint[best].set(b.coast, list);
-  }
-
-  const out: Tram[] = [];
-  stretches.forEach((stretch, k) => {
-    const parts = [...byPoint[k]]
-      .map(([coast, list]) => [coast, list.slice().sort((a, b) => b.lat - a.lat)] as const)
-      .sort((a, b) => b[1][0].lat - a[1][0].lat);
-    for (const [coast, list] of parts) {
-      out.push({
-        id: `t-${k}-${slug(coast)}`,
-        stretch,
-        beaches: list,
-        towns: [...new Set(list.map((b) => articleFirst(b.municipality)))],
-        coast,
-      });
-    }
-  });
-  return out;
-}
-
-const LEVEL_WORD = { verd: 'verd', groc: 'groc', taronja: 'taronja', vermell: 'vermell' } as const;
 
 type Params = Promise<{ q?: string }>;
 
@@ -196,19 +120,6 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
   const fresh = data.beaches.filter((b) => b.ageHours <= FLAG_SHOW_HOURS);
   const red = fresh.filter((b) => b.flag === 'vermella').length;
   const lastReport = data.beaches.reduce<string | null>((a, b) => (!a || b.at > a ? b.at : a), null);
-
-  /*
-   * Els avisos de fenòmens costaners de l'AEMET: el que de veritat diu si el
-   * mar estarà dolent, i el que la gent busca abans de baixar a la platja.
-   */
-  const coastal = warnings
-    .filter((w) => w.phenomenon === 'CO' && w.level !== 'verd')
-    .sort((a, b) => b.level.localeCompare(a.level));
-  const coastalZones = [...new Set(coastal.flatMap((w) => w.zones.map(zoneName)))];
-  const worstCoastal = coastal.reduce<(typeof coastal)[number] | null>(
-    (a, w) => (!a || ['groc', 'taronja', 'vermell'].indexOf(w.level) > ['groc', 'taronja', 'vermell'].indexOf(a.level) ? w : a),
-    null,
-  );
 
   const seaWords = calmest && roughest
     ? (douglas(calmest.waveHeight!) === douglas(roughest.waveHeight!)
@@ -320,24 +231,7 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
       />
 
       {/* Els avisos de mar, abans que res: és el que diu si avui s'hi pot anar. */}
-      {worstCoastal && (
-        <Link
-          href="/avisos"
-          className="card mb-6 flex items-start gap-3 no-underline"
-          style={{ borderColor: `var(--cap-${{ groc: 'yellow', taronja: 'orange', vermell: 'red' }[worstCoastal.level as 'groc']})` }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
-          <img src={`/icons/w/code-${{ groc: 'yellow', taronja: 'orange', vermell: 'red' }[worstCoastal.level as 'groc']}.svg`} width={32} height={32} alt="" />
-          <span>
-            <strong className="block text-[var(--ink)]">
-              Avís {LEVEL_WORD[worstCoastal.level]} per {phenomenonName('CO').toLowerCase()}
-            </strong>
-            <span className="text-sm text-[var(--ink-2)]">
-              {coastalZones.join(' · ')} · fins {dateTimeLong(new Date(worstCoastal.expires).toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).replace(' ', 'T'))} ›
-            </span>
-          </span>
-        </Link>
-      )}
+      <CoastalWarning warnings={warnings} />
 
       <form action="/mar#cerca" method="get" role="search" id="cerca" className="mar-search">
         <label htmlFor="mar-q" className="sr-only">Cerca una platja o un poble de costa</label>

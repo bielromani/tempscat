@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
-import { comarcaName, dateLong, num } from '@/lib/format';
+import Link from 'next/link';
+import { articleFirst, dateLong, num } from '@/lib/format';
+import { fold, match } from '@/lib/search-match';
 import { airStations, stationKind, type AirStation } from '@/lib/air-stations';
 import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
 import { concentrationColor } from '@/lib/scales';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
-import { PageHero, Section } from '@/components/PageHero';
+import { PageHero } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
 
 /**
@@ -63,8 +65,22 @@ function extreme(list: AirStation[], slug: string, dir: 'max' | 'min') {
     .sort((a, b) => (dir === 'max' ? b.v - a.v : a.v - b.v))[0] ?? null;
 }
 
-export default async function AirePage() {
-  const data = await airStations();
+/** Les zones, per agrupar les estacions per on són. Una comarca que no hi sigui va a «Altres». */
+const ZONES: Array<[string, string[]]> = [
+  ['Barcelona i rodalia', ['Barcelonès', 'Baix Llobregat', 'Vallès Occidental', 'Vallès Oriental', 'Maresme']],
+  ['Catalunya central i Penedès', ['Bages', 'Osona', 'Anoia', 'Berguedà', 'Alt Penedès', 'Garraf']],
+  ['Comarques de Girona', ['Gironès', 'Alt Empordà', 'Baix Empordà', 'Garrotxa', 'Ripollès', 'Selva']],
+  ['Camp de Tarragona', ['Tarragonès', 'Baix Camp', 'Alt Camp', 'Priorat']],
+  ['Terres de l’Ebre', ['Baix Ebre', 'Montsià', 'Terra Alta', "Ribera d'Ebre"]],
+  ['Ponent i Pirineu', ['Segrià', 'Garrigues', 'Noguera', 'Cerdanya', 'Pallars Jussà', 'Pallars Sobirà']],
+];
+
+const slug = (s: string) => fold(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+type Params = Promise<{ q?: string }>;
+
+export default async function AirePage({ searchParams }: { searchParams: Params }) {
+  const [data, params] = await Promise.all([airStations(), searchParams]);
 
   const trail = [
     { nom: 'Catalunya', path: '/' },
@@ -87,6 +103,24 @@ export default async function AirePage() {
   }
 
   const rows = [...data.list].sort((a, b) => (value(b, 'no2') ?? -1) - (value(a, 'no2') ?? -1));
+
+  const zoneOf = (st: AirStation) => ZONES.find(([, cs]) => cs.includes(st.comarca))?.[0] ?? 'Altres';
+  const zones: Array<[string, AirStation[]]> = [...ZONES.map(([z]) => z), 'Altres']
+    .map((z) => [z, rows.filter((st) => zoneOf(st) === z)] as [string, AirStation[]])
+    .filter(([, list]) => list.length > 0);
+
+  // El cercador: pel nom de l'estació o pel poble on és.
+  const q = (params.q ?? '').trim().slice(0, 60);
+  const fq = fold(q);
+  const hits = fq
+    ? rows
+      .map((st) => ({ st, score: Math.max(match(fq, st.name), match(fq, articleFirst(st.municipality))) }))
+      .filter((h) => h.score > 0)
+      .sort((x, y) => y.score - x.score)
+      .map((h) => h.st)
+    : [];
+  const suggestions = [...new Set(rows.flatMap((st) => [st.name, articleFirst(st.municipality)]))]
+    .sort((x, y) => x.localeCompare(y, 'ca'));
 
   const outline = mapOutline();
   /*
@@ -185,53 +219,82 @@ export default async function AirePage() {
         )}
       />
 
-      <Section id="estacions" title={`Les ${rows.length} estacions`}>
-        <div className="card">
-          <div className="scroll-x">
-            <table className="data-table">
-              <caption className="sr-only">
-                Mitjana diària de cada contaminant per estació, en µg/m³
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col" className="min-w-[11rem]">Estació</th>
-                  {COLUMNS.map((c) => (
-                    <th key={c.slug} scope="col" className="num">{c.label}</th>
-                  ))}
-                  <th scope="col">Tipus</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((s) => (
-                  <tr key={s.code}>
-                    <td>
-                      <span className="block font-medium text-[var(--ink)]">{s.name}</span>
-                      <span className="block text-xs text-[var(--muted)]">
-                        {s.municipality}
-                        {s.comarca && ` · ${comarcaName(s.comarca)}`}
-                      </span>
-                    </td>
-                    {COLUMNS.map((c) => {
-                      const v = value(s, c.slug);
-                      return (
-                        <td key={c.slug} className="num">
-                          {v != null ? num(v, 1) : <span className="text-[var(--muted)]">—</span>}
-                        </td>
-                      );
-                    })}
-                    <td className="whitespace-nowrap text-xs text-[var(--muted)]">{stationKind(s)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="source">
-            {data.source}. Mitjanes de les 24 hores, en µg/m³, i només amb el dia sencer:
-            una mitjana de mitja jornada no és una mitjana diària. Un guió vol dir que
-            l&apos;estació no mesura aquell contaminant, no un zero.
+      {/*
+        El cercador de la pàgina: el poble o l'estació. Sense script, com el de
+        /mar: el formulari torna aquí amb `?q=` i el servidor filtra.
+      */}
+      <form action="/aire#cerca" method="get" role="search" id="cerca" className="mar-search mt-6">
+        <label htmlFor="aire-q" className="sr-only">Cerca un poble o una estació</label>
+        <input
+          id="aire-q"
+          name="q"
+          type="search"
+          defaultValue={q}
+          list="aire-llocs"
+          placeholder="Cerca un poble o una estació"
+          autoComplete="off"
+        />
+        <button type="submit">Cerca</button>
+        <datalist id="aire-llocs">
+          {suggestions.map((n) => <option key={n} value={n} />)}
+        </datalist>
+      </form>
+
+      {q && (
+        <section className="mb-6" aria-label={`Resultats per ${q}`}>
+          <p className="card-label">
+            {hits.length > 0
+              ? `${hits.length === 1 ? 'Una estació' : `${hits.length} estacions`} per «${q}»`
+              : `Cap estació no es diu «${q}» ni és en un poble que es digui així`}
           </p>
-        </div>
-      </Section>
+          {hits.length > 0 && (
+            <ul className="card-grid">
+              {hits.map((s) => <StationCard key={s.code} s={s} />)}
+            </ul>
+          )}
+          <p className="card-foot"><Link href="/aire">Totes les estacions ›</Link></p>
+        </section>
+      )}
+
+      {/* Les zones, per saltar-hi. Són àncores: no cal cap script. */}
+      <nav aria-label="Zones" className="mb-2">
+        <ul className="chips">
+          {zones.map(([name]) => (
+            <li key={name}><a href={`#zona-${slug(name)}`}>{name}</a></li>
+          ))}
+        </ul>
+      </nav>
+
+      {/*
+        Les estacions, zona per zona i de la que en té més a la que menys.
+
+        Fins al 9 d'octubre de 2026 era una taula de 73 files i set columnes
+        ordenada per NO₂ que al mòbil calia arrossegar de costat. Ara, com a
+        /mar: una targeta per estació, agrupades per on són.
+      */}
+      {zones.map(([name, list]) => {
+        const no2 = list.map((s) => value(s, 'no2')).filter((v): v is number => v != null);
+        return (
+          <section key={name} id={`zona-${slug(name)}`} className="section scroll-mt-4" aria-labelledby={`h-${slug(name)}`}>
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
+              <h2 id={`h-${slug(name)}`} className="card-title">{name}</h2>
+              <p className="text-[13px] text-[var(--muted)] tnum">
+                {list.length} {list.length === 1 ? 'estació' : 'estacions'}
+                {no2.length > 0 && <> · NO₂ de {num(Math.min(...no2), 0)} a {num(Math.max(...no2), 0)} µg/m³</>}
+              </p>
+            </div>
+            <ul className="card-grid">
+              {list.map((s) => <StationCard key={s.code} s={s} />)}
+            </ul>
+          </section>
+        );
+      })}
+
+      <p className="source mt-6">
+        {data.source}. Mitjanes de les 24 hores, en µg/m³, i només amb el dia sencer: una
+        mitjana de mitja jornada no és una mitjana diària. Un guió vol dir que l&apos;estació
+        no mesura aquell contaminant, no un zero.
+      </p>
 
       <div className="mt-10">
         <Fold title="Com es llegeix" summary="El tipus d'estació i l'ozó">
@@ -252,5 +315,39 @@ export default async function AirePage() {
         </Fold>
       </div>
     </article>
+  );
+}
+
+/**
+ * Una estació: on és, de quina mena, i els tres contaminants que més es
+ * miren. Els altres dos, quan en mesura, en una línia a sota.
+ */
+function StationCard({ s }: { s: AirStation }) {
+  const town = articleFirst(s.municipality);
+  const extra = [
+    value(s, 'pm2_5') != null && `PM2,5 ${num(value(s, 'pm2_5'), 1)}`,
+    value(s, 'so2') != null && `SO₂ ${num(value(s, 'so2'), 1)}`,
+  ].filter(Boolean);
+  return (
+    <li className="card tram">
+      <h3 className="tram-name">
+        {s.name}
+        <span className="block text-[12.5px] font-normal text-[var(--muted)]">
+          {fold(s.name).startsWith(fold(town)) ? '' : `${town} · `}{stationKind(s)}
+        </span>
+      </h3>
+      <dl className="tram-now">
+        {(['no2', 'pm10', 'o3'] as const).map((slug) => {
+          const v = value(s, slug);
+          return (
+            <div key={slug}>
+              <dt>{COLUMNS.find((c) => c.slug === slug)!.label}</dt>
+              <dd>{v != null ? num(v, 1) : <span className="text-[var(--muted)]">—</span>}</dd>
+            </div>
+          );
+        })}
+      </dl>
+      {extra.length > 0 && <p className="tram-src">{extra.join(' · ')} · en µg/m³</p>}
+    </li>
   );
 }

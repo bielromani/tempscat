@@ -6,7 +6,10 @@ import { windCardinal } from '@/lib/variables';
 import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
 import { waveColor } from '@/lib/scales';
-import { ago, hourSpoken, int, num } from '@/lib/format';
+import { ago, dayTiny, fromDirection, int, num, theHour } from '@/lib/format';
+import { buildTrams, slug, tramName, type Tram } from '@/lib/coast';
+import { activeWarnings } from '@/lib/weather';
+import { CoastalWarning } from '@/components/CoastalWarning';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
@@ -59,8 +62,18 @@ function maxBy(list: SeaStretch[], get: (s: SeaStretch) => number | null | undef
 }
 
 export default async function NauticaPage() {
-  const data = await nauticalConditions();
+  const [data, warnings] = await Promise.all([nauticalConditions(), activeWarnings()]);
   const stretches = data?.stretches ?? [];
+
+  // Els mateixos trams que /mar, partits i anomenats igual.
+  const trams = buildTrams(stretches, data?.beaches ?? []);
+  const tramOf = (s: SeaStretch | null) => trams.find((t) => t.stretch === s) ?? null;
+  const coasts: Array<[string, Tram[]]> = [];
+  for (const t of trams) {
+    const last = coasts.at(-1);
+    if (last && last[0] === t.coast) last[1].push(t);
+    else coasts.push([t.coast, [t]]);
+  }
 
   const gustiest = maxBy(stretches, (s) => s.wind?.gustKmh);
   const roughest = maxBy(stretches, (s) => s.waveHeight);
@@ -122,14 +135,14 @@ export default async function NauticaPage() {
             icon: 'wind',
             value: int(gustiest.wind.gustKmh),
             unit: 'km/h',
-            sub: `força ${beaufort(gustiest.wind.gustKmh).force} · ${gustiest.near}`,
+            sub: `força ${beaufort(gustiest.wind.gustKmh).force}, a ${tramName(tramOf(gustiest)?.towns ?? [gustiest.near])}`,
           },
           roughest?.waveHeight != null && {
             label: 'Onada màxima',
             icon: 'tide-high',
-            value: num(roughest.waveHeight, 2),
+            value: num(roughest.waveHeight, 1),
             unit: 'm',
-            sub: `${douglas(roughest.waveHeight)} · ${roughest.near}`,
+            sub: `${douglas(roughest.waveHeight)}, a ${tramName(tramOf(roughest)?.towns ?? [roughest.near])}`,
           },
           sstMin != null && sstMax != null && {
             label: "Aigua",
@@ -186,8 +199,8 @@ export default async function NauticaPage() {
                 fill: waveColor(s.waveHeight as number),
                 ink: (s.waveHeight as number) >= 1.5 ? 'oklch(100% 0 0)' : 'oklch(20% 0.02 250)',
                 value: num(s.waveHeight, 1),
-                label: s.near,
-                tip: `${s.near}: ${num(s.waveHeight, 1)} m d'onada${
+                label: tramOf(s)?.towns[0] ?? s.near,
+                tip: `${tramName(tramOf(s)?.towns ?? [s.near])}: ${num(s.waveHeight, 1)} m d'onada${
                   s.wind?.gustKmh != null ? ` · ratxa ${Math.round(s.wind.gustKmh)} km/h` : ''}`,
               }))}
               footer={(
@@ -202,99 +215,57 @@ export default async function NauticaPage() {
         )}
       />
 
-      {stretches.length > 0 && (
-        <Section id="costa" title="La costa, de nord a sud">
-          <div className="card">
-            <div className="scroll-x">
-              <table className="data-table">
-                <caption className="sr-only">
-                  Vent mesurat, onatge modelat i temperatura de l&apos;aigua per trams de costa
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col" className="min-w-[10rem]">Tram</th>
-                    <th scope="col">Vent <span className="font-normal normal-case tracking-normal">mesurat</span></th>
-                    <th scope="col">Onada</th>
-                    <th scope="col">Període</th>
-                    <th scope="col">Màxima 24 h</th>
-                    <th scope="col" className="num">Aigua</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stretches.map((s) => (
-                    <tr key={s.near}>
-                      <td>
-                        <span className="block font-medium text-[var(--ink)]">{s.near}</span>
-                        {s.wind?.kmh != null && (
-                          <span className="block text-xs text-[var(--muted)]">
-                            {s.wind.station}, a {s.wind.distKm} km
-                          </span>
-                        )}
-                      </td>
-                      <td className="tnum">
-                        {s.wind?.kmh != null ? (
-                          <>
-                            <span className="whitespace-nowrap font-medium text-[var(--ink)]">{s.wind.kmh} km/h</span>
-                            {s.wind.gustKmh != null && (
-                              <span className="whitespace-nowrap"> · ratxa {s.wind.gustKmh}</span>
-                            )}
-                            <span className="block text-xs text-[var(--muted)]">
-                              F{beaufort(s.wind.gustKmh ?? s.wind.kmh).force}
-                              {s.wind.direction != null && ` · ${windCardinal(s.wind.direction)}`}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-xs text-[var(--muted)]">
-                            {s.wind ? 'l’estació no dona vent' : 'cap estació a menys de 25 km'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="tnum">
-                        {s.waveHeight != null ? (
-                          <>
-                            <span
-                              className="temp-pill"
-                              style={{
-                                background: waveColor(s.waveHeight),
-                                color: s.waveHeight >= 1.5 ? 'oklch(100% 0 0)' : 'oklch(20% 0.02 250)',
-                              }}
-                            >
-                              {num(s.waveHeight, 2)} m
-                            </span>
-                            <span className="block pt-0.5 text-xs text-[var(--muted)]">{douglas(s.waveHeight)}</span>
-                          </>
-                        ) : '—'}
-                      </td>
-                      <td className="tnum">
-                        {s.wavePeriod != null ? (
-                          <>
-                            <span className="whitespace-nowrap">{num(s.wavePeriod, 1)} s</span>
-                            <span className="block text-xs text-[var(--muted)]">{periodMeaning(s.wavePeriod)}</span>
-                          </>
-                        ) : '—'}
-                      </td>
-                      <td className="tnum text-[var(--muted)]">
-                        {s.peak ? (
-                          <>
-                            <span className="whitespace-nowrap text-[var(--ink-2)]">{num(s.peak.height, 2)} m</span>
-                            <span className="block text-xs">a {hourSpoken(s.peak.time)}</span>
-                          </>
-                        ) : '—'}
-                      </td>
-                      <td className="num whitespace-nowrap font-medium text-[var(--ink)]">
-                        {s.sst != null ? `${num(s.sst, 1)} °C` : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      <CoastalWarning warnings={warnings} />
+
+      {/* Les costes, per saltar-hi. Són àncores: no cal cap script. */}
+      {coasts.length > 1 && (
+        <nav aria-label="Costes" className="mb-2">
+          <ul className="chips">
+            {coasts.map(([name]) => (
+              <li key={name}><a href={`#costa-${slug(name)}`}>{name}</a></li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
+      {/*
+        La costa, costa per costa.
+
+        Fins al 9 d'octubre de 2026 era una taula de sis columnes que al mòbil
+        calia arrossegar de costat. Ara és el mateix patró que /mar: una
+        targeta per tram amb el vent, l'onada i el període junts, que són les
+        tres coses que es miren a la vegada abans de sortir.
+      */}
+      {coasts.map(([name, list]) => {
+        const gusts = list.map((t) => t.stretch.wind?.gustKmh).filter((v): v is number => v != null);
+        const ws = list.map((t) => t.stretch.waveHeight).filter((v): v is number => v != null);
+        return (
+          <section
+            key={name}
+            id={`costa-${slug(name)}`}
+            className="section scroll-mt-4"
+            aria-labelledby={`h-${slug(name)}`}
+          >
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
+              <h2 id={`h-${slug(name)}`} className="card-title">{name}</h2>
+              <p className="text-[13px] text-[var(--muted)] tnum">
+                {gusts.length > 0 && <>ratxes fins a {Math.max(...gusts)} km/h</>}
+                {gusts.length > 0 && ws.length > 0 && ' · '}
+                {ws.length > 0 && <>onades fins a {num(Math.max(...ws), 1)} m</>}
+              </p>
             </div>
-            <p className="source">
-              {windAge != null && <>Vent mesurat {ago(windAge)} · Meteocat XEMA. </>}
-              Onatge i temperatura de l&apos;aigua, model marí d&apos;Open-Meteo.
-            </p>
-          </div>
-        </Section>
+            <ul className="card-grid">
+              {list.map((t) => <SailCard key={t.id} tram={t} />)}
+            </ul>
+          </section>
+        );
+      })}
+
+      {stretches.length > 0 && (
+        <p className="source mt-6">
+          {windAge != null && <>Vent mesurat {ago(windAge)} a l&apos;estació de la XEMA més propera a cada tram. </>}
+          Onatge, període i temperatura de l&apos;aigua, del model marí d&apos;Open-Meteo, de mar obert.
+        </p>
       )}
 
       {flags.length > 0 && (
@@ -351,5 +322,82 @@ export default async function NauticaPage() {
         </Fold>
       </div>
     </article>
+  );
+}
+
+/**
+ * Un tram de costa per a qui surt a navegar: vent, onada i període junts, la
+ * màxima de les pròximes 24 hores i els dies següents.
+ */
+function SailCard({ tram }: { tram: Tram }) {
+  const s = tram.stretch;
+  const w = s.wind;
+  const wave = s.waveHeight;
+  return (
+    <li className="card tram scroll-mt-4" id={tram.id}>
+      <h3 className="tram-name">{tramName(tram.towns)}</h3>
+
+      <dl className="tram-now">
+        <div>
+          <dt>Vent</dt>
+          <dd>
+            {w?.kmh != null ? <>{w.kmh} km/h</> : '—'}
+            {w?.kmh != null && (
+              <small>
+                {w.gustKmh != null ? `ratxa ${w.gustKmh} · ` : ''}F{beaufort(w.gustKmh ?? w.kmh).force}
+                {w.direction != null && w.kmh > 0 && ` ${fromDirection(windCardinal(w.direction))}`}
+              </small>
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Onada</dt>
+          <dd>
+            {wave != null ? (
+              <span
+                className="temp-pill"
+                style={{ background: waveColor(wave), color: wave >= 1.5 ? 'oklch(100% 0 0)' : 'oklch(20% 0.02 250)' }}
+              >
+                {num(wave, 1)} m
+              </span>
+            ) : '—'}
+            {wave != null && <small>{douglas(wave)}</small>}
+          </dd>
+        </div>
+        <div>
+          <dt>Període</dt>
+          <dd>
+            {s.wavePeriod != null ? <>{num(s.wavePeriod, 0)} s</> : '—'}
+            {s.wavePeriod != null && <small>{periodMeaning(s.wavePeriod)}</small>}
+          </dd>
+        </div>
+      </dl>
+
+      {s.days.length > 1 && (
+        <div>
+          <p className="tram-days-label">
+            Els pròxims dies · onada més alta
+            {s.peak && <> (avui, {num(s.peak.height, 1)} m a {theHour(Number(s.peak.time.slice(11, 13)))})</>}
+          </p>
+          <ol className="tram-days" aria-label="Els pròxims dies">
+            {s.days.map((d, i) => (
+              <li key={d.date}>
+                <span>{i === 0 ? 'avui' : dayTiny(`${d.date}T12:00`)}</span>
+                <span className="tnum">{d.waveMax != null ? `${num(d.waveMax, 1)} m` : '—'}</span>
+                <span className="text-[var(--muted)]">{d.waveMax != null ? douglas(d.waveMax) : ''}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      <p className="tram-src">
+        {s.sst != null && <>aigua a {num(s.sst, 1)} °C</>}
+        {s.sst != null && w?.kmh != null && ' · '}
+        {w?.kmh != null
+          ? <>vent mesurat a {w.station}, a {w.distKm} km</>
+          : w ? 'l’estació més propera no dona vent' : 'cap estació a menys de 25 km'}
+      </p>
+    </li>
   );
 }
