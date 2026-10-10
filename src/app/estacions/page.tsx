@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { altitudeColor, temperatureColor, temperatureInk } from '@/lib/scales';
-import { comarcaName, int, num } from '@/lib/format';
+import { capFirst, comarcaName, int, num, stationShort } from '@/lib/format';
+import { fold, match } from '@/lib/search-match';
+import { AMBITS, anchorSlug, groupByZone } from '@/lib/zones';
 import { allObservations } from '@/lib/weather';
 import { allComarques, operativeStations, publishedPlaces } from '@/lib/territory';
 import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
-import { PageHero, Section } from '@/components/PageHero';
+import { PageHero } from '@/components/PageHero';
 
 /**
  * Índice de estaciones, agrupado por comarca.
@@ -41,7 +43,13 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function EstacionsPage() {
+/** Quantes files ensenya el cercador abans de demanar que s'afini. */
+const MAX_HITS = 40;
+
+type Params = Promise<{ q?: string }>;
+
+export default async function EstacionsPage({ searchParams }: { searchParams: Params }) {
+  const params = await searchParams;
   const stations = operativeStations();
   const obs = await allObservations();
   const tempOf = new Map(
@@ -68,6 +76,55 @@ export default async function EstacionsPage() {
     (a, s) => (a == null || s.altitud! < a.altitud! ? s : a), null,
   );
   const outline = mapOutline();
+
+  // Les comarques, pels vuit àmbits del Pla territorial, com a Itineraris.
+  const ambits = groupByZone(AMBITS, withStation, (c) => c.nom);
+
+  // El cercador: el nom de l'estació, el poble on és, la comarca o el codi.
+  const q = (params.q ?? '').trim().slice(0, 60);
+  const fq = fold(q);
+  const hits = fq
+    ? stations
+      .map((st) => ({
+        st,
+        score: Math.max(
+          match(fq, stationShort(st.nom)),
+          st.codi.toLowerCase() === fq ? 100 : 0,
+          st.municipiNom ? Math.round(match(fq, st.municipiNom) * 0.8) : 0,
+          st.comarcaNom ? Math.round(match(fq, comarcaName(st.comarcaNom)) * 0.6) : 0,
+        ),
+      }))
+      .filter((h) => h.score > 0)
+      .sort((a, b) => b.score - a.score || (b.st.altitud ?? 0) - (a.st.altitud ?? 0))
+      .map((h) => h.st)
+    : [];
+  const suggestions = [...new Set([
+    ...stations.map((st) => capFirst(stationShort(st.nom))),
+    ...withStation.map((c) => comarcaName(c.nom)),
+  ])].sort((x, y) => x.localeCompare(y, 'ca'));
+
+  const row = (st: typeof stations[number], withComarca = false) => {
+    const t = tempOf.get(st.codi) ?? null;
+    return (
+      <li key={st.codi}>
+        <Link href={`/estacions/${st.codi}`} className="row-main">
+          <span className="row-title">{capFirst(stationShort(st.nom))}</span>
+          <span className="row-sub tnum">
+            {st.altitud != null ? `${int(st.altitud)} m` : '—'}
+            {withComarca && st.comarcaNom && ` · ${comarcaName(st.comarcaNom)}`} · {st.codi}
+          </span>
+        </Link>
+        {t != null && (
+          <span
+            className="temp-pill"
+            style={{ background: temperatureColor(t), color: temperatureInk(t) }}
+          >
+            {num(t, 0)}°
+          </span>
+        )}
+      </li>
+    );
+  };
 
   const trail = [
     { nom: 'Catalunya', path: '/' },
@@ -169,60 +226,107 @@ export default async function EstacionsPage() {
         )}
       />
 
-      <Section id="comarques" title="Per comarca">
-        {/*
-          En columnes i no en graella: les comarques van d'una estació a deu, i
-          en una graella cada fila de targetes s'estira fins a la més llarga i
-          deixa forats. Les columnes les apilen.
-        */}
-        <div className="gap-3 sm:columns-2 lg:columns-3">
-          {withStation.map((c) => {
-            const list = (byComarca.get(c.codi) ?? [])
-              .slice()
-              .sort((a, b) => (b.altitud ?? 0) - (a.altitud ?? 0));
-            return (
-              <section key={c.codi} className="card mb-3 break-inside-avoid" aria-label={comarcaName(c.nom)}>
-                <p className="card-label justify-between">
-                  <Link href={c.path} className="text-[var(--ink-2)] no-underline hover:text-[var(--ink)] hover:underline">
-                    {comarcaName(c.nom)}
-                  </Link>
-                  <span className="tnum font-medium normal-case tracking-normal">
-                    {list.length} {list.length === 1 ? 'estació' : 'estacions'}
-                  </span>
-                </p>
-                <ul className="rows">
-                  {list.map((s) => {
-                    const t = tempOf.get(s.codi) ?? null;
-                    return (
-                      <li key={s.codi}>
-                        <Link href={`/estacions/${s.codi}`} className="row-main">
-                          <span className="row-title">{s.nom}</span>
-                          <span className="row-sub tnum">
-                            {s.altitud != null ? `${int(s.altitud)} m` : '—'} · {s.codi}
-                          </span>
-                        </Link>
-                        {t != null && (
-                          <span
-                            className="temp-pill"
-                            style={{ background: temperatureColor(t), color: temperatureInk(t) }}
-                          >
-                            {num(t, 0)}°
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
-        <p className="source">
-          Temperatura de l&apos;última lectura de cada estació, sense corregir: és la
-          del termòmetre a la seva cota.
-          {orphans.length > 0 && ` ${orphans.length} estacions sense comarca assignada al catàleg d'origen.`}
-        </p>
-      </Section>
+      {/*
+        El cercador de la pàgina, sense script, com el de /mar: el formulari
+        torna aquí amb `?q=` i el servidor filtra.
+      */}
+      <form action="/estacions#cerca" method="get" role="search" id="cerca" className="mar-search mt-6">
+        <label htmlFor="estacions-q" className="sr-only">Cerca una estació, un poble o una comarca</label>
+        <input
+          id="estacions-q"
+          name="q"
+          type="search"
+          defaultValue={q}
+          list="estacions-noms"
+          placeholder="Cerca una estació, un poble o una comarca"
+          autoComplete="off"
+        />
+        <button type="submit">Cerca</button>
+        <datalist id="estacions-noms">
+          {suggestions.map((n) => <option key={n} value={n} />)}
+        </datalist>
+      </form>
+
+      {q && (
+        <section className="mb-6" aria-label={`Resultats per ${q}`}>
+          <p className="card-label">
+            {hits.length > 0
+              ? `${hits.length === 1 ? 'Una estació' : `${hits.length} estacions`} per «${q}»`
+              : `Cap estació no es diu «${q}» ni és en un poble o una comarca que es digui així`}
+          </p>
+          {hits.length > 0 && (
+            <div className="card">
+              <ul className="rows rows-cols">
+                {hits.slice(0, MAX_HITS).map((st) => row(st, true))}
+              </ul>
+              {hits.length > MAX_HITS && (
+                <p className="source">N&apos;hi ha {hits.length - MAX_HITS} més. Afineu la cerca.</p>
+              )}
+            </div>
+          )}
+          <p className="card-foot"><Link href="/estacions">Totes les estacions ›</Link></p>
+        </section>
+      )}
+
+      {/* Els àmbits, per saltar-hi. Són àncores: no cal cap script. */}
+      <nav aria-label="Zones" className="mb-2">
+        <ul className="chips">
+          {ambits.map(([name, cs]) => (
+            <li key={name}>
+              <a href={`#zona-${anchorSlug(name)}`}>
+                {name} <span>{cs.reduce((n, c) => n + (byComarca.get(c.codi)?.length ?? 0), 0)}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {/*
+        Comarca per comarca, dins del seu àmbit. En columnes i no en graella:
+        les comarques van d'una estació a deu, i en una graella cada fila de
+        targetes s'estira fins a la més llarga i deixa forats.
+      */}
+      {ambits.map(([name, cs]) => (
+        <section
+          key={name}
+          id={`zona-${anchorSlug(name)}`}
+          className="section scroll-mt-4"
+          aria-labelledby={`h-${anchorSlug(name)}`}
+        >
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
+            <h2 id={`h-${anchorSlug(name)}`} className="card-title">{name}</h2>
+            <p className="text-[13px] text-[var(--muted)] tnum">
+              {cs.length} {cs.length === 1 ? 'comarca' : 'comarques'}
+            </p>
+          </div>
+          <div className="gap-3 sm:columns-2 lg:columns-3">
+            {cs.map((c) => {
+              const list = (byComarca.get(c.codi) ?? [])
+                .slice()
+                .sort((a, b) => (b.altitud ?? 0) - (a.altitud ?? 0));
+              return (
+                <section key={c.codi} className="card mb-3 break-inside-avoid" aria-label={comarcaName(c.nom)}>
+                  <p className="card-label justify-between">
+                    <Link href={c.path} className="text-[var(--ink-2)] no-underline hover:text-[var(--ink)] hover:underline">
+                      {comarcaName(c.nom)}
+                    </Link>
+                    <span className="tnum font-medium normal-case tracking-normal">
+                      {list.length} {list.length === 1 ? 'estació' : 'estacions'}
+                    </span>
+                  </p>
+                  <ul className="rows">{list.map((st) => row(st))}</ul>
+                </section>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+
+      <p className="source mt-6">
+        Temperatura de l&apos;última lectura de cada estació, sense corregir: és la del
+        termòmetre a la seva cota.
+        {orphans.length > 0 && ` ${orphans.length} estacions sense comarca assignada al catàleg d'origen.`}
+      </p>
     </article>
   );
 }

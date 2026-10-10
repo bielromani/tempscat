@@ -357,7 +357,17 @@ lugar». Se quitaron las tablas anchas que en el móvil había que arrastrar de 
   octubre. El worker de observación ya descarta la temperatura que desmienten las vecinas de la
   misma cota (`src/lib/temperature-check.ts`, `npm run test:qc`); el porqué de los umbrales,
   en `AGENTS.md`.
-Quedan por mirar con el mismo ojo: `/neu`, `/aigua`, `/cameres`, `/estacions` y `/avisos`.
+Y el 10 de octubre (rama `seccions-3`), el resto:
+- **Neu**: la tabla de sensores pasa a tarjetas por serralada (gruix, neu nova, récord), con
+  atajos a las estaciones de esquí y a cada zona.
+- **Aigua**: buscador de embalses, ríos y pueblos; atajos; cada cuenca, su sección.
+- **Càmeres**: una sección por estación de esquí en lugar del filtro plegado.
+- **Estacions**: buscador por estación, pueblo, comarca o código; las comarcas, dentro de su
+  ámbito del Pla territorial.
+- **Avisos**: atajos y la lista por comarca agrupada por ámbito. No se ha podido ver con avisos
+  vigentes: no había ninguno el día que se hizo.
+Las zonas viven ahora en `src/lib/zones.ts` (`AMBITS`, `MOUNTAIN_ZONES`, `groupByZone`,
+`anchorSlug`) y `ListFilter` se borró, con su CSS: ya no lo usaba ninguna página.
 
 **Un solo radar (6 de octubre, rama `radar-unic`).** `/radar` y `/mapa/interactiu` eran dos
 caras de lo mismo; ahora `/radar` es el mapa de MapLibre con los controles del radar (la hora en

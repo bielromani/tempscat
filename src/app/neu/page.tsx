@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { aName, ago, dateFull, dateShort, int, num, relativeDay } from '@/lib/format';
+import {
+  aName, ago, capFirst, comarcaName, dateFull, dateShort, int, num, relativeDay, stationShort,
+} from '@/lib/format';
+import { MOUNTAIN_OTHER, MOUNTAIN_ZONES, anchorSlug, groupByZone } from '@/lib/zones';
 import { allHistory, localToday } from '@/lib/weather';
 import { stationByCodi } from '@/lib/territory';
 import { mountainView } from '@/lib/mountain';
@@ -116,6 +119,8 @@ export default async function NeuPage() {
     });
 
   const withSnow = rows.filter((r) => r.snow.depthCm > 0);
+  // Per serralades, com a /senderisme; dins de cada una, l'ordre de dalt.
+  const zones = groupByZone(MOUNTAIN_ZONES, rows, (r) => r.station.comarcaNom, MOUNTAIN_OTHER);
 
   const resorts = mountain?.resorts ?? [];
   const open = resorts.filter((r) => r.open);
@@ -147,7 +152,7 @@ export default async function NeuPage() {
             </strong>{' '}
             ara mateix, de les {rows.length} que la mesuren. El gruix més alt és de{' '}
             <strong className="tnum">{int(withSnow[0].snow.depthCm)} cm</strong>,{' '}
-            {aName(withSnow[0].station.nom)}.
+            {aName(stationShort(withSnow[0].station.nom))}.
           </>
         ) : (
           <>
@@ -211,6 +216,16 @@ export default async function NeuPage() {
         )}
       />
 
+      {/* Les seccions, per saltar-hi. Són àncores: no cal cap script. */}
+      <nav aria-label="Seccions" className="mt-6 mb-2">
+        <ul className="chips">
+          {mountain && mountain.resorts.length > 0 && <li><a href="#estacions">Estacions d&apos;esquí</a></li>}
+          {zones.map(([name, list]) => (
+            <li key={name}><a href={`#zona-${anchorSlug(name)}`}>{name} <span>{list.length}</span></a></li>
+          ))}
+        </ul>
+      </nav>
+
       {mountain && mountain.resorts.length > 0 && (
         <Section id="estacions" title="Les estacions d'esquí">
           <div className="card-grid">
@@ -238,84 +253,105 @@ export default async function NeuPage() {
         </Section>
       )}
 
-      <Section id="gruix" title="Gruix mesurat a les estacions de la XEMA">
-        {rows.length === 0 ? (
+      {/*
+        El gruix de cada sensor, serralada per serralada.
+
+        Fins al 10 d'octubre de 2026 era una taula de cinc columnes que al mòbil
+        calia arrossegar de costat. Ara, com a /mar: una targeta per estació amb
+        el gruix, la neu nova i el rècord de la seva sèrie.
+      */}
+      {rows.length === 0 ? (
+        <Section id="gruix" title="Gruix mesurat a les estacions de la XEMA">
           <div className="card">
             <p className="text-[var(--ink-2)]">
               Encara no hi ha dades de neu carregades. Torneu-hi en una estona.
             </p>
           </div>
-        ) : (
-          <div className="card">
-            <div className="scroll-x">
-              <table className="data-table">
-                <caption className="sr-only">
-                  Gruix de neu mesurat a cada estació de la XEMA amb sensor, i el rècord de la sèrie
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Estació</th>
-                    <th scope="col" className="num">Altitud</th>
-                    <th scope="col">Gruix</th>
-                    <th scope="col">Mesurat</th>
-                    <th scope="col">Rècord de la sèrie</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(({ h, station, snow }) => {
+        </Section>
+      ) : (
+        <>
+          {zones.map(([name, list]) => {
+            const snowy = list.filter((r) => r.snow.depthCm > 0);
+            return (
+              <section
+                key={name}
+                id={`zona-${anchorSlug(name)}`}
+                className="section scroll-mt-4"
+                aria-labelledby={`h-${anchorSlug(name)}`}
+              >
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
+                  <h2 id={`h-${anchorSlug(name)}`} className="card-title">{name}</h2>
+                  <p className="text-[13px] text-[var(--muted)] tnum">
+                    {list.length} {list.length === 1 ? 'sensor' : 'sensors'}
+                    {' · '}
+                    {snowy.length === 0
+                      ? 'sense neu'
+                      : `neu a ${snowy.length === list.length ? 'tots' : snowy.length}`}
+                  </p>
+                </div>
+                <ul className="card-grid">
+                  {list.map(({ h, station, snow }) => {
                     const rec = h.records.snowMax;
+                    const when = relativeDay(snow.day, today) === 'avui' ? 'avui' : dateShort(snow.day);
                     return (
-                      <tr key={station.codi}>
-                        <td>
-                          <Link href={`/estacions/${station.codi}`} className="font-medium">
-                            {station.nom}
+                      <li key={station.codi} className="card tram">
+                        <h3 className="tram-name">
+                          <Link
+                            href={`/estacions/${station.codi}`}
+                            className="text-[var(--ink)] no-underline hover:underline"
+                          >
+                            {capFirst(stationShort(station.nom))}
                           </Link>
-                          {station.comarcaNom && (
-                            <span className="block text-xs text-[var(--muted)]">{station.comarcaNom}</span>
-                          )}
-                        </td>
-                        <td className="num whitespace-nowrap text-[var(--muted)]">
-                          {station.altitud != null ? `${int(station.altitud)} m` : '—'}
-                        </td>
-                        <td className="tnum whitespace-nowrap">
-                          {snow.depthCm > 0 ? (
-                            <span
-                              className="temp-pill"
-                              style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
-                            >
-                              {int(snow.depthCm)} cm
-                            </span>
-                          ) : (
-                            <span className="text-[var(--muted)]">sense neu</span>
-                          )}
-                          {snow.newCm != null && snow.newCm > 0 && (
-                            <span className="ml-2 text-xs text-[var(--good)]">
-                              +{int(snow.newCm)} de nova
-                            </span>
-                          )}
-                        </td>
-                        <td className="tnum whitespace-nowrap text-[var(--muted)]">
-                          {relativeDay(snow.day, today) === 'avui'
-                            ? 'avui'
-                            : dateShort(snow.day)}
-                        </td>
-                        <td className="tnum whitespace-nowrap text-[var(--muted)]">
-                          {rec ? `${int(rec.value)} cm · ${dateFull(rec.date)}` : '—'}
-                        </td>
-                      </tr>
+                          <span className="block text-[12.5px] font-normal text-[var(--muted)]">
+                            {station.altitud != null && <>{int(station.altitud)} m</>}
+                            {station.comarcaNom && <> · {comarcaName(station.comarcaNom)}</>}
+                          </span>
+                        </h3>
+                        <dl className="tram-now">
+                          <div>
+                            <dt>Gruix</dt>
+                            <dd>
+                              {snow.depthCm > 0 ? (
+                                <span
+                                  className="temp-pill"
+                                  style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                                >
+                                  {int(snow.depthCm)} cm
+                                </span>
+                              ) : <span className="text-[var(--muted)]">0 cm</span>}
+                              <small>{when}</small>
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Neu nova</dt>
+                            <dd>
+                              {snow.newCm != null && snow.newCm > 0
+                                ? <span className="text-[var(--good)]">+{int(snow.newCm)} cm</span>
+                                : <span className="text-[var(--muted)]">—</span>}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Rècord</dt>
+                            <dd>
+                              {rec ? <>{int(rec.value)} cm</> : '—'}
+                              {rec && <small>{dateFull(rec.date)}</small>}
+                            </dd>
+                          </div>
+                        </dl>
+                      </li>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
-            <p className="source">
-              Servei Meteorològic de Catalunya (XEMA), gruix màxim diari. La sèrie de
-              cada estació arrenca quan es va instal·lar el sensor, que no és quan es va
-              instal·lar l&apos;estació.
-            </p>
-          </div>
-        )}
-      </Section>
+                </ul>
+              </section>
+            );
+          })}
+          <p className="source mt-6">
+            Servei Meteorològic de Catalunya (XEMA), gruix màxim diari al punt del sensor.
+            El rècord és el de la sèrie de cada estació, que arrenca quan es va instal·lar el
+            sensor i no quan es va instal·lar l&apos;estació.
+          </p>
+        </>
+      )}
 
       <div className="mt-10">
         <Fold title="Què vol dir i què no" summary="Un punt concret, no l'estat de les pistes">

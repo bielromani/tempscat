@@ -4,6 +4,7 @@ import { allAxes, allRoutes, refApart, type Route } from '@/lib/routes';
 import { allComarques } from '@/lib/territory';
 import { comarcaName, deName, int, num } from '@/lib/format';
 import { fold, match } from '@/lib/search-match';
+import { AMBITS, anchorSlug, groupByZone } from '@/lib/zones';
 import { mapOutline } from '@/lib/map';
 import { PointsMap } from '@/components/PointsMap';
 import { External } from '@/components/External';
@@ -78,23 +79,7 @@ const ROWS = [
 /** Tres columnes on hi caben: la llista és llarga i els noms, no gaire. */
 const COLS = { gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 19rem), 1fr))' };
 
-/**
- * Els vuit àmbits funcionals del Pla territorial general, amb les 43 comarques.
- * Són els noms que fa servir la Generalitat i que qui camina ja coneix; una
- * divisió pròpia s'hauria d'explicar.
- */
-const ZONES: Array<[string, string[]]> = [
-  ['Alt Pirineu i Aran', ["Val d'Aran", 'Alta Ribagorça', 'Pallars Sobirà', 'Pallars Jussà', 'Alt Urgell', 'Cerdanya']],
-  ['Comarques gironines', ['Alt Empordà', 'Baix Empordà', 'Garrotxa', 'Gironès', "Pla de l'Estany", 'Ripollès', 'Selva']],
-  ['Comarques centrals', ['Bages', 'Berguedà', 'Lluçanès', 'Moianès', 'Osona', 'Solsonès']],
-  ['Àmbit metropolità', ['Barcelonès', 'Baix Llobregat', 'Maresme', 'Vallès Occidental', 'Vallès Oriental']],
-  ['Penedès', ['Alt Penedès', 'Baix Penedès', 'Garraf', 'Anoia']],
-  ['Camp de Tarragona', ['Alt Camp', 'Baix Camp', 'Conca de Barberà', 'Priorat', 'Tarragonès']],
-  ['Terres de l’Ebre', ['Baix Ebre', 'Montsià', "Ribera d'Ebre", 'Terra Alta']],
-  ['Ponent', ['Garrigues', 'Noguera', "Pla d'Urgell", 'Segarra', 'Segrià', 'Urgell']],
-];
-
-const slug = (s: string) => fold(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const slug = anchorSlug;
 
 /**
  * Un cercle per comarca i no un punt per itinerari: 683 punts eren uns cent
@@ -122,14 +107,12 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
   const stages = axes.reduce((n, a) => n + a.legs.length, 0);
 
   // La zona és la de la comarca on comença, que és la primera de la llista.
-  const zoneOf = (r: Route) => {
-    const nom = r.comarques[0] ? comarques.get(r.comarques[0]) : undefined;
-    return ZONES.find(([, cs]) => cs.includes(nom ?? ''))?.[0] ?? 'Altres';
-  };
   const byName = (a: Route, b: Route) => a.name.localeCompare(b.name, 'ca');
-  const zones = [...ZONES.map(([z]) => z), 'Altres']
-    .map((z) => [z, routes.filter((r) => zoneOf(r) === z).sort(byName)] as [string, Route[]])
-    .filter(([, list]) => list.length > 0);
+  const zones = groupByZone(
+    AMBITS,
+    [...routes].sort(byName),
+    (r) => (r.comarques[0] ? comarques.get(r.comarques[0]) : undefined),
+  );
 
   // El cercador: pel nom, pel codi, pels pobles d'inici i final i per les comarques.
   const q = (params.q ?? '').trim().slice(0, 60);

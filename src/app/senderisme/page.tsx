@@ -5,6 +5,7 @@ import { windCardinal } from '@/lib/variables';
 import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
 import { gustColor, temperatureColor, temperatureInk } from '@/lib/scales';
+import { MOUNTAIN_OTHER, MOUNTAIN_ZONES, anchorSlug, groupByZone } from '@/lib/zones';
 import { ago, capFirst, fromDirection, int, num, stationShort } from '@/lib/format';
 import { allRoutes } from '@/lib/routes';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
@@ -58,16 +59,9 @@ function gustInk(kmh: number): string {
  * Les agrupacions són nostres i van per comarca. Una comarca que no hi sigui
  * va a «Altres serres», i no es perd cap estació.
  */
-const ZONES: Array<[string, string[]]> = [
-  ['Pirineu de Lleida', ["Val d'Aran", 'Alta Ribagorça', 'Pallars Sobirà', 'Pallars Jussà', 'Alt Urgell']],
-  ['Cerdanya i Prepirineu', ['Cerdanya', 'Solsonès', 'Berguedà']],
-  ['Pirineu de Girona', ['Ripollès', 'Garrotxa', 'Alt Empordà']],
-];
-const OTHER = 'Altres serres';
-
-/** «Pirineu de Lleida» → `pirineu-de-lleida`, per a les àncores. */
-const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const ZONES = MOUNTAIN_ZONES;
+const OTHER = MOUNTAIN_OTHER;
+const slug = anchorSlug;
 
 export default async function SenderismePage() {
   const routeCount = allRoutes().routes.length;
@@ -84,11 +78,7 @@ export default async function SenderismePage() {
     .sort((a, b) => (b.snowCm ?? 0) - (a.snowCm ?? 0))[0];
   const fz = data?.freezing;
 
-  const zones: Array<[string, typeof stations]> = [...ZONES.map(([z]) => z), OTHER]
-    .map((z) => [z, stations
-      .filter((s) => (ZONES.find(([, cs]) => cs.includes(s.comarcaNom ?? ''))?.[0] ?? OTHER) === z)
-      .sort((a, b) => b.altitud - a.altitud)] as [string, typeof stations])
-    .filter(([, list]) => list.length > 0);
+  const zones = groupByZone(ZONES, [...stations].sort((a, b) => b.altitud - a.altitud), (s) => s.comarcaNom, OTHER);
 
   const geo = mapOutline();
   const gusty = stations.filter((s) => s.gustKmh != null);

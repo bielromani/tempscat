@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { allCameras, cameraImage, CAMERA_SHOW_HOURS } from '@/lib/cameras';
-import { ListFilter, groupsOf } from '@/components/ListFilter';
+import { anchorSlug } from '@/lib/zones';
 import { aName, ago, dateFull, int } from '@/lib/format';
 import { External } from '@/components/External';
 import { CameraCard } from '@/components/CameraBlock';
@@ -73,9 +73,15 @@ export default async function CameresPage() {
     );
   }
 
-  const groups = groupsOf(cams.list, (c) => ({ key: c.resort, label: c.resort }));
   const latest = cams.list[0] ?? null;
-  const resorts = new Set(cams.list.map((c) => c.resort)).size;
+  /*
+   * Per estació, en l'ordre en què surt la primera càmera de cada una —la
+   * llista ja ve de la més recent a la més vella—, així que dalt de tot hi ha
+   * l'estació que ha enviat imatge fa menys.
+   */
+  const byResort = [...new Set(cams.list.map((c) => c.resort))]
+    .map((resort) => [resort, cams.list.filter((c) => c.resort === resort)] as const);
+  const resorts = byResort.length;
 
   return (
     <article>
@@ -146,37 +152,63 @@ export default async function CameresPage() {
         )}
       />
 
+      {/*
+        Fins al 10 d'octubre de 2026 era una reixa sola amb un filtre plegat per
+        estació. Ara, com les costes de /mar: unes píndoles per saltar-hi i una
+        secció per estació.
+      */}
+      {byResort.length > 1 && (
+        <nav aria-label="Estacions" className="mt-6 mb-2">
+          <ul className="chips">
+            {byResort.map(([resort, list]) => (
+              <li key={resort}><a href={`#e-${anchorSlug(resort)}`}>{resort} <span>{list.length}</span></a></li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
+      {byResort.map(([resort, list]) => (
+        <section
+          key={resort}
+          id={`e-${anchorSlug(resort)}`}
+          className="section scroll-mt-4"
+          aria-labelledby={`h-${anchorSlug(resort)}`}
+        >
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
+            <h2 id={`h-${anchorSlug(resort)}`} className="card-title">{resort}</h2>
+            <p className="text-[13px] text-[var(--muted)] tnum">
+              {list.length} {list.length === 1 ? 'càmera' : 'càmeres'} · la més recent, {ago(list[0].ageMin)}
+            </p>
+          </div>
+          {/* Dues columnes també al mòbil: d'una en una, dinou fotogrames eren deu pantalles. */}
+          <ul className="card-grid cols-4 max-sm:grid-cols-2! max-sm:gap-2.5!">
+            {list.map((c) => (
+              <li key={c.id}>
+                <CameraCard
+                  camera={c}
+                  meta={[
+                    c.altitudM != null && `${int(c.altitudM)} m`,
+                    c.panoramic && 'panoràmica',
+                  ]}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+
       {cams.list.length > 0 && (
-        <Section id="totes" title={`Les ${cams.list.length} càmeres`}>
-          <ListFilter id="fc" groups={groups} legend="Filtra per estació" allLabel="Totes les estacions">
-            {/* Dues columnes també al mòbil: d'una en una, dinou fotogrames eren deu pantalles. */}
-            <ul className="card-grid cols-4 max-sm:grid-cols-2! max-sm:gap-2.5!">
-              {cams.list.map((c) => (
-                <li key={c.id} data-lf={c.resort}>
-                  <CameraCard
-                    camera={c}
-                    meta={[
-                      c.resort,
-                      c.altitudM != null && `${int(c.altitudM)} m`,
-                      c.panoramic && 'panoràmica',
-                    ]}
-                  />
-                </li>
-              ))}
-            </ul>
-          </ListFilter>
-          <p className="source">
-            Imatges de {cams.attribution} ({cams.license}), del conjunt{' '}
-            <External
-              href="https://dadesobertes.fgc.cat/explore/dataset/webcams-actives-tim/"
-              className="text-[var(--ink-2)]"
-            >
-              «Webcams dels equipaments turístics»
-            </External>
-            . Es desen un cop per hora i es retiren passades {CAMERA_SHOW_HOURS} hores
-            sense fotograma nou.
-          </p>
-        </Section>
+        <p className="source mt-6">
+          Imatges de {cams.attribution} ({cams.license}), del conjunt{' '}
+          <External
+            href="https://dadesobertes.fgc.cat/explore/dataset/webcams-actives-tim/"
+            className="text-[var(--ink-2)]"
+          >
+            «Webcams dels equipaments turístics»
+          </External>
+          . Es desen un cop per hora i es retiren passades {CAMERA_SHOW_HOURS} hores
+          sense fotograma nou.
+        </p>
       )}
 
       {cams.stale.length > 0 && (

@@ -11,6 +11,7 @@ import { activeWarnings, groupWarnings } from '@/lib/weather';
 import { mapOutline, warningOverlay, type WarningOverlay } from '@/lib/map';
 import { projectToMap } from '@/lib/mercator';
 import { allComarques } from '@/lib/territory';
+import { AMBITS, groupByZone } from '@/lib/zones';
 
 /**
  * Los avisos oficiales vigentes, por comarca.
@@ -168,6 +169,10 @@ export default async function AvisosPage() {
     .filter((x) => x.list.length > 0)
     .map(({ c, list }) => ({ c, list, lines: linesOf(list) }));
 
+  // Per àmbits del Pla territorial: amb vint comarques amb avís, una llista
+  // sola obligava a buscar la pròpia entre totes.
+  const byAmbit = groupByZone(AMBITS, byComarca, (x) => x.c.nom);
+
   // Ya vienen ordenados por nivel descendente desde `groupWarnings()`.
   const worst = groups[0];
 
@@ -279,6 +284,17 @@ export default async function AvisosPage() {
         ) : undefined}
       />
 
+      {/* Les seccions, per saltar-hi. Sense avisos només n'hi ha una, i no cal. */}
+      {warnings.length > 0 && (
+        <nav aria-label="Seccions" className="mt-6 mb-2">
+          <ul className="chips">
+            <li><a href="#llista">Tots els avisos <span>{groups.length}</span></a></li>
+            <li><a href="#comarques">Per comarca <span>{byComarca.length}</span></a></li>
+            <li><a href="#subscripcio">Rebre&apos;ls sense entrar</a></li>
+          </ul>
+        </nav>
+      )}
+
       {warnings.length > 0 && (
         <>
           <Section id="llista" title="Tots els avisos">
@@ -286,37 +302,44 @@ export default async function AvisosPage() {
           </Section>
 
           <Section id="comarques" title="Per comarca">
-            <div className="card">
-              <ul
-                className="rows rows-cols"
-                /* Columnes més amples que les de sèrie: cada línia diu fenomen,
-                   nivell i fins quan, i a 14 rem es partia en tres. */
-                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(20rem, 1fr))' }}
-              >
-                {byComarca.map(({ c, lines }) => (
-                  // Amunt i no al mig: cada comarca porta un nombre diferent de
-                  // línies, i centrades, els noms d'una mateixa fila no quadraven.
-                  <li key={c.codi} style={{ alignItems: 'flex-start' }}>
-                    <div className="row-main flex-1">
-                      <Link href={c.path} className="row-title">{comarcaName(c.nom)}</Link>
-                      <ul className="mt-1 space-y-0.5">
-                        {lines.map((l) => (
-                          <li key={l.key} className="flex items-baseline gap-1.5 text-[12.5px] leading-snug text-[var(--muted)]">
-                            <span
-                              aria-hidden
-                              className="inline-block h-2 w-2 shrink-0 translate-y-[-1px] rounded-full"
-                              style={{ background: CAP[l.level] }}
-                            />
-                            <span>
-                              <span className="text-[var(--ink-2)]">{l.what}</span> · {l.rest}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+            {byAmbit.map(([ambit, list]) => (
+              <div key={ambit} className="card card-block">
+                <h3 className="card-label">
+                  {ambit} <span className="tnum font-medium normal-case tracking-normal">· {list.length}</span>
+                </h3>
+                <ul
+                  className="rows rows-cols"
+                  /* Columnes més amples que les de sèrie: cada línia diu fenomen,
+                     nivell i fins quan, i a 14 rem es partia en tres. */
+                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 20rem), 1fr))' }}
+                >
+                  {list.map(({ c, lines }) => (
+                    // Amunt i no al mig: cada comarca porta un nombre diferent de
+                    // línies, i centrades, els noms d'una mateixa fila no quadraven.
+                    <li key={c.codi} style={{ alignItems: 'flex-start' }}>
+                      <div className="row-main flex-1">
+                        <Link href={c.path} className="row-title">{comarcaName(c.nom)}</Link>
+                        <ul className="mt-1 space-y-0.5">
+                          {lines.map((l) => (
+                            <li key={l.key} className="flex items-baseline gap-1.5 text-[12.5px] leading-snug text-[var(--muted)]">
+                              <span
+                                aria-hidden
+                                className="inline-block h-2 w-2 shrink-0 translate-y-[-1px] rounded-full"
+                                style={{ background: CAP[l.level] }}
+                              />
+                              <span>
+                                <span className="text-[var(--ink-2)]">{l.what}</span> · {l.rest}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            <div>
               <p className="source">
                 Els avisos s&apos;assignen a les comarques per geometria i no pel nom
                 de la zona: els polígons de l&apos;AEMET no segueixen els límits
