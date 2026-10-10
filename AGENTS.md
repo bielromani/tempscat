@@ -1420,10 +1420,10 @@ cuota para exactamente la misma información.
   entradilla que contesta, les xifres, el mapa a `aside` també al mòbil, un cercador
   `<form method="get">` que torna a la mateixa pàgina amb `?q=` (i `<datalist>` per als
   suggeriments), unes píndoles `.chips` que són àncores als grups, i targetes o files agrupades
-  per zona en comptes d'una taula ampla. Fet a Platges, Navegar, Muntanya, Aire, Itineraris
-  (els vuit àmbits del Pla territorial) i Rànquings (per tema). Llegir `searchParams` fa dinàmica
+  per zona en comptes d'una taula ampla. Fet a totes les de secció; les zones són a
+  `src/lib/zones.ts` (els vuit àmbits del Pla territorial i les serralades). Llegir `searchParams` fa dinàmica
   la pàgina, i per això `/senderisme/rutes` és a `LIVE_PAGES` encara que no tingui dades d'ara.
-  `ListFilter` ja només el fa servir `/cameres`.
+  `ListFilter` (el filtre plegat de píndoles) es va retirar el 10 d'octubre: ja no el feia servir ningú.
 
 # This is NOT the Next.js you know
 
