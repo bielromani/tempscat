@@ -44,7 +44,7 @@ export default function Privacitat() {
         lead={(
           <>
             Aquest lloc no fa servir galetes, no té analítica ni publicitat i no us
-            demana cap dada personal.
+            demana cap dada personal. La ubicació, només si la demaneu vosaltres.
           </>
         )}
         stats={[
@@ -94,6 +94,15 @@ export default function Privacitat() {
           <p>
             El que escriviu al cercador s&apos;envia al servidor per proposar-vos
             llocs mentre escriviu. No es desa ni s&apos;associa a cap persona.
+          </p>
+          <p>
+            <strong>La vostra ubicació, només si la demaneu.</strong> El botó de la
+            fletxa del cercador demana al navegador on sou —el permís el dona el
+            navegador, i el podeu retirar quan vulgueu— i envia al servidor la
+            coordenada arrodonida a un quilòmetre, només per trobar la fitxa del lloc
+            on sou. No es desa ni queda a l&apos;adreça de la pàgina. Al mapa del
+            radar, el botó «On sóc» pinta la vostra posició al mapa sense enviar-la
+            enlloc.
           </p>
         </div>
       </Section>

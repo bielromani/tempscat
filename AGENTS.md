@@ -1425,6 +1425,18 @@ cuota para exactamente la misma información.
   la pàgina, i per això `/senderisme/rutes` és a `LIVE_PAGES` encara que no tingui dades d'ara.
   `ListFilter` (el filtre plegat de píndoles) es va retirar el 10 d'octubre: ja no el feia servir ningú.
 
+- **«On sóc» va del municipi al nucli, i la coordenada no surt mai en una adreça.** (11
+  d'octubre de 2026.) El botó de la fletxa del cercador (`SiteSearch.tsx`) demana la ubicació,
+  l'arrodoneix a dos decimals i l'envia en el **cos** d'un POST a `/api/aprop`: una adreça amb
+  `?lat=&lon=` quedaria als registres del CDN i a l'historial, i `/privacitat` diu que no es desa
+  cap dada. `nearestPlace()` (`src/lib/nearby.ts`) mira primer dins de quin municipi cau el punt
+  —amb el contorn simplificat de `geo/web/municipis.json`— i després el nucli publicat més proper
+  d'aquell municipi: buscant només el punt més proper, l'Eixample sortia a l'Hospitalet. Fora de
+  tot municipi, només a menys de 5 km (la platja, que el contorn simplificat retalla); més enllà,
+  «sou fora de Catalunya». El botó no es pinta al servidor —sense JavaScript no faria res—, i al
+  mapa del radar hi ha el `GeolocateControl` de MapLibre, que pinta el punt sense enviar-lo
+  enlloc. Vallvidrera surt a «Barcelona», a 7 km: és el que arreglarien els barris.
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
