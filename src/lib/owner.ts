@@ -14,4 +14,4 @@ export const OWNER = {
 } as const;
 
 /** La data de l'última revisió dels textos legals, per escriure-la al peu. */
-export const LEGAL_UPDATED = '4 d’octubre de 2026';
+export const LEGAL_UPDATED = '11 d’octubre de 2026';

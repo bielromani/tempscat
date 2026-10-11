@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { KIND_LABEL, type SearchSuggestion } from '@/lib/search-kinds';
 
@@ -52,7 +52,26 @@ import { KIND_LABEL, type SearchSuggestion } from '@/lib/search-kinds';
  *    passa per consultes ja contestades.
  *  · **`onMouseDown` i no `onClick`** als suggeriments: amb `onClick`, el `blur`
  *    del camp tanca la llista abans que el clic hi arribi.
+ *
+ * ## «On sóc» (11 d'octubre de 2026)
+ *
+ * El botó de la fletxa demana la ubicació al navegador i porta a la fitxa del
+ * lloc on s'és: el municipi on cau el punt i, dins d'aquest, el nucli més
+ * proper (`src/lib/nearby.ts`). La coordenada surt arrodonida a dos decimals,
+ * va en el cos d'un POST a `/api/aprop` —no en una adreça, que es queda als
+ * registres— i no es desa enlloc.
+ *
+ * El botó **no es pinta al servidor**: sense JavaScript no faria res, i un botó
+ * que no fa res és pitjor que cap. `useSyncExternalStore` el fa aparèixer en
+ * hidratar només si el navegador té geolocalització, sense un efecte que escrigui
+ * estat. El permís el demana el navegador quan es prem, mai abans.
  */
+const noSubscribe = () => () => {};
+const hasGeolocation = () => 'geolocation' in navigator;
+const noGeolocation = () => false;
+
+/** Dos decimals: uns 1.100 m de latitud. Prou per saber el poble, i no més. */
+const round2 = (x: number) => Math.round(x * 100) / 100;
 export function SiteSearch({
   variant = 'header', defaultValue = '', autoFocus = false,
 }: {
@@ -82,6 +101,46 @@ export function SiteSearch({
    */
   const [answered, setAnswered] = useState<Record<string, SearchSuggestion[]>>({});
   const box = useRef<HTMLDivElement>(null);
+
+  const canLocate = useSyncExternalStore(noSubscribe, hasGeolocation, noGeolocation);
+  const [locating, setLocating] = useState(false);
+  const [locMsg, setLocMsg] = useState<string | null>(null);
+
+  const locate = () => {
+    setLocMsg(null);
+    setOpen(false);
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await fetch('/api/aprop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: round2(pos.coords.latitude), lon: round2(pos.coords.longitude) }),
+          });
+          const data = await res.json() as { path?: string; error?: string };
+          if (data.path) {
+            setLocating(false);
+            router.push(data.path);
+            return;
+          }
+          setLocMsg(data.error === 'outside'
+            ? 'Sou fora de Catalunya, i aquí només hi ha el temps dels llocs de Catalunya.'
+            : 'No s’ha trobat cap lloc a prop. Cerqueu-lo pel nom.');
+        } catch {
+          setLocMsg('No s’ha pogut connectar. Torneu-ho a provar d’aquí a una estona.');
+        }
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        setLocMsg(err.code === err.PERMISSION_DENIED
+          ? 'El navegador no ha donat permís per saber on sou. Es pot canviar a la configuració del lloc web.'
+          : 'No s’ha pogut saber on sou. Torneu-ho a provar o cerqueu el lloc pel nom.');
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 600_000 },
+    );
+  };
 
   const q = value.trim();
   const hits = q.length >= 2 ? answered[q] ?? [] : [];
@@ -117,13 +176,13 @@ export function SiteSearch({
   // Clicar a fora tanca. El `blur` del camp no n'hi ha prou: entremig hi ha el
   // botó de cercar, i tancar en sortir del camp el faria inclicable.
   useEffect(() => {
-    if (!open) return;
+    if (!open && !locMsg) return;
     const away = (e: MouseEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+      if (box.current && !box.current.contains(e.target as Node)) { setOpen(false); setLocMsg(null); }
     };
     document.addEventListener('mousedown', away);
     return () => document.removeEventListener('mousedown', away);
-  }, [open]);
+  }, [open, locMsg]);
 
   const show = open && hits.length > 0;
   // La llista pot haver-se escurçat entre dues consultes; l'índex marcat no ha
@@ -202,9 +261,26 @@ export function SiteSearch({
           onKeyDown={onKeyDown}
           placeholder={header ? 'Cercar…' : 'Un poble, una platja…'}
           className={header
-            ? 'h-10 w-full min-w-0 rounded-full border border-[var(--glass-line)] bg-[var(--glass)] ps-9 pe-3 text-sm text-[var(--ink)] outline-none backdrop-blur-md placeholder:text-[var(--muted)] focus:border-[var(--accent)]'
+            ? `h-10 w-full min-w-0 rounded-full border border-[var(--glass-line)] bg-[var(--glass)] ps-9 ${canLocate ? 'pe-10' : 'pe-3'} text-sm text-[var(--ink)] outline-none backdrop-blur-md placeholder:text-[var(--muted)] focus:border-[var(--accent)]`
             : 'min-w-0 flex-1 bg-transparent py-2.5 text-[17px] outline-none placeholder:text-slate-500'}
         />
+        {canLocate && (
+          <button
+            type="button"
+            onClick={locate}
+            disabled={locating}
+            aria-label="Anar al lloc on sóc"
+            title="Anar al lloc on sóc"
+            className={header
+              ? 'absolute end-1 z-10 grid h-8 w-8 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--glass)] hover:text-[var(--ink)] disabled:opacity-60'
+              : 'grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-60'}
+          >
+            {/* La fletxa de «on sóc», la que fan servir tots els mapes. */}
+            <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden="true" className={locating ? 'animate-pulse' : undefined}>
+              <path d="M21 3 3 10.5l7.5 3 3 7.5L21 3z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
         {!header && (
           <button
             type="submit"
@@ -214,6 +290,17 @@ export function SiteSearch({
           </button>
         )}
       </form>
+
+      {locMsg && (
+        <p
+          role="status"
+          className={header
+            ? 'absolute end-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-2.5rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 text-[13px] leading-snug text-[var(--ink-2)] shadow-[var(--shadow)] max-sm:inset-x-4 max-sm:w-auto'
+            : 'mt-2 text-[14px] leading-snug text-[var(--ink-2)]'}
+        >
+          {locMsg}
+        </p>
+      )}
 
       {show && (
         <ul

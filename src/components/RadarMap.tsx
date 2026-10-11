@@ -247,6 +247,16 @@ export default function RadarMap({
           pitchWithRotate: false,
           touchZoomRotate: true,
           attributionControl: { compact: true },
+          // Els rètols dels botons, que MapLibre porta en anglès.
+          locale: {
+            'NavigationControl.ZoomIn': 'Apropa',
+            'NavigationControl.ZoomOut': 'Allunya',
+            'GeolocateControl.FindMyLocation': 'On sóc',
+            'GeolocateControl.LocationNotAvailable': 'No es pot saber on sou',
+            'AttributionControl.ToggleAttribution': 'D’on surt el mapa',
+            'ScaleControl.Kilometers': 'km',
+            'ScaleControl.Meters': 'm',
+          },
           style: {
             version: 8 as const,
             sources: {
@@ -287,6 +297,18 @@ export default function RadarMap({
         map.current = m as unknown as MapLike;
 
         m.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
+        /*
+         * «Sou aquí» (11 d'octubre de 2026). El punt el pinta el navegador amb
+         * la ubicació que dona el mòbil i no surt d'aquí: no s'envia enlloc. El
+         * permís es demana en prémer el botó, mai en obrir el mapa. Fins al zoom
+         * 9 i prou: més a prop, el radar —que és del zoom 7— ja no diu res més.
+         */
+        m.addControl(new maplibre.GeolocateControl({
+          positionOptions: { enableHighAccuracy: false, timeout: 10_000, maximumAge: 600_000 },
+          fitBoundsOptions: { maxZoom: 9 },
+          trackUserLocation: false,
+          showAccuracyCircle: false,
+        }), 'top-right');
         m.addControl(new maplibre.ScaleControl({ maxWidth: 90, unit: 'metric' }));
 
         /*

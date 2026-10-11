@@ -445,3 +445,12 @@ export function locationsInBox(
     .sort((a, b) => (b.poblacio ?? 0) - (a.poblacio ?? 0))
     .slice(0, limit);
 }
+
+/**
+ * Les fitxes publicades d'un municipi —el municipi i els seus nuclis—, o totes
+ * si no se'n dona cap. Per a `nearby.ts`, que hi busca la més propera a una
+ * coordenada.
+ */
+export function publishedLocationsOfMunicipi(municipiCodi: string | null): Location[] {
+  return db().locations.filter((l) => l.published && (municipiCodi == null || l.municipiCodi === municipiCodi));
+}
