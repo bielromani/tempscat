@@ -13,7 +13,7 @@ import { project, type TileGrid } from './mercator';
 
 const BUILD = join(process.cwd(), 'data', 'build');
 
-export type Level = 'comarca' | 'municipi' | 'entitat_colectiva' | 'entitat_singular' | 'nucli' | 'disseminat';
+export type Level = 'comarca' | 'municipi' | 'entitat_colectiva' | 'entitat_singular' | 'nucli' | 'disseminat' | 'barri';
 export type Tier = 'A' | 'B' | 'C' | 'D';
 
 export interface StationRef {
@@ -37,7 +37,7 @@ export interface Location {
   lat: number | null;
   lon: number | null;
   altitud: number | null;
-  geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | null;
+  geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | 'ajuntament' | null;
   geocodeConfidence: number;
   poblacio: number | null;
   /** Superficie del término municipal, km². Solo a nivel municipio. */
@@ -453,4 +453,30 @@ export function locationsInBox(
  */
 export function publishedLocationsOfMunicipi(municipiCodi: string | null): Location[] {
   return db().locations.filter((l) => l.published && (municipiCodi == null || l.municipiCodi === municipiCodi));
+}
+
+export interface BarriEntry {
+  codi: string;
+  nom: string;
+  districte: string;
+  altitud: number;
+  /** La fitxa del barri si en té, o la de la ciutat. */
+  path: string;
+  page: boolean;
+  /** El contorn simplificat, només dels que tenen fitxa. En [lon, lat]. */
+  rings?: Array<Array<[number, number]>>;
+}
+
+/**
+ * Els 73 barris de Barcelona, amb fitxa o sense. Només 16 en tenen —els que
+ * són prou amunt per tenir un temps diferent, veure `07-build-territory.ts`—,
+ * però el cercador els ha de trobar tots: qui escriu «Gràcia» no ha de llegir
+ * que no existeix.
+ */
+export function allBarris(): BarriEntry[] {
+  try {
+    return load<BarriEntry[]>('barris.json');
+  } catch {
+    return [];
+  }
 }

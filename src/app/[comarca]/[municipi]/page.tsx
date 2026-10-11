@@ -67,7 +67,9 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         comarca={com}
         breadcrumbs={breadcrumbs(loc)}
         siblings={entitats}
-        siblingsLabel={`Nuclis i entitats ${deName(loc.nom)}`}
+        siblingsLabel={entitats.length > 0 && entitats.every((e) => e.level === 'barri')
+          ? `Els barris de més amunt, amb el temps propi`
+          : `Nuclis i entitats ${deName(loc.nom)}`}
         neighbours={adjacent}
         neighboursLabel="Municipis limítrofs"
         description={describeMunicipi(loc, com, entitats)}

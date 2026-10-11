@@ -1,7 +1,7 @@
 import 'server-only';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { locationById, publishedLocationsOfMunicipi } from './territory';
+import { allBarris, locationById, publishedLocationsOfMunicipi } from './territory';
 import type { Location } from './territory';
 
 /**
@@ -20,6 +20,13 @@ import type { Location } from './territory';
  * simplificat a 200 m retalla la costa, o just a l'altra banda de la ratlla—
  * es busca el més proper de tots, però només a menys de 5 km. Més enllà ja és
  * fora de Catalunya, i dir-ho és millor que portar algú de Perpinyà a Portbou.
+ *
+ * ## Els barris van per contorn, no per distància
+ *
+ * Dins de Barcelona, el punt d'un barri de la muntanya pot quedar més a prop
+ * que el del centre de la ciutat: qui és a Gràcia sortiria a la Salut, a 133
+ * m, quan ell és a 75. Un barri amb fitxa només rep qui és **dins del seu
+ * contorn**; la resta de la ciutat va a la fitxa de la ciutat.
  *
  * ## El que no es fa
  *
@@ -117,9 +124,12 @@ export function nearestPlace(rawLat: number, rawLon: number): NearbyPlace | null
     .map((l) => ({ l, d: distKm(lat, lon, l.lat as number, l.lon as number) }))
     .sort((a, b) => a.d - b.d)[0] ?? null;
 
+  const barri = allBarris().find((b) => b.page && b.rings?.some((r) => inRing(lon, lat, r)));
+  if (barri) return { path: barri.path, nom: barri.nom, distKm: 0 };
+
   const code = municipiAt(lon, lat);
   const hit = code
-    ? nearest(publishedLocationsOfMunicipi(code))
+    ? nearest(publishedLocationsOfMunicipi(code).filter((l) => l.level !== 'barri'))
     : (() => {
       const n = nearest(publishedLocationsOfMunicipi(null));
       return n && n.d <= OUTSIDE_MAX_KM ? n : null;

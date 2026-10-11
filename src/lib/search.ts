@@ -1,5 +1,5 @@
 import 'server-only';
-import { allComarques, entitatsOfMunicipi, municipisOfComarca, operativeStations } from './territory';
+import { allBarris, allComarques, entitatsOfMunicipi, municipisOfComarca, operativeStations } from './territory';
 import { allBeaches } from './sea';
 import { gaugeName, reservoirName, reservoirs, riverGauges } from './water';
 import { mountainView } from './mountain';
@@ -117,6 +117,15 @@ export async function search(raw: string): Promise<SearchResults> {
         add('poblacio', matchWithContext(q, e.nom, m.nom), e.nom, e.path, ctx);
       }
     }
+  }
+
+  /*
+   * Els barris sense fitxa —són al pla i hi fa el temps de la ciutat— porten a
+   * la ciutat. Els que en tenen ja hi han entrat a dalt, com un nucli.
+   */
+  for (const b of allBarris()) {
+    if (b.page) continue;
+    add('poblacio', match(q, b.nom), b.nom, b.path, `barri de Barcelona · ${b.districte}`);
   }
 
   // ── Estacions de la XEMA ──────────────────────────────────────────────────

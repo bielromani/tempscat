@@ -52,8 +52,19 @@ export interface WindData {
  */
 const PARTICLES = 3000;
 
-/** Quantes posicions es recorden de cada una. Deu fan un rastre curt i llegible. */
-const TRAIL = 10;
+/** Quantes posicions es recorden de cada una. Dotze fan un rastre llegible sense fer espaguetis. */
+const TRAIL = 12;
+
+/**
+ * El gruix dels fils, en píxels de pantalla.
+ *
+ * Fins al 12 d'octubre de 2026 eren `gl.LINES`, i una línia de WebGL fa **un
+ * píxel** i prou: `lineWidth` existeix però gairebé cap targeta n'accepta més
+ * d'1. Al mòbil, damunt de la cartografia, els fils eren pèls i l'usuari no
+ * veia el vent. Ara cada tram és un rectangle de dos triangles, eixamplat cap
+ * als costats a la CPU, que és on ja es calcula tot el rastre.
+ */
+const LINE_PX = 3;
 
 /**
  * Quants píxels es mou una partícula per fotograma, abans de comprimir el rang.
@@ -120,7 +131,7 @@ const FRAG = `
 precision mediump float;
 varying float v_alpha;
 void main() {
-  gl_FragColor = vec4(0.09, 0.16, 0.29, v_alpha);
+  gl_FragColor = vec4(0.05, 0.13, 0.34, v_alpha);
 }`;
 
 function mercY(lat: number): number {
@@ -160,8 +171,8 @@ export class WindLayer {
   /** Quants passos ha fet cada partícula des que va néixer, fins a `TRAIL`. */
   private filled = new Int32Array(PARTICLES);
 
-  /** El que s'envia a la targeta: dues posicions i un alfa per vèrtex. */
-  private verts = new Float32Array(PARTICLES * (TRAIL - 1) * 2 * 3);
+  /** El que s'envia a la targeta: sis vèrtexs per tram (dos triangles), amb posició i alfa. */
+  private verts = new Float32Array(PARTICLES * (TRAIL - 1) * 6 * 3);
 
   private zoomOf: () => number = () => 7;
   private repaint: () => void = () => {};
@@ -175,6 +186,14 @@ export class WindLayer {
   setData(data: WindData | null) {
     this.data = data;
     if (data) for (let i = 0; i < PARTICLES; i++) this.spawn(i, true);
+    /*
+     * I que el mapa torni a dibuixar. Una capa pròpia només es pinta quan el
+     * mapa es repinta, i `render()` és qui demana el següent fotograma: sense
+     * dades, plega sense demanar-ne cap, i el bucle s'atura. Fins al 12
+     * d'octubre de 2026, en prémer «Vent» no passava res fins que algú movia
+     * el mapa.
+     */
+    this.repaint();
   }
 
   private spawn(i: number, scatter: boolean) {
@@ -283,6 +302,8 @@ export class WindLayer {
 
   private fill(): number {
     let n = 0;
+    // Mig gruix, en unitats de mercator (el món sencer fa 1) al zoom d'ara.
+    const half = LINE_PX / 2 / (TILE_PX * 2 ** this.zoomOf());
     for (let i = 0; i < PARTICLES; i++) {
       const filled = this.filled[i];
       if (filled < 2) continue;
@@ -320,15 +341,30 @@ export class WindLayer {
          * de marcat que un temporal i el mapa mentiria; sense el primer, els
          * fils no tindrien cap.
          */
-        const fade = (0.15 + 0.85 * ((k + 1) / filled)) * (0.45 + 0.55 * strength);
+        const fade = (0.3 + 0.7 * ((k + 1) / filled)) * (0.7 + 0.3 * strength);
 
-        const o = n * 6;
-        this.verts[o] = (aLon + 180) / 360;
-        this.verts[o + 1] = mercY(aLat);
-        this.verts[o + 2] = fade;
-        this.verts[o + 3] = (bLon + 180) / 360;
-        this.verts[o + 4] = mercY(bLat);
-        this.verts[o + 5] = fade;
+        const ax = (aLon + 180) / 360;
+        const ay = mercY(aLat);
+        const bx = (bLon + 180) / 360;
+        const by = mercY(bLat);
+        const len = Math.hypot(bx - ax, by - ay);
+        if (!(len > 0)) continue;
+        // La normal del tram, del gruix de mig fil.
+        const nx = (-(by - ay) / len) * half;
+        const ny = ((bx - ax) / len) * half;
+
+        const o = n * 18;
+        const put = (j: number, x: number, y: number) => {
+          this.verts[o + j * 3] = x;
+          this.verts[o + j * 3 + 1] = y;
+          this.verts[o + j * 3 + 2] = fade;
+        };
+        put(0, ax + nx, ay + ny);
+        put(1, ax - nx, ay - ny);
+        put(2, bx + nx, by + ny);
+        put(3, bx + nx, by + ny);
+        put(4, ax - nx, ay - ny);
+        put(5, bx - nx, by - ny);
         n++;
       }
     }
@@ -346,7 +382,7 @@ export class WindLayer {
     gl.useProgram(this.program);
     gl.bindVertexArray(this.vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, this.verts.subarray(0, segments * 6), gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, this.verts.subarray(0, segments * 18), gl.DYNAMIC_DRAW);
 
     gl.enableVertexAttribArray(this.locPos);
     gl.vertexAttribPointer(this.locPos, 2, gl.FLOAT, false, 12, 0);
@@ -356,7 +392,7 @@ export class WindLayer {
     gl.uniformMatrix4fv(this.locMatrix, false, options.defaultProjectionData.mainMatrix as Float32Array);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.drawArrays(gl.LINES, 0, segments * 2);
+    gl.drawArrays(gl.TRIANGLES, 0, segments * 6);
 
     // Desenllaçat: el que ve després és el mapa, i no ha de trobar-se el nostre.
     gl.bindVertexArray(null);

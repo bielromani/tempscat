@@ -24,6 +24,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/cache/cameres/` | Fotogramas de las cámaras de FGC, ya reescalados. Igual: los sirve una route handler |
 | `src/lib/mountain.ts` | Las seis estaciones de esquí: qué hay abierto, cuánta nieve y la temperatura a cota |
 | `src/lib/routes.ts` | Los 683 itinerarios señalizados. **ODbL, no CC-BY: fuera del API** |
+| `data/build/barris.json` | Els 73 barris de Barcelona: amb fitxa (16) o sense, i el contorn dels que en tenen. **Se versiona** |
 | `data/build/routes.json` | Índice de los 683: nombre, código, km, cotas, comarcas. **Se versiona** |
 | `data/build/routes/<slug>.json` | Trazado y perfil de alturas de uno. Solo lo lee su ficha |
 | `data/cache/base/` | Teselas del mapa base del ICGC, ya en WebP. Las sirve una route handler |
@@ -172,6 +173,7 @@ npm run data:all        # construye el territorio desde cero (~35 min)
 npm run data:validate   # criterios de aceptación de la fase 0
 npm run data:base       # teselas del mapa base: el país del zoom 6 al 11, y los itinerarios
 npm run data:web-geo    # comarcas y municipios simplificados en grados, para MapLibre
+npm run data:barris     # los barrios de Barcelona con su altitud; después, `data:build`
 npm run typecheck       # aplicación y scripts
 npm run build           # `prebuild` copia antes el worker de MapLibre a public/
 ```
@@ -1436,6 +1438,21 @@ cuota para exactamente la misma información.
   «sou fora de Catalunya». El botó no es pinta al servidor —sense JavaScript no faria res—, i al
   mapa del radar hi ha el `GeolocateControl` de MapLibre, que pinta el punt sense enviar-lo
   enlloc. Vallvidrera surt a «Barcelona», a 7 km: és el que arreglarien els barris.
+
+- **Els barris de Barcelona: fitxa només si hi fa un altre temps.** (12 d'octubre de 2026.)
+  Barcelona és una sola entitat al Nomenclàtor i la seva fitxa es calcula a 30 m; Vallvidrera
+  és a 327. `scripts/17-barris.ts` baixa els 73 barris d'Open Data BCN (CC BY 4.0) i en treu
+  l'altitud com a **mediana** del model d'elevació dins del contorn —un barri de muntanya va de
+  150 a 500 m i la cota d'un sol punt pot caure en un torrent—. `07-build-territory.ts` dona
+  fitxa als que són **100 m o més per sobre del centre** (`BARRI_MIN_DALT_M`): 16, tots a
+  Collserola i als turons. Van a `/barcelones/barcelona/<barri>`, com un nucli, amb el nivell
+  `barri`. Tres coses que no són evidents: **no creen punts de predicció** —fan servir el de la
+  ciutat, corregit per l'altitud com qualsevol fitxa—, perquè un punt nou és quota i perquè el
+  més proper de la comarca era el de l'Hospitalet i les dues fitxes haurien pogut dir hores de
+  pluja diferents; **els barris s'afegeixen després de tots els altres llocs**, de manera que
+  cap identificador de punt existent es mou; i **«On sóc» hi porta per contorn, no per
+  distància**: amb la distància, qui és a Gràcia sortia a la Salut. Els 57 barris sense fitxa
+  són a `barris.json` perquè el cercador els trobi, i porten a la fitxa de la ciutat.
 
 # This is NOT the Next.js you know
 
