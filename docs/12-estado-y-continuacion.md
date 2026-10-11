@@ -369,6 +369,16 @@ Y el 10 de octubre (rama `seccions-3`), el resto:
 Las zonas viven ahora en `src/lib/zones.ts` (`AMBITS`, `MOUNTAIN_ZONES`, `groupByZone`,
 `anchorSlug`) y `ListFilter` se borró, con su CSS: ya no lo usaba ninguna página.
 
+**«On sóc» y los barrios de Barcelona (11 y 12 de octubre).** El buscador tiene un botón de
+ubicación que lleva a la ficha del sitio donde se está (municipio por contorno y, dentro, el
+núcleo más cercano; la coordenada va redondeada en un POST y no se guarda), y el mapa del radar,
+el punto «sou aquí». Después, los barrios: solo tienen ficha los que están a 100 m o más sobre el
+centro (16 de 73), dentro de la ciudad (`/barcelones/barcelona/vallvidrera-el-tibidabo-i-les-planes`),
+con la predicción de Barcelona corregida por altitud y su propia estación (el Observatori Fabra en
+Collserola). Los demás solo entran en el buscador. El criterio y las trampas, en `AGENTS.md`.
+Siguiente paso posible: otras ciudades con relieve (Badalona, Terrassa, Santa Coloma) con el mismo
+criterio; necesitan su propia fuente de barrios.
+
 **Un solo radar (6 de octubre, rama `radar-unic`).** `/radar` y `/mapa/interactiu` eran dos
 caras de lo mismo; ahora `/radar` es el mapa de MapLibre con los controles del radar (la hora en
 grande, «Reprodueix les 2 hores», la barra) y las capas Pluja, Temperatura y Vent. Los avisos

@@ -64,7 +64,9 @@ export default async function EntitatPage({ params }: { params: Params }) {
         comarca={com}
         breadcrumbs={breadcrumbs(loc)}
         siblings={siblings}
-        siblingsLabel={municipiLoc ? `Altres nuclis ${deName(municipiLoc.nom)}` : 'Altres nuclis del municipi'}
+        siblingsLabel={loc.level === 'barri'
+          ? `Altres barris ${deName(municipiLoc?.nom ?? '')} amb el temps propi`
+          : municipiLoc ? `Altres nuclis ${deName(municipiLoc.nom)}` : 'Altres nuclis del municipi'}
         neighbours={[]}
         neighboursLabel=""
         description={describeLocation(loc, com, municipiLoc, siblings)}

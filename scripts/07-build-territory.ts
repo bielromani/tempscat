@@ -20,8 +20,9 @@ import type { NomenclatorRow } from './01-fetch-nomenclator.ts';
 import type { MunicipiPoint } from './02-fetch-geo.ts';
 import type { GeocodeResult } from './03-geocode-entitats.ts';
 import type { Station } from './04-fetch-stations.ts';
+import type { Barri } from './17-barris.ts';
 
-export type Level = 'comarca' | 'municipi' | 'entitat_colectiva' | 'entitat_singular' | 'nucli' | 'disseminat';
+export type Level = 'comarca' | 'municipi' | 'entitat_colectiva' | 'entitat_singular' | 'nucli' | 'disseminat' | 'barri';
 export type Tier = 'A' | 'B' | 'C' | 'D';
 
 export interface Location {
@@ -40,7 +41,7 @@ export interface Location {
   lat: number | null;
   lon: number | null;
   altitud: number | null;
-  geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | null;
+  geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | 'ajuntament' | null;
   geocodeConfidence: number;
 
   poblacio: number | null;
@@ -62,6 +63,19 @@ export interface Location {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Quant més amunt que el centre de la ciutat ha de ser un barri per tenir fitxa.
+ *
+ * El criteri, acordat amb l'usuari el 12 d'octubre de 2026: **només si el
+ * temps hi és diferent.** Un barri del pla té el mateix punt de predicció, la
+ * mateixa estació i els mateixos números que la ciutat, i una fitxa seva seria
+ * la de Barcelona amb un altre títol. Cent metres són 0,65 °C pel gradient
+ * estàndard, i a la muntanya de Collserola també una altra estació —l'Observatori
+ * Fabra, a 410 m— i la boira que a baix no hi és. Els que no hi arriben es
+ * poden trobar igual al cercador, i porten a la fitxa de la ciutat.
+ */
+const BARRI_MIN_DALT_M = 100;
 
 function levelOf(r: NomenclatorRow): Level {
   if (r.entitat_colectiva === '00' && r.entitat_singular === '00') return 'municipi';
@@ -286,6 +300,54 @@ async function main() {
     }
   }
 
+  // ── Barris ─────────────────────────────────────────────────────────────────
+  // De moment només Barcelona: `17-barris.ts` en treu el contorn i l'altitud
+  // d'Open Data BCN. Els que tenen fitxa van **dins de la ciutat**
+  // —`/barcelones/barcelona/<barri>`—, com un nucli; la resta només entren al
+  // cercador, i porten a la ciutat.
+  const barrisOut: Array<{
+    codi: string; nom: string; districte: string; altitud: number; path: string; page: boolean;
+    /** Només els que tenen fitxa: «On sóc» hi porta qui hi és a dins, i a ningú més. */
+    rings?: Array<Array<[number, number]>>;
+  }> = [];
+  if (existsSync(raw('barris-bcn.json'))) {
+    const { barris } = JSON.parse(readFileSync(raw('barris-bcn.json'), 'utf8')) as { barris: Barri[] };
+    const city = locations.find((l) => l.level === 'municipi' && l.nom === 'Barcelona');
+    if (!city || city.altitud == null) throw new Error('Barcelona no hi és, o no té altitud');
+    for (const b of barris) {
+      const page = b.altitud - city.altitud >= BARRI_MIN_DALT_M;
+      const slug = page ? uniqueSlug(slugify(b.nom), takenIn(city.path), `b${b.codi}`) : slugify(b.nom);
+      const path = page ? `${city.path}/${slug}` : city.path;
+      barrisOut.push({
+        codi: b.codi, nom: b.nom, districte: b.districte, altitud: b.altitud, path, page,
+        ...(page ? { rings: b.rings } : {}),
+      });
+      if (!page) continue;
+      const loc: Location = {
+        id: `${city.municipiCodi}B${b.codi}`,
+        level: 'barri',
+        parentId: city.id,
+        comarcaCodi: city.comarcaCodi,
+        municipiCodi: city.municipiCodi,
+        municipiIne5: city.municipiIne5,
+        nom: b.nom,
+        nomIndexat: b.nom,
+        slug,
+        path,
+        lat: b.lat,
+        lon: b.lon,
+        altitud: b.altitud,
+        geocodeSource: 'ajuntament',
+        geocodeConfidence: 100,
+        poblacio: null,
+        tier: 'B',
+        published: true,
+      };
+      locations.push(loc);
+      byId.set(loc.id, loc);
+    }
+  }
+
   // ── Estación de referencia ─────────────────────────────────────────────────
   const operatives = stations.filter((s) => s.operativa && Number.isFinite(s.lat) && Number.isFinite(s.lon));
   let withStation = 0;
@@ -313,6 +375,7 @@ async function main() {
   // ── Niveles de indexación ──────────────────────────────────────────────────
   for (const loc of locations) {
     if (!loc.published) { loc.tier = 'D'; continue; }
+    if (loc.level === 'barri') { loc.tier = 'B'; continue; }
     if (loc.level === 'municipi') {
       loc.tier = (loc.poblacio ?? 0) >= 2000 ? 'A' : 'B';
     } else {
@@ -412,6 +475,8 @@ async function main() {
   const pointGroups = new Map<string, Location[]>();
   for (const loc of locations) {
     if (!loc.published || loc.lat == null || loc.lon == null) continue;
+    // Els barris no creen punts: veure a sota.
+    if (loc.level === 'barri') continue;
     const key = [
       Math.round(loc.lat / GRID_DEG),
       Math.round(loc.lon / GRID_DEG),
@@ -455,6 +520,23 @@ async function main() {
       loc.forecastPointId = id;
       loc.forecastDAltM = loc.altitud != null && rep.altitud != null ? loc.altitud - rep.altitud : 0;
     }
+  }
+
+  /*
+   * Els barris fan servir **el punt de predicció de la seva ciutat**, i la
+   * fitxa en corregeix la temperatura per l'altitud com fa amb qualsevol lloc.
+   * El més proper de la comarca era el de l'Hospitalet, i la fitxa de
+   * Vallvidrera hauria pogut dir que plou a una hora i la de Barcelona a una
+   * altra. Tampoc se'n creen de nous: un punt nou és quota cada dia, i els
+   * identificadors dels que ja existeixen no es mouen.
+   */
+  for (const loc of locations) {
+    if (loc.level !== 'barri') continue;
+    const city = loc.parentId ? byId.get(loc.parentId) : undefined;
+    const pt = city?.forecastPointId ? forecastPoints.find((x) => x.id === city.forecastPointId) : undefined;
+    if (!pt) throw new Error(`${loc.nom}: la ciutat no té punt de predicció`);
+    loc.forecastPointId = pt.id;
+    loc.forecastDAltM = loc.altitud != null && pt.altitud != null ? loc.altitud - pt.altitud : 0;
   }
 
   // ── Estaciones con su ubicación más cercana ────────────────────────────────
@@ -504,6 +586,8 @@ async function main() {
   writeFileSync(build('paths.json'), JSON.stringify(paths), 'utf8');
   writeFileSync(build('stations.json'), JSON.stringify(stationsOut), 'utf8');
   writeFileSync(build('neighbours.json'), JSON.stringify(neighbours), 'utf8');
+  // Els 73 barris, amb fitxa o sense: el cercador els ha de trobar tots.
+  writeFileSync(build('barris.json'), JSON.stringify(barrisOut), 'utf8');
   writeFileSync(build('forecast-points.json'), JSON.stringify(forecastPoints), 'utf8');
   writeFileSync(build('summary.json'), JSON.stringify(summary, null, 2), 'utf8');
 

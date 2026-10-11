@@ -26,6 +26,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
     "data:import": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/09-import-db.ts",
     "data:polygons": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/06-fetch-polygons.ts",
+    "data:barris": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/17-barris.ts",
     "worker:xema": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/xema-observations.ts",
     "worker:forecast": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/forecast-refresh.ts",
     "workers": "npm run worker:xema && npm run worker:warnings && npm run worker:radar && npm run worker:forecast",

@@ -25,7 +25,9 @@ function altitudeSentence(loc: Location, parent: Location | null): string | null
     const deg = Math.abs(d * LAPSE);
     const dir = d > 0 ? 'per sobre' : 'per sota';
     const sense = d > 0 ? 'menys' : 'més';
-    return `${loc.nom} és a ${loc.altitud} m, ${Math.abs(d)} m ${dir} del nucli ${deName(parent.nom)}. `
+    // Un barri es compara amb el centre de la ciutat, que és on es calcula la seva fitxa.
+    const ref = loc.level === 'barri' ? `del centre ${deName(parent.nom)}` : `del nucli ${deName(parent.nom)}`;
+    return `${loc.nom} és a ${loc.altitud} m, ${Math.abs(d)} m ${dir} ${ref}. `
       + `Aquest desnivell fa que hi soli fer entre ${(deg * 0.8).toFixed(1).replace('.', ',')} i `
       + `${(deg * 1.3).toFixed(1).replace('.', ',')} °C ${sense}, i la diferència s'accentua `
       + `les nits serenes d'hivern.`;
@@ -74,6 +76,11 @@ function contextSentence(loc: Location, comarca: Comarca, siblings: Location[]):
   if (rank === 0) return null;
 
   const total = sorted.length;
+  if (loc.level === 'barri') {
+    if (rank === 1) return `És el barri més enlairat dels ${total} que tenen fitxa pròpia.`;
+    if (rank === total) return `És el més baix dels ${total} barris que tenen fitxa pròpia.`;
+    return `És el ${ordinal(rank)} barri més enlairat dels ${total} que tenen fitxa pròpia.`;
+  }
   if (rank === 1) {
     return `És el nucli més enlairat del municipi, per damunt dels altres ${total - 1}.`;
   }
@@ -126,7 +133,14 @@ export function describeMunicipi(
   }
 
   const withAlt = entitats.filter((e) => e.altitud != null);
-  if (withAlt.length >= 2) {
+  if (withAlt.length >= 2 && withAlt.every((e) => e.level === 'barri')) {
+    // Una ciutat amb barris: només tenen fitxa els que són prou amunt.
+    const max = Math.max(...withAlt.map((e) => e.altitud!));
+    const spread = max - (loc.altitud ?? 0);
+    parts.push(`${withAlt.length} barris ${deName(loc.nom)} són prou amunt per tenir el temps propi, `
+      + `i cadascun té la seva fitxa: el més alt és a ${max} m, i hi pot fer fins a `
+      + `${(spread * LAPSE).toFixed(1).replace('.', ',')} °C menys que al centre.`);
+  } else if (withAlt.length >= 2) {
     const alts = withAlt.map((e) => e.altitud!);
     const min = Math.min(...alts, loc.altitud ?? Infinity);
     const max = Math.max(...alts, loc.altitud ?? -Infinity);
