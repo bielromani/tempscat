@@ -125,7 +125,7 @@ export async function search(raw: string): Promise<SearchResults> {
    */
   for (const b of allBarris()) {
     if (b.page) continue;
-    add('poblacio', match(q, b.nom), b.nom, b.path, `barri de Barcelona · ${b.districte}`);
+    add('poblacio', match(q, b.nom), b.nom, b.path, `barri ${deName(b.ciutat)}${b.districte ? ` · ${b.districte}` : ''}`);
   }
 
   // ── Estacions de la XEMA ──────────────────────────────────────────────────

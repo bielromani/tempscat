@@ -50,6 +50,8 @@ const found: [string, string][] = [
   ['ametlla valles', "l'Ametlla del Vallès"],
   ['volta pedraforca', 'Volta al Pedraforca'],
   ['llosa cavall', 'la Llosa del Cavall'],
+  ['can anglada', "Ca n'Anglada"],
+  ['cal arnau', "Ca l'Arnau"],
 ];
 for (const [q, name] of found) {
   const m = match(fold(q), name);

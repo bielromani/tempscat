@@ -48,6 +48,14 @@ export async function GET(
   if (!loc) {
     return json({ error: `No hi ha cap ubicació publicada a /${slug.join('/')}` }, 404);
   }
+  /*
+   * Els barris que surten d'OpenStreetMap són ODbL, i aquesta API promet CC BY:
+   * posar-los-hi en faria una base de dades derivada, com passaria amb els
+   * itineraris. La fitxa sí que els ensenya, dient d'on surten.
+   */
+  if (loc.geocodeSource === 'osm') {
+    return json({ error: `/${slug.join('/')} és un barri amb el contorn d'OpenStreetMap (ODbL), que no entra a l'API de dades (CC BY)` }, 404);
+  }
 
   const url = new URL(req.url);
   const hours = Number(url.searchParams.get('hours')) || undefined;

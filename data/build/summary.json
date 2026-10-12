@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-10-11T23:12:13.427Z",
+  "builtAt": "2026-10-12T00:48:45.623Z",
   "nomenclatorEdition": "2021",
   "comarques": 43,
-  "locations": 11035,
-  "published": 4266,
-  "indexablePages": 4309,
+  "locations": 11033,
+  "published": 4264,
+  "indexablePages": 4307,
   "byLevel": {
     "municipi": {
       "total": 947,
@@ -29,17 +29,17 @@
   },
   "byTier": {
     "A": 354,
-    "B": 2316,
+    "B": 2314,
     "C": 1596,
     "D": 6769
   },
-  "withStationRef": 4266,
+  "withStationRef": 4264,
   "stations": {
     "total": 245,
     "operatives": 189
   },
   "neighbours": {
-    "total": 24612,
+    "total": 24592,
     "adjacent": 5424,
     "nearest": 120
   },

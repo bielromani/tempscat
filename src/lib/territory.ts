@@ -21,6 +21,10 @@ export interface StationRef {
   nom: string;
   distKm: number;
   dAltM: number | null;
+  /** La més propera en línia recta, quan no és la triada. */
+  nearest?: { nom: string; distKm: number; dAltM: number | null };
+  /** La cota més alta entre el lloc i l'estació, quan hi ha una serra entremig. */
+  ridgeM?: number;
 }
 
 export interface Location {
@@ -37,7 +41,7 @@ export interface Location {
   lat: number | null;
   lon: number | null;
   altitud: number | null;
-  geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | 'ajuntament' | null;
+  geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | 'ajuntament' | 'osm' | null;
   geocodeConfidence: number;
   poblacio: number | null;
   /** Superficie del término municipal, km². Solo a nivel municipio. */
@@ -458,8 +462,12 @@ export function publishedLocationsOfMunicipi(municipiCodi: string | null): Locat
 export interface BarriEntry {
   codi: string;
   nom: string;
-  districte: string;
+  districte: string | null;
   altitud: number;
+  /** La ciutat: «Barcelona», «Terrassa». */
+  ciutat: string;
+  /** D'on surt el contorn: l'Ajuntament de Barcelona o OpenStreetMap. */
+  source: 'bcn' | 'osm';
   /** La fitxa del barri si en té, o la de la ciutat. */
   path: string;
   page: boolean;
@@ -468,8 +476,8 @@ export interface BarriEntry {
 }
 
 /**
- * Els 73 barris de Barcelona, amb fitxa o sense. Només 16 en tenen —els que
- * són prou amunt per tenir un temps diferent, veure `07-build-territory.ts`—,
+ * Els barris de les ciutats grans, amb fitxa o sense. Només en tenen els que
+ * són prou amunt per tenir un temps diferent —veure `07-build-territory.ts`—,
  * però el cercador els ha de trobar tots: qui escriu «Gràcia» no ha de llegir
  * que no existeix.
  */
