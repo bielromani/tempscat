@@ -27,6 +27,8 @@ export function fold(s: string): string {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
+    // «Ca n'Anglada» és «Can Anglada», i «Ca l'Arnau», «Cal Arnau»: la gent ho escriu junt.
+    .replace(/\bca ([nl])['’]/g, 'ca$1 ')
     .replace(/,\s*(el|la|els|les|l['’]?)\s*$/, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()

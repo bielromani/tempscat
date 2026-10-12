@@ -21,6 +21,7 @@ import type { MunicipiPoint } from './02-fetch-geo.ts';
 import type { GeocodeResult } from './03-geocode-entitats.ts';
 import type { Station } from './04-fetch-stations.ts';
 import type { Barri } from './17-barris.ts';
+import { createDem } from './lib/dem.ts';
 
 export type Level = 'comarca' | 'municipi' | 'entitat_colectiva' | 'entitat_singular' | 'nucli' | 'disseminat' | 'barri';
 export type Tier = 'A' | 'B' | 'C' | 'D';
@@ -41,14 +42,20 @@ export interface Location {
   lat: number | null;
   lon: number | null;
   altitud: number | null;
-  geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | 'ajuntament' | null;
+  geocodeSource: 'cap-municipi' | 'icgc' | 'heretat' | 'ajuntament' | 'osm' | null;
   geocodeConfidence: number;
 
   poblacio: number | null;
   /** Superficie del término municipal, km². Solo a nivel municipio. */
   areaKm2?: number | null;
 
-  stationRef?: { codi: string; nom: string; distKm: number; dAltM: number | null };
+  stationRef?: {
+    codi: string; nom: string; distKm: number; dAltM: number | null;
+    /** La més propera en línia recta, quan no és la triada. */
+    nearest?: { nom: string; distKm: number; dAltM: number | null };
+    /** La cota més alta entre el lloc i l'estació, quan hi ha una serra entremig. */
+    ridgeM?: number;
+  };
 
   /** Punto de predicción compartido. Ver la deduplicación en el build. */
   forecastPointId?: string;
@@ -65,17 +72,29 @@ export interface Location {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Quant més amunt que el centre de la ciutat ha de ser un barri per tenir fitxa.
+ * Quan té fitxa un barri.
  *
  * El criteri, acordat amb l'usuari el 12 d'octubre de 2026: **només si el
  * temps hi és diferent.** Un barri del pla té el mateix punt de predicció, la
  * mateixa estació i els mateixos números que la ciutat, i una fitxa seva seria
- * la de Barcelona amb un altre títol. Cent metres són 0,65 °C pel gradient
- * estàndard, i a la muntanya de Collserola també una altra estació —l'Observatori
- * Fabra, a 410 m— i la boira que a baix no hi és. Els que no hi arriben es
- * poden trobar igual al cercador, i porten a la fitxa de la ciutat.
+ * la de la ciutat amb un altre títol: per a qui el visita no diu res, i per al
+ * cercador és una pàgina repetida, que és el que fa que un lloc gran deixi de
+ * semblar fiable.
+ *
+ * Així que en cal una de dues:
+ *  · **150 m o més per sobre del centre** —un grau, pel gradient estàndard—,
+ *    encara que el mesuri la mateixa estació que la ciutat; o
+ *  · **100 m o més i una estació de referència pròpia**: llavors la lectura
+ *    d'ara és una altra, no només la mateixa corregida.
+ * A Barcelona això deixa fora Can Baró, el Carmel, la Vall d'Hebron i la
+ * Salut, que són a 130–170 m però els mesura l'estació del Raval, com al centre.
+ * Els que no hi arriben es troben igual al cercador, i porten a la ciutat.
  */
-const BARRI_MIN_DALT_M = 100;
+const BARRI_MIN_DALT_M = 150;
+const BARRI_MIN_DALT_OWN_STATION_M = 100;
+
+/** Quant ha de sobresortir una serra per sobre del lloc i de l'estació per dir-ho. */
+const RIDGE_MIN_M = 100;
 
 function levelOf(r: NomenclatorRow): Level {
   if (r.entitat_colectiva === '00' && r.entitat_singular === '00') return 'municipi';
@@ -301,28 +320,35 @@ async function main() {
   }
 
   // ── Barris ─────────────────────────────────────────────────────────────────
-  // De moment només Barcelona: `17-barris.ts` en treu el contorn i l'altitud
-  // d'Open Data BCN. Els que tenen fitxa van **dins de la ciutat**
-  // —`/barcelones/barcelona/<barri>`—, com un nucli; la resta només entren al
-  // cercador, i porten a la ciutat.
-  const barrisOut: Array<{
-    codi: string; nom: string; districte: string; altitud: number; path: string; page: boolean;
+  // `17-barris.ts` en treu el contorn i l'altitud: Barcelona d'Open Data BCN i
+  // la resta de ciutats grans d'OpenStreetMap. Els candidats —100 m o més per
+  // sobre del centre— es creen aquí, com un nucli i dins de la ciutat
+  // (`/barcelones/barcelona/<barri>`); després de triar-los l'estació es
+  // descarten els que no compleixen el criteri de dalt.
+  type BarriOut = {
+    codi: string; nom: string; districte: string | null; altitud: number;
+    ciutat: string; path: string; page: boolean; source: 'bcn' | 'osm';
     /** Només els que tenen fitxa: «On sóc» hi porta qui hi és a dins, i a ningú més. */
     rings?: Array<Array<[number, number]>>;
-  }> = [];
-  if (existsSync(raw('barris-bcn.json'))) {
-    const { barris } = JSON.parse(readFileSync(raw('barris-bcn.json'), 'utf8')) as { barris: Barri[] };
-    const city = locations.find((l) => l.level === 'municipi' && l.nom === 'Barcelona');
-    if (!city || city.altitud == null) throw new Error('Barcelona no hi és, o no té altitud');
+  };
+  const barrisOut: BarriOut[] = [];
+  const barriSource = new Map<string, Barri>();
+  if (existsSync(raw('barris.json'))) {
+    const { barris } = JSON.parse(readFileSync(raw('barris.json'), 'utf8')) as { barris: Barri[] };
     for (const b of barris) {
-      const page = b.altitud - city.altitud >= BARRI_MIN_DALT_M;
-      const slug = page ? uniqueSlug(slugify(b.nom), takenIn(city.path), `b${b.codi}`) : slugify(b.nom);
-      const path = page ? `${city.path}/${slug}` : city.path;
+      const city = locations.find((l) => l.level === 'municipi' && l.municipiCodi === b.municipiCodi);
+      if (!city || city.altitud == null) continue;
+      // Un barri que ja és un nucli del Nomenclàtor ja té fitxa: no se'n fa una altra.
+      const twin = locations.some((l) => l.published && l.municipiCodi === b.municipiCodi
+        && l.level !== 'municipi' && sameName(l.nom, b.nom));
+      const candidate = !twin && b.altitud - city.altitud >= BARRI_MIN_DALT_OWN_STATION_M;
+      const slug = candidate ? uniqueSlug(slugify(b.nom), takenIn(city.path), `b${b.codi}`) : slugify(b.nom);
+      const path = candidate ? `${city.path}/${slug}` : city.path;
       barrisOut.push({
-        codi: b.codi, nom: b.nom, districte: b.districte, altitud: b.altitud, path, page,
-        ...(page ? { rings: b.rings } : {}),
+        codi: b.codi, nom: b.nom, districte: b.districte, altitud: b.altitud,
+        ciutat: city.nom, path, page: candidate, source: b.source,
       });
-      if (!page) continue;
+      if (!candidate) continue;
       const loc: Location = {
         id: `${city.municipiCodi}B${b.codi}`,
         level: 'barri',
@@ -337,7 +363,7 @@ async function main() {
         lat: b.lat,
         lon: b.lon,
         altitud: b.altitud,
-        geocodeSource: 'ajuntament',
+        geocodeSource: b.source === 'osm' ? 'osm' : 'ajuntament',
         geocodeConfidence: 100,
         poblacio: null,
         tier: 'B',
@@ -345,6 +371,7 @@ async function main() {
       };
       locations.push(loc);
       byId.set(loc.id, loc);
+      barriSource.set(loc.id, b);
     }
   }
 
@@ -368,8 +395,71 @@ async function main() {
         distKm: Math.round(best.d * 10) / 10,
         dAltM: loc.altitud != null && best.s.altitud != null ? loc.altitud - best.s.altitud : null,
       };
+      /*
+       * Si no és la més propera, es diu quina ho era. La tria pesa la
+       * distància i el desnivell, i un de cada cinc llocs acaba amb una
+       * estació més llunyana però d'una cota semblant: és la bona, però qui la
+       * veu escrita es pregunta per què no és la del costat.
+       */
+      let nearestS: { s: Station; d: number } | null = null;
+      for (const s of operatives) {
+        const d = haversineKm(loc.lat, loc.lon, s.lat, s.lon);
+        if (!nearestS || d < nearestS.d) nearestS = { s, d };
+      }
+      if (nearestS && nearestS.s.codi !== best.s.codi) {
+        loc.stationRef.nearest = {
+          nom: nearestS.s.nom,
+          distKm: Math.round(nearestS.d * 10) / 10,
+          dAltM: loc.altitud != null && nearestS.s.altitud != null ? loc.altitud - nearestS.s.altitud : null,
+        };
+      }
       withStation++;
     }
+  }
+
+  /*
+   * I si entre el lloc i l'estació triada hi ha una serra. Horta i Canyelles,
+   * a Barcelona, es mesuren amb l'estació de Sant Cugat perquè és a la seva
+   * altitud, i és a l'altra banda de Collserola: una nit serena o un dia de
+   * vent de mar, a cada vessant hi pot fer un temps diferent, i val més dir-ho.
+   * Es mira només quan l'estació no és la més propera, que és quan la tria
+   * necessita explicació. Model d'elevació al zoom 10 (uns 115 m): per veure
+   * una serra n'hi ha prou.
+   */
+  const ridgeDem = createDem(10);
+  for (const loc of locations) {
+    const ref = loc.stationRef;
+    if (!ref?.nearest || loc.lat == null || loc.lon == null || loc.altitud == null) continue;
+    const st = operatives.find((s) => s.codi === ref.codi);
+    if (!st || st.altitud == null) continue;
+    const steps = Math.max(4, Math.ceil(ref.distKm / 0.25));
+    let top = -Infinity;
+    for (let k = 1; k < steps; k++) {
+      const f = k / steps;
+      const h = await ridgeDem.elevationAt(loc.lat + (st.lat - loc.lat) * f, loc.lon + (st.lon - loc.lon) * f);
+      if (h != null && h > top) top = h;
+    }
+    if (top >= Math.max(loc.altitud, st.altitud) + RIDGE_MIN_M) ref.ridgeM = Math.round(top / 10) * 10;
+  }
+
+  // ── Barris: el criteri, ara que tenen estació ─────────────────────────────
+  for (let i = locations.length - 1; i >= 0; i--) {
+    const loc = locations[i];
+    if (loc.level !== 'barri') continue;
+    const city = byId.get(loc.parentId!)!;
+    const dAlt = (loc.altitud ?? 0) - (city.altitud ?? 0);
+    const ownStation = loc.stationRef != null && loc.stationRef.codi !== city.stationRef?.codi;
+    const keep = dAlt >= BARRI_MIN_DALT_M || (dAlt >= BARRI_MIN_DALT_OWN_STATION_M && ownStation);
+    const entry = barrisOut.find((x) => x.ciutat === city.nom && x.path === loc.path)!;
+    if (keep) {
+      entry.rings = barriSource.get(loc.id)!.rings;
+      continue;
+    }
+    if (loc.stationRef) withStation--;
+    entry.page = false;
+    entry.path = city.path;
+    locations.splice(i, 1);
+    byId.delete(loc.id);
   }
 
   // ── Niveles de indexación ──────────────────────────────────────────────────
@@ -586,7 +676,7 @@ async function main() {
   writeFileSync(build('paths.json'), JSON.stringify(paths), 'utf8');
   writeFileSync(build('stations.json'), JSON.stringify(stationsOut), 'utf8');
   writeFileSync(build('neighbours.json'), JSON.stringify(neighbours), 'utf8');
-  // Els 73 barris, amb fitxa o sense: el cercador els ha de trobar tots.
+  // Tots els barris, amb fitxa o sense: el cercador els ha de trobar tots.
   writeFileSync(build('barris.json'), JSON.stringify(barrisOut), 'utf8');
   writeFileSync(build('forecast-points.json'), JSON.stringify(forecastPoints), 'utf8');
   writeFileSync(build('summary.json'), JSON.stringify(summary, null, 2), 'utf8');

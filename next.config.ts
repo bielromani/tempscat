@@ -139,6 +139,14 @@ const nextConfig: NextConfig = {
       { source: '/bolets', destination: '/ranquings', permanent: true },
       // El mapa que es mou i el radar es van fer una sola pàgina el 6 d'octubre de 2026.
       { source: '/mapa/interactiu', destination: '/radar', permanent: true },
+      /*
+       * Quatre barris van tenir fitxa un dia (12 d'octubre de 2026) i la van
+       * perdre quan el criteri va passar a demanar una estació pròpia: els mesura
+       * la del Raval, com al centre. Porten a la ciutat, que és el seu temps.
+       */
+      ...['can-baro', 'el-carmel', 'la-vall-d-hebron', 'la-salut'].map((b) => ({
+        source: `/barcelones/barcelona/${b}`, destination: '/barcelones/barcelona', permanent: true,
+      })),
     ];
   },
 

@@ -1,4 +1,4 @@
-import { aName, deComarca, deName, ordinal } from './format';
+import { aName, deComarca, deName, num, ordinal } from './format';
 import type { Comarca, Location } from './territory';
 
 /**
@@ -58,15 +58,47 @@ function altitudeSentence(loc: Location, parent: Location | null): string | null
  */
 function stationSentence(loc: Location): string | null {
   if (!loc.stationRef) return null;
-  const { nom, dAltM } = loc.stationRef;
-  if (dAltM == null || Math.abs(dAltM) < 100) return null;
-  return `L'estació més propera, la ${deName(nom)}, és ${Math.abs(dAltM)} m `
-    + `${dAltM > 0 ? 'més amunt' : 'més avall'}: la temperatura que es mostra està corregida `
-    + `per aquesta diferència, i no és la lectura directa de l'aparell.`;
+  const { nom, dAltM, distKm, nearest, ridgeM } = loc.stationRef;
+  const parts: string[] = [];
+
+  /*
+   * Quan l'estació no és la més propera, per què.
+   *
+   * La tria pesa la distància i el desnivell, i un de cada cinc llocs acaba
+   * amb una estació més llunyana però d'una cota semblant. És la bona, però qui
+   * veu escrit «Sant Cugat» a la fitxa d'Horta es pregunta per què no és la del
+   * costat. I si entremig hi ha una serra, també es diu: a cada vessant hi pot
+   * fer un temps diferent.
+   */
+  if (nearest) {
+    const nd = nearest.dAltM;
+    const why = nd != null && Math.abs(nd) >= 50
+      ? `, però és ${Math.abs(nd)} m més ${nd > 0 ? 'avall' : 'amunt'}`
+      : '';
+    parts.push(`La temperatura d'ara surt de l'estació ${deName(nom)}, a ${num(distKm, 1)} km, `
+      + `i no de la més propera, la ${deName(nearest.nom)}, a ${num(nearest.distKm, 1)} km${why}: `
+      + `per a la temperatura, una cota semblant compta més que la distància.`);
+    if (ridgeM != null) {
+      parts.push(`Entre aquí i l'estació hi ha una serra que arriba als ${ridgeM} m: les nits serenes `
+        + `o amb vent de mar, a cada vessant hi pot fer un temps diferent.`);
+    }
+  }
+
+  if (dAltM != null && Math.abs(dAltM) >= 100) {
+    parts.push(nearest
+      ? `Tot i això, l'estació és ${Math.abs(dAltM)} m ${dAltM > 0 ? 'més avall' : 'més amunt'}, i la `
+        + `temperatura que es mostra està corregida per aquesta diferència.`
+      : `L'estació més propera, la ${deName(nom)}, és ${Math.abs(dAltM)} m `
+        + `${dAltM > 0 ? 'més avall' : 'més amunt'}: la temperatura que es mostra està corregida `
+        + `per aquesta diferència, i no és la lectura directa de l'aparell.`);
+  }
+  return parts.length ? parts.join(' ') : null;
 }
 
 function contextSentence(loc: Location, comarca: Comarca, siblings: Location[]): string | null {
-  const withAlt = siblings.filter((s) => s.altitud != null);
+  // Un barri es compara amb els altres barris, no amb els nuclis del municipi.
+  const pool = loc.level === 'barri' ? siblings.filter((s) => s.level === 'barri') : siblings;
+  const withAlt = pool.filter((s) => s.altitud != null);
   if (loc.altitud == null || withAlt.length < 2) return null;
 
   const sorted = [...withAlt, loc]

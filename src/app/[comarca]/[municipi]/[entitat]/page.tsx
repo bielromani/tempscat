@@ -69,7 +69,12 @@ export default async function EntitatPage({ params }: { params: Params }) {
           : municipiLoc ? `Altres nuclis ${deName(municipiLoc.nom)}` : 'Altres nuclis del municipi'}
         neighbours={[]}
         neighboursLabel=""
-        description={describeLocation(loc, com, municipiLoc, siblings)}
+        description={describeLocation(loc, com, municipiLoc, siblings) + (
+          // D'on surt el barri: el de Barcelona és de l'Ajuntament, la resta d'OSM (ODbL).
+          loc.geocodeSource === 'osm'
+            ? ' El contorn del barri és d’OpenStreetMap i els seus col·laboradors (ODbL).'
+            : loc.level === 'barri' ? ' Els barris són els de l’Ajuntament de Barcelona (Open Data BCN).' : ''
+        )}
       />
       <JsonLd data={graph(
         {

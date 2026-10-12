@@ -376,8 +376,11 @@ el punto «sou aquí». Después, los barrios: solo tienen ficha los que están 
 centro (16 de 73), dentro de la ciudad (`/barcelones/barcelona/vallvidrera-el-tibidabo-i-les-planes`),
 con la predicción de Barcelona corregida por altitud y su propia estación (el Observatori Fabra en
 Collserola). Los demás solo entran en el buscador. El criterio y las trampas, en `AGENTS.md`.
-Siguiente paso posible: otras ciudades con relieve (Badalona, Terrassa, Santa Coloma) con el mismo
-criterio; necesitan su propia fuente de barrios.
+El mismo día se amplió a las ciudades de más de 40.000 habitantes con barrios de OpenStreetMap
+(ODbL, fuera de `/api/lloc`) y se afinó el criterio: 150 m sobre el centro, o 100 m con estación
+propia. Quedan 14 fichas: 12 en Barcelona, Canyet (Badalona) y els Caus-els Pinetons (Terrassa).
+Además, las 782 fichas cuya estación no es la más cercana explican por qué, y si hay una sierra
+en medio; y se arregló la frase del desnivel, que iba al revés en todo el sitio.
 
 **Un solo radar (6 de octubre, rama `radar-unic`).** `/radar` y `/mapa/interactiu` eran dos
 caras de lo mismo; ahora `/radar` es el mapa de MapLibre con los controles del radar (la hora en

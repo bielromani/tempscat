@@ -24,7 +24,7 @@ Diseño completo en [`docs/`](docs/); la tesis está en
 | `data/cache/cameres/` | Fotogramas de las cámaras de FGC, ya reescalados. Igual: los sirve una route handler |
 | `src/lib/mountain.ts` | Las seis estaciones de esquí: qué hay abierto, cuánta nieve y la temperatura a cota |
 | `src/lib/routes.ts` | Los 683 itinerarios señalizados. **ODbL, no CC-BY: fuera del API** |
-| `data/build/barris.json` | Els 73 barris de Barcelona: amb fitxa (16) o sense, i el contorn dels que en tenen. **Se versiona** |
+| `data/build/barris.json` | Els barris de les ciutats grans: amb fitxa o sense, i el contorn dels que en tenen. **Se versiona** |
 | `data/build/routes.json` | Índice de los 683: nombre, código, km, cotas, comarcas. **Se versiona** |
 | `data/build/routes/<slug>.json` | Trazado y perfil de alturas de uno. Solo lo lee su ficha |
 | `data/cache/base/` | Teselas del mapa base del ICGC, ya en WebP. Las sirve una route handler |
@@ -173,7 +173,7 @@ npm run data:all        # construye el territorio desde cero (~35 min)
 npm run data:validate   # criterios de aceptación de la fase 0
 npm run data:base       # teselas del mapa base: el país del zoom 6 al 11, y los itinerarios
 npm run data:web-geo    # comarcas y municipios simplificados en grados, para MapLibre
-npm run data:barris     # los barrios de Barcelona con su altitud; después, `data:build`
+npm run data:barris     # barrios de las ciudades grandes con su altitud (BCN y OSM); después, `data:build`
 npm run typecheck       # aplicación y scripts
 npm run build           # `prebuild` copia antes el worker de MapLibre a public/
 ```
@@ -1439,20 +1439,31 @@ cuota para exactamente la misma información.
   mapa del radar hi ha el `GeolocateControl` de MapLibre, que pinta el punt sense enviar-lo
   enlloc. Vallvidrera surt a «Barcelona», a 7 km: és el que arreglarien els barris.
 
-- **Els barris de Barcelona: fitxa només si hi fa un altre temps.** (12 d'octubre de 2026.)
-  Barcelona és una sola entitat al Nomenclàtor i la seva fitxa es calcula a 30 m; Vallvidrera
-  és a 327. `scripts/17-barris.ts` baixa els 73 barris d'Open Data BCN (CC BY 4.0) i en treu
-  l'altitud com a **mediana** del model d'elevació dins del contorn —un barri de muntanya va de
-  150 a 500 m i la cota d'un sol punt pot caure en un torrent—. `07-build-territory.ts` dona
-  fitxa als que són **100 m o més per sobre del centre** (`BARRI_MIN_DALT_M`): 16, tots a
-  Collserola i als turons. Van a `/barcelones/barcelona/<barri>`, com un nucli, amb el nivell
-  `barri`. Tres coses que no són evidents: **no creen punts de predicció** —fan servir el de la
-  ciutat, corregit per l'altitud com qualsevol fitxa—, perquè un punt nou és quota i perquè el
-  més proper de la comarca era el de l'Hospitalet i les dues fitxes haurien pogut dir hores de
-  pluja diferents; **els barris s'afegeixen després de tots els altres llocs**, de manera que
-  cap identificador de punt existent es mou; i **«On sóc» hi porta per contorn, no per
-  distància**: amb la distància, qui és a Gràcia sortia a la Salut. Els 57 barris sense fitxa
-  són a `barris.json` perquè el cercador els trobi, i porten a la fitxa de la ciutat.
+- **Els barris de les ciutats: fitxa només si hi fa un altre temps.** (12 d'octubre de 2026.)
+  Barcelona, Terrassa o Badalona són una sola entitat al Nomenclàtor, i la fitxa es calcula a la
+  cota del centre. `scripts/17-barris.ts` baixa els barris de Barcelona d'Open Data BCN (CC BY
+  4.0) i els de la resta de ciutats de més de 40.000 habitants d'OpenStreetMap (`admin_level`
+  10, o 9; **ODbL**), i en treu l'altitud com a **mediana** del model d'elevació dins del contorn.
+  `07-build-territory.ts` dona fitxa a un barri si és **150 m o més per sobre del centre**, o
+  **100 m o més i el mesura una altra estació** que la ciutat: sense estació pròpia, a 100 m
+  només hi hauria la mateixa lectura corregida 0,65 °C, i això és una pàgina repetida. En surten
+  14: 12 a Barcelona, Canyet (Badalona) i els Caus-els Pinetons (Terrassa). Sabadell, Girona,
+  Manresa o Santa Coloma no en tenen cap prou diferent del centre. Van a
+  `/<comarca>/<ciutat>/<barri>`, com un nucli, amb el nivell `barri`. Coses que no són evidents:
+  **no creen punts de predicció** —fan servir el de la ciutat, corregit per l'altitud—, perquè un
+  punt nou és quota i el més proper de la comarca podia ser el d'una altra ciutat; **s'afegeixen
+  després de tots els altres llocs**, així que cap identificador de punt existent es mou; **«On
+  sóc» hi porta per contorn**, no per distància (amb la distància, Gràcia sortia a la Salut); i
+  **els d'OSM no surten a `/api/lloc`**, que promet CC BY: la fitxa els ensenya dient d'on
+  surten. Tots els barris, amb fitxa o sense, són a `barris.json` perquè el cercador els trobi.
+- **Si l'estació no és la més propera, la fitxa diu per què.** (12 d'octubre de 2026.) La tria
+  pesa distància i desnivell, i 782 de 4.264 llocs acaben amb una estació més llunyana però de
+  cota semblant. El build desa la més propera (`stationRef.nearest`) i, mirant el model
+  d'elevació al zoom 10 sobre la línia, si entremig hi ha una serra 100 m per sobre de tots dos
+  (`stationRef.ridgeM`): 382 casos, com Horta amb Sant Cugat a l'altra banda de Collserola. De
+  passada es va trobar que **la frase del desnivell anava al revés** a totes les fitxes: Calders,
+  a 548 m, deia que l'estació d'Artés, a 287, era «261 m més amunt». `dAltM` és lloc menys
+  estació; positiu vol dir que l'estació és **més avall**.
 
 # This is NOT the Next.js you know
 

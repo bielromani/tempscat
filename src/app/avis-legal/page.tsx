@@ -128,6 +128,13 @@ export default function AvisLegal() {
               <External href="https://www.icgc.cat">Institut Cartogràfic i Geològic de Catalunya</External>, CC BY 4.0.
             </li>
             <li>
+              <strong>Barris de Barcelona</strong>, de l&apos;Ajuntament de Barcelona
+              (Open Data BCN), CC BY 4.0. <strong>Barris de les altres ciutats</strong>, ©
+              col·laboradors d&apos;
+              <External href="https://www.openstreetmap.org/copyright">OpenStreetMap</External>, amb
+              llicència ODbL: per això no surten a l&apos;API de dades.
+            </li>
+            <li>
               <strong>Itineraris</strong>, © col·laboradors d&apos;
               <External href="https://www.openstreetmap.org/copyright">OpenStreetMap</External>, amb llicència ODbL.
             </li>
