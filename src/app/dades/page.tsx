@@ -4,8 +4,9 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { absolute } from '@/lib/site';
 import { publishedPlaces } from '@/lib/territory';
+import { int } from '@/lib/format';
 
-const PLACES = publishedPlaces().toLocaleString('ca-ES');
+const PLACES = int(publishedPlaces());
 
 /**
  * Documentación del feed, en catalán y legible por una persona.

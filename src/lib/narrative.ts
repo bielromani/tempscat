@@ -858,10 +858,15 @@ export function narrativeFor(
     const trend = diff <= -2
       ? `baixa ${Math.abs(diff)} graus`
       : diff >= 2 ? `puja ${diff} graus` : 'es manté';
+    // Amb neu, «pluja» és fals; i «queda serè, amb un 48 % de probabilitat de
+    // pluja» (Espot) es contradiu: el codi del dia és el de l'hora més
+    // representativa, la probabilitat és la de qualsevol hora.
+    const what = d1.snowfall > 0 || skyT.group === 'snow' ? 'precipitació' : 'pluja';
     const rainT = d1.precipitation >= 1
       ? `, amb ${num(d1.precipitation, 1)} mm`
-      : d1.precipProbability >= 40 ? `, amb ${d1.precipProbability} % de probabilitat de pluja` : '';
-    tomorrow = `Demà ${trend}${skyT.code >= 0 ? ` i queda ${skyT.ca.toLowerCase()}` : ''}${rainT}.`;
+      : d1.precipProbability >= 40 ? `, amb ${d1.precipProbability} % de probabilitat de ${what}` : '';
+    const clearButWet = skyT.group === 'clear' && d1.precipProbability >= 30;
+    tomorrow = `Demà ${trend}${skyT.code >= 0 && !clearButWet ? ` i queda ${skyT.ca.toLowerCase()}` : ''}${rainT}.`;
   }
 
   return {

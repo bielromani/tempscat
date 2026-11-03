@@ -74,7 +74,7 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
                 <p className="mt-2 text-[11px] text-[var(--muted)]">
                   {current
                     ? `Parte de ${hour(local(b.at))}, ${ago(b.ageHours * 60)}`
-                    : `Últim parte: ${hour(local(b.at))}, ${ago(b.ageHours * 60)}`}
+                    : `Últim comunicat: ${hour(local(b.at))}, ${ago(b.ageHours * 60)}`}
                 </p>
               </li>
             );
@@ -82,7 +82,7 @@ export function SeaBlock({ sea, nom }: { sea: SeaNearby; nom: string }) {
         </ul>
       ) : (
         <p className="card text-sm text-[var(--ink-2)]">
-          Cap platja {deName(nom)} té parte de les últimes
+          Cap platja {deName(nom)} té comunicat de les últimes
           dotze hores. Les posen els socorristes quan són de servei, i fora
           d&apos;horari o de temporada no se&apos;n publica cap de nova.
         </p>

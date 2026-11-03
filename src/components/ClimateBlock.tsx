@@ -579,7 +579,7 @@ export function ClimateBlock({
             */}
             {records.since && (
               ` Sèrie des ${delDate(records.since)}`
-              + (records.days > 0 ? ` · ${records.days.toLocaleString('ca-ES')} dies amb dada` : '')
+              + (records.days > 0 ? ` · ${int(records.days)} dies amb dada` : '')
               + (yearsOfSeries != null && yearsOfSeries > 0 ? ` (${yearsOfSeries} anys)` : '')
               + '.'
             )}

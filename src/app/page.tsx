@@ -7,7 +7,7 @@ import {
 } from '@/lib/weather';
 import { phenomenonName } from '@/lib/warning-labels';
 import { weatherCode } from '@/lib/weather-codes';
-import { ago, dateLong, num } from '@/lib/format';
+import { ago, dateLong, int, num } from '@/lib/format';
 import { SiteSearch } from '@/components/SiteSearch';
 import { WeatherIcon } from '@/components/WeatherIcon';
 import { TemperatureLegend, TemperatureMap } from '@/components/TemperatureMap';
@@ -34,13 +34,19 @@ async function capitalNow(loc: Location) {
   const [current, forecast] = await Promise.all([currentFor(loc), forecastFor(loc, 48)]);
   const nowIso = localNowHour();
   const hour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
-  const today = forecast?.daily[0] ?? null;
-  // Com al titular de la fitxa: la màxima d'avui és, com a mínim, la que ja s'ha fet.
-  const maxs = [today?.tMax, current?.todayMax].filter((v): v is number => v != null);
-  const mins = [today?.tMin, current?.todayMin].filter((v): v is number => v != null);
+  const today = forecast?.daily.find((d) => d.date === localToday()) ?? null;
+  // La mateixa xifra que el titular de la fitxa: la lectura corregida per
+  // l'altitud del lloc, no la de l'estació a seques. Barcelona es mesura al
+  // Raval i Girona a 30 m per sota, i la targeta i la fitxa deien números
+  // diferents de la mateixa ciutat.
+  const temp = current?.temperatureAdjusted ?? hour?.temperature ?? null;
+  // I com al titular: la màxima d'avui és, com a mínim, la que ja s'ha fet.
+  const observed = current?.aggregatesDay === localToday() ? current : null;
+  const maxs = [today?.tMax, observed?.todayMax, observed && temp].filter((v): v is number => typeof v === 'number');
+  const mins = [today?.tMin, observed?.todayMin, observed && temp].filter((v): v is number => typeof v === 'number');
   return {
     loc,
-    temp: current?.temperature ?? hour?.temperature ?? null,
+    temp,
     code: hour?.weatherCode ?? null,
     isDay: hour?.isDay ?? true,
     tMax: maxs.length ? Math.max(...maxs) : null,
@@ -70,7 +76,7 @@ export default async function Home() {
           <p className="home-date">{day.charAt(0).toUpperCase() + day.slice(1)}</p>
           <h1 className="home-title">El temps a Catalunya</h1>
           <p className="home-lead">
-            Predicció i observació per a {summary.published.toLocaleString('ca-ES')} pobles
+            Predicció i observació per a {int(summary.published)} pobles
             i nuclis, cadascun amb la seva altitud i l&apos;estació que el mesura.
           </p>
           {/*
@@ -117,12 +123,12 @@ export default async function Home() {
             <li key={c.loc.path}>
               <Link href={c.loc.path} className="capital">
                 <span className="capital-name">{c.loc.nom}</span>
-                <span className="capital-temp tnum">{c.temp != null ? `${Math.round(c.temp)}°` : '—'}</span>
+                <span className="capital-temp tnum">{c.temp != null ? `${num(c.temp)}°` : '—'}</span>
                 {c.code != null && <WeatherIcon code={c.code} isDay={c.isDay} size={52} className="capital-icon" />}
                 <span className="capital-cond tnum">
                   {[
                     c.code != null && weatherCode(c.code).ca,
-                    c.tMax != null && c.tMin != null && `${Math.round(c.tMax)}° / ${Math.round(c.tMin)}°`,
+                    c.tMax != null && c.tMin != null && `${num(c.tMax)}° / ${num(c.tMin)}°`,
                   ].filter(Boolean).join(' · ')}
                 </span>
               </Link>
@@ -182,7 +188,14 @@ export default async function Home() {
               ] as const).map(([label, icon, row, fmt]) => {
                 // Una fila sense estació no s'escriu.
                 if (!row) return null;
-                const name = row.placeNom ?? row.nom;
+                /*
+                 * L'extrem és d'una estació, i porta el seu nom i la seva fitxa.
+                 *
+                 * Hi anava el poble més proper, i «−3,0° · Manyanet» atribuïa a
+                 * un poble de 1.300 m la lectura de l'estació de Boí a 2.537,
+                 * a quatre quilòmetres i mig.
+                 */
+                const name = row.nom;
                 return (
                   <li key={label}>
                     <p className="card-label">
@@ -191,15 +204,13 @@ export default async function Home() {
                       {label}
                     </p>
                     <p className="extreme-value tnum">{fmt(row.value)}</p>
-                    {row.path
-                      ? <Link href={row.path} className="extreme-place">{name}</Link>
-                      : <span className="extreme-place">{name}</span>}
+                    <Link href={`/estacions/${row.codi}`} className="extreme-place">{name}</Link>
                   </li>
                 );
               })}
             </ul>
             <p className="source">
-              {rank.stations.total} estacions del Meteocat
+              {rank.stations.total} estacions del Meteocat amb lectura recent
               {rank.ageMin != null && ` · lectura ${ago(rank.ageMin)}`}. La pluja compta des de
               mitjanit; la ratxa és la de l&apos;última lectura.{' '}
               <Link href="/ranquings" className="text-[var(--accent)]">Totes les llistes</Link>.

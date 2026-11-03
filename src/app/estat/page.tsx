@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { freshness } from '@/lib/weather';
 import { buildSummary } from '@/lib/territory';
+import { int } from '@/lib/format';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 
@@ -57,6 +58,33 @@ function age(minutes: number | null): string {
   if (h < 48) return `${h} h`;
   return `${Math.floor(h / 24)} dies`;
 }
+
+/**
+ * Què vol dir el missatge del worker, en català.
+ *
+ * El missatge és el de la llibreria que ha fallat —«fetch failed», «HTTP 500
+ * Internal Server Error», «Fallo tras 5 intentos»— i a la pàgina sortia tal
+ * qual, tallat a mitja paraula. Aquí es diu de quina mena és; el text cru va
+ * plegat a sota per a qui el necessiti.
+ */
+function errorReason(msg: string): string {
+  const http = /\b(?:HTTP|status)\s*:?\s*(\d{3})\b/i.exec(msg)?.[1];
+  if (http === '429') return 'la font ha limitat les peticions';
+  if (http === '401' || http === '403') return 'la font no ha acceptat la clau';
+  if (http === '404') return 'la font no tenia el fitxer demanat';
+  if (http && http.startsWith('5')) return `la font ha respost amb un error seu (HTTP ${http})`;
+  if (/fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|timeout|aborted|socket|network/i.test(msg)) {
+    return 'no s’ha pogut connectar amb la font';
+  }
+  if (/JSON|Unexpected token|parse/i.test(msg)) return 'la font ha tornat una resposta il·legible';
+  // Els que escriuen els workers ja són en català i diuen més que una etiqueta.
+  const own = msg.replace(/^Error:\s*/, '');
+  if (/[àèéíòóúç·’]/.test(own) && !/\b(the|failed|is|not|of)\b/.test(own)) return clip(own, 160);
+  return 'el procés s’ha aturat amb un error';
+}
+
+/** Un missatge llarg, tallat per una paraula i dient-ho. */
+const clip = (s: string, n = 240) => (s.length <= n ? s : `${s.slice(0, s.lastIndexOf(' ', n) > n * 0.6 ? s.lastIndexOf(' ', n) : n)}…`);
 
 type Source = Awaited<ReturnType<typeof freshness>>[number];
 type State = 'missing' | 'error' | 'stale' | 'ok';
@@ -130,7 +158,7 @@ export default async function EstatPage() {
             <ul className="rows">
               <li>
                 <span className="row-main"><span className="row-title">Rutes territorials</span></span>
-                <span className="row-value">{summary.indexablePages.toLocaleString('ca-ES')}</span>
+                <span className="row-value">{int(summary.indexablePages)}</span>
               </li>
               <li>
                 <span className="row-main"><span className="row-title">Nomenclàtor estadístic</span></span>
@@ -186,23 +214,20 @@ export default async function EstatPage() {
                           {st.label}
                         </span>
                         {/*
-                          L'ultim ensopec, encara que ara vagi be.
-                          Es el que converteix un correu de «Run failed» en una
+                          L'últim ensopec, encara que ara vagi bé.
+                          És el que converteix un correu de «Run failed» en una
                           cosa que es pot mirar: el registre d'Actions caduca i
-                          demana autenticacio, i aixo no.
+                          demana autenticació, i això no. El motiu va en català
+                          (`errorReason`); el missatge cru, plegat.
                         */}
-                        {/*
-                          El missatge és el del worker, en l'idioma de la llibreria
-                          que ha fallat —«fetch failed», «Fallo tras 5 intentos»—, i
-                          no li diu res a qui mira si la font està al dia. Va plegat:
-                          qui el necessita per saber què va passar l'obre.
-                        */}
-                        {!s.error && s.lastError && s.lastErrorAt && (
+                        {(s.error || (s.lastError && s.lastErrorAt)) && (
                           <details className="mt-1 text-[11.5px] text-[var(--muted)]">
                             <summary className="cursor-pointer hover:text-[var(--ink-2)]">
-                              últim ensopec el {localStamp(s.lastErrorAt)}
+                              {s.error
+                                ? errorReason(s.error)
+                                : <>últim ensopec el {localStamp(s.lastErrorAt!)}: {errorReason(s.lastError!)}</>}
                             </summary>
-                            <span className="mt-0.5 block break-words font-mono">{s.lastError.slice(0, 200)}</span>
+                            <span className="mt-0.5 block break-words font-mono">{clip(s.error ?? s.lastError!)}</span>
                           </details>
                         )}
                         {/*

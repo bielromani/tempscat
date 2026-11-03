@@ -200,7 +200,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ul className="grid gap-x-8 gap-y-1.5 sm:grid-cols-2">
                 <li>
                   <strong className="font-medium text-[var(--ink-2)]">Meteocat (XEMA)</strong> — observació de
-                  189 estacions, via dades obertes de la Generalitat
+                  la xarxa de 189 estacions automàtiques, via dades obertes de la Generalitat
                 </li>
                 <li>
                   <strong className="font-medium text-[var(--ink-2)]">Open-Meteo</strong> — predicció multimodel,

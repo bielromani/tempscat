@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { MIN_QUERY, search } from '@/lib/search';
 import { KIND_LABEL } from '@/lib/search-kinds';
 import { publishedPlaces } from '@/lib/territory';
+import { int } from '@/lib/format';
 import { SiteSearch } from '@/components/SiteSearch';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
@@ -20,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Cercar un poble, una platja o una estació',
   description:
-    `Cerca entre les ${publishedPlaces().toLocaleString('ca-ES')} poblacions de Catalunya, les comarques, les platges, `
+    `Cerca entre les ${int(publishedPlaces())} poblacions de Catalunya, les comarques, les platges, `
     + 'els embassaments, les estacions automàtiques, les càmeres de muntanya i '
     + 'els itineraris senyalitzats.',
   alternates: { canonical: '/cerca' },

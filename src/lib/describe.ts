@@ -1,4 +1,4 @@
-import { aName, deComarca, deName, num, ordinal } from './format';
+import { aName, deComarca, deName, int, num, ordinal } from './format';
 import type { Comarca, Location } from './territory';
 
 /**
@@ -27,25 +27,25 @@ function altitudeSentence(loc: Location, parent: Location | null): string | null
     const sense = d > 0 ? 'menys' : 'més';
     // Un barri es compara amb el centre de la ciutat, que és on es calcula la seva fitxa.
     const ref = loc.level === 'barri' ? `del centre ${deName(parent.nom)}` : `del nucli ${deName(parent.nom)}`;
-    return `${loc.nom} és a ${loc.altitud} m, ${Math.abs(d)} m ${dir} ${ref}. `
+    return `${loc.nom} és a ${int(loc.altitud)} m, ${int(Math.abs(d))} m ${dir} ${ref}. `
       + `Aquest desnivell fa que hi soli fer entre ${(deg * 0.8).toFixed(1).replace('.', ',')} i `
       + `${(deg * 1.3).toFixed(1).replace('.', ',')} °C ${sense}, i la diferència s'accentua `
       + `les nits serenes d'hivern.`;
   }
 
   if (loc.altitud >= 1500) {
-    return `${loc.nom} és a ${loc.altitud} m, en plena alta muntanya: hi neva diversos mesos l'any `
+    return `${loc.nom} és a ${int(loc.altitud)} m, en plena alta muntanya: hi neva diversos mesos l'any `
       + `i les temperatures hi són sensiblement més baixes que al fons de vall.`;
   }
   if (loc.altitud >= 800) {
-    return `${loc.nom} és a ${loc.altitud} m. A aquesta altitud les glaçades comencen aviat a la `
+    return `${loc.nom} és a ${int(loc.altitud)} m. A aquesta altitud les glaçades comencen aviat a la `
       + `tardor i s'allarguen fins ben entrada la primavera.`;
   }
   if (loc.altitud <= 30) {
-    return `${loc.nom} és pràcticament al nivell del mar (${loc.altitud} m), amb l'amortiment `
+    return `${loc.nom} és pràcticament al nivell del mar (${int(loc.altitud)} m), amb l'amortiment `
       + `tèrmic que això comporta: menys glaçades a l'hivern i nits més suaus a l'estiu.`;
   }
-  return `${loc.nom} és a ${loc.altitud} m d'altitud.`;
+  return `${loc.nom} és a ${int(loc.altitud)} m d'altitud.`;
 }
 
 /**
@@ -128,7 +128,7 @@ function comarcaSentence(loc: Location, comarca: Comarca): string | null {
   if (range < 200) return null;
   const pos = (loc.altitud - comarca.altitudMin) / range;
   const where = pos > 0.75 ? 'a la part alta' : pos < 0.25 ? 'a la part baixa' : 'a la franja mitjana';
-  return `Dins ${deComarca(comarca.nom)}, que va dels ${comarca.altitudMin} als ${comarca.altitudMax} m, `
+  return `Dins ${deComarca(comarca.nom)}, que va dels ${int(comarca.altitudMin)} als ${int(comarca.altitudMax)} m, `
     + `queda ${where} de la comarca.`;
 }
 
@@ -159,7 +159,7 @@ export function describeMunicipi(
   const parts: string[] = [];
 
   if (loc.altitud != null) {
-    parts.push(`El nucli ${deName(loc.nom)} és a ${loc.altitud} m d'altitud`
+    parts.push(`El nucli ${deName(loc.nom)} és a ${int(loc.altitud)} m d'altitud`
       + (loc.areaKm2 ? `, en un terme municipal de ${loc.areaKm2.toFixed(1).replace('.', ',')} km²` : '')
       + '.');
   }
@@ -194,7 +194,7 @@ export function describeMunicipi(
 
 /** Meta description: bajo 160 caracteres y con el dato que hace clicar. */
 export function metaDescription(loc: Location, comarca: Comarca): string {
-  const alt = loc.altitud != null ? ` (${loc.altitud} m)` : '';
+  const alt = loc.altitud != null ? ` (${int(loc.altitud)} m)` : '';
   const base = `El temps ${aName(loc.nom)}, ${comarca.nom}${alt}: predicció hora a hora, `
     + `14 dies i observació real de l'estació més propera.`;
   return base.length > 158 ? `${base.slice(0, 155)}…` : base;

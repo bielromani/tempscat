@@ -7,7 +7,7 @@ import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
 import { waveColor } from '@/lib/scales';
 import { ago, dayTiny, fromDirection, int, num, theHour } from '@/lib/format';
-import { buildTrams, slug, tramName, type Tram } from '@/lib/coast';
+import { buildTrams, slug, tramName, tramPhrase, type Tram } from '@/lib/coast';
 import { activeWarnings } from '@/lib/weather';
 import { CoastalWarning } from '@/components/CoastalWarning';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
@@ -135,14 +135,14 @@ export default async function NauticaPage() {
             icon: 'wind',
             value: int(gustiest.wind.gustKmh),
             unit: 'km/h',
-            sub: `força ${beaufort(gustiest.wind.gustKmh).force}, a ${tramName(tramOf(gustiest)?.towns ?? [gustiest.near])}`,
+            sub: `força ${beaufort(gustiest.wind.gustKmh).force}, ${tramPhrase(tramOf(gustiest)?.towns ?? [gustiest.near])}`,
           },
           roughest?.waveHeight != null && {
             label: 'Onada màxima',
             icon: 'tide-high',
             value: num(roughest.waveHeight, 1),
             unit: 'm',
-            sub: `${douglas(roughest.waveHeight)}, a ${tramName(tramOf(roughest)?.towns ?? [roughest.near])}`,
+            sub: `${douglas(roughest.waveHeight)}, ${tramPhrase(tramOf(roughest)?.towns ?? [roughest.near])}`,
           },
           sstMin != null && sstMax != null && {
             label: "Aigua",

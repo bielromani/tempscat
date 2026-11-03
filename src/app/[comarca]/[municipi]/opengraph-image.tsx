@@ -1,4 +1,4 @@
-import { aNameParts, comarcaName } from '@/lib/format';
+import { aNameParts, comarcaName, int } from '@/lib/format';
 import { OG_SIZE, ogImage } from '@/lib/og';
 import { comarcaOf, locationByPath } from '@/lib/territory';
 
@@ -17,7 +17,7 @@ export default async function Image({ params }: { params: Promise<{ comarca: str
   return ogImage({
     kicker: `El temps ${prep}`,
     title: rest,
-    subtitle: [com && comarcaName(com.nom), loc.altitud != null && `${loc.altitud.toLocaleString('ca-ES')} m d’altitud`]
+    subtitle: [com && comarcaName(com.nom), loc.altitud != null && `${int(loc.altitud)} m d’altitud`]
       .filter(Boolean).join(' · '),
   });
 }

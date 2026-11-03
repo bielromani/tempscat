@@ -1,7 +1,7 @@
 import { feelsCause, msToKmh, seaLevelPressure, windCardinal } from '@/lib/variables';
 import { aqiBand } from '@/lib/air-variables';
 import { douglas } from '@/lib/sea';
-import { fromDirection, num } from '@/lib/format';
+import { fromDirection, int, num } from '@/lib/format';
 import { lastWetDay } from './RainBlock';
 import type { AirQuality, Astronomy, CurrentConditions, DailyPoint, HourlyPoint } from '@/lib/weather';
 import type { RainConditions } from '@/lib/conditions';
@@ -180,7 +180,7 @@ export function DetailTiles({
       : null;
     tiles.push(
       <Tile key="pressio" icon="barometer" label="Pressió">
-        <p className="tile-value tnum">{Math.round(reduced ?? current.pressure).toLocaleString('ca-ES')}<small>hPa</small></p>
+        <p className="tile-value tnum">{int(reduced ?? current.pressure)}<small>hPa</small></p>
         <p className="tile-note">{reduced != null ? 'Al nivell del mar' : 'A l’altura de l’estació'}</p>
       </Tile>,
     );

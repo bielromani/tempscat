@@ -94,7 +94,7 @@ export function RainBlock({
         </div>
         <div>
           <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">
-            Mín. i màx. de 10 dies
+            Mitjana de mín. i màx., 10 dies
           </dt>
           <dd className="tnum text-xl font-semibold text-[var(--ink)]">
             {c.tMinAvg10 != null && c.tMaxAvg10 != null

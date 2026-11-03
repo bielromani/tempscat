@@ -427,13 +427,23 @@ export function ago(minutes: number): string {
  */
 export function num(value: number | null | undefined, decimals = 0): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  return value.toFixed(decimals).replace('.', ',').replace('-', '−');
+  const s = value.toFixed(decimals);
+  // −0,2 arrodonit a zero decimals és «−0»: un zero no porta signe.
+  return (/^-0(?:\.0*)?$/.test(s) ? s.slice(1) : s).replace('.', ',').replace('-', '−');
 }
 
-/** Millares agrupados: 10 899 */
+/**
+ * Millars agrupats amb punt: 1.317, 10.899.
+ *
+ * No amb `toLocaleString('ca-ES')`: el català hi porta `minimumGroupingDigits`
+ * 2, així que les xifres de quatre dígits sortien sense agrupar —«1317 m» al
+ * costat de «10.899»— i el signe era el guió del teclat.
+ */
 export function int(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  return Math.round(value).toLocaleString('ca-ES');
+  const n = Math.round(value);
+  const digits = String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return n < 0 ? `−${digits}` : digits;
 }
 
 /** Temperatura con su unidad: 23,3 °C */

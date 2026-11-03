@@ -15,6 +15,7 @@ import { msToKmh, windCardinal } from '@/lib/variables';
 import { NextHours } from '@/components/NextHours';
 import { WeatherIcon } from '@/components/WeatherIcon';
 import { shareAboveSnowLine } from '@/lib/mountain';
+import { snowLevelFrom } from '@/lib/forecast-merge';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import {
   aName, ago, comarcaName, dateShort, deComarca, deName, fromDirection, int, num, relativeDayTiny, temp,
@@ -72,7 +73,7 @@ export async function generateMetadata(
     title: `${route.name} — ${bits}`,
     description:
       `${route.name}: ${num(route.km, 1)} km`
-      + (route.minM != null && route.maxM != null ? ` entre ${route.minM} i ${route.maxM} m` : '')
+      + (route.minM != null && route.maxM != null ? ` entre ${int(route.minM)} i ${int(route.maxM)} m` : '')
       + '. Amb la predicció a l’altura de l’itinerari: cota de neu, temperatura a dalt i vent.',
     alternates: { canonical: `/senderisme/rutes/${route.slug}` },
   };
@@ -120,6 +121,21 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
   const today = localToday();
 
   const days = (forecast?.daily ?? []).slice(0, 7);
+
+  /*
+   * La cota de neu de cada dia, **també quan a la vall plou**.
+   *
+   * El resum diari només la porta els dies que el punt de predicció rep neu, i
+   * aquest punt és el poble de baix: un dia de pluja a 900 m amb la isozero a
+   * 1.800, a dalt d'un itinerari de 2.400 hi neva, i la columna deia «—». Amb
+   * la sèrie horària —cinc dies— es calcula igual, sobre les hores amb
+   * precipitació. Un dia sec no en té, i es diu.
+   */
+  const snowLevelOf = (d: (typeof days)[number]): number | null => {
+    if (d.snowLevel != null) return d.snowLevel;
+    const wet = (forecast?.hourly ?? []).filter((h) => h.time.startsWith(d.date) && (h.precipitation ?? 0) >= 0.1);
+    return wet.length ? snowLevelFrom(wet) : null;
+  };
   const current = base ? await currentFor(base) : null;
   const nowHour = localNowHour();
   const up = route.maxM;
@@ -389,7 +405,8 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
                       {days.map((d) => {
                         const hi = tempAtAltitude(d.tMax, base.altitud, route.maxM);
                         const lo = tempAtAltitude(d.tMin, base.altitud, route.maxM);
-                        const share = shareAboveSnowLine(d.snowLevel, route);
+                        const snowLevel = snowLevelOf(d);
+                        const share = shareAboveSnowLine(snowLevel, route);
                         return (
                           <tr key={d.date}>
                             <td className="whitespace-nowrap">
@@ -434,15 +451,17 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
                               ) : '—'}
                             </td>
                             <td className="num">
-                              {d.snowLevel != null ? (
+                              {snowLevel != null ? (
                                 <>
-                                  {int(d.snowLevel)} m
+                                  {int(snowLevel)} m
                                   {share != null && share > 0 && (
                                     <span className="block text-xs text-[var(--muted)]">
                                       {share === 100 ? 'tot nevat' : `${share} % de dalt`}
                                     </span>
                                   )}
                                 </>
+                              ) : d.precipitation === 0 && d.precipProbability < 20 ? (
+                                <span className="text-xs text-[var(--muted)]">sense precipitació</span>
                               ) : '—'}
                             </td>
                             <td className="num">

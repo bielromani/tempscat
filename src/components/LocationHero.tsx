@@ -4,7 +4,7 @@ import type { Location } from '@/lib/territory';
 import { weatherCode } from '@/lib/weather-codes';
 import { unratedRainLabel } from '@/lib/narrative';
 import { skyStyle, drawsRain, drawsSnow } from '@/lib/sky';
-import { aNameParts, ago, deName, fromDirection, num, signed } from '@/lib/format';
+import { aNameParts, ago, deName, fromDirection, int, num, signed } from '@/lib/format';
 import { feelsCause, msToKmh, windCardinal } from '@/lib/variables';
 import { WeatherIcon } from './WeatherIcon';
 
@@ -412,8 +412,8 @@ export function LocationHero({
         <p className="mt-1.5 text-[14px] opacity-85">
           {loc.level !== 'municipi' && breadcrumbs.length > 2 && `${breadcrumbs[breadcrumbs.length - 2].nom} · `}
           {comarcaLabel}
-          {loc.altitud != null && ` · ${loc.altitud} m d'altitud`}
-          {loc.poblacio != null && loc.poblacio > 0 && ` · ${loc.poblacio.toLocaleString('ca-ES')} habitants`}
+          {loc.altitud != null && ` · ${int(loc.altitud)} m d'altitud`}
+          {loc.poblacio != null && loc.poblacio > 0 && ` · ${int(loc.poblacio)} habitants`}
         </p>
 
         <div className="mt-4 flex items-center gap-2 sm:gap-4">
@@ -439,7 +439,7 @@ export function LocationHero({
           {condition}
           {tMax != null && tMin != null && (
             <span className="tnum font-normal opacity-90">
-              {condition ? ' · ' : ''}Màx. {Math.round(tMax)}° · Mín. {Math.round(tMin)}°
+              {condition ? ' · ' : ''}Màx. {num(tMax)}° · Mín. {num(tMin)}°
             </span>
           )}
         </p>
