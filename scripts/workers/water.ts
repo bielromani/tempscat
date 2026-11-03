@@ -298,9 +298,16 @@ async function main() {
     source: 'water',
     lastSuccessAt: new Date().toISOString(),
     lastDataTs: newest,
-    // Los embalses se publican una vez al día de madrugada; 30 h da margen para
-    // un retraso sin declarar obsoleto lo que solo llega tarde.
-    stalenessLimitMin: 60 * 30,
+    /*
+     * La lectura es la de las 03:30 de cada día, pero el portal no la publica
+     * hasta las 07:10 UTC —medido en noviembre de 2026 con `:created_at`—, así
+     * que lo «de madrugada» que decía aquí era la hora del dato y no la de
+     * publicarlo. Con el worker a las 06:00 UTC se bajaba siempre la de ayer y
+     * `/estat` se ponía rojo cada mañana. Ahora `diari.yml` se dispara a las
+     * 08:00 UTC y lo normal es llegar a unas 31 h antes del refresco siguiente;
+     * 36 deja margen para que la fuente o GitHub lleguen un poco tarde.
+     */
+    stalenessLimitMin: 60 * 36,
     rows: reservoirs.length + rivers.length + Object.keys(byMunicipality).length,
     apiCalls: calls,
   });
@@ -315,6 +322,6 @@ async function main() {
 
 main().catch((err) => reportFailure({
   source: 'water', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 30, rows: 0, apiCalls: 0,
+    stalenessLimitMin: 60 * 36, rows: 0, apiCalls: 0,
 }, err));
 

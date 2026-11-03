@@ -839,6 +839,10 @@ cuota para exactamente la misma información.
   temporada**: les banderes de platja s'acaben a l'octubre. Fora de la temporada de
   socorristes (15 de juny – 15 de setembre) la frescor de `sea` és la de l'onatge, que es
   refresca a cada volta. La quarta, la XVPCA, sí que era la font aturada, i el vermell era bo.
+  I el mateix dia, l'ACA: la lectura és de les 03:30 però el portal no la publica fins a les
+  07:10 UTC, i el worker diari anava a les 06:00, així que sempre agafava la d'ahir i cada matí
+  sortia vermella. **Abans de posar un límit, mireu quan publica la font** —a Socrata ho diu
+  `:created_at`—, no de quina hora és la dada. `diari.yml` va ara a les 08:00 UTC.
 - **En un ombrejat, el terreny pla no és negre al 40 %: és transparent.** Amb el sol a 45
   graus, un pla reflecteix `cos(45°) = 0,707`, no 1. Comptant l'ombra com «el que falta per
   arribar a 1», cada tessel·la plana sortia amb un alfa de 101 sobre 255 —mesurat al delta i a

@@ -8,13 +8,16 @@ name: Rècords, aire i aigua
 #    i es demana per cel·la de 0,1° — 372 en comptes de 3.190 punts.
 #  · **Aire mesurat** (XVPCA). Es publica un cop al dia de matinada i porta ~20 h
 #    de retard: és la mesura d'*ahir*, i així es presenta.
-#  · **Embassaments i cabals** (ACA). Fresc del dia, cap a les 04:30.
+#  · **Embassaments i cabals** (ACA). La lectura és de les 03:30, però el portal
+#    no la publica fins a les 07:10 UTC: per això aquest workflow va a les 08:00.
 #
 # Va després de la predicció del nivell C perquè cap d'aquestes toca el
 # comptador de predicció, però sí que competeixen pel temps del servidor.
 on:
   schedule:
-    - cron: '0 6 * * *'   # 08:00 d'aquí a l'estiu
+    # 10:00 d'aquí a l'estiu. Després de les 07:10 UTC, que és quan l'ACA
+    # publica la lectura del dia; el rellotge de Cloudflare dispara a la mateixa hora.
+    - cron: '0 8 * * *'
   workflow_dispatch:
 
 concurrency:
