@@ -124,9 +124,12 @@ export function hourAxis(iso: string): string {
  * La 1 és l'única en singular, i per això no es pot escriure «a les ${h} h» a
  * mà: la fitxa del Prat deia «fins demà a les 1 h». Sense `unit` no porta la
  * «h», per a la primera meitat d'un interval: «de la 1 a les 3 h».
+ *
+ * I les 0 són «mitjanit»: «cap a les 0 h» no ho diu ningú.
  */
 export function theHour(h: number, unit = true): string {
   const hh = ((h % 24) + 24) % 24;
+  if (hh === 0) return 'mitjanit';
   return `${hh === 1 ? 'la' : 'les'} ${hh}${unit ? ' h' : ''}`;
 }
 

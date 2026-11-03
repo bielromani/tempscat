@@ -137,7 +137,8 @@ export function consensusCode(codes: Array<number | null>): number | null {
  *
  *  1. Si hay algún fenómeno de severidad alta —lluvia apreciable, nieve,
  *     tormenta, granizo— manda ese, aunque dure una hora.
- *  2. Si no, manda el estado de cielo **más frecuente en horas de luz**. Lo que
+ *  2. Si llueve flojo tres horas o más, manda la lluvia.
+ *  3. Si no, manda el estado de cielo **más frecuente en horas de luz**. Lo que
  *     pasa a las cuatro de la madrugada no describe el día de nadie.
  */
 export function dailySummaryCode(
@@ -148,6 +149,13 @@ export function dailySummaryCode(
 
   const severe = known.filter((h) => weatherCode(h.code).severity >= 3);
   if (severe.length) return dominantCode(severe.map((h) => h.code));
+
+  // La lluvia débil y los chubascos débiles son severidad 2 y no entraban en la
+  // regla de arriba: un día con cinco horas de «Pluja feble» y 3,5 mm salía
+  // «Serè» al lado de su propia columna de milímetros. Tres horas mojadas ya
+  // son el día; una sola puede ser una gota que el modelo pone al alba.
+  const wet = known.filter((h) => isWet(h.code));
+  if (wet.length >= 3) return dominantCode(wet.map((h) => h.code));
 
   const daylight = known.filter((h) => h.isDay);
   const pool = daylight.length ? daylight : known;

@@ -102,6 +102,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           * No porta fons: va damunt del cel de la pàgina, i a les fitxes, damunt
           * del cel del lloc (ver `body:has([data-hero])` a `globals.css`).
           */}
+        {/* Per a qui navega amb el teclat: sense això, cada pàgina demana
+            passar pel logo, el cercador i el menú abans d'arribar al contingut. */}
+        <a
+          href="#contingut"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-[var(--ink)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[var(--paper)]"
+        >
+          Salta al contingut
+        </a>
         <header className="site-top">
           {/* `relative`: al mòbil, els suggeriments del cercador es col·loquen contra aquesta fila. */}
           <div className="relative mx-auto flex h-16 max-w-[70rem] items-center gap-x-6 px-5">
@@ -156,7 +164,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
 
-        <main className="mx-auto w-full flex-1 px-5 py-8">{children}</main>
+        <main id="contingut" tabIndex={-1} className="mx-auto w-full flex-1 px-5 py-8 outline-none">{children}</main>
 
         <footer className="site-foot">
           <div className="mx-auto max-w-[70rem] px-5 py-12">

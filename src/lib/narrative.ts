@@ -743,19 +743,19 @@ function yesterdayPhrase(
   if (todayMax != null && current.yesterdayMax != null) {
     const diff = Math.round((todayMax - current.yesterdayMax) * 10) / 10;
     parts.push(Math.abs(diff) < 1
-      ? `Una màxima pràcticament igual que la d'ahir (${num(current.yesterdayMax, 1)} °C)`
-      : `${Math.abs(Math.round(diff))} graus ${diff > 0 ? 'més' : 'menys'} que ahir, `
-        + `que va arribar als ${num(current.yesterdayMax, 1)} °C`);
+      ? `Una màxima pràcticament igual que la d'ahir (${num(current.yesterdayMax, 1)} °C).`
+      : `Una màxima ${Math.abs(Math.round(diff))} graus ${diff > 0 ? 'més alta' : 'més baixa'} `
+        + `que la d'ahir, que va arribar als ${num(current.yesterdayMax, 1)} °C.`);
   }
 
-  // La mínima de la madrugada ya es un hecho medido, no una previsión.
+  // La mínima de la madrugada ya es un hecho medido, no una previsión. Va en
+  // frase aparte: unida con «i» a la de ayer, «que va arribar als 14,7 °C i la
+  // mínima…» se leía como si la mínima también fuera de ayer.
   if (current.todayMin != null) {
-    parts.push(`la mínima d'aquesta matinada ha estat de ${num(current.todayMin, 1)} °C`);
+    parts.push(`Aquesta matinada, la mínima ha estat de ${num(current.todayMin, 1)} °C.`);
   }
 
-  if (!parts.length) return null;
-  const text = parts.join(' i ');
-  return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
+  return parts.length ? parts.join(' ') : null;
 }
 
 /**
