@@ -31,6 +31,7 @@ import type {
   StationHistory, WarningGroup,
 } from '@/lib/weather';
 import type { ComarcaComparison } from '@/lib/comparison';
+import type { DailyPoint } from '@/lib/forecast-types';
 import type { Narrative } from '@/lib/narrative';
 import type { WaterNearby } from '@/lib/water';
 import type { NearestAirStation } from '@/lib/air-stations';
@@ -146,6 +147,34 @@ interface Props {
   routes: Route[];
 }
 
+/**
+ * Els dies de la predicció, amb el d'avui corregit pel que l'estació ja ha
+ * mesurat.
+ *
+ * El titular ja ho feia —Montblanc ensenyava «33,7°» amb «màx. 32°» a sota— i
+ * la llista dels catorze dies no: la mateixa fitxa deia una màxima a dalt i
+ * una altra a la fila d'«avui». Es calcula aquí un cop i en beuen tots tres
+ * blocs. La màxima d'avui és, com a mínim, la que ja s'ha fet, i la lectura
+ * d'ara també hi compta; igual la mínima, cap avall.
+ *
+ * Només si l'agregat és d'avui: passada la mitjanit, la instantània pot portar
+ * encara els extrems del dia anterior.
+ */
+function withObservedToday(daily: DailyPoint[], today: string, current: CurrentConditions | null): DailyPoint[] {
+  if (!current || current.aggregatesDay !== today) return daily;
+  const t = current.temperatureAdjusted;
+  return daily.map((d) => {
+    if (d.date !== today) return d;
+    const maxs = [d.tMax, current.todayMax, t].filter((v): v is number => v != null);
+    const mins = [d.tMin, current.todayMin, t].filter((v): v is number => v != null);
+    return {
+      ...d,
+      tMax: maxs.length ? Math.max(...maxs) : null,
+      tMin: mins.length ? Math.min(...mins) : null,
+    };
+  });
+}
+
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
@@ -172,6 +201,9 @@ export function LocationView({
   // La comarca se nombra con su artículo: és «l'Alt Camp», no «Alt Camp».
   const comarcaLabel = comarcaName(comarca.nom);
   const nowHour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
+  const daily = forecast ? withObservedToday(forecast.daily, today, current) : [];
+  const todayPoint = daily.find((d) => d.date === today) ?? null;
+  const tomorrowPoint = daily[daily.findIndex((d) => d.date === today) + 1] ?? null;
 
   return (
     /*
@@ -202,7 +234,7 @@ export function LocationView({
         breadcrumbs={breadcrumbs}
         current={current}
         nowHour={nowHour}
-        today={forecast?.daily[0] ?? null}
+        today={todayPoint}
         hour={localClockHour()}
         sunriseH={decimalHour(astro?.sunrise)}
         sunsetH={decimalHour(astro?.sunset)}
@@ -219,7 +251,13 @@ export function LocationView({
           {forecast && forecast.hourly.length > 0 && (
             <section className="card" aria-labelledby="h-hores">
               <CardLabel id="h-hores" icon="clear-day">Pròximes 24 hores</CardLabel>
-              <HourStrip hourly={forecast.hourly} daily={forecast.daily} nowHour={nowIso} rainWarnings={narrative?.rainWarnings} />
+              <HourStrip
+                hourly={forecast.hourly}
+                daily={forecast.daily}
+                nowHour={nowIso}
+                nowTemperature={current?.temperatureAdjusted ?? null}
+                rainWarnings={narrative?.rainWarnings}
+              />
               {/* El radar obre centrat aquí, amb el lloc marcat: d'on ve la pluja i cap on va. */}
               {loc.lat != null && loc.lon != null && (
                 <p className="card-foot">
@@ -234,7 +272,7 @@ export function LocationView({
           {forecast && forecast.daily.length > 0 && (
             <section className="card" aria-labelledby="h-dies">
               <CardLabel id="h-dies" icon="partly-cloudy-day">Els pròxims {forecast.daily.length} dies</CardLabel>
-              <DailyList daily={forecast.daily} today={today} rainWarnings={narrative?.rainWarnings} />
+              <DailyList daily={daily} today={today} rainWarnings={narrative?.rainWarnings} />
             </section>
           )}
         </div>
@@ -243,8 +281,8 @@ export function LocationView({
           <DetailTiles
             current={current}
             nowHour={nowHour}
-            today={forecast?.daily[0] ?? null}
-            tomorrow={forecast?.daily[1] ?? null}
+            today={todayPoint}
+            tomorrow={tomorrowPoint}
             astro={astro}
             air={air}
             sea={sea}
@@ -260,7 +298,7 @@ export function LocationView({
               <p>{description}</p>
               {loc.lat != null && loc.lon != null && (
                 <p className="thesis-coords tnum">
-                  {num(loc.lat, 3)} N · {num(loc.lon, 3)} E{loc.altitud != null && ` · ${loc.altitud} m`}
+                  {num(loc.lat, 3)} N · {num(loc.lon, 3)} E{loc.altitud != null && ` · ${int(loc.altitud)} m`}
                 </p>
               )}
             </section>
@@ -504,7 +542,7 @@ export function LocationView({
         <section className="mt-10">
           <h2 className="mb-3 card-title">{siblingsLabel}</h2>
           <LinkChips items={siblings.map((s) => ({
-            href: s.path, label: s.nom, note: s.altitud != null ? `${s.altitud} m` : undefined,
+            href: s.path, label: s.nom, note: s.altitud != null ? `${int(s.altitud)} m` : undefined,
           }))} />
         </section>
       )}

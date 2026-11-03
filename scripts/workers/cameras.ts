@@ -265,7 +265,7 @@ function roundshotCapturedAt(finalUrl: string, lastModified: string | null): Dat
   if (!m) {
     throw new Error(
       `Roundshot ha canviat les rutes: ${finalUrl} no porta l'instant a dins. `
-      + 'Sense aixo no es pot datar la fotografia, i una foto sense hora no es publica.',
+      + 'Sense això no es pot datar la fotografia, i una foto sense hora no es publica.',
     );
   }
   const at = madridToUtc(Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5]));
@@ -545,8 +545,8 @@ async function main() {
    */
   const had = previous?.data.cameras.length ?? 0;
   if (had && cameras.length < had * MIN_SHARE_OF_PREVIOUS) {
-    const why = `Nomes s'han pogut fer ${cameras.length} cameres de les ${had} de la volta anterior. `
-      + 'No es publica: la instantania d’abans es millor que una a la qual li falta un terç.';
+    const why = `Només s'han pogut fer ${cameras.length} càmeres de les ${had} de la volta anterior. `
+      + 'No es publica: la instantània d’abans és millor que una a la qual li falta un terç.';
     console.warn(why);
     const dropped = unmarkForPublish('cameres/');
     recordFreshness({
@@ -568,7 +568,7 @@ async function main() {
   const seen = new Map<string, string>();
   for (const c of cameras) {
     const prev = seen.get(c.slug);
-    if (prev) throw new Error(`Dues cameres comparteixen el slug "${c.slug}": ${prev} i ${c.id}.`);
+    if (prev) throw new Error(`Dues càmeres comparteixen el slug "${c.slug}": ${prev} i ${c.id}.`);
     seen.set(c.slug, c.id);
   }
 

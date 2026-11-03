@@ -60,7 +60,7 @@ export function DailyList({ daily, today, rainWarnings = [] }: {
                 {d.precipProbability >= 20 && <span>{d.precipProbability} %</span>}
                 {!trend && d.precipitation >= 0.5 && <small>{num(d.precipitation, 1)} mm</small>}
               </span>
-              <span className="dl-min tnum">{d.tMin != null ? `${Math.round(d.tMin)}°` : '—'}</span>
+              <span className="dl-min tnum">{d.tMin != null ? `${num(d.tMin)}°` : '—'}</span>
               <span className="dl-bar" aria-hidden="true">
                 <i
                   style={{
@@ -72,7 +72,7 @@ export function DailyList({ daily, today, rainWarnings = [] }: {
                   }}
                 />
               </span>
-              <span className="dl-max tnum">{d.tMax != null ? `${Math.round(d.tMax)}°` : '—'}</span>
+              <span className="dl-max tnum">{d.tMax != null ? `${num(d.tMax)}°` : '—'}</span>
             </li>
           </Fragment>
         );

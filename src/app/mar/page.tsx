@@ -6,7 +6,7 @@ import { fold, match, matchWithContext } from '@/lib/search-match';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { douglas, flagStyle, parseJellyfish, FLAG_SHOW_HOURS } from '@/lib/sea';
 import { nauticalConditions, type SeaStretch } from '@/lib/activities';
-import { buildTrams, slug, tramName, type Tram } from '@/lib/coast';
+import { buildTrams, slug, tramName, tramPhrase, type Tram } from '@/lib/coast';
 import { activeWarnings } from '@/lib/weather';
 import { allComarques, municipisOfComarca } from '@/lib/territory';
 import { FlagMark, JellyfishMark } from '@/components/SeaMarks';
@@ -193,13 +193,13 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
             label: 'Aigua', icon: 'thermometer',
             value: `${num(sstMin, 0)}–${num(sstMax, 0)}`, unit: '°C',
             sub: withSst.length > 1
-              ? <>la més càlida, a {tramName(tramOf(withSst.reduce((a, s) => (s.sst! > a.sst! ? s : a)))?.towns ?? [])}</>
+              ? <>la més càlida, {tramPhrase(tramOf(withSst.reduce((a, s) => (s.sst! > a.sst! ? s : a)))?.towns ?? [])}</>
               : null,
           },
           roughest && {
             label: 'Onada més alta', icon: 'tide-high',
             value: num(roughest.waveHeight!, 1), unit: 'm',
-            sub: <>{douglas(roughest.waveHeight!)}, a {tramName(tramOf(roughest)?.towns ?? [])}</>,
+            sub: <>{douglas(roughest.waveHeight!)}, {tramPhrase(tramOf(roughest)?.towns ?? [])}</>,
           },
           fresh.length > 0 && {
             label: 'Banderes', icon: red > 0 ? 'code-red' : undefined,
@@ -210,7 +210,7 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
           },
         ]}
         note={fresh.length === 0 && lastReport ? (
-          <>L’últim parte d’un socorrista és del {dateShort(lastReport)}.</>
+          <>L’últim comunicat d’un socorrista és del {dateShort(lastReport)}.</>
         ) : undefined}
         aside={(
           <section className="card" aria-label="La costa, ara">
@@ -340,7 +340,7 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
             </p>
             <p>
               <strong>Una bandera caduca.</strong> La posa un socorrista quan és de servei, i fora
-              d&apos;horari no s&apos;actualitza. Per això cada una porta l&apos;hora del seu parte,
+              d&apos;horari no s&apos;actualitza. Per això cada una porta l&apos;hora del seu comunicat,
               i les de més de {FLAG_SHOW_HOURS} hores no surten.
             </p>
             <p>

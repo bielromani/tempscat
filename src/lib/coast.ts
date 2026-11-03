@@ -45,6 +45,17 @@ export function tramName(towns: string[]): string {
   return cap(`${deName(towns[0])} ${aName(towns.at(-1)!)}`);
 }
 
+/**
+ * El tram dins d'una frase: «a Sitges», «entre Gavà i Castelldefels», «de
+ * Tarragona a Cambrils». `tramName()` és un títol i no porta preposició:
+ * escrivint-hi «a» davant sortia «a De Tarragona a Cambrils».
+ */
+export function tramPhrase(towns: string[]): string {
+  if (towns.length <= 1) return aName(towns[0] ?? '');
+  if (towns.length === 2 && !towns.some((t) => / i /.test(t))) return `entre ${towns[0]} i ${towns[1]}`;
+  return `${deName(towns[0])} ${aName(towns.at(-1)!)}`;
+}
+
 /** «Costa Brava» → `costa-brava`, per a les àncores. */
 export const slug = (s: string) => fold(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 

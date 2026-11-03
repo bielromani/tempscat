@@ -164,7 +164,7 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
         ]}
         note={(
           <>
-            El web cobreix {publishedPlaces().toLocaleString('ca-ES')} poblacions amb{' '}
+            El web cobreix {int(publishedPlaces())} poblacions amb{' '}
             {stations.length} termòmetres: entre l&apos;estació i el poble hi ha sempre
             una correcció per desnivell, i com més distància i més desnivell, menys
             fiable és.

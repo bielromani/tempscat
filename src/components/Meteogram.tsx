@@ -269,7 +269,7 @@ export function Meteogram({
                   fontSize={11} fontWeight={600} fill="var(--ink)"
                   stroke="var(--surface)" strokeWidth={3} paintOrder="stroke"
                   className="tnum"
-                >{Math.round(d.temperature)}°</text>
+                >{num(d.temperature)}°</text>
               </g>
             );
           })}

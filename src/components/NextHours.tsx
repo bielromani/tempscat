@@ -79,7 +79,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
                 <WeatherIcon code={h.weatherCode} isDay={h.isDay} size={30} />
               </div>
               <p className="tnum text-lg font-semibold text-[var(--ink)]">
-                {h.temperature != null ? `${Math.round(h.temperature)}°` : '—'}
+                {h.temperature != null ? `${num(h.temperature)}°` : '—'}
               </p>
               {h.temperature != null && (
                 <span
@@ -89,7 +89,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
               )}
               {models > 1 && h.spread != null && h.spread >= SPREAD_C && h.temperature != null && (
                 <p className="tnum mt-1 text-[10px] leading-tight text-[var(--muted)]">
-                  {Math.round(h.temperature - h.spread / 2)}–{Math.round(h.temperature + h.spread / 2)}°
+                  {num(h.temperature - h.spread / 2)}–{num(h.temperature + h.spread / 2)}°
                 </p>
               )}
             </li>

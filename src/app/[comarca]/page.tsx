@@ -7,7 +7,7 @@ import { activeWarnings, currentFor } from '@/lib/weather';
 import { comarcaSummary } from '@/lib/comparison';
 import { temperatureMap } from '@/lib/map';
 import { TemperatureMap } from '@/components/TemperatureMap';
-import { aName, aNameParts, comarcaName, dateLong, deComarca, num, temp } from '@/lib/format';
+import { aName, aNameParts, comarcaName, dateLong, deComarca, int, num, temp } from '@/lib/format';
 import { localToday } from '@/lib/weather';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
@@ -97,9 +97,9 @@ export default async function ComarcaPage({ params }: { params: Params }) {
         ] : undefined}
         note={[
           `${c.nMunicipis} municipis`,
-          c.poblacio > 0 && `${c.poblacio.toLocaleString('ca-ES')} habitants`,
-          c.areaKm2 && `${c.areaKm2.toLocaleString('ca-ES')} km²`,
-          c.altitudMin != null && c.altitudMax != null && `dels ${c.altitudMin} als ${c.altitudMax} m`,
+          c.poblacio > 0 && `${int(c.poblacio)} habitants`,
+          c.areaKm2 && `${int(c.areaKm2)} km²`,
+          c.altitudMin != null && c.altitudMax != null && `dels ${int(c.altitudMin)} als ${int(c.altitudMax)} m`,
         ].filter(Boolean).join(' · ')}
         aside={(
           /*
@@ -148,7 +148,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
                 <li key={m.id}>
                   <Link href={m.path} className="row-main">
                     <span className="row-title">{m.nom}</span>
-                    {m.altitud != null && <span className="row-sub tnum">{m.altitud} m</span>}
+                    {m.altitud != null && <span className="row-sub tnum">{int(m.altitud)} m</span>}
                   </Link>
                   {t != null && (
                     <span

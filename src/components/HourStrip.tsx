@@ -1,6 +1,7 @@
 import { WeatherIcon } from './WeatherIcon';
 import { rainWarnedAt, warnedIconLabel, type RainWarning } from '@/lib/narrative';
 import type { DailyPoint, HourlyPoint } from '@/lib/forecast-types';
+import { num } from '@/lib/format';
 
 /**
  * Les pròximes 24 hores, en una tira: l'hora, la icona, la temperatura i la
@@ -29,11 +30,17 @@ type Item =
   | { kind: 'sunrise' | 'sunset'; hm: string };
 
 export function HourStrip({
-  hourly, daily, nowHour, hours = 24, rainWarnings = [],
+  hourly, daily, nowHour, nowTemperature = null, hours = 24, rainWarnings = [],
 }: {
   hourly: HourlyPoint[];
   daily: DailyPoint[];
   nowHour: string;
+  /**
+   * La lectura de l'estació, ja corregida per l'altitud. La columna «Ara» la
+   * porta en comptes de la del model: amb la del model, el titular deia 18° i
+   * la tira, just a sota i amb la paraula «Ara», 16°.
+   */
+  nowTemperature?: number | null;
   hours?: number;
   /** Amb avís, la icona no diu «feble»: vegeu `warnedIconLabel()`. */
   rainWarnings?: RainWarning[];
@@ -59,6 +66,7 @@ export function HourStrip({
         if (it.kind === 'hour') {
           const { h } = it;
           const p = h.precipProbability ?? 0;
+          const temp = it.first && nowTemperature != null ? nowTemperature : h.temperature;
           return (
             <li key={h.time}>
               <span className="hs-time tnum">{it.first ? 'Ara' : h.time.slice(11, 13)}</span>
@@ -68,7 +76,7 @@ export function HourStrip({
                 size={36}
                 label={warnedIconLabel(h.weatherCode, rainWarnedAt(rainWarnings, h.time))}
               />
-              <span className="hs-temp tnum">{h.temperature != null ? `${Math.round(h.temperature)}°` : '—'}</span>
+              <span className="hs-temp tnum">{temp != null ? `${num(temp)}°` : '—'}</span>
               <span className="hs-prob tnum">{p >= 20 ? `${p} %` : ''}</span>
             </li>
           );

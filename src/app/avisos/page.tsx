@@ -120,8 +120,11 @@ function ZonesMap({ overlay }: { overlay: WarningOverlay }) {
 
 /** L'hora de l'AEMET, en hora de Madrid i escrita com es diu. */
 function until(iso: string): string {
+  // L'AEMET tanca a les hh:59:59; un segon més i és l'hora en punt.
+  const t = new Date(iso);
+  if (t.getUTCSeconds() === 59) t.setUTCSeconds(60);
   return dateTimeLong(
-    new Date(iso).toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).replace(' ', 'T'),
+    t.toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).replace(' ', 'T'),
   );
 }
 
