@@ -493,8 +493,12 @@ cuota para exactamente la misma información.
   página descarta las horas sin instante y las que chocan con un marco de radar.
 - **El tilecache público de RainViewer solo llega al zoom 7.** Del 8 en adelante devuelve un PNG
   que dice «Zoom Level Not Supported» **con código 200 y tipo `image/png`**: se descarga, se
-  guarda y se pinta sin que nada falle. Se detecta porque dos teselas contiguas salen byte a byte
-  idénticas. El worker comprueba el tamaño y aborta. **Vuelto a medir el 9 de septiembre de
+  guarda y se pinta sin que nada falle. Se detecta porque todas las teselas del marco salen byte
+  a byte idénticas **y con tinta**: una tesela sin lluvia es transparente del todo y pesa siempre
+  lo mismo, así que en una noche seca las cuatro también son iguales. Comprobándolo por el
+  tamaño, el 14 y el 25 de octubre y el 1 de noviembre de 2026 una tesela seca pesó lo mismo
+  que el cartel y el worker abortó con un radar correcto. Ahora `isBanner()` en `radar.ts`
+  mira los píxeles con `sharp`, y no escribe nada en el disco hasta haberlo mirado. **Vuelto a medir el 9 de septiembre de
   2026**, porque es la pregunta que se hace todo el mundo al comparar con meteo.cat: z7 son
   63.364 bytes de imagen buena y z8 y z9 son 3.269 bytes idénticos del cartel. Por eso las
   zonas de `/radar` amplían la misma imagen y no aparece más detalle: el que sí tiene zoom de
@@ -828,6 +832,13 @@ cuota para exactamente la misma información.
   d'avisar de res. Va passar amb els rècords de la XEMA i amb els avisos de l'AEMET, que
   elabora el lot de fitxers CAP un o dos cops al dia. El límit ha de ser el cicle real de
   la font, no la cadència del worker.
+  I va tornar a passar el 3 de novembre de 2026: `/estat` deia «4 de 13 fonts endarrerides»
+  amb tots els workers en verd. Tres eren això mateix —l'aire de CAMS es data a les 00:00 del
+  primer dia de la sèrie i tenia 18 h de marge (ara 40), els rècords en tenien 3 dies amb una
+  font que en porta 2 de retard més el que trigui el worker (ara 4)— i el tercer, **una font de
+  temporada**: les banderes de platja s'acaben a l'octubre. Fora de la temporada de
+  socorristes (15 de juny – 15 de setembre) la frescor de `sea` és la de l'onatge, que es
+  refresca a cada volta. La quarta, la XVPCA, sí que era la font aturada, i el vermell era bo.
 - **En un ombrejat, el terreny pla no és negre al 40 %: és transparent.** Amb el sol a 45
   graus, un pla reflecteix `cos(45°) = 0,707`, no 1. Comptant l'ombra com «el que falta per
   arribar a 1», cada tessel·la plana sortia amb un alfa de 101 sobre 255 —mesurat al delta i a

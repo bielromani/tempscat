@@ -262,29 +262,30 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
 
 ## Lo que falta, por orden
 
-**Con fecha, y son del usuario:**
+**Hecho en octubre:** `r2.dev` apagado (6 de octubre) y la clave de AEMET renovada el 11, que
+ahora caduca el **19 de enero de 2027** — `credencials.yml` volverá a fallar hacia el 5 de
+diciembre, a propósito. Vercel → Usage medido el 11 de octubre: sin ISR, unos 3–4 $ al mes.
 
-1. **6 de octubre — apagar `r2.dev`.** R2 → bucket → Settings → *Public Development URL* →
-   **Disable**, y comprobar la web y `/estat`. Es la única prueba de que nada sigue leyendo la
-   dirección vieja: las dos sirven lo mismo, así que desde fuera no se distinguen.
-2. **Hacia el 16 de octubre, `credencials.yml` empezará a fallar** avisando de que la clave de
-   AEMET caduca el **30 de noviembre**. Es a propósito: 45 días de margen. Se renueva gratis en
-   `opendata.aemet.es`, y hay que actualizar `AEMET_API_KEY` y `AEMET_API_KEY_EXPIRES` en
-   GitHub. `credencials.yml` no se ha lanzado nunca a mano.
-3. **Search Console:** ya está dado de alta (confirmado por el usuario el 3 de octubre). Lo que
+**Del usuario, y son borrados irreversibles (no los hace el agente):**
+
+1. **Search Console:** ya está dado de alta (confirmado por el usuario el 3 de octubre). Lo que
    queda es mirar, por tipo de sitemap, cuántas de las fichas entran de verdad en el índice.
+2. **Los despliegues de Vercel anteriores al 2 de octubre**, que son la mayor parte de los
+   13 GB-mes de *Deployment Storage*. Desde el panel del proyecto, **sin tocar el de
+   producción**.
+3. **Lo que quedó en R2 bajo `field/`** —las imágenes del campo de lluvia que ya no se
+   hacen—, **menos `field/voltant.json`**, que es el anillo del viento.
 
-**Por mirar después de lo de octubre:**
+**Por mirar:**
 
 4. **El cielo al atardecer y de noche, en una ficha real.** De día se ha visto en producción;
    el crepúsculo y la noche solo en la rejilla de `npm run cels`. Si el usuario lo quiere con
    más azul o más luz, los números están en `sky.ts`: el croma y la opacidad del velo de
    nubosidad, y el suelo de la luz de las nubes.
-5. **Vercel → Usage, unos días después del 2 de octubre.** Sin ISR, cada visita que no acierta
-   el CDN es una invocación. Con el plan Pro no debería notarse, pero no se ha medido. Si
-   subiera demasiado, el número que se toca es el `max-age=300` de `next.config.ts`.
-6. **Lo que quedó en R2 bajo `field/`** —las imágenes del campo de lluvia que ya no se
-   hacen— se puede borrar a mano, **menos `field/voltant.json`**, que es el anillo del viento.
+5. **«On sóc», el viento del radar y el mapa en el Android** que no lo enseñaba, en un móvil
+   de verdad: el navegador del agente no tiene geolocalización.
+6. **La XVPCA** dejó de publicar el 30 de octubre de 2026. `/estat` lo marca, y es correcto:
+   el retraso es de la fuente. Si dura semanas, vale la pena preguntar al portal.
 
 **La decisión grande, pendiente del usuario:**
 

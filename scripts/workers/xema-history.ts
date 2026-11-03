@@ -1081,8 +1081,13 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
      * marcaba «endarrerida» un minuto despues de un refresco perfecto de las
      * 189 estaciones. Un aviso que no puede apagarse nunca no es un aviso: es
      * ruido que enseña a no mirar el panel.
+     *
+     * Y cuatro, no tres: los dos días de retraso son de la fuente, y encima
+     * hay hasta un día entre que publica y que pasa el worker. El 3 de
+     * noviembre de 2026 a la una de la madrugada la última fila era del 31 de
+     * octubre —normal— y el panel ya estaba en rojo.
      */
-    stalenessLimitMin: 60 * 24 * 3,
+    stalenessLimitMin: 60 * 24 * 4,
     rows: valid.length,
     apiCalls: calls,
   });
@@ -1097,6 +1102,6 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
 
 main().catch((err) => reportFailure({
   source: 'xema-history', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 24 * 3, rows: 0, apiCalls: 0,
+    stalenessLimitMin: 60 * 24 * 4, rows: 0, apiCalls: 0,
 }, err));
 
