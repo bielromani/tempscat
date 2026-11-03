@@ -33,6 +33,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import { fetchWithRetry, throttledMap } from '../lib/http.ts';
 import {
   CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
@@ -66,14 +67,26 @@ const OPTIONS = '1_1';
 const PAST_FRAMES = 13;
 
 /**
- * Tamaño exacto del PNG de «Zoom Level Not Supported», en bytes.
+ * Si un marc és el cartell de «Zoom Level Not Supported» i no el radar.
  *
- * No es una comprobación elegante y es la única que existe: RainViewer devuelve
- * ese cartel con un 200 y con tipo image/png, así que sin mirar el contenido no
- * hay forma de distinguirlo de una tesela vacía. Se comprueba el tamaño y, sobre
- * todo, que dos teselas distintas no salgan idénticas.
+ * RainViewer el torna amb un 200 i tipus image/png. Abans es reconeixia per la
+ * mida —1.370 o 3.269 bytes— i **una tessel·la sense pluja és transparent del
+ * tot i pesa sempre el mateix**, que va coincidir amb una d'aquelles mides: el
+ * 14 i el 25 d'octubre i l'1 de novembre de 2026 el worker va petar a mitjanit
+ * i va enviar un «Run failed» per un radar correcte i sec. (Una tessel·la seca
+ * de 512 px fa 1.096 bytes el novembre de 2026; el cartell, 3.269.)
+ *
+ * El que distingeix el cartell és que és **el mateix fitxer per a totes les
+ * tessel·les i porta text**, o sigui píxels opacs. Tessel·les iguals però
+ * transparents són una nit seca; iguals amb tinta no poden ser pluja, perquè
+ * la pluja no cau igual a quatre llocs. Amb una sola tessel·la nova no es pot
+ * dir res, i es dona per bona.
  */
-const NOT_SUPPORTED_BYTES = new Set([1370, 3269]);
+async function isBanner(bufs: Buffer[]): Promise<boolean> {
+  if (bufs.length < 2 || !bufs.every((b) => b.equals(bufs[0]))) return false;
+  const alpha = (await sharp(bufs[0]).ensureAlpha().stats()).channels[3];
+  return alpha.max > 0;
+}
 
 interface RainViewerMaps {
   version: string;
@@ -154,6 +167,7 @@ async function main() {
     const dir = join(RADAR_DIR, String(frame.time));
     mkdirSync(dir, { recursive: true });
 
+    const fresh: Array<{ dest: string; rel: string; buf: Buffer }> = [];
     await throttledMap(tiles, async (t) => {
       const dest = join(dir, `${Z}_${t.x}_${t.y}.png`);
       const rel = `radar/${frame.time}/${Z}_${t.x}_${t.y}.png`;
@@ -174,22 +188,26 @@ async function main() {
        * estrenar almacén, y solo entonces.
        */
       if (existsSync(dest)) { skipped++; return; }
-      markForPublish(rel);
 
       const url = `${maps.host}${frame.path}/${TILE}/${Z}/${t.x}/${t.y}/${COLOR}/${OPTIONS}.png`;
       const r = await fetchWithRetry(url, { retries: 3, timeoutMs: 30_000 });
-      const buf = Buffer.from(await r.arrayBuffer());
-      if (NOT_SUPPORTED_BYTES.has(buf.length)) {
-        throw new Error(
-          `RainViewer ha retornat el cartell de zoom no suportat al zoom ${Z}. `
-          + 'El tilecache públic arriba al 7; si això salta, algú l’ha apujat.',
-        );
-      }
-      writeFileSync(dest, buf);
-      bytes += buf.length;
-      downloaded++;
+      fresh.push({ dest, rel, buf: Buffer.from(await r.arrayBuffer()) });
       quota.spend('rainviewer', 1);
     }, { concurrency: 4, minIntervalMs: 60 });
+
+    if (await isBanner(fresh.map((f) => f.buf))) {
+      throw new Error(
+        `RainViewer ha retornat la mateixa imatge per a les ${fresh.length} tessel·les del zoom ${Z}: `
+        + 'és el cartell de zoom no suportat. El tilecache públic arriba al 7; si això salta, algú l’ha apujat.',
+      );
+    }
+    // S'escriuen després de la comprovació: un cartell desat al disc es donaria per bo a la volta següent.
+    for (const f of fresh) {
+      writeFileSync(f.dest, f.buf);
+      markForPublish(f.rel);
+      bytes += f.buf.length;
+      downloaded++;
+    }
 
     process.stdout.write(`\r  ${downloaded} baixades · ${skipped} ja hi eren · ${(bytes / 1024).toFixed(0)} KB   `);
   }

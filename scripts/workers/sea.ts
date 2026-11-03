@@ -314,12 +314,26 @@ async function main() {
   const newest = beaches[0] ? beaches.reduce((a, b) => (b.at > a ? b.at : a), beaches[0].at) : null;
 
   writeSnapshot('sea', 'Protecció Civil i socorristes · dades obertes · onatge d’Open-Meteo', data, newest);
+
+  /*
+   * De quan és la dada d'aquesta font, per a `/estat`.
+   *
+   * Les banderes són de temporada: el 2026 l'últim parte va ser del 14
+   * d'octubre, i amb la seva data `/estat` hauria sortit en vermell fins a
+   * l'estiu següent —«4 de 13 fonts endarrerides» a la capçalera, amb tot
+   * funcionant—. Un rètol que està vermell mig any deixa d'avisar de res.
+   * Fora de la temporada de socorristes, el que diu si la font va bé és
+   * l'onatge i l'aigua, que es refresquen a cada volta; dins, les banderes,
+   * perquè un juliol sense partes sí que és una avaria.
+   */
+  const md = nowIso.slice(5, 10);
+  const inSeason = md >= '06-15' && md <= '09-15';
+  const seaTs = seaPoints[0]?.times[idx] ?? null;
   recordFreshness({
     source: 'sea',
     lastSuccessAt: new Date().toISOString(),
-    lastDataTs: newest,
-    // Las banderas son estacionales: fuera de temporada no se actualizan y eso no
-    // es una avería. Tres días de margen para no pintar de rojo lo normal.
+    lastDataTs: inSeason ? newest : (seaTs ?? newest),
+    // Tres dies: un cap de setmana sense parte dins de la temporada encara és normal.
     stalenessLimitMin: 60 * 72,
     rows: beaches.length + seaPoints.length,
     apiCalls: 2,

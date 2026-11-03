@@ -244,9 +244,16 @@ async function main() {
     source: 'air-quality',
     lastSuccessAt: new Date().toISOString(),
     lastDataTs: result.times[0] ?? null,
-    // 18 h: dos pasadas diarias de CAMS con margen. Más allá, el dato de aire
-    // deja de describir el día de hoy.
-    stalenessLimitMin: 60 * 18,
+    /*
+     * 40 h, contadas desde las 00:00 del primer día de la serie, que es lo que
+     * lleva `lastDataTs`: Open-Meteo la empieza siempre a medianoche. Con 18 h
+     * —pensadas como «dos pasadas de CAMS»— el panel se ponía rojo cada tarde
+     * a las seis y no se apagaba hasta la pasada de la mañana siguiente, con
+     * el worker en verde. Lo normal es llegar a unas 31 h (la serie de ayer
+     * hasta la pasada de las 06 UTC), y GitHub a veces la retrasa; por
+     * encima de 40, falta una pasada.
+     */
+    stalenessLimitMin: 60 * 40,
     rows: got,
     apiCalls: batches,
   });
@@ -262,6 +269,6 @@ async function main() {
 
 main().catch((err) => reportFailure({
   source: 'air-quality', lastSuccessAt: '', lastDataTs: null,
-    stalenessLimitMin: 60 * 18, rows: 0, apiCalls: 0,
+    stalenessLimitMin: 60 * 40, rows: 0, apiCalls: 0,
 }, err));
 
