@@ -446,7 +446,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
                               ) : '—'}
                             </td>
                             <td className="num">
-                              {d.gustMax != null ? `${int(d.gustMax)} km/h` : '—'}
+                              {d.gustMax != null ? `${int(msToKmh(d.gustMax))} km/h` : '—'}
                             </td>
                           </tr>
                         );

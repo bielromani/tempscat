@@ -1,6 +1,6 @@
 import 'server-only';
 import { historyOfStation, localToday, type StationHistory } from './weather';
-import { dryStreakOf, withMeasuredRain, type MeasuredRain, type RainDay } from './recent-rain';
+import { addDays, dryStreakOf, withMeasuredRain, type MeasuredRain, type RainDay } from './recent-rain';
 
 /**
  * L'aigua acumulada d'una estació, per al bloc de pluja d'una fitxa.
@@ -120,7 +120,8 @@ export function rainConditionsOf(
   };
 
   // Días desde la última lluvia apreciable, contando hacia atrás. Un día sin dato
-  // no cuenta como día seco — la misma regla que la racha seca.
+  // no cuenta como día seco — la misma regla que la racha seca. `wet` ya trae un
+  // elemento por día de calendario (`calendarDays`), así que la resta son días.
   let daysSinceRain: number | null = null;
   let dryDaysChecked = 0;
   for (let i = wet.length - 1; i >= 0; i--) {
@@ -133,7 +134,9 @@ export function rainConditionsOf(
     dryDaysChecked++;
   }
 
-  const last10 = lastN(daily, 10);
+  // Deu dies de calendari, no deu files: la sèrie pot portar forats.
+  const from10 = addDays(daily[daily.length - 1].day, -9);
+  const last10 = daily.filter((d) => d.day >= from10);
 
   return {
     station: history.station,

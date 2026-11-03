@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { putObject, s3Config } from './s3.ts';
 import {
-  FRESHNESS_SOURCES, QUOTA_DIR, freshnessShard, quotaShard,
+  FRESHNESS_DIR, FRESHNESS_SOURCES, QUOTA_DIR, freshnessShard, quotaShard,
 } from '../../src/lib/shards.ts';
 import { fetchWithRetry } from './http.ts';
 import { ROOT } from './paths.ts';
@@ -176,6 +176,41 @@ function mimeOf(rel: string): string {
   return (dot >= 0 ? MIME[rel.slice(dot).toLowerCase()] : undefined) ?? 'application/json';
 }
 
+/**
+ * El contingut de cada entrada de frescor tal com és al magatzem, abans que
+ * aquesta execució la toqui. `null` si encara no n'hi havia cap.
+ *
+ * Serveix per desfer-la quan la publicació falla: vegeu `publish()`.
+ */
+const lastPublished = new Map<string, string | null>();
+
+/**
+ * El que diu a la resta què hi ha: es puja l'últim, i només si tot l'altre ha
+ * pujat. La frescor de cada font i els índexs (`forecast/index.json`,
+ * `wind/index.json`, i `radar.json`, que diu quins marcs hi ha).
+ */
+function isLate(rel: string): boolean {
+  return rel.startsWith(`${FRESHNESS_DIR}/`) || rel.endsWith('/index.json') || rel === 'radar.json';
+}
+
+/**
+ * Puja tot el que hi ha a la cua, i **llança** si alguna cosa no ha pujat.
+ *
+ * ## Per què llança, i per què l'índex i la frescor van els últims
+ *
+ * Abans, un fitxer que no pujava després de tres intents era un `console.warn`
+ * i la funció tornava bé. La frescor, que anava al mateix lot, sí que pujava:
+ * `/estat` deia «actualitzat ara» d'una comarca que es quedava amb la
+ * predicció de la volta anterior, i el run sortia en verd. És la mateixa
+ * família que l'índex escrit abans dels trossos (vegeu `forecast/index.json` a
+ * `AGENTS.md`): ningú no veu cap error i el que es publica és mig vell.
+ *
+ * Ara va en dues passades. Si la primera falla, la segona no es fa —l'índex
+ * vell segueix apuntant a una volta sencera— i les entrades de frescor del
+ * disc tornen a ser les del magatzem, perquè `reportFailure()` hi escrigui
+ * l'error sobre l'èxit **anterior** i no sobre el que no s'ha arribat a
+ * publicar.
+ */
 export async function publish(): Promise<{ uploaded: number; bytes: number; skipped: boolean }> {
   const cfg = s3Config();
   if (!cfg) {
@@ -194,30 +229,51 @@ export async function publish(): Promise<{ uploaded: number; bytes: number; skip
   // y hacerlo todos a la vez satura la conexión y empieza a dar tiempos de
   // espera justo en los ficheros más grandes.
   const BATCH = 8;
-  for (let i = 0; i < files.length; i += BATCH) {
-    await Promise.all(files.slice(i, i + BATCH).map(async (rel) => {
+  const upload = async (list: string[]) => {
+    for (let i = 0; i < list.length; i += BATCH) {
+      await Promise.all(list.slice(i, i + BATCH).map(async (rel) => {
+        const local = join(CACHE, rel);
+        if (!existsSync(local)) return;
+        const body = readFileSync(local);
+        try {
+          await withRetry(() => putObject(cfg, rel, body, {
+            contentType: mimeOf(rel),
+            // La aplicación ya memoriza por su cuenta y con su propio plazo. Que
+            // el CDN se quede la copia más que eso solo añade un sitio donde el
+            // dato envejece sin que nadie lo sepa.
+            cacheSeconds: 60,
+          }));
+          uploaded++;
+          bytes += body.byteLength;
+          if (lastPublished.has(rel)) lastPublished.set(rel, body.toString('utf8'));
+        } catch (err) {
+          failed.push(`${rel}: ${String(err).slice(0, 120)}`);
+        }
+      }));
+    }
+  };
+
+  await upload(files.filter((f) => !isLate(f)));
+  const late = files.filter(isLate);
+  const heldBack = failed.length > 0 && late.length > 0;
+  if (!failed.length) {
+    await upload(late);
+  } else {
+    for (const rel of late) {
+      if (!rel.startsWith(`${FRESHNESS_DIR}/`) || !lastPublished.has(rel)) continue;
+      const before = lastPublished.get(rel);
       const local = join(CACHE, rel);
-      if (!existsSync(local)) return;
-      const body = readFileSync(local);
-      try {
-        await withRetry(() => putObject(cfg, rel, body, {
-          contentType: mimeOf(rel),
-          // La aplicación ya memoriza por su cuenta y con su propio plazo. Que
-          // el CDN se quede la copia más que eso solo añade un sitio donde el
-          // dato envejece sin que nadie lo sepa.
-          cacheSeconds: 60,
-        }));
-        uploaded++;
-        bytes += body.byteLength;
-      } catch (err) {
-        failed.push(`${rel}: ${String(err).slice(0, 120)}`);
-      }
-    }));
+      if (before == null) rmSync(local, { force: true });
+      else writeFileSync(local, before, 'utf8');
+    }
   }
 
   if (failed.length) {
-    console.warn(`\navís: ${failed.length} fitxers no s'han pogut publicar:`);
-    for (const f of failed.slice(0, 5)) console.warn(`  ${f}`);
+    throw new Error(
+      `${failed.length} ${failed.length === 1 ? "fitxer no s'ha" : "fitxers no s'han"} pogut publicar`
+      + `${heldBack ? " (l'índex i la frescor no s'han tocat)" : ''}: `
+      + failed.slice(0, 5).join(' · '),
+    );
   }
 
   return { uploaded, bytes, skipped: false };
@@ -371,6 +427,7 @@ export function recordFreshness(entry: FreshnessEntry): void {
   if (existsSync(dest)) {
     try { previous = JSON.parse(readFileSync(dest, 'utf8')) as FreshnessEntry; } catch { previous = null; }
   }
+  if (!lastPublished.has(name)) lastPublished.set(name, existsSync(dest) ? readFileSync(dest, 'utf8') : null);
 
   /*
    * Una volta que falla no esborra l'última que va anar bé.

@@ -36,7 +36,7 @@ import {
   syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { callWeight } from '../../src/lib/variables.ts';
-import { FORECAST_INDEX, forecastShard, type ForecastIndex } from '../../src/lib/shards.ts';
+import { FORECAST_INDEX, forecastShard, newestRefresh, type ForecastIndex } from '../../src/lib/shards.ts';
 import {
   WIND_DIR, WIND_MAX, WIND_STEP, windEncode, windShard,
   type WindHour, type WindIndex,
@@ -308,7 +308,9 @@ async function main() {
     // Sense captura, com a `forecast-refresh`: seguir voldria dir publicar un
     // camp al qual li falta una comarca sencera, i això no es veuria.
     const shard = await pullSnapshot<ForecastShard>(forecastShard(c.codi));
-    if (!shard) continue;
+    // Un tros que l'índex diu que hi és i no hi és és el mateix forat: el camp
+    // sortiria amb tota la comarca en calma.
+    if (!shard) throw new Error(`L'índex de la predicció porta la comarca ${c.codi} però el seu tros no hi és`);
     for (const [id, models] of Object.entries(shard.data.points)) {
       /*
        * El vent **no** es desplaça una hora, i això no és cap descuit.
@@ -527,7 +529,8 @@ async function main() {
   recordFreshness({
     source: 'forecast-field',
     lastSuccessAt: new Date().toISOString(),
-    lastDataTs: index.dataTs ?? null,
+    // L'hora del refresc, no la mitjanit on comença la sèrie: ver `newestRefresh()`.
+    lastDataTs: newestRefresh(index.data.refreshedAt ?? {}),
     /*
      * El mateix límit que la predicció, perquè el camp **és** la predicció.
      *
