@@ -266,6 +266,10 @@ itinerarios con su mapa y su perfil. El detalle de cada uno está en `git log`, 
 ahora caduca el **19 de enero de 2027** — `credencials.yml` volverá a fallar hacia el 5 de
 diciembre, a propósito. Vercel → Usage medido el 11 de octubre: sin ISR, unos 3–4 $ al mes.
 
+**Hecho el 3 de noviembre de 2026:** el reloj de Cloudflare desplegado con `diari.yml` a las
+08:00 UTC (el ACA publica a las 07:10), y borrado lo que quedaba en R2 bajo `field/` menos
+`field/voltant.json`. La variable `BLOB_BASE_URL` de GitHub, también fuera.
+
 **Del usuario, y son borrados irreversibles (no los hace el agente):**
 
 1. **Search Console:** ya está dado de alta (confirmado por el usuario el 3 de octubre). Lo que
@@ -273,28 +277,21 @@ diciembre, a propósito. Vercel → Usage medido el 11 de octubre: sin ISR, unos
 2. **Los despliegues de Vercel anteriores al 2 de octubre**, que son la mayor parte de los
    13 GB-mes de *Deployment Storage*. Desde el panel del proyecto, **sin tocar el de
    producción**.
-3. **Desplegar el reloj de Cloudflare** (`cd cloudflare/scheduler && npx wrangler login &&
-   npx wrangler deploy`). El 3 de noviembre de 2026 `diari.yml` pasó de las 06:00 a las
-   08:00 UTC, porque el ACA publica a las 07:10; el cambio está en `worker.js` pero no corre
-   hasta que alguien con la sesión de Cloudflare lo despliega. Mientras tanto, `/estat` puede
-   enseñar el ACA en rojo por la mañana.
-4. **Lo que quedó en R2 bajo `field/`** —las imágenes del campo de lluvia que ya no se
-   hacen—, **menos `field/voltant.json`**, que es el anillo del viento.
 
 **Por mirar:**
 
-5. **El cielo al atardecer y de noche, en una ficha real.** De día se ha visto en producción;
+3. **El cielo al atardecer y de noche, en una ficha real.** De día se ha visto en producción;
    el crepúsculo y la noche solo en la rejilla de `npm run cels`. Si el usuario lo quiere con
    más azul o más luz, los números están en `sky.ts`: el croma y la opacidad del velo de
    nubosidad, y el suelo de la luz de las nubes.
-6. **«On sóc», el viento del radar y el mapa en el Android** que no lo enseñaba, en un móvil
+4. **«On sóc», el viento del radar y el mapa en el Android** que no lo enseñaba, en un móvil
    de verdad: el navegador del agente no tiene geolocalización.
-7. **La XVPCA** dejó de publicar el 30 de octubre de 2026. `/estat` lo marca, y es correcto:
+5. **La XVPCA** dejó de publicar el 30 de octubre de 2026. `/estat` lo marca, y es correcto:
    el retraso es de la fuente. Si dura semanas, vale la pena preguntar al portal.
 
 **La decisión grande, pendiente del usuario:**
 
-8. **Sacar las cifras vivas del HTML y pedirlas desde el navegador.** Ya no hace falta para la
+6. **Sacar las cifras vivas del HTML y pedirlas desde el navegador.** Ya no hace falta para la
    frescura —eso lo arregló quitar ISR—; lo que arreglaría es el **peso**: más de la mitad de
    una ficha es la carga RSC, el mismo contenido escrito otra vez para hidratar. Tiene dos
    precios, y los decide el usuario: rompe la regla de «cero JavaScript en las fichas» y saca
@@ -302,11 +299,11 @@ diciembre, a propósito. Vercel → Usage medido el 11 de octubre: sin ISR, unos
 
 **Sin decisión pendiente:**
 
-9. **Reescribir los textos** para que el sitio suene a portal profesional. Las reglas de tono
+7. **Reescribir los textos** para que el sitio suene a portal profesional. Las reglas de tono
    están en `AGENTS.md`, «Cómo se escribe lo que lee el usuario». En el rediseño se acortaron
    y se plegaron las explicaciones largas de las páginas de sección, pero no se han repasado
    una a una.
-10. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa; quitarla es
+8. Menores: `AEMET_API_KEY` sobra en las variables de Vercel (el sitio no la usa; quitarla es
    un ajuste de la cuenta y lo hace el usuario) · el sol del titular puede quedar detrás del
    final de un nombre largo en el móvil, y el velo de contraste no lo cuenta — va con el
    punto 4, porque se mira en el mismo sitio.
