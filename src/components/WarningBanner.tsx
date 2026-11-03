@@ -1,5 +1,6 @@
 import { phenomenonName, probabilityText, thresholdValue, zoneName } from '@/lib/warning-labels';
 import { stackWarnings, type WarningGroup, type WarningLevel } from '@/lib/weather';
+import { External } from './External';
 
 /**
  * Franja de avisos meteorológicos oficiales.
@@ -226,9 +227,9 @@ function Body({ g, showWhen = true }: { g: WarningGroup; showWhen?: boolean }) {
 
       <p className="mt-2 text-[11px] opacity-75">
         Avís de l&apos;<strong className="font-semibold">Agència Estatal de Meteorologia</strong>.{' '}
-        <a href={g.web} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
+        <External href={g.web} className="text-inherit underline underline-offset-2">
           Consulteu-lo a AEMET
-        </a>
+        </External>
       </p>
     </>
   );

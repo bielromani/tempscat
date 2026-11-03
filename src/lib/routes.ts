@@ -83,9 +83,33 @@ interface RoutesFile {
 
 let cache: RoutesFile | null = null;
 
+/**
+ * El nom d'OSM, amb la tipografia de qui el va teclejar arreglada.
+ *
+ * Els trams d'El Camí porten el codi intern davant i el nom repetit —«El Camí
+ * IT1TR4 El Camí Capçaler: de Salzes a Balaguer»—, el Cinquè Llac escriu les
+ * etapes amb «=>» i un espai abans dels dos punts, i hi ha un «Refugi Refugi»
+ * i un «l''Esquirola».
+ * Només es toca la forma: les paraules són les d'OSM, i el `slug` no canvia.
+ */
+export function cleanRouteName(name: string): string {
+  return name
+    .replace(/^(.+?) IT\d+TR(\d+) \1 ([^:]+):/, '$1 $3, tram $2:')
+    .replace(/\s*<=>\s*/g, ' ↔ ')
+    .replace(/\s*=>\s*/g, ' → ')
+    .replace(/\s+:\s*/g, ': ')
+    .replace(/\bEtapa(\d)/g, 'Etapa $1')
+    .replace(/(?<![\p{L}])(\p{L}{3,}) \1(?![\p{L}])/gu, '$1')
+    .replace(/''/g, "'")
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function load(): RoutesFile {
   if (!cache) {
-    cache = JSON.parse(readFileSync(join(BUILD, 'routes.json'), 'utf8')) as RoutesFile;
+    const file = JSON.parse(readFileSync(join(BUILD, 'routes.json'), 'utf8')) as RoutesFile;
+    for (const r of file.routes) r.name = cleanRouteName(r.name);
+    cache = file;
   }
   return cache;
 }

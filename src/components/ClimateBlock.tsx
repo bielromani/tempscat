@@ -593,8 +593,7 @@ export function ClimateBlock({
             */}
             {records.drySpell && records.drySpell.days >= 20
               && records.drySpell.years < records.drySpell.ofYears && (
-              ` La ratxa seca es busca als ${records.drySpell.years} anys sencers dels `
-              + `${records.drySpell.ofYears}: `
+              ` La ratxa seca es busca només als ${records.drySpell.years} anys que tenen tots els dies: `
               + 'a un any amb dies perduts, una ratxa surt partida i sembla més curta.'
             )}
           </p>
