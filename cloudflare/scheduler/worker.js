@@ -56,7 +56,9 @@ const PLAN = [
   { file: 'observacio.yml', at: (h, m) => m % 10 === 0 },
   { file: 'avisos.yml', at: (h, m) => m % 15 === 0 },
   { file: 'mar.yml', at: (h, m) => m === 0 || m === 30 },
-  { file: 'diari.yml', at: (h, m) => h === 6 && m === 0 },
+  // A les 08:00 i no a les 06:00: l'ACA publica la lectura del dia cap a les
+  // 07:10 UTC, i abans s'agafava sempre la d'ahir.
+  { file: 'diari.yml', at: (h, m) => h === 8 && m === 0 },
   { file: 'cameres.yml', at: (h, m) => m === 25 },
   { file: 'muntanya.yml', at: (h, m) => m === 40 },
   // El camp de vent del mapa. No baixa cap dada nova: torna a fer les dotze
