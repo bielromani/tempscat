@@ -860,6 +860,8 @@ export interface FreshnessEntry {
    */
   lastError?: string;
   lastErrorAt?: string;
+  /** Dies recents que la font no ha publicat. Vegeu `networkGaps()` a `xema-history.ts`. */
+  gaps?: string[];
   /** Quan caduca la clau d'aquesta font, si en té una que caduqui. */
   credentialExpiresAt?: string | null;
 }

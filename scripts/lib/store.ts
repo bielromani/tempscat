@@ -379,6 +379,11 @@ export interface FreshnessEntry {
    */
   alertedAt?: string;
   /**
+   * Dies recents que la font no ha publicat, en ISO. Només la sèrie diària de
+   * la XEMA ho mira: vegeu `networkGaps()` a `xema-history.ts`.
+   */
+  gaps?: string[];
+  /**
    * Quan caduca la clau d'aquesta font, si en té una que caduqui.
    *
    * Es registra aquí perquè el panell públic ho pugui dir sense que la data
@@ -449,6 +454,8 @@ export function recordFreshness(entry: FreshnessEntry): void {
     lastError: entry.error ?? previous?.lastError,
     lastErrorAt: entry.error ? new Date().toISOString() : previous?.lastErrorAt,
     alertedAt: entry.alertedAt ?? previous?.alertedAt,
+    // Com la data: una volta que falla no sap si hi ha forats, i els d'abans segueixen sent-hi.
+    gaps: failed && entry.gaps == null ? previous?.gaps : entry.gaps,
   };
 
   writeFileSync(dest, JSON.stringify(stored, null, 1), 'utf8');

@@ -1479,6 +1479,18 @@ cuota para exactamente la misma información.
   passada es va trobar que **la frase del desnivell anava al revés** a totes les fitxes: Calders,
   a 548 m, deia que l'estació d'Artés, a 287, era «261 m més amunt». `dAltM` és lloc menys
   estació; positiu vol dir que l'estació és **més avall**.
+- **Un forat de la sèrie diària de la XEMA no el veia ningú.** (3 de novembre de 2026.) Del 25
+  al 28 d'octubre el conjunt `7bvh-jvq2` té 1, 0, 0 i 5 estacions de 188. El worker torna a
+  demanar 400 dies cada vegada, així que és un forat de la font i no nostre; les fitxes ja ho
+  deien estació per estació («té dada de N dels últims quinze dies») però ni `/estat` ni
+  `check:coherence` ho veien. Ara `networkGaps()` a `xema-history.ts` compta estacions per dia
+  als 40 dies anteriors al més recent —el més recent no, que sempre arriba a mitges— i marca els
+  que no arriben a la meitat de la mediana. Va a `gaps` del registre de frescor i `/estat` ho
+  diu sota la font. Una volta que falla conserva els forats de l'anterior, com la data.
+- **La pàgina de comarca porta predicció, de sis municipis com a molt.** Els cinc més poblats i,
+  si queda fora i és 300 m o més per sobre, el més alt: una mitjana de la comarca barrejaria
+  Bellver amb la Molina. Quatre dies, amb `withObservedToday` com a la fitxa, i amb
+  `forecastFor` sense límit d'hores: amb 48, els punts del nivell B només en tenien dos.
 
 # This is NOT the Next.js you know
 

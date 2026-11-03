@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { freshness } from '@/lib/weather';
 import { buildSummary } from '@/lib/territory';
-import { int } from '@/lib/format';
+import { dateShort, int } from '@/lib/format';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 
@@ -85,6 +85,34 @@ function errorReason(msg: string): string {
 
 /** Un missatge llarg, tallat per una paraula i dient-ho. */
 const clip = (s: string, n = 240) => (s.length <= n ? s : `${s.slice(0, s.lastIndexOf(' ', n) > n * 0.6 ? s.lastIndexOf(' ', n) : n)}…`);
+
+/**
+ * Els dies que falten, ajuntats en trams: «del 25 al 28 d'octubre».
+ *
+ * L'1 i l'11 porten apòstrof —«de l'1», «a l'11»—, i un tram que travessa
+ * dos mesos diu tots dos: «del 30 de setembre al 2 d'octubre».
+ */
+function gapRanges(days: string[]): string {
+  const sorted = [...new Set(days)].sort();
+  const runs: Array<[string, string]> = [];
+  for (const d of sorted) {
+    const last = runs.at(-1);
+    const next = last && new Date(Date.parse(`${last[1]}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+    if (last && next === d) last[1] = d;
+    else runs.push([d, d]);
+  }
+  const day = (iso: string) => Number(iso.slice(8, 10));
+  const vowel = (iso: string) => day(iso) === 1 || day(iso) === 11;
+  const the = (iso: string) => (vowel(iso) ? "l'" : 'el ');
+  const from = (iso: string) => (vowel(iso) ? "de l'" : 'del ');
+  const to = (iso: string) => (vowel(iso) ? "a l'" : 'al ');
+  const parts = runs.map(([a, b]) => {
+    if (a === b) return `${the(a)}${dateShort(a)}`;
+    const head = a.slice(0, 7) === b.slice(0, 7) ? String(day(a)) : dateShort(a);
+    return `${from(a)}${head} ${to(b)}${dateShort(b)}`;
+  });
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} i ${parts.at(-1)}` : parts[0];
+}
 
 type Source = Awaited<ReturnType<typeof freshness>>[number];
 type State = 'missing' | 'error' | 'stale' | 'ok';
@@ -246,6 +274,17 @@ export default async function EstatPage() {
                             {s.keyDaysLeft < 0
                               ? `clau caducada el ${s.credentialExpiresAt}`
                               : `clau vàlida fins al ${s.credentialExpiresAt} · ${s.keyDaysLeft} dies`}
+                          </span>
+                        )}
+                        {/*
+                          Els dies que la font no ha publicat per a gairebé cap
+                          estació. No és una avaria nostra —el worker torna a
+                          demanar-ho tot cada dia— però sense això es veia només
+                          a les fitxes, estació per estació.
+                        */}
+                        {s.gaps && s.gaps.length > 0 && (
+                          <span className="mt-1 block text-[11.5px] text-[var(--warn)]">
+                            sense sèrie diària {gapRanges(s.gaps)}
                           </span>
                         )}
                       </td>

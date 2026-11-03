@@ -3,11 +3,15 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { comarcaBySlug, municipisOfComarca } from '@/lib/territory';
-import { activeWarnings, currentFor } from '@/lib/weather';
+import { activeWarnings, currentFor, forecastFor } from '@/lib/weather';
 import { comarcaSummary } from '@/lib/comparison';
 import { temperatureMap } from '@/lib/map';
 import { TemperatureMap } from '@/components/TemperatureMap';
-import { aName, aNameParts, comarcaName, dateLong, deComarca, int, num, temp } from '@/lib/format';
+import {
+  aName, aNameParts, comarcaName, dateLong, dateShort, deComarca, int, num, relativeDayTiny, temp,
+} from '@/lib/format';
+import { WeatherIcon } from '@/components/WeatherIcon';
+import { withObservedToday } from '@/components/LocationView';
 import { localToday } from '@/lib/weather';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
@@ -21,6 +25,9 @@ import { PageHero, Section } from '@/components/PageHero';
 export const dynamic = 'force-dynamic';
 
 type Params = Promise<{ comarca: string }>;
+
+/** Els dies de la taula de predicció: més enllà, a la fitxa de cada lloc. */
+const FORECAST_DAYS = 4;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { comarca } = await params;
@@ -52,6 +59,31 @@ export default async function ComarcaPage({ params }: { params: Params }) {
   );
   const conTemp = rows.filter((r) => r.current?.temperatureAdjusted != null);
 
+  /*
+   * La predicció, de pocs municipis i no de tots.
+   *
+   * Un resum de la comarca seria una mitjana de llocs que no s'assemblen: la
+   * Cerdanya va de Bellver a la Molina. Els que surten són els cinc on viu més
+   * gent i, si queda fora, el més alt, perquè és el que fa un altre temps. Tots
+   * són del mateix tros de predicció, així que és una sola lectura.
+   */
+  const byPop = [...municipis].sort((a, b) => (b.poblacio ?? 0) - (a.poblacio ?? 0)).slice(0, 5);
+  const highest = municipis.reduce<typeof municipis[number] | null>(
+    (best, m) => (m.altitud != null && (best?.altitud == null || m.altitud > best.altitud) ? m : best), null,
+  );
+  const popTop = Math.max(...byPop.map((m) => m.altitud ?? 0));
+  const forecastPlaces = highest && !byPop.includes(highest) && (highest.altitud ?? 0) - popTop >= 300
+    ? [...byPop, highest] : byPop;
+  // La màxima d'avui és, com a mínim, la que ja ha fet: a dalt la pàgina diu la
+  // mesurada, i la taula no la pot contradir. La mateixa regla que la fitxa.
+  const currentOf = new Map(rows.map((r) => [r.m.id, r.current]));
+  const forecasts = (await Promise.all(forecastPlaces.map(async (m) => ({
+    m,
+    days: withObservedToday((await forecastFor(m))?.daily ?? [], today, currentOf.get(m.id) ?? null)
+      .filter((d) => d.date >= today).slice(0, FORECAST_DAYS),
+  })))).filter((f) => f.days.length === FORECAST_DAYS);
+  const forecastDates = forecasts[0]?.days.map((d) => d.date) ?? [];
+
   const trail = [
     { nom: 'Catalunya', path: '/' },
     { nom: c.nom, path: c.path },
@@ -72,7 +104,7 @@ export default async function ComarcaPage({ params }: { params: Params }) {
           /*
             Frase d'observació, no de predicció: agregar el consens de fins a 68
             municipis faria d'aquesta pàgina de llistat la més cara del lloc a
-            canvi d'una línia.
+            canvi d'una línia. La predicció va a la taula, de sis com a molt.
           */
           <>
             Ara mateix, {comarcaName(c.nom)} va dels{' '}
@@ -137,6 +169,62 @@ export default async function ComarcaPage({ params }: { params: Params }) {
             {aName(comarcaName(c.nom))}. <u>Vegeu-los</u>
           </span>
         </Link>
+      )}
+
+      {forecasts.length > 0 && (
+        <Section id="previsio" title="Els pròxims dies">
+          <div className="card">
+            <div className="scroll-x">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Municipi</th>
+                    {forecastDates.map((d) => (
+                      <th key={d} scope="col" className="num">
+                        <span className="capitalize">{relativeDayTiny(d, today)}</span>
+                        <span className="block text-xs font-normal text-[var(--muted)]">{dateShort(d)}</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {forecasts.map(({ m, days }) => (
+                    <tr key={m.id}>
+                      <th scope="row" className="text-left font-normal normal-case tracking-normal">
+                        <Link href={m.path} className="font-medium text-[var(--ink)] no-underline hover:underline">
+                          {m.nom}
+                        </Link>
+                        {m.altitud != null && (
+                          <span className="block text-xs text-[var(--muted)] tnum">{int(m.altitud)} m</span>
+                        )}
+                      </th>
+                      {days.map((d) => (
+                        <td key={d.date} className="num">
+                          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <WeatherIcon code={d.weatherCode} size={28} />
+                            <span className="tnum">
+                              <span className="font-semibold text-[var(--ink)]">{temp(d.tMax, 0)}</span>
+                              <span className="ml-1 text-[var(--muted)]">{temp(d.tMin, 0)}</span>
+                            </span>
+                          </span>
+                          {d.precipitation >= 1 && (
+                            <span className="block text-xs text-[var(--muted)] tnum">{num(d.precipitation, 1)} mm</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="source">
+              Màxima i mínima de cada dia, i la pluja quan arriba a 1 mm. Són els municipis
+              més poblats {deComarca(c.nom)}
+              {forecasts.length > byPop.length && ' i el més alt'}; la predicció de qualsevol
+              altre és a la seva fitxa.
+            </p>
+          </div>
+        </Section>
       )}
 
       <Section id="municipis" title={`Els ${municipis.length} municipis`}>
