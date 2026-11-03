@@ -111,6 +111,18 @@ export interface ForecastIndex {
   refreshedAt?: Record<string, string>;
 }
 
+/**
+ * Quan es va refrescar per última vegada la predicció, sigui quin sigui el nivell.
+ *
+ * És la data que `/estat` ha de mesurar, i no la primera hora de la sèrie: la
+ * sèrie comença sempre a la mitjanit del dia del refresc. Les dues meitats del
+ * worker —predicció i camp de vent— la treuen d'aquí perquè diguin el mateix.
+ */
+export function newestRefresh(refreshedAt: Record<string, string>): string | null {
+  const all = Object.values(refreshedAt).filter((t) => !Number.isNaN(Date.parse(t)));
+  return all.length ? all.reduce((a, b) => (Date.parse(b) > Date.parse(a) ? b : a)) : null;
+}
+
 
 // ── Histórico, por estación ───────────────────────────────────
 

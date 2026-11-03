@@ -8,7 +8,7 @@
  * I, de pas, les dues peces de text que la mateixa passada va arreglar i que
  * no importen res: la contracció del rumb i la pressió al nivell del mar.
  */
-import { addDays, dryStreakOf, withMeasuredRain, type RainDay } from '../src/lib/recent-rain.ts';
+import { addDays, calendarDays, dryStreakOf, withMeasuredRain, type RainDay } from '../src/lib/recent-rain.ts';
 import { fromDirection, instantOf } from '../src/lib/format.ts';
 import { seaLevelPressure } from '../src/lib/variables.ts';
 
@@ -76,6 +76,22 @@ check('addDays el dia del canvi d\'hora', addDays('2026-10-25', 1), '2026-10-26'
 
 // ── Sense lectura d'avui, tot queda igual ──────────────────────────────────
 check('sense mesura, la mateixa sèrie', withMeasuredRain(dry(3, '2026-09-27'), null).length, 3);
+
+// ── Un dia que la XEMA no publica és un dia, no una fila menys ─────────────
+// El 25–28 d'octubre de 2026 no hi havia cap fila, i Malgrat deia «fa 11 dies»
+// d'un ruixat de feia quinze.
+{
+  const series: RainDay[] = [
+    { day: '2026-10-19', precip: 7.8 },
+    ...dry(5, '2026-10-24'),
+    ...dry(3, '2026-10-31'),
+  ];
+  const out = calendarDays(series);
+  check('el forat entra amb un nul per dia', out.length, 13);
+  check('i el dia que falta és nul', out.find((d) => d.day === '2026-10-26')?.precip, null);
+  check('el forat talla la ratxa seca', dryStreakOf(out), 3);
+  check('també sense omplir-lo, la ratxa no el travessa', dryStreakOf(series), 3);
+}
 
 // ── Rumb ───────────────────────────────────────────────────────────────────
 check('del NNO', fromDirection('NNO'), 'del NNO');

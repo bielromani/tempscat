@@ -54,13 +54,36 @@ export function addDays(day: string, n: number): string {
 }
 
 /**
+ * La sèrie amb un element per dia de calendari: el dia que no hi és, entra nul.
+ *
+ * La XEMA no publica una fila buida per al dia que li falta: **no la publica**.
+ * Del 25 al 28 d'octubre de 2026 no n'hi havia cap a cap estació, i els blocs
+ * que comptaven «els últims 15» o «fa tants dies» comptaven files: Malgrat deia
+ * «l'últim dia de més de 5 mm, fa 11 dies» quan n'eren quinze, i el «15 dies»
+ * en sumava dinou. Amb el forat omplert de nuls, un índex torna a ser un dia
+ * i el nul talla els comptes com a tot arreu.
+ */
+export function calendarDays(series: RainDay[]): RainDay[] {
+  const out: RainDay[] = [];
+  for (const d of series) {
+    const prev = out[out.length - 1];
+    // Fins a seixanta dies, com l'allargament de sota: és un forat, no una altra sèrie.
+    for (let g = prev && addDays(prev.day, 1), i = 0; prev && g < d.day && i < 60; g = addDays(g, 1), i++) {
+      out.push({ day: g, precip: null });
+    }
+    out.push({ day: d.day, precip: d.precip });
+  }
+  return out;
+}
+
+/**
  * La sèrie de pluja, allargada fins al dia de l'agregat.
  *
  * Torna una còpia: la sèrie original la fan servir altres blocs —el clima, els
  * comptadors— que diuen explícitament fins a quin dia arriben.
  */
 export function withMeasuredRain(series: RainDay[], measured: MeasuredRain | null): RainDay[] {
-  const out = series.map((d) => ({ day: d.day, precip: d.precip }));
+  const out = calendarDays(series);
   if (!measured || !out.length) return out;
 
   const byDay = new Map<string, number | null>([
@@ -96,7 +119,9 @@ export function withMeasuredRain(series: RainDay[], measured: MeasuredRain | nul
  * Dies seguits sense pluja, comptant enrere des de l'últim.
  *
  * Un dia sense dada talla el compte: no és un dia sec. És la regla que va donar
- * 398 dies sense pluja al Port de Barcelona, que no té pluviòmetre.
+ * 398 dies sense pluja al Port de Barcelona, que no té pluviòmetre. I un dia
+ * que **no hi és** també el talla: la sèrie pot venir sense passar per
+ * `calendarDays()` —el worker de l'històric la hi passa crua—.
  */
 export function dryStreakOf(days: RainDay[]): number {
   let n = 0;
@@ -104,6 +129,7 @@ export function dryStreakOf(days: RainDay[]): number {
     const mm = days[i].precip;
     if (mm == null || mm >= RAIN_DAY_MM) break;
     n++;
+    if (i > 0 && days[i - 1].day !== addDays(days[i].day, -1)) break;
   }
   return n;
 }

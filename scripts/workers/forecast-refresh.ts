@@ -40,7 +40,7 @@ import {
   CACHE, DAILY_LIMITS, HOURLY_LIMITS, MONTHLY_LIMITS, QuotaGuard, publish, publishQuota, pullSnapshot, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import {
-  FORECAST_INDEX, forecastShard, type ForecastIndex,
+  FORECAST_INDEX, forecastShard, newestRefresh, type ForecastIndex,
   FORECAST_STORED_HOURS,
 } from '../../src/lib/shards.ts';
 import { alignAll } from '../lib/forecast-align.ts';
@@ -727,7 +727,15 @@ async function main() {
   recordFreshness({
     source: 'forecast-refresh',
     lastSuccessAt: new Date().toISOString(),
-    lastDataTs: result.times[0] ?? null,
+    /*
+     * L'hora del refresc més recent, no la primera hora de la sèrie.
+     *
+     * `times[0]` és sempre la mitjanit del dia en què es demana —Open-Meteo
+     * torna la sèrie des de les zero hores—, així que un refresc acabat de fer
+     * a les 17:00 UTC ja naixia amb disset hores, i `/estat` posava la
+     * predicció en roig cada tarde amb tots els workers en verd.
+     */
+    lastDataTs: newestRefresh(marks),
     stalenessLimitMin: 60 * 14,
     rows: ok,
     apiCalls: batches,

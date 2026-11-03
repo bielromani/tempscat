@@ -300,6 +300,16 @@ export function ClimateBlock({
    */
   const hasThermometer = records.tMaxAbs != null || records.tMinAbs != null;
   const hasGauge = records.precipMaxDay != null;
+  /*
+   * La normal de temperatura es pot dir encara que el mes no tingui cap dia.
+   *
+   * `hasTemp` demana la desviació del mes en curs, i els primers dies del mes
+   * la sèrie —que va dos dies tard— encara no en té cap: el 3 de novembre de
+   * 2026 Puigcerdà deia «aquí no es mesura la temperatura» al costat del
+   * «10,5° mesurat a l'estació de Puigcerdà» del titular. Si es mesura o no ho
+   * diu el termòmetre, no el calendari.
+   */
+  const tempNormal = hasThermometer && normal?.tMean != null;
 
   /*
    * Les columnes de la taula diària, les que aquesta estació té.
@@ -334,7 +344,7 @@ export function ClimateBlock({
     ? new Date().getFullYear() - Number(records.since.slice(0, 4))
     : null;
 
-  const hasMonthCard = normal != null && (hasTemp || normal.precip != null);
+  const hasMonthCard = normal != null && (hasTemp || tempNormal || normal.precip != null);
 
   /*
    * Dues columnes quan el bloc té lloc, i no quan la pantalla en té.
@@ -415,16 +425,16 @@ export function ClimateBlock({
             */}
             {hasTemp && !monthProgress && monthCovered && monthDays.length < MONTH_MIN_DAYS && (
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--ink-2)]">
-                Són {monthDays.length} {monthDays.length === 1 ? 'dia' : 'dies'} comparats amb la
+                {monthDays.length === 1 ? 'És un sol dia comparat' : `Són ${monthDays.length} dies comparats`} amb la
                 mitjana {deMonth} sencer, i el {monthName} no comença com acaba:
                 una part d&apos;aquests graus és el pas del mes i no una desviació.
               </p>
             )}
 
             <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-              {hasTemp && (
+              {tempNormal && (
                 `La mitjana ${deMonth} sencer ${aName(station.nom)} és de `
-                + `${num(normal.tMean, 1)} °C, calculada sobre ${normal.years} anys `
+                + `${num(normal!.tMean!, 1)} °C, calculada sobre ${normal.years} anys `
                 + 'de sèrie de la mateixa estació.'
               )}
               {/*
@@ -441,11 +451,13 @@ export function ClimateBlock({
                 només mesuren pluja no hi ha frase de temperatura al davant.
               */}
               {normal.precip != null && (
-                (hasTemp ? ' Hi' : 'Hi')
+                (tempNormal ? ' Hi' : 'Hi')
                 + (monthCovered
-                  ? ` sol ploure ${int(normal.precip)} mm en tot el mes, i dels `
-                    + `${monthDays.length} ${monthDays.length === 1 ? 'dia' : 'dies'} `
-                    + `${deMonth} que la sèrie ja té, n'han caigut `
+                  ? ` sol ploure ${int(normal.precip)} mm en tot el mes, i `
+                    + (monthDays.length === 1
+                      ? `de l'únic dia ${deMonth} que la sèrie ja té, `
+                      : `dels ${monthDays.length} dies ${deMonth} que la sèrie ja té, `)
+                    + `n'han caigut `
                     + `${int(counters.precip.month)} mm.`
                   : ` sol ploure ${int(normal.precip)} mm en tot el mes; ${deMonth} `
                     + 'la sèrie encara no en té cap dia.')
@@ -454,7 +466,7 @@ export function ClimateBlock({
                 I si l'estació no mesura temperatura, es diu: altrament aquesta
                 targeta és una que parla només de pluja sense que se sàpiga per què.
               */}
-              {!hasTemp && (
+              {!hasThermometer && (
                 (normal.precipYears ? ` És la mitjana de ${normal.precipYears} anys.` : '')
                 + ` A ${station.nom} no es mesura la temperatura: només hi ha pluviòmetre.`
               )}
