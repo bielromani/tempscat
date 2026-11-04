@@ -18,7 +18,7 @@
  * importan nada, así que los scripts pueden cargar esto con la extensión `.ts`
  * y la aplicación con el alias `@/`.
  */
-import { VARIABLES, meanDirection, type VariableSlug } from './variables.ts';
+import { VARIABLES, apparentTemperature, dewPoint, meanDirection, type VariableSlug } from './variables.ts';
 import { consensusCode, dailySummaryCode } from './weather-codes.ts';
 import { sunTimes } from './astronomy.ts';
 import type { DailyPoint, HourlyPoint } from './forecast-types.ts';
@@ -165,15 +165,28 @@ export function mergeHourly(
 
     const codes = pick('weather_code');
 
+    const temperature = temps.length
+      ? Math.round((temps.reduce((a, b) => a + b, 0) / temps.length + tempCorrection) * tempFactor) / tempFactor
+      : null;
+    const humidity = mean('humidity', 0);
+    const windSpeed = mean('wind_speed');
+
     return {
       time,
-      temperature: temps.length
-        ? Math.round((temps.reduce((a, b) => a + b, 0) / temps.length + tempCorrection) * tempFactor) / tempFactor
+      temperature,
+      /*
+       * La sensació i el punt de rosada **es calculen**, no es demanen.
+       *
+       * Totes dues surten de la temperatura, la humitat i el vent que ja hi
+       * són, i Open-Meteo cobra per variable a partir de deu: treure-les de la
+       * petició són 0,2 unitats per punt i refresc, unes 700 al dia, que és el
+       * que paga AROME als punts de muntanya (`forecast-refresh.ts`). I la
+       * sensació, a més, surt amb la mateixa fórmula que la de l'observació:
+       * la d'Open-Meteo compta la radiació i a vegades no coincidien.
+       */
+      apparent: temperature != null && humidity != null && windSpeed != null
+        ? Math.round(apparentTemperature(temperature, windSpeed, humidity) * 10) / 10
         : null,
-      apparent: (() => {
-        const a = mean('apparent_temperature');
-        return a != null ? Math.round((a + tempCorrection) * 10) / 10 : null;
-      })(),
       // Cantidad: mediana de los modelos que sí dan lluvia. Promediar 20 mm y
       // 0 mm da 10 mm, un valor que ningún modelo considera probable.
       precipitation: wet.length ? median(wet) : 0,
@@ -191,13 +204,12 @@ export function mergeHourly(
       // desempate.
       weatherCode: consensusCode(codes),
       cloudCover: mean('cloud_cover', 0),
-      humidity: mean('humidity', 0),
-      dewPoint: (() => {
-        const d = mean('dew_point');
-        return d != null ? Math.round((d + tempCorrection) * 10) / 10 : null;
-      })(),
+      humidity,
+      dewPoint: temperature != null && humidity != null
+        ? Math.round(dewPoint(temperature, humidity) * 10) / 10
+        : null,
       pressure: mean('pressure'),
-      windSpeed: mean('wind_speed'),
+      windSpeed,
       windDirection: (() => {
         const dirs = pick('wind_direction');
         return dirs.length ? Math.round(meanDirection(dirs) ?? 0) : null;

@@ -52,7 +52,7 @@ import {
 } from '../../src/lib/variables.ts';
 import { instantOf } from '../../src/lib/format.ts';
 import {
-  BASE_SHARD, STATION_MODELS, STATION_MODELS_SHARD,
+  AROME_FROM_M, BASE_SHARD, STATION_MODELS, STATION_MODELS_SHARD,
   type BaseTemperature, type StationModelFetch, type StationModels,
 } from '../../src/lib/now-temperature.ts';
 
@@ -70,6 +70,13 @@ interface ModelSpec {
   variables: VariableSlug[];
   /** Cada cuántas horas conviene refrescar esta combinación. */
   everyHours: number;
+  /** Només els punts d'aquesta altitud o més. */
+  minAltitude?: number;
+}
+
+/** Els punts d'un nivell que reben aquest model. */
+function pointsFor(spec: ModelSpec, tierPoints: ForecastPoint[]): ForecastPoint[] {
+  return spec.minAltitude == null ? tierPoints : tierPoints.filter((p) => (p.altitud ?? 0) >= spec.minAltitude!);
 }
 
 /**
@@ -84,6 +91,20 @@ interface ModelSpec {
  * AROME la serie entera dejaba media semana en blanco, y se vio al renderizar,
  * no en los registros.
  */
+/**
+ * AROME també als punts dels nivells B i C a partir d'aquesta altitud.
+ *
+ * La temperatura d'ara d'una fitxa parteix del model del seu punt i la
+ * corregeixen les estacions (`src/lib/now-temperature.ts`). Partint de
+ * `best_match` sol, entre 800 i 1.500 m s'equivocava 1,23 °C, més que AROME
+ * sol (1,21); partint de la mitjana de `best_match` i AROME, 1,15 — mesurat
+ * amb trenta dies, deixant cada estació fora. Millora a totes les altituds
+ * (de 0,08 a 0,11 °C), però demanar-lo als 2.840 punts no cap a la quota:
+ * a partir de 500 m són 1.168, 1.168 unitats al dia, i les paga haver deixat
+ * de demanar la sensació i el punt de rosada (`RICH_HOURLY`). La constant viu a
+ * `now-temperature.ts` perquè la comparativa ha de saber quins punts el porten.
+ */
+
 const PLAN_BY_TIER: Record<Tier, ModelSpec[]> = {
   A: [
     { model: 'best_match', variables: RICH_HOURLY, everyHours: 12 },
@@ -103,8 +124,14 @@ const PLAN_BY_TIER: Record<Tier, ModelSpec[]> = {
    * Lo que da sensación de "vivo" en la página no es la predicción: es la
    * observación de la XEMA, que entra cada diez minutos por otra vía.
    */
-  B: [{ model: 'best_match', variables: RICH_HOURLY, everyHours: 24 }],
-  C: [{ model: 'best_match', variables: RICH_HOURLY, everyHours: 24 }],
+  B: [
+    { model: 'best_match', variables: RICH_HOURLY, everyHours: 24 },
+    { model: 'meteofrance_arome_france_hd', variables: ESSENTIAL_HOURLY, everyHours: 24, minAltitude: AROME_FROM_M },
+  ],
+  C: [
+    { model: 'best_match', variables: RICH_HOURLY, everyHours: 24 },
+    { model: 'meteofrance_arome_france_hd', variables: ESSENTIAL_HOURLY, everyHours: 24, minAltitude: AROME_FROM_M },
+  ],
   D: [],
 };
 
@@ -620,9 +647,10 @@ async function main() {
     const tierPoints = points.filter((p) => p.tier === tier);
     if (!tierPoints.length) continue;
     for (const spec of PLAN_BY_TIER[tier]) {
+      const specPoints = pointsFor(spec, tierPoints);
       const target = fillOnly
-        ? tierPoints.filter((p) => !before?.data.points[p.id]?.[spec.model])
-        : (limit ? tierPoints.slice(0, limit) : tierPoints);
+        ? specPoints.filter((p) => !before?.data.points[p.id]?.[spec.model])
+        : (limit ? specPoints.slice(0, limit) : specPoints);
       if (target.length) steps.push({ tier, spec, points: target });
     }
   }
@@ -650,9 +678,9 @@ async function main() {
     (s, st) => s + callWeight(st.spec.variables.length, FORECAST_DAYS, st.points.length), 0,
   ) + (stationsDue ? stationModelsCost(stations.length) : 0);
   const daily = eligible.reduce((s, t) => {
-    const n = points.filter((p) => p.tier === t).length;
+    const tierPoints = points.filter((p) => p.tier === t);
     return s + PLAN_BY_TIER[t].reduce(
-      (a, spec) => a + callWeight(spec.variables.length, FORECAST_DAYS, n) * (24 / spec.everyHours), 0,
+      (a, spec) => a + callWeight(spec.variables.length, FORECAST_DAYS, pointsFor(spec, tierPoints).length) * (24 / spec.everyHours), 0,
     );
   }, 0) + (eligible.includes('A') ? 2 * stationModelsCost(stations.length) : 0);
 

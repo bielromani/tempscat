@@ -48,12 +48,18 @@ import {
 import { callWeight } from '../../src/lib/variables.ts';
 import { suspectTemperatures } from '../../src/lib/temperature-check.ts';
 import {
-  BACKFILL_DAYS, COMPARE_MODELS, COMPARE_SHARD, COMPARE_SOURCES, NEIGHBOUR_MAX_KM, OURS, OURS_A, TIER_A_MODELS,
+  BACKFILL_DAYS, COMPARE_METHOD, COMPARE_MODELS, COMPARE_SHARD, COMPARE_SOURCES, NEIGHBOUR_MAX_KM, OURS, OURS_A, TIER_A_MODELS,
   emptyCompare, emptyCompareTally, type CompareScores, type CompareSource, type CompareTally,
 } from '../../src/lib/temperature-compare.ts';
-import { correctionAt, meanOf, type StationResidual } from '../../src/lib/now-temperature.ts';
+import {
+  AROME_FROM_M, correctionAt, driftedResidual, emptyStationDrift, meanOf, recordResidual,
+  type StationDrift, type StationResidual,
+} from '../../src/lib/now-temperature.ts';
 
 const SOURCE = 'temperature-compare';
+
+/** Dies d'abans que es baixen per aprendre la deriva horària del residu. */
+const DRIFT_LOOKBACK_DAYS = 14;
 
 /** Estacions per petició a Open-Meteo: la URL porta tres llistes de coordenades. */
 const CHUNK = 50;
@@ -192,8 +198,8 @@ async function main() {
    * deixaria amb un dia d'hores contra trenta de les altres, i la «mitjana» de
    * cadascuna seria d'uns dies diferents.
    */
-  const sameSources = stored?.sources?.join() === COMPARE_SOURCES.join();
-  if (stored && !sameSources) console.log('Les fonts han canviat: el registre es torna a començar.');
+  const sameSources = stored?.sources?.join() === COMPARE_SOURCES.join() && stored?.method === COMPARE_METHOD;
+  if (stored && !sameSources) console.log('Les fonts o el mètode han canviat: el registre es torna a començar.');
   const scores: CompareScores = stored?.scored && sameSources ? stored : emptyCompare();
 
   /*
@@ -219,8 +225,14 @@ async function main() {
     const to = missing.at(-1)!;
     console.log(`Dies pendents: ${missing.length} (${from} → ${to})`);
 
-    // Des de l'última hora del dia d'abans: la primera hora es corregeix amb ella.
-    const truthByHour = await measured(`${plusDays(from, -1)}T23:00:00`, plusDays(to, 1));
+    /*
+     * Amb els catorze dies d'abans: la deriva horària del residu s'aprèn del
+     * passat, com la fa el worker d'observació, i sense ella no es mesuraria el
+     * que ensenya la pàgina. Dins dels catorze dies no costa cap unitat; el
+     * farciment de trenta, una vegada, una mica més.
+     */
+    const lookbackFrom = plusDays(from, -DRIFT_LOOKBACK_DAYS);
+    const truthByHour = await measured(`${lookbackFrom}T00:00:00`, plusDays(to, 1));
 
     /*
      * Els models, només per als dies que la XEMA ja té, i en trams seguits.
@@ -240,9 +252,7 @@ async function main() {
     }
     const models = new Map<string, Map<string, Partial<Record<CompareSource, number>>>>();
     for (const run of runs) {
-      // Amb el dia d'abans, per a l'hora anterior a la primera: dins dels catorze
-      // dies, un dia més no costa cap unitat.
-      for (const [codi, byHour] of await modelled(stations, plusDays(run[0], -1), run.at(-1)!, quota)) {
+      for (const [codi, byHour] of await modelled(stations, plusDays(run[0], -DRIFT_LOOKBACK_DAYS), run.at(-1)!, quota)) {
         const into = models.get(codi) ?? new Map();
         for (const [h, v] of byHour) into.set(h, v);
         models.set(codi, into);
@@ -251,75 +261,93 @@ async function main() {
     }
 
     /*
-     * Les lectures que les veïnes desmenteixen surten de cada hora: ni fan de
-     * veritat ni de veïna. La mateixa funció que el worker d'observació, amb
-     * els mateixos llindars.
+     * Els tres jocs de models dels quals pot partir una fitxa: `best_match`
+     * sol (nivells B i C per sota de `AROME_FROM_M`), amb AROME (B i C per
+     * sobre) i els tres del nivell A. El residu ha de ser contra el mateix
+     * model que es corregeix, així que cada joc porta els seus residus i la
+     * seva deriva.
      */
-    const goodByHour = new Map<string, Array<{ codi: string; lat: number; lon: number; altitud: number; t: number }>>();
+    const SETS = { bm: ['best_match'], bmar: ['best_match', 'meteofrance_arome_france_hd'], a: [...TIER_A_MODELS] } as const;
+    type SetKey = keyof typeof SETS;
+    type Res = StationResidual & { codi: string };
+    const drift: Record<SetKey, Record<string, StationDrift>> = { bm: {}, bmar: {}, a: {} };
+    let previous: { hour: string; res: Record<SetKey, Res[]> } | null = null;
+
+    const perDay = new Map<string, number>();
+    // En ordre de temps: la XEMA arriba ordenada, i la deriva només pot saber el passat.
     for (const [hour, readings] of truthByHour) {
+      const day = hour.slice(0, 10);
+      const at = Date.parse(`${hour}:00:00Z`);
+
+      /*
+       * Les lectures que les veïnes desmenteixen surten de l'hora: ni fan de
+       * veritat ni de veïna. La mateixa funció que el worker d'observació, amb
+       * els mateixos llindars.
+       */
       const points = [...readings].flatMap(([codi, t]) => {
         const s = meta.get(codi);
         return s ? [{ codi, lat: s.lat, lon: s.lon, altitud: s.altitud, t }] : [];
       });
       const suspect = new Set(suspectTemperatures(points).map((x) => x.codi));
-      goodByHour.set(hour, points.filter((p) => !suspect.has(p.codi)));
-    }
-    const hourBefore = (hour: string) => new Date(Date.parse(`${hour}:00:00Z`) - 3_600_000).toISOString().slice(0, 13);
+      const good = points.filter((p) => !suspect.has(p.codi));
 
-    const perDay = new Map<string, number>();
-    for (const [hour, good] of goodByHour) {
-      const day = hour.slice(0, 10);
-      if (!missing.includes(day)) continue;
+      // Els residus de l'hora anterior, portats a aquesta amb la deriva que se'n sabia.
+      const before = previous && at - Date.parse(`${previous.hour}:00:00Z`) === 3_600_000 ? previous : null;
+      if (before && missing.includes(day)) {
+        const lagged = (k: SetKey, codi: string): Res[] => before.res[k]
+          .filter((q) => q.codi !== codi)
+          .map((q) => ({ ...q, residual: driftedResidual(drift[k][q.codi], q.residual, at - 3_600_000, at) }));
 
-      /*
-       * Els residus de l'hora anterior: lectura menys model, a cada estació. Un
-       * joc contra el `best_match` i un altre contra la mitjana dels tres del
-       * nivell A, perquè el residu ha de ser contra el mateix model que es
-       * corregeix.
-       */
-      const before = hourBefore(hour);
-      const residuals = { bm: [] as Array<StationResidual & { codi: string }>, a: [] as Array<StationResidual & { codi: string }> };
-      for (const q of goodByHour.get(before) ?? []) {
-        const m = models.get(q.codi)?.get(before);
+        for (const p of good) {
+          const said = models.get(p.codi)?.get(hour);
+          if (!said || COMPARE_MODELS.some((m) => said[m] == null)) continue;
+          // Una estació fa de poble dels nivells B o C: amb AROME o sense segons la cota.
+          const own: SetKey = p.altitud >= AROME_FROM_M ? 'bmar' : 'bm';
+          const ownList = lagged(own, p.codi);
+          if (!ownList.length) continue;
+
+          // La veïna més propera, només per poder dir en quins casos s'encerta més.
+          let nearest: { d: number; dAlt: number } | null = null;
+          for (const q of ownList) {
+            const d = haversineKm(p.lat, p.lon, q.lat, q.lon);
+            if (d <= NEIGHBOUR_MAX_KM && (!nearest || d < nearest.d)) nearest = { d, dAlt: Math.abs(p.altitud - q.altitud) };
+          }
+          if (!nearest) continue;
+
+          const estimates: Partial<Record<CompareSource, number>> = {
+            ...said,
+            [OURS]: meanOf(SETS[own].map((k) => said[k]))! + correctionAt(p, ownList).correction,
+            [OURS_A]: meanOf(SETS.a.map((k) => said[k]))! + correctionAt(p, lagged('a', p.codi)).correction,
+          };
+
+          const st = (scores.stations[p.codi] ??= { bySource: {}, sumNeighbourKm: 0, sumNeighbourDAlt: 0 });
+          const byHour = (scores.byHour[hour.slice(11, 13)] ??= {});
+          for (const [src, v] of Object.entries(estimates) as Array<[CompareSource, number]>) {
+            const err = v - p.t;
+            add((st.bySource[src] ??= emptyCompareTally()), err);
+            add((byHour[src] ??= emptyCompareTally()), err);
+          }
+          st.sumNeighbourKm += nearest.d;
+          st.sumNeighbourDAlt += nearest.dAlt;
+          compared++;
+          perDay.set(day, (perDay.get(day) ?? 0) + 1);
+        }
+      }
+
+      // I els d'aquesta hora: per a la següent, i perquè la deriva n'aprengui.
+      const res: Record<SetKey, Res[]> = { bm: [], bmar: [], a: [] };
+      for (const q of good) {
+        const m = models.get(q.codi)?.get(hour);
         if (!m) continue;
-        if (m.best_match != null) residuals.bm.push({ ...q, residual: q.t - m.best_match });
-        const a = meanOf(TIER_A_MODELS.map((k) => m[k]));
-        if (a != null) residuals.a.push({ ...q, residual: q.t - a });
-      }
-
-      for (const p of good) {
-        const said = models.get(p.codi)?.get(hour);
-        if (!said || COMPARE_MODELS.some((m) => said[m] == null)) continue;
-        const others = (list: Array<StationResidual & { codi: string }>) => list.filter((q) => q.codi !== p.codi);
-        const bm = others(residuals.bm);
-        if (!bm.length) continue;
-
-        // La veïna més propera, només per poder dir en quins casos s'encerta més.
-        let nearest: { d: number; dAlt: number } | null = null;
-        for (const q of bm) {
-          const d = haversineKm(p.lat, p.lon, q.lat, q.lon);
-          if (d <= NEIGHBOUR_MAX_KM && (!nearest || d < nearest.d)) nearest = { d, dAlt: Math.abs(p.altitud - q.altitud) };
+        for (const k of Object.keys(SETS) as SetKey[]) {
+          const said = meanOf(SETS[k].map((x) => m[x as CompareSource]));
+          if (said == null) continue;
+          const residual = q.t - said;
+          recordResidual((drift[k][q.codi] ??= emptyStationDrift()), `${hour}:00:00Z`, residual);
+          res[k].push({ ...q, residual });
         }
-        if (!nearest) continue;
-
-        const estimates: Partial<Record<CompareSource, number>> = {
-          ...said,
-          [OURS]: said.best_match! + correctionAt(p, bm).correction,
-          [OURS_A]: meanOf(TIER_A_MODELS.map((k) => said[k]))! + correctionAt(p, others(residuals.a)).correction,
-        };
-
-        const st = (scores.stations[p.codi] ??= { bySource: {}, sumNeighbourKm: 0, sumNeighbourDAlt: 0 });
-        const byHour = (scores.byHour[hour.slice(11, 13)] ??= {});
-        for (const [src, v] of Object.entries(estimates) as Array<[CompareSource, number]>) {
-          const err = v - p.t;
-          add((st.bySource[src] ??= emptyCompareTally()), err);
-          add((byHour[src] ??= emptyCompareTally()), err);
-        }
-        st.sumNeighbourKm += nearest.d;
-        st.sumNeighbourDAlt += nearest.dAlt;
-        compared++;
-        perDay.set(day, (perDay.get(day) ?? 0) + 1);
       }
+      previous = { hour, res };
     }
 
     /*

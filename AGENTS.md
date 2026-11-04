@@ -144,7 +144,7 @@ Cuatro cosas más que no son evidentes:
 
 Los workers corren en GitHub Actions, en `.github/workflows/`. El reparto y el
 porqué de cada hora están en `prediccio.yml`, que es el único que gasta cuota de
-verdad: **A dos veces al día, B y C una** — 8.504 unidades diarias, el 85 % del
+verdad: **A dos veces al día, B y C una** — 8.257 unidades diarias, el 83 % del
 techo mensual.
 
 **Pero el reloj de los tres de alta frecuencia no es de GitHub.** Su
@@ -1533,8 +1533,24 @@ cuota para exactamente la misma información.
   sense esperar el refresc A, `npm run worker:forecast -- --stations-only` (189 unitats).
   La pàgina diu d'on surt: «model meteorològic corregit amb les estacions de la XEMA del
   voltant», l'estació de referència i què marca ella, i l'enllaç a `/dades/encert`.
-  Si canvia la llista de fonts de la comparativa, el registre es torna a començar sol
-  (`sources`): una font nova amb menys hores que les altres no es pot comparar.
+  Si canvia la llista de fonts de la comparativa, o el número `COMPARE_METHOD`, el registre
+  es torna a començar sol: una font nova amb menys hores que les altres no es pot comparar, ni
+  dies d'un mètode amb dies d'un altre.
+  **El mateix dia, la muntanya.** Entre 800 i 1.500 m el mètode feia 1,23 °C i AROME sol 1,21.
+  Provades tres millores contra els mateixos trenta dies: ajustar els abasts no va donar res;
+  una regressió del residu contra la cota, gairebé res (0,004); i el que va funcionar van ser
+  dues coses. **El model de partida**: amb `best_match` i AROME, el mètode encerta igual que
+  amb tres models, i millor a totes les altituds; així que els punts de B i C de 500 m amunt
+  (`AROME_FROM_M`, 1.168 punts) porten AROME, pagat amb haver deixat de demanar la sensació i
+  el punt de rosada —es calculen a `mergeHourly`—. I **la deriva horària del residu**
+  (`temperatura-deriva`): per a cada estació i hora del dia, quant sol canviar l'error del
+  model d'una hora a la següent, que se suma al residu d'una lectura que té una hora. Amb
+  totes dues: **0,94 °C** (abans 0,99) i 0,88 al nivell A; i AROME guanyat a totes les franges
+  —800–1.500 m, 1,22 contra 1,26—. 134 de 184 estacions encerten més que el millor model.
+  On encara es perd és en estacions amb un microclima que les veïnes no tenen —el Raval amb
+  l'illa de calor, un vessant càlid, un cim— i gairebé totes per sota de 500 m, on el punt
+  només té `best_match`; AROME, que ho veu, als 1.672 punts de plana que en falten no cap a la
+  quota gratuïta.
 
 # This is NOT the Next.js you know
 

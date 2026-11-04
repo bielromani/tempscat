@@ -24,9 +24,9 @@ import {
 import { XEMA_TO_SLUG, type VariableSlug } from '../../src/lib/variables.ts';
 import { suspectTemperatures, type TempPoint } from '../../src/lib/temperature-check.ts';
 import {
-  BASE_SHARD, MODEL_ONLY_WEIGHT, NOW_SHARD, RESIDUAL_MAX_AGE_MIN, STATION_MODELS_SHARD,
-  correctionAt, fetchFor, meanOf, valueAt,
-  type BaseTemperature, type NowTemperature, type StationModels, type StationResidual,
+  BASE_SHARD, DRIFT_SHARD, MODEL_ONLY_WEIGHT, NOW_SHARD, RESIDUAL_MAX_AGE_MIN, STATION_MODELS_SHARD,
+  correctionAt, driftedResidual, emptyStationDrift, fetchFor, meanOf, recordResidual, valueAt,
+  type BaseTemperature, type DriftState, type NowTemperature, type StationModels, type StationResidual,
 } from '../../src/lib/now-temperature.ts';
 import type { Station } from '../04-fetch-stations.ts';
 
@@ -101,6 +101,7 @@ interface ForecastPointRow { id: string; lat: number; lon: number; altitud: numb
  */
 function nowTemperature(
   observations: StationObservation[], stations: Station[], base: BaseTemperature, models: StationModels, at: number,
+  drift: DriftState,
 ): NowTemperature {
   const located = new Map(stations.map((s) => [s.codi, s]));
   const points = JSON.parse(readFileSync(build('forecast-points.json'), 'utf8')) as ForecastPointRow[];
@@ -115,7 +116,12 @@ function nowTemperature(
   const residualsFor = (tier: string, modelsOfPoint: string[]): StationResidual[] => {
     const fetch = fetchFor(models.fetches, base.refreshedAt[tier]);
     if (!fetch) return [];
-    const key = `${fetch.fetchedAt}|${modelsOfPoint.join(',')}`;
+    const set = modelsOfPoint.join(',');
+    const key = `${fetch.fetchedAt}|${set}`;
+    const drifts = (drift.sets[set] ??= {});
+    // La deriva l'aprèn només la petició més nova: dues peticions del mateix joc
+    // de models donarien dos residus per a la mateixa lectura.
+    const learns = fetch === models.fetches[0];
     const cached = residualSets.get(key);
     if (cached) return cached;
     const start = Date.parse(fetch.start);
@@ -129,7 +135,12 @@ function nowTemperature(
       const series = fetch.stations[o.station];
       const said = meanOf(modelsOfPoint.map((m) => valueAt(series?.[m], start, ts)));
       if (said == null) continue;
-      out.push({ lat: s.lat, lon: s.lon, altitud: s.altitud, residual: reading.value - said });
+      const residual = reading.value - said;
+      if (learns) recordResidual((drifts[o.station] ??= emptyStationDrift()), reading.ts, residual);
+      out.push({
+        lat: s.lat, lon: s.lon, altitud: s.altitud,
+        residual: driftedResidual(drifts[o.station], residual, ts, at),
+      });
     }
     residualSets.set(key, out);
     return out;
@@ -405,14 +416,18 @@ async function main() {
    * atura el worker, que la seva feina principal ja l'ha feta.
    */
   try {
-    const [base, models] = await Promise.all([
+    const [base, models, drift] = await Promise.all([
       pullSnapshot<BaseTemperature>(BASE_SHARD),
       pullSnapshot<StationModels>(STATION_MODELS_SHARD),
+      // Sense la deriva es pot seguir: és una millora, i torna a aprendre.
+      pullSnapshot<DriftState>(DRIFT_SHARD).catch(() => null),
     ]);
     if (!base || !models?.data.fetches.length) {
       console.log('\nTemperatura d\'ara: encara no hi ha el model a les estacions; les fitxes fan servir la lectura.');
     } else {
-      const est = nowTemperature(observations, stations, base.data, models.data, now);
+      const driftState = drift?.data ?? { sets: {} };
+      const est = nowTemperature(observations, stations, base.data, models.data, now, driftState);
+      writeSnapshot(DRIFT_SHARD, 'Meteocat XEMA + Open-Meteo', driftState, est.at);
       const n = Object.keys(est.points).length;
       const alone = Object.values(est.points).filter((p) => p.w < MODEL_ONLY_WEIGHT).length;
       writeSnapshot(NOW_SHARD, 'Meteocat XEMA + Open-Meteo', est, est.at);
