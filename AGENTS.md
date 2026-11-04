@@ -95,6 +95,10 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/recent-rain.ts` | La pluja d'avui i d'ahir, que la sèrie diària encara no té, i la ratxa seca |
 | `src/lib/temperature-check.ts` | Quina temperatura desmenteixen les veïnes de la mateixa cota |
 | `src/lib/now-temperature.ts` | La temperatura d'ara: el model corregit amb l'error que fa a les estacions |
+| `src/lib/s3-sign.ts` | La firma v4 d'R2. La fan servir els workers i l'API dels avisos al mòbil |
+| `src/lib/push-store.ts` | On es desen les subscripcions dels avisos al mòbil, en un cubell **privat** |
+| `src/lib/push-alerts.ts` | Quin avís va al mòbil de qui i quan: taronja amunt, silenci de nit, un per episodi |
+| `src/lib/warning-when.ts` | Quan val un avís, en una línia: la targeta i la notificació ho diuen igual |
 
 ## Dónde viven los datos vivos
 
@@ -193,6 +197,7 @@ npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
 npm run worker:field      # el camp de vent del mapa · cada hora, i al final de `prediccio.yml`
 npm run worker:verify     # quant encerta cada model, contra la XEMA · un cop al dia
 npm run worker:compare    # la temperatura d'ara de les fitxes contra la dels models · un cop al dia
+npm run worker:push       # avisos taronja i vermells al mòbil · darrere de worker:warnings, cada 15 min
 ```
 
 Pruebas:
@@ -214,6 +219,7 @@ npm run test:sky          # que el cel del titular digui el temps, i el contrast
 npm run cels              # els dotze cels de cop a /__cels.html, per mirar-los de costat
 npm run test:rain         # la pluja dels dos dies que la sèrie diària encara no té
 npm run test:qc           # quina temperatura es descarta per les veïnes, i sobretot quina no
+npm run test:push         # que al mòbil no arribi cap groc, cap taronja de nit ni cap avís repetit
 npm run test:narrative    # las frases, con perfiles de lluvia sintéticos, y con aviso encima
 ```
 
@@ -316,7 +322,7 @@ páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado.
 **Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
 interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí.
 
-Hay **cuatro** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
+Hay **cinco** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
 
 - `SiteSearch.tsx`, el cuadro de búsqueda de la cabecera. Va en todas las páginas, así que el
   coste se midió antes de ponerlo: **1.546 bytes en gzip**, la diferencia de sumar todos los
@@ -339,6 +345,12 @@ Hay **cuatro** `'use client'` en el proyecto, y ninguno cambia una ficha de luga
 - `src/app/error.tsx`, la página de cuando algo falla en el servidor (5 de octubre de 2026).
   Next obliga a que una frontera de errores sea de cliente. No tiene estado ni efectos, y solo
   actúa cuando hay un error.
+
+- `PushAlerts.tsx`, los avisos al móvil, y solo en `/avisos/alertes` (4 de noviembre de 2026).
+  La ficha enlaza con un `<a>` normal —y solo cuando la función está configurada—. Una
+  suscripción la crea el navegador, así que sin JavaScript la página dice qué hace falta.
+  Registra `public/sw.js` **solo cuando alguien lo activa**: ese service worker no tiene
+  `fetch`, no guarda nada y solo enseña la notificación.
 
 El buscador y el menú son mejoras **encima** de algo que ya funcionaba sin JavaScript, y lo
 dejan funcionando: el buscador sigue siendo un `<form method="get">` que abre `/cerca` —por eso
@@ -1551,6 +1563,34 @@ cuota para exactamente la misma información.
   l'illa de calor, un vessant càlid, un cim— i gairebé totes per sota de 500 m, on el punt
   només té `best_match`; AROME, que ho veu, als 1.672 punts de plana que en falten no cap a la
   quota gratuïta.
+
+- **Els avisos al mòbil: les regles abans que el codi, i un magatzem que no és el de les
+  dades.** (4 de novembre de 2026.) Només avisos oficials **taronja i vermell**; de 23 a 7 h
+  només el vermell (el taronja de nit surt a les set si encara val); **un missatge per
+  episodi** —la clau és la de `groupWarnings()`, sense data, i es recorda fins dotze hores
+  després que s'acabi—; i un sol missatge per aparell encara que hi hagi tres avisos. Tot a
+  `src/lib/push-alerts.ts`, que és pur, i `npm run test:push` prova sobretot el que **no**
+  s'ha d'enviar: un error aquí no dona cap error, dona un telèfon que vibra.
+  **Les subscripcions van a un cubell d'R2 a part, privat** (`PUSH_R2_*`): el de les dades és
+  públic i qualsevol objecte que s'hi deixés es podria baixar. Les escriu `/api/alertes`
+  (Vercel) i les llegeix `worker:push` (Actions, pas a part d'`avisos.yml` amb
+  `if: always()`). El registre d'episodis es desa **després** d'enviar, i si no surt cap
+  missatge el worker llança abans de desar-lo: millor un avís repetit que un de perdut.
+  **Sense `VAPID_PUBLIC_KEY` i el magatzem, la funció no existeix**: ni l'enllaç de la fitxa
+  ni el de `/avisos`, i la pàgina diu que no està disponible. A mitges, igual: un botó que
+  funciona amb una subscripció que no es desa és pitjor que no tenir botó.
+  **`/privacitat` ho diu**, camp per camp. Si `PushSubscriptionRecord` guanya un camp, la
+  secció «Els avisos al mòbil» l'ha de dir el mateix dia.
+  Al panell del navegador d'aquest entorn les notificacions estan **bloquejades**: la pàgina
+  hi surt amb el missatge de «bloquejades», i no s'hi pot provar una subscripció de debò.
+
+- **La 404 de les rutes dinàmiques arriba amb el cos buit, i és de Next.** (4 de novembre de
+  2026.) `notFound()` dins d'una pàgina dinàmica fa que Next 16 enviï la closca d'error
+  (`<html id="__next_error__">`): estat 404 i `<head>` bons, cos buit, i la pàgina la pinta
+  el navegador. `dynamicParams = false` no ho canvia amb `force-dynamic` (provat). L'únic
+  arreglament és un `proxy.ts` que contesti abans de renderitzar, i no compensa: correria a
+  cada petició de pàgina per 903 404 de 381.000 peticions en una setmana, la majoria robots.
+  El perquè sencer és a `src/app/not-found.tsx`.
 
 # This is NOT the Next.js you know
 

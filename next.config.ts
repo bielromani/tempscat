@@ -61,6 +61,7 @@ const LIVE_PAGES = [
   '/radar',
   '/mapa',
   '/avisos',
+  '/avisos/alertes', // el `?lloc=` la fa dinàmica
   '/mar',
   '/nautica',
   '/neu',

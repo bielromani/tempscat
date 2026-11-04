@@ -1559,7 +1559,14 @@ funciona el primer día. Consume los feeds del punto 1, no los ficheros de
 Solo cuando alguien pida «lo quiero en el móvil y en el portátil» hace falta una
 cuenta, y entonces ya se sabrá si merece la pena.
 
-### 15. Alertas push · la primera cosa que de verdad necesita la base de datos
+### 15. Alertas push · hecho, a falta de las claves (4 de noviembre de 2026)
+
+No hizo falta la base de datos: las suscripciones van a un cubo de R2 privado, una por
+aparato, y las reglas de abajo están en `src/lib/push-alerts.ts` con su prueba
+(`npm run test:push`). La página es `/avisos/alertes`. Mientras no existan el cubo
+(`PUSH_R2_*`) y las claves VAPID, la función no aparece en ninguna parte.
+
+Lo que sigue es el texto de antes de hacerlo, que es de donde salen las reglas.
 
 Un aviso empujado al móvil necesita: almacén de suscripciones, claves VAPID,
 consentimiento explícito, política de privacidad, y un proceso que decida a quién

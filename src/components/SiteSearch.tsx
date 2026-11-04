@@ -9,7 +9,8 @@ import { KIND_LABEL, type SearchSuggestion } from '@/lib/search-kinds';
  *
  * ## L'únic `'use client'` que va a **totes** les pàgines, i per què
  *
- * N'hi ha quatre al projecte —aquest, `RadarMap` a `/radar`, `MenuClose`, que
+ * N'hi ha cinc al projecte —aquest, `RadarMap` a `/radar`, `PushAlerts` a
+ * `/avisos/alertes`, `MenuClose`, que
  * només tanca el menú del mòbil, i la pàgina d'error—. El del radar viu a la
  * seva adreça i no el carrega ningú més. Aquest sí: és a la capçalera.
  *
