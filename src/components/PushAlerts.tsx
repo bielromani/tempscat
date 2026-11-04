@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { tr, type Lang } from '@/lib/lang';
+import { placeName } from '@/lib/format';
 
 /**
  * Activar, revisar i apagar els avisos al mòbil d'aquest aparell.
@@ -32,7 +34,7 @@ function urlBase64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-async function call(action: string, subscription: PushSubscription, path?: string): Promise<Place[]> {
+async function call(action: string, subscription: PushSubscription, path?: string, lang: Lang = 'ca'): Promise<Place[]> {
   const res = await fetch('/api/alertes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -41,8 +43,10 @@ async function call(action: string, subscription: PushSubscription, path?: strin
   const body = await res.json().catch(() => ({})) as { places?: Place[]; error?: string };
   if (!res.ok) {
     throw new Error(body.error === 'too-many'
-      ? 'Ja teniu deu llocs triats en aquest aparell. Traieu-ne algun per afegir-ne un altre.'
-      : 'No s’ha pogut desar. Torneu-ho a provar d’aquí a una estona.');
+      ? tr(lang, 'Ja teniu deu llocs triats en aquest aparell. Traieu-ne algun per afegir-ne un altre.',
+        'Ya tiene diez lugares elegidos en este dispositivo. Quite alguno para añadir otro.')
+      : tr(lang, 'No s’ha pogut desar. Torneu-ho a provar d’aquí a una estona.',
+        'No se ha podido guardar. Vuelva a intentarlo dentro de un rato.'));
   }
   return body.places ?? [];
 }
@@ -52,7 +56,10 @@ async function currentSubscription(): Promise<PushSubscription | null> {
   return reg ? reg.pushManager.getSubscription() : null;
 }
 
-export function PushAlerts({ vapidKey, place }: { vapidKey: string; place: Place | null }) {
+export function PushAlerts(
+  { vapidKey, place, lang = 'ca' }: { vapidKey: string; place: Place | null; lang?: Lang },
+) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const [state, setState] = useState<State>({ kind: 'checking' });
   const [busy, setBusy] = useState(false);
 
@@ -74,13 +81,13 @@ export function PushAlerts({ vapidKey, place }: { vapidKey: string; place: Place
       else if (Notification.permission === 'denied') next = { kind: 'denied' };
       else {
         const sub = await currentSubscription().catch(() => null);
-        const places = sub ? await call('status', sub).catch(() => []) : [];
+        const places = sub ? await call('status', sub, undefined, lang).catch(() => []) : [];
         next = { kind: 'ready', places, subscribed: !!sub };
       }
       if (!cancelled) setState(next);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [lang]);
 
   async function run(fn: () => Promise<State>) {
     setBusy(true);
@@ -94,20 +101,20 @@ export function PushAlerts({ vapidKey, place }: { vapidKey: string; place: Place
   }
 
   const add = () => run(async () => {
-    if (!place) throw new Error('Falta el lloc.');
+    if (!place) throw new Error(t('Falta el lloc.', 'Falta el lugar.'));
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return { kind: 'denied' };
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription()
       ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToBytes(vapidKey) });
-    return { kind: 'ready', places: await call('add', sub, place.path), subscribed: true };
+    return { kind: 'ready', places: await call('add', sub, place.path, lang), subscribed: true };
   });
 
   const remove = (path: string) => run(async () => {
     const sub = await currentSubscription();
     if (!sub) return { kind: 'ready', places: [], subscribed: false };
-    const places = await call('remove', sub, path);
+    const places = await call('remove', sub, path, lang);
     if (!places.length) await sub.unsubscribe();
     return { kind: 'ready', places, subscribed: places.length > 0 };
   });
@@ -115,7 +122,7 @@ export function PushAlerts({ vapidKey, place }: { vapidKey: string; place: Place
   const off = () => run(async () => {
     const sub = await currentSubscription();
     if (sub) {
-      await call('off', sub);
+      await call('off', sub, undefined, lang);
       await sub.unsubscribe();
     }
     return { kind: 'ready', places: [], subscribed: false };
@@ -123,63 +130,60 @@ export function PushAlerts({ vapidKey, place }: { vapidKey: string; place: Place
 
   switch (state.kind) {
     case 'checking':
-      return <p className="text-[var(--muted)]">Comprovant aquest aparell…</p>;
+      return <p className="text-[var(--muted)]">{t('Comprovant aquest aparell…', 'Comprobando este dispositivo…')}</p>;
     case 'unsupported':
-      return <p>Aquest navegador no permet rebre notificacions d’un web. Proveu-ho amb Chrome, Firefox, Edge o Safari actualitzats.</p>;
+      return <p>{t('Aquest navegador no permet rebre notificacions d’un web. Proveu-ho amb Chrome, Firefox, Edge o Safari actualitzats.', 'Este navegador no permite recibir notificaciones de una web. Pruebe con Chrome, Firefox, Edge o Safari actualizados.')}</p>;
     case 'ios':
       return (
         <p>
-          A l’iPhone i l’iPad, primer cal afegir el web a la pantalla d’inici: toqueu el botó de
-          compartir de Safari i després «Afegeix a la pantalla d’inici». Obriu tempscat des
-          d’aquella icona, torneu a aquesta pàgina i ja ho podreu activar (cal iOS 16.4 o posterior).
+          {t('A l’iPhone i l’iPad, primer cal afegir el web a la pantalla d’inici: toqueu el botó de compartir de Safari i després «Afegeix a la pantalla d’inici». Obriu tempscat des d’aquella icona, torneu a aquesta pàgina i ja ho podreu activar (cal iOS 16.4 o posterior).',
+            'En el iPhone y el iPad, primero hay que añadir la web a la pantalla de inicio: toque el botón de compartir de Safari y después «Añadir a pantalla de inicio». Abra tempscat desde ese icono, vuelva a esta página y ya podrá activarlo (hace falta iOS 16.4 o posterior).')}
         </p>
       );
     case 'denied':
       return (
         <p>
-          Les notificacions d’aquest web estan bloquejades al navegador. Per activar-les, canvieu
-          el permís de notificacions de tempscat.cat a la configuració del lloc web del navegador i
-          torneu a carregar aquesta pàgina.
+          {t('Les notificacions d’aquest web estan bloquejades al navegador. Per activar-les, canvieu el permís de notificacions de tempscat.cat a la configuració del lloc web del navegador i torneu a carregar aquesta pàgina.',
+            'Las notificaciones de esta web están bloqueadas en el navegador. Para activarlas, cambie el permiso de notificaciones de es.tempscat.cat en la configuración del sitio web del navegador y vuelva a cargar esta página.')}
         </p>
       );
     case 'error':
       return (
         <div className="space-y-3">
           <p>{state.message}</p>
-          <button type="button" className="btn" onClick={() => location.reload()}>Torna-ho a provar</button>
+          <button type="button" className="btn" onClick={() => location.reload()}>{t('Torna-ho a provar', 'Volver a intentarlo')}</button>
         </div>
       );
   }
-
   const already = place && state.places.some((p) => p.path === place.path);
   return (
     <div className="space-y-4">
       {place && !already && (
         <button type="button" className="btn btn-primary" disabled={busy} onClick={add}>
-          Avisa’m per {place.nom}
+          {t(`Avisa’m per ${place.nom}`, `Recibir avisos para ${placeName(place.nom, lang)}`)}
         </button>
       )}
-      {place && already && <p>Ja rebeu els avisos per {place.nom} en aquest aparell.</p>}
+      {place && already && <p>{t(`Ja rebeu els avisos per ${place.nom} en aquest aparell.`, `Ya recibe los avisos para ${placeName(place.nom, lang)} en este dispositivo.`)}</p>}
 
       {state.places.length > 0 ? (
         <div>
-          <h2 className="card-title">Llocs d’aquest aparell</h2>
+          <h2 className="card-title">{t('Llocs d’aquest aparell', 'Lugares de este dispositivo')}</h2>
           <ul className="mt-2 divide-y divide-[var(--line)]">
             {state.places.map((p) => (
               <li key={p.path} className="flex items-center justify-between gap-3 py-2">
-                <a href={p.path}>{p.nom}</a>
+                <a href={p.path}>{placeName(p.nom, lang)}</a>
                 <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => remove(p.path)}>
-                  Treu
+                  {t('Treu', 'Quitar')}
                 </button>
               </li>
             ))}
           </ul>
           <button type="button" className="btn btn-quiet mt-3" disabled={busy} onClick={off}>
-            Apaga tots els avisos en aquest aparell
+            {t('Apaga tots els avisos en aquest aparell', 'Desactivar todos los avisos en este dispositivo')}
           </button>
         </div>
       ) : (
-        !place && <p>Aquest aparell no rep cap avís. Obriu la fitxa del vostre poble i toqueu «Avisos al mòbil».</p>
+        !place && <p>{t('Aquest aparell no rep cap avís. Obriu la fitxa del vostre poble i toqueu «Avisos al mòbil».', 'Este dispositivo no recibe ningún aviso. Abra la ficha de su pueblo y toque «Avisos en el móvil».')}</p>
       )}
     </div>
   );

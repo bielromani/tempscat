@@ -101,6 +101,27 @@ console.log('\nTres avisos alhora, un sol missatge:\n');
   check(!!p.deliveries[0]?.message.body.includes('2 avisos més'), `i diu que n'hi ha més («${p.deliveries[0]?.message.body}»)`);
 }
 
+console.log('\nL’idioma de la subscripció:\n');
+{
+  const es: PushSubscriptionRecord = { ...sub(['malgrat']), lang: 'es' };
+  const ca: PushSubscriptionRecord = { ...sub(['malgrat']), lang: 'ca' };
+  const old = sub(['malgrat']); // d'abans del castellà: sense idioma
+  const p = plan([orange], [es, ca, old], empty, at('10:00'));
+  check(p.deliveries.length === 3, 'un missatge per subscripció, sigui quin sigui l’idioma');
+  const [mEs, mCa, mOld] = p.deliveries.map((d) => d.message);
+  check(mEs?.title === 'Aviso naranja · Lluvia', `en castellà, el títol en castellà («${mEs?.title}»)`);
+  check(!!mEs?.body.includes('Aviso oficial de AEMET') && !mEs?.body.includes('Avís'), `i el cos també («${mEs?.body}»)`);
+  check(!!mEs?.body.includes('100 mm en 12 h'), 'amb el llindar');
+  check(mCa?.title === 'Avís taronja · Pluja' && mOld?.title === mCa?.title, 'sense idioma, en català');
+  check(mOld?.body === mCa?.body, 'i el mateix cos que una de catalana');
+  check(mEs?.url === '/maresme/malgrat', 'la mateixa fitxa: el domini ja és el de la subscripció');
+  const redEs = plan([orange, red], [{ ...sub(['malgrat', 'tordera']), lang: 'es' }], empty, at('10:00'));
+  const d = redEs.deliveries[0];
+  check(d?.message.title === 'Aviso rojo · Lluvia' && d.urgent, `un vermell en castellà, i urgent («${d?.message.title}»)`);
+  check(!!d?.message.body.includes('Y otro aviso de nivel naranja o superior'), `els altres avisos, en castellà («${d?.message.body}»)`);
+  check(!p.deliveries.some((x) => x.urgent), 'un taronja no és urgent');
+}
+
 console.log('\nUn avís que s’acaba:\n');
 {
   const ending = w('e', 'vermell', '2026-11-02T08:00:00+01:00', '2026-11-02T10:20:00+01:00');

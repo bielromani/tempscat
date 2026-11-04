@@ -1,3 +1,5 @@
+import type { Lang } from './lang.ts';
+
 /**
  * Qui respon del lloc.
  *
@@ -13,5 +15,11 @@ export const OWNER = {
   email: 'bielromani@hotmail.com',
 } as const;
 
-/** La data de l'última revisió dels textos legals, per escriure-la al peu. */
-export const LEGAL_UPDATED = '4 de novembre de 2026';
+/**
+ * La data de l'última revisió dels textos legals, per escriure-la al peu, en
+ * cada idioma. Les dues han de dir sempre el mateix dia.
+ */
+export const LEGAL_UPDATED: Record<Lang, string> = {
+  ca: '5 de novembre de 2026',
+  es: '5 de noviembre de 2026',
+};

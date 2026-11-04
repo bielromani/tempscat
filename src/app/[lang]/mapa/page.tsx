@@ -8,6 +8,8 @@ import { temperatureMap } from '@/lib/map';
 import { allObservations } from '@/lib/weather';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { comarcaName, hourSpoken, num } from '@/lib/format';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 
 /**
  * El mapa de temperatures, de tot Catalunya i d'una ullada.
@@ -35,13 +37,18 @@ import { comarcaName, hourSpoken, num } from '@/lib/format';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Mapa de temperatures de Catalunya, comarca a comarca',
-  description:
-    'Quina temperatura fa ara a cada comarca de Catalunya, mesurada per les '
-    + 'estacions del Meteocat i corregida per l’altitud de cada municipi.',
-  alternates: { canonical: '/mapa' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Mapa de temperatures de Catalunya, comarca a comarca', 'Mapa de temperaturas de Cataluña, comarca a comarca'),
+    description: tr(lang,
+      'Quina temperatura fa ara a cada comarca de Catalunya, mesurada per les '
+      + 'estacions del Meteocat i corregida per l’altitud de cada municipi.',
+      'Qué temperatura hace ahora en cada comarca de Cataluña, medida por las '
+      + 'estaciones del Meteocat y corregida por la altitud de cada municipio.'),
+    alternates: { canonical: '/mapa' },
+  };
+}
 
 /**
  * L'hora de la lectura més recent, en hora de Madrid.
@@ -60,6 +67,8 @@ function lastReading(ts: string[]): string | null {
 }
 
 export default async function MapaPage() {
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const data = await temperatureMap();
   const obs = await allObservations();
   const readAt = obs ? lastReading(obs.data.map((o) => o.ts)) : null;
@@ -73,29 +82,41 @@ export default async function MapaPage() {
   const spread = warmest && coldest && warmest.code !== coldest.code;
 
   const trail = [
-    { nom: 'Catalunya', path: '/' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
     { nom: 'Mapa', path: '/mapa' },
   ];
 
   return (
     <article data-wide>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow="Mapa de temperatures"
+        eyebrow={t('Mapa de temperatures', 'Mapa de temperaturas')}
         icon="thermometer"
-        title="On fa fred i on fa calor"
-        lead={spread ? (
+        title={t('On fa fred i on fa calor', 'Dónde hace frío y dónde hace calor')}
+        lead={spread && lang === 'es' ? (
+          <>
+            Ahora mismo hay{' '}
+            <strong className="tnum">{num(warmest.temperature! - coldest.temperature!, 1)} grados</strong>{' '}
+            de diferencia entre {comarcaName(warmest.name, lang)} y {comarcaName(coldest.name, lang)}.
+          </>
+        ) : spread ? (
           <>
             Ara mateix hi ha{' '}
             <strong className="tnum">{num(warmest.temperature! - coldest.temperature!, 1)} graus</strong>{' '}
             de diferència entre {comarcaName(warmest.name)} i {comarcaName(coldest.name)}.
           </>
         ) : (
-          'Encara no hi ha prou observació per dibuixar el mapa.'
+          t('Encara no hi ha prou observació per dibuixar el mapa.', 'Todavía no hay suficiente observación para dibujar el mapa.')
         )}
-        note={(
+        note={lang === 'es' ? (
+          <>
+            Observación de las estaciones de la XEMA del Meteocat
+            {readAt && <>, con lecturas de hasta {hourSpoken(readAt, lang)}</>}, corregida
+            por la altitud de cada municipio.
+          </>
+        ) : (
           <>
             Observació de les estacions de la XEMA del Meteocat
             {readAt && <>, amb lectures de fins a {hourSpoken(readAt)}</>}, corregida
@@ -114,21 +135,21 @@ export default async function MapaPage() {
               className="mt-6"
               stats={[
                 {
-                  label: 'La més càlida', icon: 'thermometer',
+                  label: t('La més càlida', 'La más cálida'), icon: 'thermometer',
                   value: num(warmest.temperature, 1), unit: '°C',
-                  sub: <Link href={warmest.path}>{comarcaName(warmest.name)}</Link>,
+                  sub: <Link href={warmest.path}>{comarcaName(warmest.name, lang)}</Link>,
                 },
                 {
-                  label: 'La més freda', icon: 'thermometer',
+                  label: t('La més freda', 'La más fría'), icon: 'thermometer',
                   value: num(coldest.temperature, 1), unit: '°C',
-                  sub: <Link href={coldest.path}>{comarcaName(coldest.name)}</Link>,
+                  sub: <Link href={coldest.path}>{comarcaName(coldest.name, lang)}</Link>,
                 },
                 {
-                  label: 'Amb observació',
+                  label: t('Amb observació', 'Con observación'),
                   value: String(data.withData), unit: `de ${data.comarques.length}`,
                   sub: data.withData < data.comarques.length
-                    ? 'comarques; les altres, ratllades'
-                    : 'comarques',
+                    ? t('comarques; les altres, ratllades', 'comarcas; las demás, rayadas')
+                    : t('comarques', 'comarcas'),
                 },
               ]}
             />
@@ -136,27 +157,28 @@ export default async function MapaPage() {
         )}
       </PageHero>
 
-      <section className="card" aria-label="Temperatura de cada comarca, ara">
+      <section className="card" aria-label={t('Temperatura de cada comarca, ara', 'Temperatura de cada comarca, ahora')}>
         <p className="card-label">
           {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
           <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
-          Ara, comarca a comarca
+          {t('Ara, comarca a comarca', 'Ahora, comarca a comarca')}
         </p>
         <div className="mx-auto max-w-[50rem]">
-          <TemperatureMap data={data} />
+          <TemperatureMap data={data} lang={lang} />
           <TemperatureLegend
+            lang={lang}
             span={data.min != null && data.max != null ? { min: data.min, max: data.max } : undefined}
           />
         </div>
         <p className="card-foot">
           <Link href="/radar">
-            El mapa que es pot moure, amb el radar i cada municipi ›
+            {t('El mapa que es pot moure, amb el radar i cada municipi ›', 'El mapa que se puede mover, con el radar y cada municipio ›')}
           </Link>
         </p>
       </section>
 
       {withData.length > 0 && (
-        <Section id="ranquing" title="De la més càlida a la més freda">
+        <Section id="ranquing" title={t('De la més càlida a la més freda', 'De la más cálida a la más fría')}>
           <div className="card">
             <ol className="rows rows-cols">
               {withData.map((c, i) => (
@@ -165,12 +187,12 @@ export default async function MapaPage() {
                     {i + 1}
                   </span>
                   <Link href={c.path} className="row-main flex-1">
-                    <span className="row-title">{comarcaName(c.name)}</span>
+                    <span className="row-title">{comarcaName(c.name, lang)}</span>
                     {/* Al mòbil la llista va en una columna i són 43 files:
                         amb la segona línia, el doble d'alt. La xifra de
                         municipis també és al títol de cada comarca del mapa. */}
                     <span className="hidden truncate text-[12.5px] text-[var(--muted)] tnum sm:block">
-                      {c.observed} de {c.total} municipis
+                      {c.observed} de {c.total}{t(' municipis', ' municipios')}
                     </span>
                   </Link>
                   <span
@@ -182,17 +204,45 @@ export default async function MapaPage() {
                 </li>
               ))}
             </ol>
-            <p className="source">
-              Mediana de la temperatura dels municipis de cada comarca, cadascun amb
-              el model corregit per les estacions del voltant.
-              {obs && <> {obs.source}.</>} Límits administratius de l&apos;Institut
-              Cartogràfic i Geològic de Catalunya.
-            </p>
+            {lang === 'es' ? (
+              <p className="source">
+                Mediana de la temperatura de los municipios de cada comarca, cada uno con
+                el modelo corregido por las estaciones de alrededor.
+                {obs && <> {obs.source}.</>} Límites administrativos del Institut
+                Cartogràfic i Geològic de Catalunya.
+              </p>
+            ) : (
+              <p className="source">
+                Mediana de la temperatura dels municipis de cada comarca, cadascun amb
+                el model corregit per les estacions del voltant.
+                {obs && <> {obs.source}.</>} Límits administratius de l&apos;Institut
+                Cartogràfic i Geològic de Catalunya.
+              </p>
+            )}
           </div>
         </Section>
       )}
 
-      <Fold title="Què és exactament cada xifra" summary="La mediana dels municipis, no la mitjana de les estacions">
+      <Fold
+        title={t('Què és exactament cada xifra', 'Qué es exactamente cada cifra')}
+        summary={t('La mediana dels municipis, no la mitjana de les estacions', 'La mediana de los municipios, no la media de las estaciones')}
+      >
+        {lang === 'es' ? (
+        <div className="card prose">
+          <p>
+            <strong>La mediana de los municipios de la comarca</strong>, no la
+            media de sus estaciones. En el Ripollès hay estaciones a 1.900
+            metros y a 700, y la media entre ellas no corresponde a ningún lugar
+            habitado. Cada municipio lleva su temperatura —el modelo corregido con
+            lo que marcan las estaciones de alrededor—, y la mediana de esos valores describe la
+            comarca sin que un solo pueblo de montaña la desplace.
+          </p>
+          <p>
+            Las comarcas rayadas no tienen suficientes municipios con observación ahora
+            mismo. Un color de la escala se leería como una temperatura.
+          </p>
+        </div>
+        ) : (
         <div className="card prose">
           <p>
             <strong>La mediana dels municipis de la comarca</strong>, no la
@@ -207,6 +257,7 @@ export default async function MapaPage() {
             mateix. Un color de l&apos;escala es llegiria com una temperatura.
           </p>
         </div>
+        )}
       </Fold>
     </article>
   );

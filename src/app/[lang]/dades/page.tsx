@@ -5,6 +5,8 @@ import { PageHero, Section } from '@/components/PageHero';
 import { absolute } from '@/lib/site';
 import { publishedPlaces } from '@/lib/territory';
 import { int } from '@/lib/format';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 
 const PLACES = int(publishedPlaces());
 
@@ -17,13 +19,18 @@ const PLACES = int(publishedPlaces());
  */
 export const revalidate = 86_400;
 
-export const metadata: Metadata = {
-  title: 'Dades obertes · API del temps a Catalunya',
-  description:
-    `Feed públic en JSON i CSV per a qualsevol dels ${PLACES} llocs de Catalunya: `
-    + 'observació de la XEMA, predicció multimodel, qualitat de l\'aire i avisos oficials.',
-  alternates: { canonical: '/dades' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Dades obertes · API del temps a Catalunya', 'Datos abiertos · API del tiempo en Cataluña'),
+    description: tr(lang,
+      `Feed públic en JSON i CSV per a qualsevol dels ${PLACES} llocs de Catalunya: `
+      + 'observació de la XEMA, predicció multimodel, qualitat de l\'aire i avisos oficials.',
+      `Feed público en JSON y CSV para cualquiera de los ${PLACES} lugares de Cataluña: `
+      + 'observación de la XEMA, predicción multimodelo, calidad del aire y avisos oficiales.'),
+    alternates: { canonical: '/dades' },
+  };
+}
 
 const EXAMPLE = '/api/lloc/conca-de-barbera/montblanc';
 
@@ -87,7 +94,9 @@ function Endpoint({
   );
 }
 
-export default function DadesPage() {
+export default async function DadesPage() {
+  const lang = await getLang();
+  if (lang === 'es') return <DatosAbiertos />;
   const trail = [
     { nom: 'Catalunya', path: '/' },
     { nom: 'Dades obertes', path: '/dades' },
@@ -323,6 +332,243 @@ export default function DadesPage() {
             hi ha quan es va actualitzar cada font per última vegada, i a{' '}
             <Link href="/dades/encert">com encerta la temperatura</Link>, quant s&apos;equivoca
             la temperatura d&apos;ara comparada amb la dels models.
+          </p>
+        </div>
+      </Section>
+    </article>
+  );
+}
+
+/**
+ * La misma página en castellano. Dice lo mismo, punto por punto: si se cambia
+ * una, la otra el mismo día.
+ *
+ * `/api/lloc` todavía no recibe el idioma, así que `summary` sigue llegando en
+ * catalán también desde es.tempscat.cat, y la página lo dice así.
+ */
+function DatosAbiertos() {
+  const trail = [
+    { nom: 'Cataluña', path: '/' },
+    { nom: 'Datos abiertos', path: '/dades' },
+  ];
+
+  return (
+    <article data-wide>
+      <JsonLd data={graph(
+        {
+          '@type': 'Dataset',
+          name: 'El tiempo en Cataluña, pueblo a pueblo',
+          description:
+            `Observación y predicción para ${PLACES} poblaciones de Cataluña: municipios, `
+            + 'núcleos y entidades de población, cada punto con su altitud y '
+            + 'la estación automática de referencia. En JSON y en CSV, sin clave.',
+          url: absolute('/dades', 'es'),
+          inLanguage: 'es',
+          license: 'https://creativecommons.org/licenses/by/4.0/',
+          isAccessibleForFree: true,
+          keywords: ['meteorología', 'Cataluña', 'predicción', 'observación', 'datos abiertos'],
+          spatialCoverage: { '@type': 'Place', name: 'Cataluña' },
+          creator: { '@type': 'Organization', name: 'El temps a Catalunya', url: absolute('/', 'es') },
+          distribution: [
+            {
+              '@type': 'DataDownload',
+              encodingFormat: 'application/json',
+              contentUrl: absolute('/api/lloc/maresme/malgrat-de-mar', 'es'),
+            },
+            {
+              '@type': 'DataDownload',
+              encodingFormat: 'text/csv',
+              contentUrl: absolute('/api/lloc/maresme/malgrat-de-mar.csv', 'es'),
+            },
+          ],
+        },
+        breadcrumbLd(trail, 'es'),
+      )} />
+
+      <PageHero
+        crumbs={trail}
+        eyebrow="API del tiempo en Cataluña"
+        icon="barometer"
+        title="Datos abiertos"
+        lead={(
+          <>
+            Todo lo que se ve en esta web se puede leer en JSON o en CSV, para
+            cualquiera de los {PLACES} lugares. Sin clave, sin registro y sin límite
+            de peticiones.
+          </>
+        )}
+        stats={[
+          { label: 'Lugares', value: PLACES, sub: 'municipios, núcleos y entidades' },
+          { label: 'Formatos', value: 'JSON', unit: 'y CSV', sub: 'en CSV, la serie horaria' },
+          { label: 'Licencia', value: 'CC BY', unit: '4.0', sub: 'hay que citar la fuente' },
+        ]}
+        note="El feed lee los mismos archivos que la página: lo que devuelve es lo que se ve en ella."
+        aside={(
+          <section className="card" aria-label="Una respuesta de ejemplo">
+            <p className="card-label">
+              {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
+              <img src="/icons/w/barometer.svg" width={22} height={22} alt="" />
+              Una respuesta, por bloques
+            </p>
+            <Code>
+              <span className="font-semibold text-[var(--accent)]">GET</span> <Path path={EXAMPLE} />
+            </Code>
+            <Code className="mt-3">
+              {'{\n'}
+              {'  '}<K>version</K>: 1,{'\n'}
+              {'  '}<K>sources</K>: [ … ],{'\n'}
+              {'  '}<K>location</K>: {'{'} … {'}'},{'\n'}
+              {'  '}<K>observation</K>: {'{'} … {'}'},{'\n'}
+              {'  '}<K>forecast</K>: {'{'}{'\n'}
+              {'    '}<K>now</K>, <K>hourly</K>, <K>daily</K>, …{'\n'}
+              {'  '}{'}'},{'\n'}
+              {'  '}<K>rain_windows</K>: [ … ],{'\n'}
+              {'  '}<K>summary</K>: {'{'} … {'}'},{'\n'}
+              {'  '}<K>air_quality</K>: {'{'} … {'}'},{'\n'}
+              {'  '}<K>warnings</K>: [ … ]{'\n'}
+              {'}'}
+            </Code>
+            <p className="card-foot">
+              <Link href={EXAMPLE}>Ábrala entera ›</Link>
+            </p>
+          </section>
+        )}
+      />
+
+      <Section id="punts" title="Puntos de acceso">
+        <ul className="card-grid">
+          <Endpoint path="/api/lloc/{comarca}/{municipi}" example={EXAMPLE}>
+            Observación, predicción horaria y diaria, franjas del día, ventanas de
+            lluvia con su intensidad, calidad del aire, avisos oficiales y
+            el resumen en catalán: las mismas frases que salen en la ficha catalana.
+          </Endpoint>
+
+          <Endpoint path="/api/lloc/{comarca}/{municipi}/{nucli}" example="/api/lloc/conca-de-barbera/montblanc/lilla">
+            Igual, para un núcleo o una entidad de población: la predicción de Lilla
+            no es la de Montblanc.
+          </Endpoint>
+
+          <Endpoint path="/api/ranquings" example="/api/ranquings">
+            Los extremos del día: dónde se ha registrado la máxima y la mínima, qué estación ha
+            tenido más amplitud térmica, dónde ha llovido más y las rachas más fuertes.
+          </Endpoint>
+        </ul>
+      </Section>
+
+      <Section id="parametres" title="Parámetros">
+        <div className="card">
+          <div className="scroll-x">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Parámetro</th>
+                  <th scope="col">Qué hace</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="whitespace-nowrap"><C>hours</C></td>
+                  <td className="leading-relaxed">
+                    Horas de serie horaria{' '}
+                    <strong className="font-semibold text-[var(--ink)]">contadas desde las 00:00
+                    de hoy</strong>, no desde ahora: el feed devuelve lo mismo que dibuja
+                    la página, día entero incluido. Por defecto 48; el máximo es 168, que es
+                    el horizonte del modelo.
+                    <span className="mt-1.5 block">
+                      Para las próximas N horas, <C>forecast.now</C> lleva la hora en curso
+                      y su índice dentro de la serie: así no hace falta recalcular la zona horaria de
+                      Madrid en el cliente.
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="whitespace-nowrap"><C>format=csv</C></td>
+                  <td className="leading-relaxed">
+                    La serie horaria en CSV, con el viento ya en km/h y la procedencia en las
+                    líneas de comentario. Pensado para abrirlo en una hoja de cálculo.
+                    <span className="mt-1.5 block">
+                      <Link
+                        href={`${EXAMPLE}?format=csv`}
+                        className="font-mono text-[13px] [overflow-wrap:anywhere]"
+                        style={{ color: 'var(--accent)' }}
+                      >
+                        {EXAMPLE}?format=csv
+                      </Link>
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Section>
+
+      <Section id="camps" title="Qué lleva cada respuesta">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4">
+          <div className="card prose">
+            <h3 style={{ marginTop: 0 }}>La procedencia de cada número</h3>
+            <p>
+              Cada observación lleva la estación de donde sale, a qué distancia está y
+              cuánto desnivel hay. <C>temperature_station</C> es la lectura en bruto, y{' '}
+              <C>temperature</C>, la temperatura del lugar: el modelo meteorológico corregido
+              con lo que marcan las estaciones de alrededor (<C>temperature_method</C>{' '}
+              lo dice, y <Link href="/dades/encert">aquí está cuánto acierta</Link>). Si
+              esa cifra falta, es la lectura corregida por el desnivel con el
+              gradiente estándar de 6,5 °C/km.
+            </p>
+          </div>
+          <div className="card prose">
+            <h3 style={{ marginTop: 0 }}>La intensidad de la lluvia, no solo el acumulado</h3>
+            <p>
+              Cada ventana de lluvia lleva su hora punta y cuántos milímetros
+              caen en esa hora, con la escala de AEMET. «Llueve de 4 a 7» no
+              distingue la llovizna de una tormenta; <C>peak_precipitation</C> sí.
+            </p>
+          </div>
+          <div className="card prose">
+            <h3 style={{ marginTop: 0 }}>El desacuerdo entre modelos</h3>
+            <p>
+              <C>spread</C> es la desviación entre los modelos que entran en el consenso. Cuando
+              vale <C>null</C>, en ese punto solo hay un modelo, y con uno solo no hay
+              desacuerdo.
+            </p>
+          </div>
+          <div className="card prose">
+            <h3 style={{ marginTop: 0 }}>Las frases</h3>
+            <p>
+              <C>summary</C> lleva el resumen en catalán. Lo generan plantillas
+              deterministas y no un modelo de lenguaje: con los mismos datos sale
+              siempre la misma frase.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      <Section id="condicions" title="Condiciones">
+        <div className="card prose">
+          <p>
+            Los datos son <strong>CC BY 4.0</strong>: se pueden usar para
+            cualquier cosa, también comercial, pero <strong>hay que citar la fuente</strong>.
+            Cada respuesta lleva un campo <C>sources</C> con los créditos exactos de cada
+            bloque, porque no son los mismos: la observación es del Meteocat, la
+            predicción de Open-Meteo, la calidad del aire de CAMS y los avisos
+            de AEMET.
+          </p>
+          <p>
+            Cada respuesta lleva también un campo <C>version</C>. Mientras valga 1, los
+            nombres de campo no desaparecerán: si hay que cambiarlos, subirá el número.
+          </p>
+          <p>
+            Los nombres de los campos van en inglés: son los identificadores que usa
+            el proyecto por dentro, y coinciden con los de Open-Meteo y de la XEMA.
+          </p>
+          <p className="text-sm text-[var(--muted)]">
+            La predicción es orientativa y el feed no es un servicio con garantías. Para
+            decisiones de seguridad, la fuente son el Meteocat y Protecció Civil. Si
+            monta algo que dependa de ello, en <Link href="/estat">el estado de los datos</Link>{' '}
+            está cuándo se actualizó cada fuente por última vez, y en{' '}
+            <Link href="/dades/encert">cómo acierta la temperatura</Link>, cuánto se equivoca
+            la temperatura de ahora comparada con la de los modelos.
           </p>
         </div>
       </Section>

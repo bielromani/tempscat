@@ -3,7 +3,8 @@ import { WindRose } from './WindRose';
 import { StatGrid, type HeroStat } from './PageHero';
 import { msToKmh } from '@/lib/variables';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { aName, deName, int, monthOf, num, ordinal, signed } from '@/lib/format';
+import { aName, deName, int, monthName as monthNameOf, monthOf, num, ordinal, signed } from '@/lib/format';
+import { tr, type Lang } from '@/lib/lang';
 import { MONTH_MIN_DAYS } from '@/lib/climate-math';
 import type { StationHistory } from '@/lib/weather';
 import type { StationRef } from '@/lib/territory';
@@ -47,8 +48,8 @@ const MONTHS = [
   'juliol', 'agost', 'setembre', 'octubre', 'novembre', 'desembre',
 ];
 
-const fmtDate = (iso: string) =>
-  new Date(`${iso}T12:00:00`).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmtDate = (iso: string, lang: Lang = 'ca') =>
+  new Date(`${iso}T12:00:00`).toLocaleDateString(tr(lang, 'ca-ES', 'es-ES'), { day: 'numeric', month: 'short', year: 'numeric' });
 
 /**
  * «del 7 de set.» però «de l'1 d'oct.» i «de l'11»: el dia es llegeix «u» i
@@ -58,6 +59,8 @@ const fmtDate = (iso: string) =>
 const vowelDay = (iso: string) => iso.slice(8, 10) === '01' || iso.slice(8, 10) === '11';
 const delDate = (iso: string) => `${vowelDay(iso) ? "de l'" : 'del '}${fmtDate(iso)}`;
 const alDate = (iso: string) => `${vowelDay(iso) ? "a l'" : 'al '}${fmtDate(iso)}`;
+/** En castellano el día no contrae: «desde el 1 oct 2020», «hasta el 11 sept 2026». */
+const elDate = (iso: string) => `el ${fmtDate(iso, 'es')}`;
 
 /**
  * Dues dates d'un mateix tram, sense repetir l'any.
@@ -65,11 +68,11 @@ const alDate = (iso: string) => `${vowelDay(iso) ? "a l'" : 'al '}${fmtDate(iso)
  * «16 de maig del 2026 – 2 d'ag. del 2026» escriu el 2026 dues vegades en una
  * cel·la estreta; l'any va un cop, al final, que és on el català el posa.
  */
-function spellDates(from: string, to: string) {
-  if (from.slice(0, 4) !== to.slice(0, 4)) return `${fmtDate(from)} – ${fmtDate(to)}`;
+function spellDates(from: string, to: string, lang: Lang = 'ca') {
+  if (from.slice(0, 4) !== to.slice(0, 4)) return `${fmtDate(from, lang)} – ${fmtDate(to, lang)}`;
   const dayMonth = (iso: string) =>
-    new Date(`${iso}T12:00:00`).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
-  return `${dayMonth(from)} – ${fmtDate(to)}`;
+    new Date(`${iso}T12:00:00`).toLocaleDateString(tr(lang, 'ca-ES', 'es-ES'), { day: 'numeric', month: 'short' });
+  return `${dayMonth(from)} – ${fmtDate(to, lang)}`;
 }
 
 /**
@@ -81,17 +84,18 @@ function spellDates(from: string, to: string) {
  * capçalera.
  */
 function counter(
-  { label, month, year, hint, monthCovered }:
-  { label: string; month: number; year: number; hint: string; monthCovered: boolean },
+  { label, month, year, hint, monthCovered, lang = 'ca' }:
+  { label: string; month: number; year: number; hint: string; monthCovered: boolean; lang?: Lang },
 ): HeroStat {
   return {
     label,
     value: int(year),
-    unit: "l'any",
+    unit: tr(lang, "l'any", 'al año'),
     sub: (
       <>
-        {monthCovered && <span className="block"><span className="tnum">{int(month)}</span> aquest mes</span>}
-        <span className="block text-[var(--muted)]">{hint}</span>
+        {monthCovered && <span className="block"><span className="tnum">{int(month)}</span>{tr(lang, ' aquest mes', ' este mes')}</span>}
+        {/* El llindar és el mateix als dos idiomes menys l'accent de «màxima». */}
+        <span className="block text-[var(--muted)]">{tr(lang, hint, hint.replace('màxima', 'máxima'))}</span>
       </>
     ),
   };
@@ -109,7 +113,7 @@ function Label({ icon, children }: { icon: string; children: React.ReactNode }) 
 }
 
 /** Gráfico de barras de los últimos 30 días: temperatura y lluvia. */
-function RecentChart({ daily }: { daily: StationHistory['daily'] }) {
+function RecentChart({ daily, lang }: { daily: StationHistory['daily']; lang: Lang }) {
   const data = daily.slice(-30).filter((d) => d.tMax != null || d.tMin != null);
   if (data.length < 5) return null;
 
@@ -129,7 +133,9 @@ function RecentChart({ daily }: { daily: StationHistory['daily'] }) {
        direcció gira el sentit de `text-anchor`. */
     <div className="scroll-x" style={{ direction: 'rtl' }}>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 520, direction: 'ltr' }} role="img"
-        aria-label={`Temperatures màximes i mínimes i precipitació dels últims ${data.length} dies`}>
+        aria-label={tr(lang,
+          `Temperatures màximes i mínimes i precipitació dels últims ${data.length} dies`,
+          `Temperaturas máximas y mínimas y precipitación de los últimos ${data.length} días`)}>
         {[lo, Math.round((lo + hi) / 2), hi].map((t) => {
           const y = PAD_T + plotH - ((t - lo) / span) * plotH;
           return (
@@ -161,7 +167,7 @@ function RecentChart({ daily }: { daily: StationHistory['daily'] }) {
                 width={Math.max(3, step * 0.6)} height={Math.max(2, yMin - yMax)}
                 fill={`url(#g${i})`} rx={2}
               >
-                <title>{`${fmtDate(d.day)}: ${num(d.tMin, 1)} a ${num(d.tMax, 1)} °C${d.precip ? ` · ${num(d.precip, 1)} mm` : ''}`}</title>
+                <title>{`${fmtDate(d.day, lang)}: ${num(d.tMin, 1)} a ${num(d.tMax, 1)} °C${d.precip ? ` · ${num(d.precip, 1)} mm` : ''}`}</title>
               </rect>
             </g>
           );
@@ -175,7 +181,7 @@ function RecentChart({ daily }: { daily: StationHistory['daily'] }) {
           return (
             <rect key={`r${d.day}`} x={x - Math.max(1.5, step * 0.3)} y={H - 18 - h}
               width={Math.max(3, step * 0.6)} height={h} fill="oklch(52% 0.13 245)" rx={1}>
-              <title>{`${fmtDate(d.day)}: ${num(d.precip, 1)} mm`}</title>
+              <title>{`${fmtDate(d.day, lang)}: ${num(d.precip, 1)} mm`}</title>
             </rect>
           );
         })}
@@ -232,21 +238,24 @@ interface Props {
    * mateixa rosa sortia dues vegades a la mateixa pàgina.
    */
   withRose?: boolean;
+  lang?: Lang;
 }
 
 export function ClimateBlock({
-  history, station, month, today, stationHref, dryStreak: dryStreakNow, withRose = true,
+  history, station, month, today, stationHref, dryStreak: dryStreakNow, withRose = true, lang = 'ca',
 }: Props) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
+  const es = lang === 'es';
   const { records, counters, normals, monthAnomaly, monthProgress } = history;
   const dryStreak = dryStreakNow ?? history.dryStreak;
   const normal = normals.find((n) => n.month === month);
-  const monthName = MONTHS[month - 1];
+  const monthName = es ? monthNameOf(month, lang) : MONTHS[month - 1];
   /*
    * «de setembre» però «d'octubre», «d'abril» i «d'agost». Anava escrit a mà
    * —`de ${monthName}`— i al setembre no es notava: l'1 d'octubre totes les
    * fitxes haurien dit «dies de octubre». Ver `monthOf()`.
    */
-  const deMonth = monthOf(month);
+  const deMonth = monthOf(month, lang);
 
   /*
    * Cuánto se desvía el mes en curso, y **contra qué**.
@@ -321,21 +330,21 @@ export function ClimateBlock({
    */
   const recent = history.daily.slice(-30);
   const columns = ([
-    { label: 'Màx.', cell: (d: typeof recent[0]) => (d.tMax != null ? `${num(d.tMax, 1)}°` : null) },
-    { label: 'Mín.', cell: (d: typeof recent[0]) => (d.tMin != null ? `${num(d.tMin, 1)}°` : null) },
-    { label: 'Mitj.', dim: true, cell: (d: typeof recent[0]) => (d.tMean != null ? `${num(d.tMean, 1)}°` : null) },
+    { key: 'tMax', label: t('Màx.', 'Máx.'), cell: (d: typeof recent[0]) => (d.tMax != null ? `${num(d.tMax, 1)}°` : null) },
+    { key: 'tMin', label: t('Mín.', 'Mín.'), cell: (d: typeof recent[0]) => (d.tMin != null ? `${num(d.tMin, 1)}°` : null) },
+    { key: 'tMean', label: t('Mitj.', 'Media'), dim: true, cell: (d: typeof recent[0]) => (d.tMean != null ? `${num(d.tMean, 1)}°` : null) },
     /*
      * Zero mil·límetres mesurats i cap mesura no són el mateix, i aquí sortien
      * tots dos com el mateix guio pal·lid. En una taula d'una estació que
      * només mesura pluja, aquesta diferència és tota la columna.
      */
-    { label: 'Pluja', cell: (d: typeof recent[0]) => (d.precip != null ? (d.precip ? `${num(d.precip, 1)} mm` : '0') : null) },
-    { label: 'Ratxa', dim: true, cell: (d: typeof recent[0]) => (d.gust != null ? `${msToKmh(d.gust).toFixed(0)}` : null) },
-    { label: 'HR', dim: true, cell: (d: typeof recent[0]) => (d.rhMean != null ? `${d.rhMean} %` : null) },
-  ] as Array<{ label: string; dim?: boolean; cell: (d: typeof recent[0]) => string | null }>)
+    { key: 'precip', label: t('Pluja', 'Lluvia'), cell: (d: typeof recent[0]) => (d.precip != null ? (d.precip ? `${num(d.precip, 1)} mm` : '0') : null) },
+    { key: 'gust', label: t('Ratxa', 'Racha'), dim: true, cell: (d: typeof recent[0]) => (d.gust != null ? `${msToKmh(d.gust).toFixed(0)}` : null) },
+    { key: 'rh', label: 'HR', dim: true, cell: (d: typeof recent[0]) => (d.rhMean != null ? `${d.rhMean} %` : null) },
+  ] as Array<{ key: string; label: string; dim?: boolean; cell: (d: typeof recent[0]) => string | null }>)
     // La pluja és el cas que ho demana: un dia de 0 mm és una mesura, i
     // `d.precip ? ...` el pinta com un buit. Es mira la dada, no la cel·la.
-    .filter((c) => (c.label === 'Pluja'
+    .filter((c) => (c.key === 'precip'
       ? recent.some((d) => d.precip != null)
       : recent.some((d) => c.cell(d) != null)));
   const hasChart = recent.filter((d) => d.tMax != null || d.tMin != null).length >= 5;
@@ -360,7 +369,7 @@ export function ClimateBlock({
         {/* ── Anomalía del mes ── */}
         {hasMonthCard && (
           <div className="card">
-            <Label icon="thermometer">Com va aquest {monthName}</Label>
+            <Label icon="thermometer">{es ? <>Cómo va este {monthName}</> : <>Com va aquest {monthName}</>}</Label>
             {hasTemp && gap != null && (
             <p className="flex flex-wrap items-baseline gap-x-3">
               <span
@@ -372,7 +381,14 @@ export function ClimateBlock({
               {/* «per damunt» i «per sota» demanen «de», i amb l'article
                   «dels»: sense contreure surt «per damunt els mateixos dies». */}
               <span className="text-[var(--ink-2)]">
-                {monthProgress
+                {es ? (monthProgress
+                  ? gap === 0
+                    ? 'igual que estos mismos días en los otros años'
+                    : `por ${gap > 0 ? 'encima' : 'debajo'} de los mismos días de los otros años`
+                  : gap === 0
+                    ? 'igual que la media'
+                    : `por ${gap > 0 ? 'encima' : 'debajo'} de la media`)
+                : monthProgress
                   ? gap === 0
                     ? 'igual que aquests mateixos dies els altres anys'
                     : `per ${gap > 0 ? 'damunt' : 'sota'} dels mateixos dies dels altres anys`
@@ -390,7 +406,28 @@ export function ClimateBlock({
               responde nada. El cálculo es del worker —la página solo tiene 45
               días de serie— y está en `monthProgressOf`.
             */}
-            {monthProgress && (
+            {monthProgress && es && (
+              <p className="mt-2 text-[15px] leading-relaxed text-[var(--ink-2)]">
+                Con {monthProgress.days} {monthProgress.days === 1 ? 'día' : 'días'}{' '}
+                {deMonth} medidos, {aName(station.nom, lang)} se han registrado{' '}
+                <strong className="font-semibold text-[var(--ink)]">{num(monthProgress.tMean, 1)} °C</strong>{' '}
+                de media, frente a los {num(monthProgress.normal, 1)} °C habituales en
+                estos mismos días. Es el{' '}
+                <strong className="font-semibold text-[var(--ink)]">
+                  {monthProgress.rank === 1
+                    ? `${monthName} más cálido de ${monthProgress.total}`
+                    : monthProgress.rank === monthProgress.total
+                      ? `${monthName} más frío de ${monthProgress.total}`
+                      : `${ordinal(monthProgress.rank, lang)} ${monthName} más cálido de ${monthProgress.total}`}
+                </strong>{' '}
+                en este tramo del mes.
+                {monthProgress.rank !== 1 && (
+                  ` El más cálido fue el de ${monthProgress.warmest.year}, con `
+                  + `${num(monthProgress.warmest.tMean, 1)} °C.`
+                )}
+              </p>
+            )}
+            {monthProgress && !es && (
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--ink-2)]">
                 Amb {monthProgress.days} {monthProgress.days === 1 ? 'dia' : 'dies'}{' '}
                 {deMonth} mesurats, {aName(station.nom)} hi ha fet{' '}
@@ -423,7 +460,14 @@ export function ClimateBlock({
               deriva del calendario y no una anomalía. No se calla porque un
               número grande sin decir contra qué se mide es el que se cita.
             */}
-            {hasTemp && !monthProgress && monthCovered && monthDays.length < MONTH_MIN_DAYS && (
+            {es && hasTemp && !monthProgress && monthCovered && monthDays.length < MONTH_MIN_DAYS && (
+              <p className="mt-2 text-[15px] leading-relaxed text-[var(--ink-2)]">
+                {monthDays.length === 1 ? 'Es un solo día comparado' : `Son ${monthDays.length} días comparados`} con la
+                media {deMonth} entero, y {monthName} no empieza como acaba:
+                una parte de estos grados es el paso del mes y no una desviación.
+              </p>
+            )}
+            {!es && hasTemp && !monthProgress && monthCovered && monthDays.length < MONTH_MIN_DAYS && (
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--ink-2)]">
                 {monthDays.length === 1 ? 'És un sol dia comparat' : `Són ${monthDays.length} dies comparats`} amb la
                 mitjana {deMonth} sencer, i el {monthName} no comença com acaba:
@@ -431,6 +475,32 @@ export function ClimateBlock({
               </p>
             )}
 
+            {es && (
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+              {tempNormal && (
+                `La media ${deMonth} entero ${aName(station.nom, lang)} es de `
+                + `${num(normal!.tMean!, 1)} °C, calculada sobre ${normal.years} años `
+                + 'de serie de la misma estación.'
+              )}
+              {normal.precip != null && (
+                (tempNormal ? ' Suelen' : 'Suelen')
+                + (monthCovered
+                  ? ` caer ${int(normal.precip)} mm en todo el mes, y `
+                    + (monthDays.length === 1
+                      ? `en el único día ${deMonth} que ya tiene la serie `
+                      : `en los ${monthDays.length} días ${deMonth} que ya tiene la serie `)
+                    + `han caído `
+                    + `${int(counters.precip.month)} mm.`
+                  : ` caer ${int(normal.precip)} mm en todo el mes; ${deMonth} `
+                    + 'la serie todavía no tiene ningún día.')
+              )}
+              {!hasThermometer && (
+                (normal.precipYears ? ` Es la media de ${normal.precipYears} años.` : '')
+                + ` En ${station.nom} no se mide la temperatura: solo hay pluviómetro.`
+              )}
+            </p>
+            )}
+            {!es && (
             <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
               {tempNormal && (
                 `La mitjana ${deMonth} sencer ${aName(station.nom)} és de `
@@ -471,6 +541,7 @@ export function ClimateBlock({
                 + ` A ${station.nom} no es mesura la temperatura: només hi ha pluviòmetre.`
               )}
             </p>
+            )}
 
             {/*
               Y la puerta al histórico entero, que es lo que sigue a la frase de
@@ -483,7 +554,7 @@ export function ClimateBlock({
             {stationHref && (
               <p className="card-foot">
                 <Link href={`${stationHref}#anys`}>
-                  Com han anat els anys {aName(station.nom)} ›
+                  {es ? <>Cómo han ido los años {aName(station.nom, lang)} ›</> : <>Com han anat els anys {aName(station.nom)} ›</>}
                 </Link>
               </p>
             )}
@@ -492,7 +563,7 @@ export function ClimateBlock({
 
         {/* ── Récords ── */}
         <div className={hasMonthCard ? 'card' : 'card @3xl:col-span-2'}>
-          <Label icon="thermometer">Rècords de l&apos;estació</Label>
+          <Label icon="thermometer">{t("Rècords de l'estació", 'Récords de la estación')}</Label>
           {/*
             Files i no una taula de tres columnes: la data va sota el nom del
             rècord, així que al mòbil no hi ha res a desplaçar de costat.
@@ -501,8 +572,8 @@ export function ClimateBlock({
             {records.tMaxAbs && (
               <li>
                 <span className="row-main">
-                  <span className="row-title">Temperatura més alta</span>
-                  <span className="row-sub tnum">{fmtDate(records.tMaxAbs.date)}</span>
+                  <span className="row-title">{t('Temperatura més alta', 'Temperatura más alta')}</span>
+                  <span className="row-sub tnum">{fmtDate(records.tMaxAbs.date, lang)}</span>
                 </span>
                 <span
                   className="temp-pill"
@@ -515,8 +586,8 @@ export function ClimateBlock({
             {records.tMinAbs && (
               <li>
                 <span className="row-main">
-                  <span className="row-title">Temperatura més baixa</span>
-                  <span className="row-sub tnum">{fmtDate(records.tMinAbs.date)}</span>
+                  <span className="row-title">{t('Temperatura més baixa', 'Temperatura más baja')}</span>
+                  <span className="row-sub tnum">{fmtDate(records.tMinAbs.date, lang)}</span>
                 </span>
                 <span
                   className="temp-pill"
@@ -529,8 +600,8 @@ export function ClimateBlock({
             {records.precipMaxDay && (
               <li>
                 <span className="row-main">
-                  <span className="row-title">Dia amb més pluja</span>
-                  <span className="row-sub tnum">{fmtDate(records.precipMaxDay.date)}</span>
+                  <span className="row-title">{t('Dia amb més pluja', 'Día con más lluvia')}</span>
+                  <span className="row-sub tnum">{fmtDate(records.precipMaxDay.date, lang)}</span>
                 </span>
                 <span className="row-value">{num(records.precipMaxDay.value, 1)} mm</span>
               </li>
@@ -538,8 +609,8 @@ export function ClimateBlock({
             {records.gustMax && (
               <li>
                 <span className="row-main">
-                  <span className="row-title">Ratxa de vent més forta</span>
-                  <span className="row-sub tnum">{fmtDate(records.gustMax.date)}</span>
+                  <span className="row-title">{t('Ratxa de vent més forta', 'Racha de viento más fuerte')}</span>
+                  <span className="row-sub tnum">{fmtDate(records.gustMax.date, lang)}</span>
                 </span>
                 <span className="row-value">{int(msToKmh(records.gustMax.value))} km/h</span>
               </li>
@@ -552,13 +623,38 @@ export function ClimateBlock({
             {records.drySpell && records.drySpell.days >= 20 && (
               <li>
                 <span className="row-main">
-                  <span className="row-title">Ratxa seca més llarga</span>
-                  <span className="row-sub tnum">{spellDates(records.drySpell.from, records.drySpell.to)}</span>
+                  <span className="row-title">{t('Ratxa seca més llarga', 'Racha seca más larga')}</span>
+                  <span className="row-sub tnum">{spellDates(records.drySpell.from, records.drySpell.to, lang)}</span>
                 </span>
-                <span className="row-value">{int(records.drySpell.days)} dies</span>
+                <span className="row-value">{int(records.drySpell.days)}{t(' dies', ' días')}</span>
               </li>
             )}
           </ul>
+          {es ? (
+          <p className="source">
+            Medidos en la estación{' '}
+            {stationHref
+              ? (
+                <Link href={stationHref} className="font-medium text-[var(--ink-2)] no-underline hover:underline">
+                  {deName(station.nom, lang)}
+                </Link>
+              )
+              : <strong className="font-medium text-[var(--ink-2)]">{deName(station.nom, lang)}</strong>}
+            {station.distKm > 0 && `, a ${num(station.distKm, 1)} km`}
+            {station.dAltM != null && Math.abs(station.dAltM) >= 25 && ` y ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivel`}.
+            {records.since && (
+              ` Serie desde ${elDate(records.since)}`
+              + (records.days > 0 ? ` · ${int(records.days)} días con dato` : '')
+              + (yearsOfSeries != null && yearsOfSeries > 0 ? ` (${yearsOfSeries} años)` : '')
+              + '.'
+            )}
+            {records.drySpell && records.drySpell.days >= 20
+              && records.drySpell.years < records.drySpell.ofYears && (
+              ` La racha seca se busca solo en los ${records.drySpell.years} años que tienen todos los días: `
+              + 'en un año con días perdidos, una racha sale partida y parece más corta.'
+            )}
+          </p>
+          ) : (
           <p className="source">
             Mesurats a l&apos;estació{' '}
             {stationHref
@@ -597,29 +693,38 @@ export function ClimateBlock({
               + 'a un any amb dies perduts, una ratxa surt partida i sembla més curta.'
             )}
           </p>
+          )}
         </div>
 
         {/* ── Contadores ── */}
         {(hasThermometer || hasGauge) && (
           <div className="@3xl:col-span-2">
-            <Label icon="thermometer">Comptadors de l&apos;any</Label>
+            <Label icon="thermometer">{t("Comptadors de l'any", 'Contadores del año')}</Label>
             <StatGrid
               stats={[
-                hasThermometer && counter({ label: "Dies d'estiu", month: counters.summerDays.month, year: counters.summerDays.year, hint: 'màxima ≥\u00a025\u00a0°C', monthCovered }),
-                hasThermometer && counter({ label: 'Dies de calor', month: counters.hotDays.month, year: counters.hotDays.year, hint: 'màxima ≥\u00a030\u00a0°C', monthCovered }),
-                hasThermometer && counter({ label: 'Nits tropicals', month: counters.tropicalNights.month, year: counters.tropicalNights.year, hint: 'mínima ≥\u00a020\u00a0°C', monthCovered }),
-                hasThermometer && counter({ label: 'Dies de glaçada', month: counters.frostDays.month, year: counters.frostDays.year, hint: 'mínima <\u00a00\u00a0°C', monthCovered }),
-                hasGauge && counter({ label: 'Dies de pluja', month: counters.rainDays.month, year: counters.rainDays.year, hint: '≥\u00a00,2\u00a0mm', monthCovered }),
+                hasThermometer && counter({ label: t("Dies d'estiu", 'Días de verano'), month: counters.summerDays.month, year: counters.summerDays.year, hint: 'màxima ≥\u00a025\u00a0°C', monthCovered, lang }),
+                hasThermometer && counter({ label: t('Dies de calor', 'Días de calor'), month: counters.hotDays.month, year: counters.hotDays.year, hint: 'màxima ≥\u00a030\u00a0°C', monthCovered, lang }),
+                hasThermometer && counter({ label: t('Nits tropicals', 'Noches tropicales'), month: counters.tropicalNights.month, year: counters.tropicalNights.year, hint: 'mínima ≥\u00a020\u00a0°C', monthCovered, lang }),
+                hasThermometer && counter({ label: t('Dies de glaçada', 'Días de helada'), month: counters.frostDays.month, year: counters.frostDays.year, hint: 'mínima <\u00a00\u00a0°C', monthCovered, lang }),
+                hasGauge && counter({ label: t('Dies de pluja', 'Días de lluvia'), month: counters.rainDays.month, year: counters.rainDays.year, hint: '≥\u00a00,2\u00a0mm', monthCovered, lang }),
               ]}
             />
-            {dryStreak >= 5 && (
+            {dryStreak >= 5 && (es ? (
+              <p className="mt-3 text-[15px] text-[var(--ink-2)]">
+                Lleva <strong className="font-semibold text-[var(--ink)]">{dryStreak} días</strong> seguidos sin llover nada.
+              </p>
+            ) : (
               <p className="mt-3 text-[15px] text-[var(--ink-2)]">
                 Fa <strong className="font-semibold text-[var(--ink)]">{dryStreak} dies</strong> seguits que no hi plou gens.
               </p>
-            )}
+            ))}
             {/* Una vegada per als cinc, i no cinc vegades. */}
             <p className="source">
-              {lastMonthDay
+              {es
+                ? lastMonthDay
+                  ? `El recuento del mes llega hasta ${elDate(lastMonthDay)}: el conjunto diario de la XEMA se publica con dos días de retraso.`
+                  : 'El conjunto diario de la XEMA se publica con dos días de retraso, y de este mes todavía no hay ningún día.'
+                : lastMonthDay
                 ? `El recompte del mes arriba fins ${alDate(lastMonthDay)}: el conjunt diari de la XEMA es publica amb dos dies de retard.`
                 : 'El conjunt diari de la XEMA es publica amb dos dies de retard, i d’aquest mes encara no n’hi ha cap dia.'}
             </p>
@@ -635,12 +740,12 @@ export function ClimateBlock({
         */}
         {withRose && history.rose && (
           <div className="card @3xl:col-span-2">
-            <Label icon="wind">D&apos;on ve el vent</Label>
-            <WindRose rose={history.rose} />
+            <Label icon="wind">{t("D'on ve el vent", 'De dónde viene el viento')}</Label>
+            <WindRose rose={history.rose} lang={lang} />
             {stationHref && (
               <p className="card-foot">
                 <Link href={stationHref}>
-                  Fitxa completa de l&apos;estació {deName(station.nom)} ›
+                  {es ? <>Ficha completa de la estación {deName(station.nom, lang)} ›</> : <>Fitxa completa de l&apos;estació {deName(station.nom)} ›</>}
                 </Link>
               </p>
             )}
@@ -650,22 +755,22 @@ export function ClimateBlock({
         {/* ── Últimos 30 días ── */}
         {columns.length > 0 && (
           <div className="card @3xl:col-span-2">
-            <Label icon="raindrops">Els últims 30 dies</Label>
+            <Label icon="raindrops">{t('Els últims 30 dies', 'Los últimos 30 días')}</Label>
             {/* El dibuix només si n'hi ha: `RecentChart` torna nul sense cinc
                 dies de màxima i mínima, i quedava un requadre buit. */}
-            {hasChart && <RecentChart daily={history.daily} />}
+            {hasChart && <RecentChart daily={history.daily} lang={lang} />}
 
             <details className={hasChart ? 'mt-3' : ''} open={!hasChart}>
               <summary className="cursor-pointer text-sm font-medium text-[var(--accent)] hover:underline">
-                Veure la taula diària
+                {t('Veure la taula diària', 'Ver la tabla diaria')}
               </summary>
               <div className="scroll-x mt-2">
                 <table className="data-table whitespace-nowrap">
                   <thead>
                     <tr>
-                      <th scope="col">Dia</th>
+                      <th scope="col">{t('Dia', 'Día')}</th>
                       {columns.map((c) => (
-                        <th key={c.label} scope="col" className="num">{c.label}</th>
+                        <th key={c.key} scope="col" className="num">{c.label}</th>
                       ))}
                     </tr>
                   </thead>
@@ -676,7 +781,7 @@ export function ClimateBlock({
                           <span className="font-medium text-[var(--ink)]">{d.day.slice(8, 10)}/{d.day.slice(5, 7)}</span>
                         </td>
                         {columns.map((c) => (
-                          <td key={c.label} className="num">
+                          <td key={c.key} className="num">
                             {c.cell(d) != null
                               ? <span className={c.dim ? 'text-[var(--muted)]' : 'text-[var(--ink)]'}>{c.cell(d)}</span>
                               : <span className="text-[var(--line)]">—</span>}

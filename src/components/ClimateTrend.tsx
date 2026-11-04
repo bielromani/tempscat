@@ -1,4 +1,5 @@
-import { int, num } from '@/lib/format';
+import { int, monthName, num } from '@/lib/format';
+import { tr, type Lang } from '@/lib/lang';
 import { StatGrid } from './PageHero';
 import { temperatureColor } from '@/lib/scales';
 import { MONTH_MIN_DAYS } from '@/lib/climate';
@@ -40,7 +41,7 @@ const MONTHS = [
 ];
 
 export function ClimateTrend({
-  years, rainYears, trend, month, monthSeries, monthNow, monthly,
+  years, rainYears, trend, month, monthSeries, monthNow, monthly, lang = 'ca',
 }: {
   years: ClimateYear[];
   /**
@@ -61,7 +62,11 @@ export function ClimateTrend({
   monthNow: StationMonth | null;
   /** La sèrie mensual sencera, per als extrems que no són d'un any ni d'un mes. */
   monthly: StationMonth[];
+  lang?: Lang;
 }) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
+  /** El nom del mes: la taula de sempre en català, monthName() en castellà. */
+  const mesName = (m: number) => (lang === 'es' ? monthName(m, lang) : MONTHS[m - 1]);
   const hasTemp = years.length >= 5;
   const hasRain = rainYears.length >= 5;
   /*
@@ -105,15 +110,15 @@ export function ClimateTrend({
       ? v.reduce((a, b) => ((desc ? key(b)! > key(a)! : key(b)! < key(a)!) ? b : a))
       : null;
   };
-  const mName = MONTHS[month - 1];
+  const mName = mesName(month);
   /** Si el mes d'enguany és a la gràfica, que és quan surt ressaltat. */
   const nowInChart = monthNow != null
     && monthTemp.some((m) => m.year === Number(monthNow.ym.slice(0, 4)));
   const monthExtremes = [
-    { label: `${mName} més calorós`, m: best(monthSeries, (m) => m.tMax, true), unit: '°C', of: 'tMax' },
-    { label: `nit més freda d'un ${mName}`, m: best(monthSeries, (m) => m.tMin, false), unit: '°C', of: 'tMin' },
-    { label: `${mName} més plujós`, m: best(monthSeries, (m) => m.precip, true), unit: 'mm', of: 'precip' },
-    { label: `${mName} més sec`, m: best(monthSeries, (m) => m.precip, false), unit: 'mm', of: 'precip' },
+    { label: tr(lang, `${mName} més calorós`, `${mName} más caluroso`), m: best(monthSeries, (m) => m.tMax, true), unit: '°C', of: 'tMax' },
+    { label: tr(lang, `nit més freda d'un ${mName}`, `noche más fría de un ${mName}`), m: best(monthSeries, (m) => m.tMin, false), unit: '°C', of: 'tMin' },
+    { label: tr(lang, `${mName} més plujós`, `${mName} más lluvioso`), m: best(monthSeries, (m) => m.precip, true), unit: 'mm', of: 'precip' },
+    { label: tr(lang, `${mName} més sec`, `${mName} más seco`), m: best(monthSeries, (m) => m.precip, false), unit: 'mm', of: 'precip' },
   ]
     .filter((e): e is typeof e & { m: StationMonth & { year: number } } => e.m != null)
     .map((e) => ({
@@ -135,20 +140,21 @@ export function ClimateTrend({
       <StatGrid
         stats={[
           hottest && {
-            label: 'Any més càlid', icon: 'thermometer', value: num(hottest.tMean, 1), unit: '°C', sub: String(hottest.year),
+            label: t('Any més càlid', 'Año más cálido'), icon: 'thermometer', value: num(hottest.tMean, 1), unit: '°C', sub: String(hottest.year),
           },
           coldest && {
-            label: 'Any més fred', icon: 'thermometer', value: num(coldest.tMean, 1), unit: '°C', sub: String(coldest.year),
+            label: t('Any més fred', 'Año más frío'), icon: 'thermometer', value: num(coldest.tMean, 1), unit: '°C', sub: String(coldest.year),
           },
           wettest && {
-            label: 'Any més plujós', icon: 'raindrops', value: int(wettest.precip), unit: 'mm', sub: String(wettest.year),
+            label: t('Any més plujós', 'Año más lluvioso'), icon: 'raindrops', value: int(wettest.precip), unit: 'mm', sub: String(wettest.year),
           },
           wetMonth && {
-            label: 'Mes més plujós', icon: 'raindrops', value: int(wetMonth.precip), unit: 'mm',
-            sub: `${MONTHS[Number(wetMonth.ym.slice(5, 7)) - 1]} del ${wetMonth.ym.slice(0, 4)}`,
+            label: t('Mes més plujós', 'Mes más lluvioso'), icon: 'raindrops', value: int(wetMonth.precip), unit: 'mm',
+            sub: tr(lang, `${MONTHS[Number(wetMonth.ym.slice(5, 7)) - 1]} del ${wetMonth.ym.slice(0, 4)}`,
+              `${mesName(Number(wetMonth.ym.slice(5, 7)))} de ${wetMonth.ym.slice(0, 4)}`),
           },
           driest && {
-            label: 'Any més sec', icon: 'raindrop', value: int(driest.precip), unit: 'mm', sub: String(driest.year),
+            label: t('Any més sec', 'Año más seco'), icon: 'raindrop', value: int(driest.precip), unit: 'mm', sub: String(driest.year),
           },
         ]}
       />
@@ -160,18 +166,18 @@ export function ClimateTrend({
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
-              Temperatura mitjana de cada any
+              {t('Temperatura mitjana de cada any', 'Temperatura media de cada año')}
             </p>
             {trend && (
               <p className="-mt-1 mb-3 text-[15px] text-[var(--ink-2)]">
                 <strong className="tnum font-semibold text-[var(--ink)]">
-                  {trend.perDecade > 0 ? '+' : '−'}{num(Math.abs(trend.perDecade), 2)} °C per dècada
+                  {trend.perDecade > 0 ? '+' : '−'}{num(Math.abs(trend.perDecade), 2)}{t(' °C per dècada', ' °C por década')}
                 </strong>{' '}
-                entre {trend.from} i {trend.to}
+                {t('entre ', 'entre ')}{trend.from}{t(' i ', ' y ')}{trend.to}
               </p>
             )}
           </figcaption>
-          <Chart><YearChart years={years} trend={trend} /></Chart>
+          <Chart><YearChart years={years} trend={trend} lang={lang} /></Chart>
         </figure>
       )}
 
@@ -182,16 +188,16 @@ export function ClimateTrend({
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
-              Els {MONTHS[month - 1]}s de la sèrie
+              {lang === 'es' ? <>Los {mesName(month)}s de la serie</> : <>Els {MONTHS[month - 1]}s de la sèrie</>}
             </p>
             {hasMonth && (
               <p className="-mt-1 mb-3 text-[15px] text-[var(--ink-2)]">
-                La mitjana de cada un, {monthTemp.length} anys
-                {nowInChart ? ". La barra marcada és la d'enguany, que encara no s'ha acabat." : '.'}
+                {lang === 'es' ? <>La media de cada uno, {monthTemp.length} años</> : <>La mitjana de cada un, {monthTemp.length} anys</>}
+                {nowInChart ? t(". La barra marcada és la d'enguany, que encara no s'ha acabat.", '. La barra marcada es la de este año, que todavía no ha terminado.') : '.'}
               </p>
             )}
           </figcaption>
-          {hasMonth && <Chart><MonthChart series={monthTemp} now={monthNow} /></Chart>}
+          {hasMonth && <Chart><MonthChart series={monthTemp} now={monthNow} lang={lang} /></Chart>}
 
           {/*
             Y los extremos de **ese mes**, que no son los de la serie entera.
@@ -223,13 +229,13 @@ export function ClimateTrend({
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/raindrops.svg" width={22} height={22} alt="" />
-              Pluja de cada any
+              {t('Pluja de cada any', 'Lluvia de cada año')}
             </p>
             <p className="-mt-1 mb-3 text-[15px] text-[var(--ink-2)]">
-              En mil·límetres, {rainYears.length} anys sencers.
+              {lang === 'es' ? <>En milímetros, {rainYears.length} años completos.</> : <>En mil·límetres, {rainYears.length} anys sencers.</>}
             </p>
           </figcaption>
-          <Chart><RainChart years={rainYears} /></Chart>
+          <Chart><RainChart years={rainYears} lang={lang} /></Chart>
         </figure>
       )}
     </div>
@@ -281,7 +287,7 @@ function xAt(i: number, n: number) {
   return PAD_L + (n === 1 ? 0.5 : i / (n - 1)) * (W - PAD_L - 12);
 }
 
-function YearChart({ years, trend }: { years: ClimateYear[]; trend: Trend | null }) {
+function YearChart({ years, trend, lang }: { years: ClimateYear[]; trend: Trend | null; lang: Lang }) {
   const { y0, y1, Y } = scales(years.map((y) => y.tMean));
   const n = years.length;
 
@@ -307,7 +313,9 @@ function YearChart({ years, trend }: { years: ClimateYear[]; trend: Trend | null
     <svg
       viewBox={`0 0 ${W} ${H}`}
       role="img"
-      aria-label={`Temperatura mitjana de cada any, de ${years[0].year} a ${years[n - 1].year}`}
+      aria-label={tr(lang,
+        `Temperatura mitjana de cada any, de ${years[0].year} a ${years[n - 1].year}`,
+        `Temperatura media de cada año, de ${years[0].year} a ${years[n - 1].year}`)}
       className="block h-auto w-full"
     >
       {ticks.map((t) => (
@@ -354,10 +362,11 @@ function YearChart({ years, trend }: { years: ClimateYear[]; trend: Trend | null
 }
 
 function MonthChart({
-  series, now,
+  series, now, lang,
 }: {
   series: Array<StationMonth & { year: number }>;
   now: StationMonth | null;
+  lang: Lang;
 }) {
   const values = series.map((m) => m.tMean as number);
   const nowYear = now ? Number(now.ym.slice(0, 4)) : null;
@@ -370,7 +379,7 @@ function MonthChart({
     <svg
       viewBox={`0 0 ${W} ${H}`}
       role="img"
-      aria-label="Mitjana d'aquest mes a cada any de la sèrie"
+      aria-label={tr(lang, "Mitjana d'aquest mes a cada any de la sèrie", 'Media de este mes en cada año de la serie')}
       className="block h-auto w-full"
     >
       {[y0, y1].map((t) => (
@@ -387,7 +396,7 @@ function MonthChart({
         x={W - 12} y={Y(mean) - 8} textAnchor="end" fontSize="14" fill="var(--ink-2)"
         stroke="var(--surface)" strokeWidth={6} paintOrder="stroke"
       >
-        mitjana {num(mean, 1)} °C
+        {tr(lang, 'mitjana ', 'media ')}{num(mean, 1)} °C
       </text>
 
       {series.map((m, i) => {
@@ -423,7 +432,7 @@ function MonthChart({
   );
 }
 
-function RainChart({ years }: { years: RainYear[] }) {
+function RainChart({ years, lang }: { years: RainYear[]; lang: Lang }) {
   const values = years.map((y) => y.precip);
   const hi = Math.max(...values);
   const n = years.length;
@@ -435,7 +444,7 @@ function RainChart({ years }: { years: RainYear[] }) {
     <svg
       viewBox={`0 0 ${W} ${H}`}
       role="img"
-      aria-label="Pluja acumulada de cada any sencer de la sèrie"
+      aria-label={tr(lang, 'Pluja acumulada de cada any sencer de la sèrie', 'Lluvia acumulada de cada año completo de la serie')}
       className="block h-auto w-full"
     >
       {[0, Math.round(hi / 2), Math.round(hi)].map((t) => (
@@ -452,7 +461,7 @@ function RainChart({ years }: { years: RainYear[] }) {
         x={W - 12} y={Y(mean) - 8} textAnchor="end" fontSize="14" fill="var(--ink-2)"
         stroke="var(--surface)" strokeWidth={6} paintOrder="stroke"
       >
-        mitjana {int(mean)} mm
+        {tr(lang, 'mitjana ', 'media ')}{int(mean)} mm
       </text>
 
       {years.map((y, i) => {

@@ -4,6 +4,8 @@ import { buildSummary } from '@/lib/territory';
 import { dateShort, int } from '@/lib/format';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
+import { getLang } from '@/lib/i18n';
+import { tr, type Lang } from '@/lib/lang';
 
 /*
  * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
@@ -12,11 +14,15 @@ import { PageHero, Section } from '@/components/PageHero';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Estat de les dades',
-  description: 'Quan es va actualitzar per última vegada cada font de dades del web.',
-  alternates: { canonical: '/estat' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Estat de les dades', 'Estado de los datos'),
+    description: tr(lang, 'Quan es va actualitzar per última vegada cada font de dades del web.',
+      'Cuándo se actualizó por última vez cada fuente de datos de la web.'),
+    alternates: { canonical: '/estat' },
+  };
+}
 
 const LABELS: Record<string, string> = {
   'xema-observations': 'Observació XEMA (Meteocat)',
@@ -35,6 +41,25 @@ const LABELS: Record<string, string> = {
   'fgc-mountain': 'Neu i obertura d’estacions (FGC)',
 };
 
+const ETIQUETAS: Record<string, string> = {
+  'xema-observations': 'Observación XEMA (Meteocat)',
+  'forecast-refresh': 'Predicción (Open-Meteo)',
+  'aemet-warnings': 'Avisos oficiales (AEMET)',
+  'xema-history': 'Récords y normales (XEMA)',
+  'air-quality': 'Calidad del aire y polen (CAMS)',
+  'radar': 'Radar de precipitación (RainViewer)',
+  'forecast-field': 'Campo de viento del mapa (Open-Meteo)',
+  'forecast-verify': 'Acierto de los modelos, comprobado contra la XEMA',
+  'temperature-compare': 'La temperatura actual, comparada con la de los modelos',
+  'water': 'Embalses, caudales y sequía (ACA)',
+  'air-stations': 'Calidad del aire medida (XVPCA)',
+  'sea': 'Banderas de playa y oleaje',
+  'cameras': 'Cámaras de montaña (FGC)',
+  'fgc-mountain': 'Nieve y apertura de estaciones (FGC)',
+};
+
+const labelOf = (source: string, lang: Lang) => (lang === 'es' ? ETIQUETAS : LABELS)[source] ?? source;
+
 /**
  * Una marca de temps, en hora de Madrid.
  *
@@ -52,12 +77,12 @@ function localStamp(ts: string): string {
   return ts.slice(0, 16).replace('T', ' ');
 }
 
-function age(minutes: number | null): string {
+function age(minutes: number | null, lang: Lang = 'ca'): string {
   if (minutes == null) return '—';
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
   if (h < 48) return `${h} h`;
-  return `${Math.floor(h / 24)} dies`;
+  return `${Math.floor(h / 24)} ${tr(lang, 'dies', 'días')}`;
 }
 
 /**
@@ -68,8 +93,9 @@ function age(minutes: number | null): string {
  * qual, tallat a mitja paraula. Aquí es diu de quina mena és; el text cru va
  * plegat a sota per a qui el necessiti.
  */
-function errorReason(msg: string): string {
+function errorReason(msg: string, lang: Lang = 'ca'): string {
   const http = /\b(?:HTTP|status)\s*:?\s*(\d{3})\b/i.exec(msg)?.[1];
+  if (lang === 'es') return motivoError(msg, http);
   if (http === '429') return 'la font ha limitat les peticions';
   if (http === '401' || http === '403') return 'la font no ha acceptat la clau';
   if (http === '404') return 'la font no tenia el fitxer demanat';
@@ -88,6 +114,27 @@ function errorReason(msg: string): string {
   return 'el procés s’ha aturat amb un error';
 }
 
+/**
+ * El mateix en castellà. Els missatges que escriuen els workers són en català i
+ * no es tradueixen: es diu que la font ha avisat d'un problema, i el text cru
+ * segueix plegat a sota.
+ */
+function motivoError(msg: string, http: string | undefined): string {
+  if (http === '429') return 'la fuente ha limitado las peticiones';
+  if (http === '401' || http === '403') return 'la fuente no ha aceptado la clave';
+  if (http === '404') return 'la fuente no tenía el archivo pedido';
+  if (http && http.startsWith('5')) return `la fuente ha respondido con un error suyo (HTTP ${http})`;
+  if (/fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|timeout|aborted|socket|network/i.test(msg)) {
+    return 'no se ha podido conectar con la fuente';
+  }
+  if (/JSON|Unexpected token|parse/i.test(msg)) return 'la fuente ha devuelto una respuesta ilegible';
+  const own = msg.replace(/^Error:\s*/, '');
+  if ((/[àèéíòóúç·’]/.test(own) || /^La font /.test(own)) && !/\b(the|failed|is|not|of)\b/.test(own)) {
+    return 'el proceso ha dejado un aviso (detalle en catalán, debajo)';
+  }
+  return 'el proceso se ha detenido con un error';
+}
+
 /** Un missatge llarg, tallat per una paraula i dient-ho. */
 const clip = (s: string, n = 240) => (s.length <= n ? s : `${s.slice(0, s.lastIndexOf(' ', n) > n * 0.6 ? s.lastIndexOf(' ', n) : n)}…`);
 
@@ -97,7 +144,7 @@ const clip = (s: string, n = 240) => (s.length <= n ? s : `${s.slice(0, s.lastIn
  * L'1 i l'11 porten apòstrof —«de l'1», «a l'11»—, i un tram que travessa
  * dos mesos diu tots dos: «del 30 de setembre al 2 d'octubre».
  */
-function gapRanges(days: string[]): string {
+function gapRanges(days: string[], lang: Lang = 'ca'): string {
   const sorted = [...new Set(days)].sort();
   const runs: Array<[string, string]> = [];
   for (const d of sorted) {
@@ -111,6 +158,15 @@ function gapRanges(days: string[]): string {
   const the = (iso: string) => (vowel(iso) ? "l'" : 'el ');
   const from = (iso: string) => (vowel(iso) ? "de l'" : 'del ');
   const to = (iso: string) => (vowel(iso) ? "a l'" : 'al ');
+  if (lang === 'es') {
+    // En castellano no hay apóstrofo: «del 1 al 3 de octubre», «el 11 de octubre».
+    const partes = runs.map(([a, b]) => {
+      if (a === b) return `el ${dateShort(a, lang)}`;
+      const head = a.slice(0, 7) === b.slice(0, 7) ? String(day(a)) : dateShort(a, lang);
+      return `del ${head} al ${dateShort(b, lang)}`;
+    });
+    return partes.length > 1 ? `${partes.slice(0, -1).join(', ')} y ${partes.at(-1)}` : partes[0];
+  }
   const parts = runs.map(([a, b]) => {
     if (a === b) return `${the(a)}${dateShort(a)}`;
     const head = a.slice(0, 7) === b.slice(0, 7) ? String(day(a)) : dateShort(a);
@@ -125,17 +181,19 @@ type State = 'missing' | 'error' | 'stale' | 'ok';
 const stateOf = (s: Source): State =>
   s.missing ? 'missing' : s.error ? 'error' : s.stale ? 'stale' : 'ok';
 
-const STATE: Record<State, { label: string; color: string }> = {
-  missing: { label: 'mai executada', color: 'var(--muted)' },
-  error: { label: 'error', color: 'var(--bad)' },
-  stale: { label: 'endarrerida', color: 'var(--warn)' },
-  ok: { label: 'al dia', color: 'var(--good)' },
+const STATE: Record<State, { label: string; etiqueta: string; color: string }> = {
+  missing: { label: 'mai executada', etiqueta: 'nunca ejecutada', color: 'var(--muted)' },
+  error: { label: 'error', etiqueta: 'error', color: 'var(--bad)' },
+  stale: { label: 'endarrerida', etiqueta: 'con retraso', color: 'var(--warn)' },
+  ok: { label: 'al dia', etiqueta: 'al día', color: 'var(--good)' },
 };
 
 /** Els noms de les fonts d'una llista, per a l'entradilla. */
-const names = (list: Source[]) => list.map((s) => LABELS[s.source] ?? s.source).join(', ');
+const names = (list: Source[], lang: Lang) => list.map((s) => labelOf(s.source, lang)).join(', ');
 
 export default async function EstatPage() {
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const sources = await freshness();
   const summary = buildSummary() as { builtAt: string; indexablePages: number; nomenclatorEdition: string };
 
@@ -146,35 +204,49 @@ export default async function EstatPage() {
   const missing = by('missing');
 
   const trail = [
-    { nom: 'Catalunya', path: '/' },
-    { nom: 'Estat de les dades', path: '/estat' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
+    { nom: t('Estat de les dades', 'Estado de los datos'), path: '/estat' },
   ];
 
   return (
     <article data-wide>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow="Les fonts del web"
+        eyebrow={t('Les fonts del web', 'Las fuentes de la web')}
         icon="barometer"
-        title="Estat de les dades"
-        lead={(
+        title={t('Estat de les dades', 'Estado de los datos')}
+        lead={lang === 'es' ? (
+          <>
+            {ok.length === sources.length
+              ? <>Las <strong>{sources.length} fuentes</strong> están al día.</>
+              : <><strong>{ok.length} de las {sources.length} fuentes</strong> están al día.</>}
+            {stale.length > 0 && <> {stale.length === 1 ? 'Va con retraso' : 'Van con retraso'}: {names(stale, lang)}.</>}
+            {failed.length > 0 && <> Con error: {names(failed, lang)}.</>}
+          </>
+        ) : (
           <>
             {ok.length === sources.length
               ? <>Les <strong>{sources.length} fonts</strong> estan al dia.</>
               : <><strong>{ok.length} de les {sources.length} fonts</strong> estan al dia.</>}
-            {stale.length > 0 && <> {stale.length === 1 ? 'Va endarrerida' : 'Van endarrerides'}: {names(stale)}.</>}
-            {failed.length > 0 && <> Amb error: {names(failed)}.</>}
+            {stale.length > 0 && <> {stale.length === 1 ? 'Va endarrerida' : 'Van endarrerides'}: {names(stale, lang)}.</>}
+            {failed.length > 0 && <> Amb error: {names(failed, lang)}.</>}
           </>
         )}
         stats={[
-          { label: 'Al dia', value: String(ok.length), sub: `de ${sources.length} fonts` },
-          { label: 'Endarrerides', value: String(stale.length) },
-          { label: 'Amb error', value: String(failed.length) },
-          missing.length > 0 && { label: 'Mai executades', value: String(missing.length) },
+          { label: t('Al dia', 'Al día'), value: String(ok.length), sub: tr(lang, `de ${sources.length} fonts`, `de ${sources.length} fuentes`) },
+          { label: t('Endarrerides', 'Con retraso'), value: String(stale.length) },
+          { label: t('Amb error', 'Con error'), value: String(failed.length) },
+          missing.length > 0 && { label: t('Mai executades', 'Nunca ejecutadas'), value: String(missing.length) },
         ]}
-        note={(
+        note={lang === 'es' ? (
+          <>
+            Cuándo se actualizó cada fuente y qué antigüedad tiene el dato más
+            reciente, en hora de Cataluña. Antes de fiarse de una cifra, mire
+            si la fuente que hay detrás está al día.
+          </>
+        ) : (
           <>
             Quan es va actualitzar cada font i quina antiguitat té la dada més
             recent, en hora de Catalunya. Abans de fiar-vos d&apos;una xifra, mireu
@@ -182,46 +254,53 @@ export default async function EstatPage() {
           </>
         )}
         aside={(
-          <section className="card" aria-label="Territori">
+          <section className="card" aria-label={t('Territori', 'Territorio')}>
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/barometer.svg" width={22} height={22} alt="" />
-              Territori
+              {t('Territori', 'Territorio')}
             </p>
             <ul className="rows">
               <li>
-                <span className="row-main"><span className="row-title">Rutes territorials</span></span>
+                <span className="row-main"><span className="row-title">{t('Rutes territorials', 'Rutas territoriales')}</span></span>
                 <span className="row-value">{int(summary.indexablePages)}</span>
               </li>
               <li>
-                <span className="row-main"><span className="row-title">Nomenclàtor estadístic</span></span>
-                <span className="row-value">edició {summary.nomenclatorEdition}</span>
+                <span className="row-main"><span className="row-title">{t('Nomenclàtor estadístic', 'Nomenclátor estadístico')}</span></span>
+                <span className="row-value">{t('edició ', 'edición ')}{summary.nomenclatorEdition}</span>
               </li>
               <li>
-                <span className="row-main"><span className="row-title">Última construcció</span></span>
+                <span className="row-main"><span className="row-title">{t('Última construcció', 'Última construcción')}</span></span>
                 <span className="row-value">{summary.builtAt.slice(0, 10)}</span>
               </li>
             </ul>
-            <p className="source">
-              Construïdes a partir del Nomenclàtor, els límits administratius de
-              l&apos;ICGC i les metadades de la XEMA.
-            </p>
+            {lang === 'es' ? (
+              <p className="source">
+                Construidas a partir del Nomenclàtor, los límites administrativos del
+                ICGC y los metadatos de la XEMA.
+              </p>
+            ) : (
+              <p className="source">
+                Construïdes a partir del Nomenclàtor, els límits administratius de
+                l&apos;ICGC i les metadades de la XEMA.
+              </p>
+            )}
           </section>
         )}
       />
 
       {/* Sempre les tretze fonts: una que no hagi publicat mai ha de sortir
           dient-ho, no desaparèixer del panell. Veure src/lib/shards.ts. */}
-      <Section id="fonts" title="Font per font">
+      <Section id="fonts" title={t('Font per font', 'Fuente por fuente')}>
         <div className="card">
           <div className="scroll-x">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th scope="col">Font</th>
-                  <th scope="col" className="hidden sm:table-cell">Dada més recent</th>
-                  <th scope="col" className="num hidden sm:table-cell">Antiguitat</th>
-                  <th scope="col">Estat</th>
+                  <th scope="col">{t('Font', 'Fuente')}</th>
+                  <th scope="col" className="hidden sm:table-cell">{t('Dada més recent', 'Dato más reciente')}</th>
+                  <th scope="col" className="num hidden sm:table-cell">{t('Antiguitat', 'Antigüedad')}</th>
+                  <th scope="col">{t('Estat', 'Estado')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -230,21 +309,21 @@ export default async function EstatPage() {
                   return (
                     <tr key={s.source}>
                       <td className="sm:min-w-[11rem]">
-                        <span className="font-medium text-[var(--ink)]">{LABELS[s.source] ?? s.source}</span>
+                        <span className="font-medium text-[var(--ink)]">{labelOf(s.source, lang)}</span>
                         {/* Al mòbil les quatre columnes no hi caben i l'estat quedava
                             fora de la pantalla: la data i l'antiguitat van aquí, a sota
                             del nom, i les seves columnes s'amaguen. */}
                         <span className="tnum mt-0.5 block text-xs text-[var(--muted)] sm:hidden">
                           <span className="whitespace-nowrap">{s.lastDataTs ? localStamp(s.lastDataTs) : '—'}</span>
-                          {' · '}<span className="whitespace-nowrap">{age(s.ageMin)}</span>
+                          {' · '}<span className="whitespace-nowrap">{age(s.ageMin, lang)}</span>
                         </span>
                       </td>
                       <td className="tnum hidden whitespace-nowrap sm:table-cell">{s.lastDataTs ? localStamp(s.lastDataTs) : '—'}</td>
-                      <td className="num hidden whitespace-nowrap sm:table-cell">{age(s.ageMin)}</td>
+                      <td className="num hidden whitespace-nowrap sm:table-cell">{age(s.ageMin, lang)}</td>
                       <td className="min-w-[8.5rem]">
                         <span className="inline-flex items-center gap-2 font-semibold" style={{ color: st.color }}>
                           <span aria-hidden className="inline-block size-2 rounded-full" style={{ background: st.color }} />
-                          {st.label}
+                          {tr(lang, st.label, st.etiqueta)}
                         </span>
                         {/*
                           L'últim ensopec, encara que ara vagi bé.
@@ -257,8 +336,10 @@ export default async function EstatPage() {
                           <details className="mt-1 text-[11.5px] text-[var(--muted)]">
                             <summary className="cursor-pointer hover:text-[var(--ink-2)]">
                               {s.error
-                                ? errorReason(s.error)
-                                : <>últim ensopec el {localStamp(s.lastErrorAt!)}: {errorReason(s.lastError!)}</>}
+                                ? errorReason(s.error, lang)
+                                : lang === 'es'
+                                  ? <>último fallo el {localStamp(s.lastErrorAt!)}: {errorReason(s.lastError!, lang)}</>
+                                  : <>últim ensopec el {localStamp(s.lastErrorAt!)}: {errorReason(s.lastError!)}</>}
                             </summary>
                             <span className="mt-0.5 block break-words font-mono">{clip(s.error ?? s.lastError!)}</span>
                           </details>
@@ -277,8 +358,10 @@ export default async function EstatPage() {
                             style={{ color: s.keyDaysLeft <= 45 ? 'var(--warn)' : 'var(--muted)' }}
                           >
                             {s.keyDaysLeft < 0
-                              ? `clau caducada el ${s.credentialExpiresAt}`
-                              : `clau vàlida fins al ${s.credentialExpiresAt} · ${s.keyDaysLeft} dies`}
+                              ? tr(lang, `clau caducada el ${s.credentialExpiresAt}`, `clave caducada el ${s.credentialExpiresAt}`)
+                              : tr(lang,
+                                `clau vàlida fins al ${s.credentialExpiresAt} · ${s.keyDaysLeft} dies`,
+                                `clave válida hasta el ${s.credentialExpiresAt} · ${s.keyDaysLeft} días`)}
                           </span>
                         )}
                         {/*
@@ -289,7 +372,7 @@ export default async function EstatPage() {
                         */}
                         {s.gaps && s.gaps.length > 0 && (
                           <span className="mt-1 block text-[11.5px] text-[var(--warn)]">
-                            sense sèrie diària {gapRanges(s.gaps)}
+                            {t('sense sèrie diària ', 'sin serie diaria ')}{gapRanges(s.gaps, lang)}
                           </span>
                         )}
                       </td>
@@ -302,7 +385,23 @@ export default async function EstatPage() {
         </div>
       </Section>
 
-      <Section id="retard" title="Per què l'observació sempre porta retard">
+      <Section id="retard" title={t("Per què l'observació sempre porta retard", 'Por qué la observación siempre lleva retraso')}>
+        {lang === 'es' ? (
+          <div className="card prose">
+            <p>
+              Las estaciones de la XEMA toman lectura cada media hora, y el portal de
+              datos abiertos de la Generalitat las publica con un desfase de entre{' '}
+              <strong>45 y 65 minutos</strong>. Por eso cada página lleva la hora
+              exacta de la lectura que muestra.
+            </p>
+            <h3>Validación</h3>
+            <p>
+              El Meteocat valida las lecturas <em>a posteriori</em>: las recientes
+              llegan sin marca de validación y salen como provisionales. Un valor
+              provisional puede cambiar cuando el Meteocat lo revise.
+            </p>
+          </div>
+        ) : (
         <div className="card prose">
           <p>
             Les estacions de la XEMA prenen lectura cada mitja hora, i el portal de
@@ -317,6 +416,7 @@ export default async function EstatPage() {
             provisional pot canviar quan el Meteocat el revisi.
           </p>
         </div>
+        )}
       </Section>
     </article>
   );

@@ -22,6 +22,8 @@ import type { PushPlace, PushSubscriptionRecord, SentEpisodes } from './push-sto
 import { groupWarnings, LEVEL_RANK, type Warning, type WarningGroup } from './warning-stack.ts';
 import { phenomenonName, thresholdValue } from './warning-labels.ts';
 import { whenLine } from './warning-when.ts';
+import { placeName } from './format.ts';
+import type { Lang } from './lang.ts';
 
 /** Nivell mínim que s'envia: el taronja. */
 const MIN_RANK = LEVEL_RANK.taronja;
@@ -48,8 +50,11 @@ export interface PushMessage {
 }
 
 export interface PushPlan {
-  /** Un missatge per subscripció com a molt, encara que hi hagi tres avisos alhora. */
-  deliveries: Array<{ subscription: PushSubscriptionRecord; message: PushMessage }>;
+  /**
+   * Un missatge per subscripció com a molt, encara que hi hagi tres avisos alhora.
+   * `urgent` és si mana un vermell: el títol ja ho diu, però en dos idiomes.
+   */
+  deliveries: Array<{ subscription: PushSubscriptionRecord; message: PushMessage; urgent: boolean }>;
   /** El registre d'episodis, ja actualitzat: el worker el desa després d'enviar. */
   sent: SentEpisodes;
   /** Episodis que s'haurien d'avisar però són taronges en hores de silenci. */
@@ -80,21 +85,33 @@ export function pushableGroups(warnings: Warning[], nowMs: number): PushGroup[] 
   });
 }
 
-function message(groups: PushGroup[], place: PushPlace, otherPlaces: number): PushMessage {
+/**
+ * El missatge, en l'idioma de la subscripció. Les subscripcions d'abans del
+ * castellà no porten idioma, i són de `tempscat.cat`: català.
+ */
+function message(groups: PushGroup[], place: PushPlace, otherPlaces: number, lang: Lang = 'ca'): PushMessage {
   const [g] = groups;
-  const level = g.level === 'vermell' ? 'vermell' : 'taronja';
+  const red = g.level === 'vermell';
   const threshold = g.spans.map((s) => thresholdValue(s.threshold)).find(Boolean);
-  const where = otherPlaces ? `${place.nom} i ${otherPlaces === 1 ? 'un lloc més' : `${otherPlaces} llocs més`}` : place.nom;
-  const lines = [
-    `${where} · ${whenLine(g)}${threshold ? ` · ${threshold}` : ''}.`,
-    groups.length > 1
-      ? `I ${groups.length - 1 === 1 ? 'un altre avís' : `${groups.length - 1} avisos més`} de taronja amunt.`
-      : null,
-    'Avís oficial de l’AEMET.',
-  ].filter(Boolean);
+  const more = groups.length - 1;
+  const lines = lang === 'es'
+    ? [
+      `${otherPlaces ? `${placeName(place.nom, lang)} y ${otherPlaces === 1 ? 'un lugar más' : `${otherPlaces} lugares más`}` : placeName(place.nom, lang)}`
+        + ` · ${whenLine(g, lang)}${threshold ? ` · ${threshold}` : ''}.`,
+      more ? `Y ${more === 1 ? 'otro aviso' : `${more} avisos más`} de nivel naranja o superior.` : null,
+      'Aviso oficial de AEMET.',
+    ]
+    : [
+      `${otherPlaces ? `${place.nom} i ${otherPlaces === 1 ? 'un lloc més' : `${otherPlaces} llocs més`}` : place.nom}`
+        + ` · ${whenLine(g)}${threshold ? ` · ${threshold}` : ''}.`,
+      more ? `I ${more === 1 ? 'un altre avís' : `${more} avisos més`} de taronja amunt.` : null,
+      'Avís oficial de l’AEMET.',
+    ];
   return {
-    title: `Avís ${level} · ${phenomenonName(g.phenomenon)}`,
-    body: lines.join(' '),
+    title: lang === 'es'
+      ? `Aviso ${red ? 'rojo' : 'naranja'} · ${phenomenonName(g.phenomenon, lang)}`
+      : `Avís ${red ? 'vermell' : 'taronja'} · ${phenomenonName(g.phenomenon)}`,
+    body: lines.filter(Boolean).join(' '),
     url: place.path,
     tag: 'tempscat-avisos',
   };
@@ -145,7 +162,8 @@ export function planPushes(
     const places = hits[0].places;
     deliveries.push({
       subscription: sub,
-      message: message(hits.map((h) => h.g), places[0], places.length - 1),
+      message: message(hits.map((h) => h.g), places[0], places.length - 1, sub.lang ?? 'ca'),
+      urgent: hits[0].g.level === 'vermell',
     });
   }
 

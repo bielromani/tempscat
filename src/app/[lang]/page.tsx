@@ -1,14 +1,15 @@
 import Link from 'next/link';
 import { CAPITAL_PATHS as CAPITALS, QUICK_PLACES as QUICK, sections } from '@/lib/nav';
 import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 import { allComarques, buildSummary, locationByPath, type Location } from '@/lib/territory';
 import { rankings } from '@/lib/rankings';
 import {
   activeWarnings, currentFor, forecastFor, groupWarnings, localNowHour, localToday,
 } from '@/lib/weather';
 import { phenomenonName } from '@/lib/warning-labels';
-import { weatherCode } from '@/lib/weather-codes';
-import { ago, dateLong, int, num } from '@/lib/format';
+import { codeLabel, weatherCode } from '@/lib/weather-codes';
+import { ago, dateLong, int, num, placeName } from '@/lib/format';
 import { SiteSearch } from '@/components/SiteSearch';
 import { WeatherIcon } from '@/components/WeatherIcon';
 import { TemperatureLegend, TemperatureMap } from '@/components/TemperatureMap';
@@ -55,8 +56,13 @@ async function capitalNow(loc: Location) {
   };
 }
 
+/** El nivell de l'avís en castellà; en català el codi ja és la paraula. */
+const NIVEL: Record<string, string> = { verd: 'verde', groc: 'amarillo', taronja: 'naranja', vermell: 'rojo' };
+
 export default async function Home() {
   const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
+  const es = lang === 'es';
   const capitals = CAPITALS.map((p) => locationByPath(p)).filter((l): l is Location => l != null);
   const [rank, warnings, map, caps] = await Promise.all([
     rankings(),
@@ -69,18 +75,25 @@ export default async function Home() {
   const summary = buildSummary() as { published: number };
   const groups = groupWarnings(warnings);
   const worst = groups[0];
-  const day = dateLong(localToday());
+  const day = dateLong(localToday(), lang);
 
   return (
     <div data-wide className="home">
       <div className="home-top">
         <header className="home-intro">
           <p className="home-date">{day.charAt(0).toUpperCase() + day.slice(1)}</p>
-          <h1 className="home-title">El temps a Catalunya</h1>
-          <p className="home-lead">
-            Predicció i observació per a {int(summary.published)} pobles
-            i nuclis, cadascun amb la seva altitud i l&apos;estació que el mesura.
-          </p>
+          <h1 className="home-title">{t('El temps a Catalunya', 'El tiempo en Cataluña')}</h1>
+          {es ? (
+            <p className="home-lead">
+              Predicción y observación para {int(summary.published)} pueblos
+              y núcleos, cada uno con su altitud y la estación que lo mide.
+            </p>
+          ) : (
+            <p className="home-lead">
+              Predicció i observació per a {int(summary.published)} pobles
+              i nuclis, cadascun amb la seva altitud i l&apos;estació que el mesura.
+            </p>
+          )}
           {/*
             El cercador, al davant: és el que fa gairebé tothom que arriba a la
             portada. No afegeix JavaScript —el component ja és a la barra de
@@ -89,9 +102,9 @@ export default async function Home() {
           <div className="mt-6">
             <SiteSearch lang={lang} variant="page" />
           </div>
-          <ul className="chips mt-4" aria-label="Accessos ràpids">
+          <ul className="chips mt-4" aria-label={t('Accessos ràpids', 'Accesos rápidos')}>
             {quick.map((l) => (
-              <li key={l.path}><Link href={l.path}>{l.nom}</Link></li>
+              <li key={l.path}><Link href={l.path}>{placeName(l.nom, lang)}</Link></li>
             ))}
           </ul>
         </header>
@@ -106,30 +119,31 @@ export default async function Home() {
             <h2 id="h-mapa" className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
-              Ara a Catalunya
+              {t('Ara a Catalunya', 'Ahora en Cataluña')}
             </h2>
-            <TemperatureMap data={map} />
+            <TemperatureMap data={map} lang={lang} />
             <TemperatureLegend
               span={map.min != null && map.max != null ? { min: map.min, max: map.max } : undefined}
+              lang={lang}
             />
             <p className="card-foot">
-              <Link href="/mapa">Les comarques, de la més càlida a la més freda ›</Link>
+              <Link href="/mapa">{t('Les comarques, de la més càlida a la més freda ›', 'Las comarcas, de la más cálida a la más fría ›')}</Link>
             </p>
           </section>
         )}
       </div>
 
       {caps.length > 0 && (
-        <ul className="capitals" aria-label="Les quatre capitals, ara">
+        <ul className="capitals" aria-label={t('Les quatre capitals, ara', 'Las cuatro capitales, ahora')}>
           {caps.map((c) => (
             <li key={c.loc.path}>
               <Link href={c.loc.path} className="capital">
-                <span className="capital-name">{c.loc.nom}</span>
+                <span className="capital-name">{placeName(c.loc.nom, lang)}</span>
                 <span className="capital-temp tnum">{c.temp != null ? `${num(c.temp)}°` : '—'}</span>
                 {c.code != null && <WeatherIcon code={c.code} isDay={c.isDay} size={52} className="capital-icon" />}
                 <span className="capital-cond tnum">
                   {[
-                    c.code != null && weatherCode(c.code).ca,
+                    c.code != null && codeLabel(weatherCode(c.code), lang),
                     c.tMax != null && c.tMin != null && `${num(c.tMax)}° / ${num(c.tMin)}°`,
                   ].filter(Boolean).join(' · ')}
                 </span>
@@ -154,10 +168,14 @@ export default async function Home() {
           />
           <span>
             <strong>
-              {groups.length} {groups.length === 1 ? 'avís' : 'avisos'} en vigor
+              {groups.length} {groups.length === 1 ? t('avís', 'aviso') : 'avisos'} en vigor
             </strong>
-            {' '}· el més alt, {worst.level} per {phenomenonName(worst.phenomenon).toLowerCase()}.{' '}
-            <u>Vegeu-los tots</u>
+            {es ? (
+              <>{' '}· el más alto, {NIVEL[worst.level]} por {phenomenonName(worst.phenomenon, lang).toLowerCase()}.{' '}</>
+            ) : (
+              <>{' '}· el més alt, {worst.level} per {phenomenonName(worst.phenomenon).toLowerCase()}.{' '}</>
+            )}
+            <u>{t('Vegeu-los tots', 'Véalos todos')}</u>
           </span>
         </Link>
       )}
@@ -172,13 +190,13 @@ export default async function Home() {
       */}
       {rank && (
         <section className="mt-10" aria-labelledby="h-extrems">
-          <h2 id="h-extrems" className="card-title mb-3">Els extrems d&apos;ara</h2>
+          <h2 id="h-extrems" className="card-title mb-3">{t("Els extrems d'ara", 'Los extremos de ahora')}</h2>
           <div className="card">
             <ul className="extremes">
               {([
-                ['El més càlid', 'thermometer', rank.stations.nowWarmest[0], (v: number) => `${num(v, 1)}°`],
-                ['El més fred', 'thermometer', rank.stations.nowColdest[0], (v: number) => `${num(v, 1)}°`],
-                ['Més pluja avui', 'raindrop', rank.stations.rain[0], (v: number) => `${num(v, 1)} mm`],
+                [t('El més càlid', 'El más cálido'), 'thermometer', rank.stations.nowWarmest[0], (v: number) => `${num(v, 1)}°`],
+                [t('El més fred', 'El más frío'), 'thermometer', rank.stations.nowColdest[0], (v: number) => `${num(v, 1)}°`],
+                [t('Més pluja avui', 'Más lluvia hoy'), 'raindrop', rank.stations.rain[0], (v: number) => `${num(v, 1)} mm`],
                 /*
                  * La ratxa ja ve en km/h.
                  *
@@ -186,7 +204,7 @@ export default async function Home() {
                  * aquí la multiplicava per 3,6 una segona vegada: el Monestir de
                  * Montserrat sortia a **180 km/h** una tarda de 37 °C.
                  */
-                ['Ratxa ara', 'wind', rank.stations.gust[0], (v: number) => `${v.toFixed(0)} km/h`],
+                [t('Ratxa ara', 'Racha ahora'), 'wind', rank.stations.gust[0], (v: number) => `${v.toFixed(0)} km/h`],
               ] as const).map(([label, icon, row, fmt]) => {
                 // Una fila sense estació no s'escriu.
                 if (!row) return null;
@@ -211,12 +229,21 @@ export default async function Home() {
                 );
               })}
             </ul>
-            <p className="source">
-              {rank.stations.total} estacions del Meteocat amb lectura recent
-              {rank.ageMin != null && ` · lectura ${ago(rank.ageMin)}`}. La pluja compta des de
-              mitjanit; la ratxa és la de l&apos;última lectura.{' '}
-              <Link href="/ranquings" className="text-[var(--accent)]">Totes les llistes</Link>.
-            </p>
+            {es ? (
+              <p className="source">
+                {rank.stations.total} estaciones del Meteocat con lectura reciente
+                {rank.ageMin != null && ` · lectura ${ago(rank.ageMin, lang)}`}. La lluvia cuenta desde
+                medianoche; la racha es la de la última lectura.{' '}
+                <Link href="/ranquings" className="text-[var(--accent)]">Todas las listas</Link>.
+              </p>
+            ) : (
+              <p className="source">
+                {rank.stations.total} estacions del Meteocat amb lectura recent
+                {rank.ageMin != null && ` · lectura ${ago(rank.ageMin)}`}. La pluja compta des de
+                mitjanit; la ratxa és la de l&apos;última lectura.{' '}
+                <Link href="/ranquings" className="text-[var(--accent)]">Totes les llistes</Link>.
+              </p>
+            )}
           </div>
         </section>
       )}
@@ -229,7 +256,7 @@ export default async function Home() {
         sense saber què hi trobarà.
       */}
       <section className="mt-12" aria-labelledby="h-explorar">
-        <h2 id="h-explorar" className="card-title mb-3">Explorar</h2>
+        <h2 id="h-explorar" className="card-title mb-3">{t('Explorar', 'Explorar')}</h2>
         {/* Les que no porten icona —les estacions, les dades obertes, l'estat—
             són del projecte i no del temps: viuen al peu. */}
         <ul className="explore">
@@ -249,7 +276,7 @@ export default async function Home() {
       </section>
 
       <section className="mt-12" aria-labelledby="h-comarques">
-        <h2 id="h-comarques" className="card-title mb-3">Les 43 comarques</h2>
+        <h2 id="h-comarques" className="card-title mb-3">{t('Les 43 comarques', 'Las 43 comarcas')}</h2>
         <ul className="chips">
           {comarques.map((c) => (
             <li key={c.codi}><Link href={c.path}>{c.nom}</Link></li>

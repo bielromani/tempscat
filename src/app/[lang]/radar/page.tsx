@@ -4,13 +4,15 @@ import { radar, windField } from '@/lib/weather';
 import { allComarques, comarcaPathsOn, locationByPath, municipisOfComarca } from '@/lib/territory';
 import { project } from '@/lib/mercator';
 import { municipalTemperatures, warningOverlay } from '@/lib/map';
-import { ago, dateLong, hour, hourSpoken, num } from '@/lib/format';
+import { ago, dateLong, hour, hourSpoken, num, placeName } from '@/lib/format';
 import RadarMap, { type RadarMapFrame } from '@/components/RadarMap';
 import { TemperatureLegend } from '@/components/TemperatureMap';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
 import { MAP_BOX } from '@/lib/webmap';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 
 /**
  * El radar: on plou ara, en un mapa que es mou.
@@ -54,14 +56,20 @@ import { MAP_BOX } from '@/lib/webmap';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Radar de pluja a Catalunya',
-  description:
-    'On plou ara mateix a Catalunya: el radar de les dues últimes hores en un mapa '
-    + 'que es pot moure i ampliar, amb la temperatura de cada municipi, el vent '
-    + 'previst i els avisos oficials. Cartografia de l’ICGC.',
-  alternates: { canonical: '/radar' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Radar de pluja a Catalunya', 'Radar de lluvia en Cataluña'),
+    description: tr(lang,
+      'On plou ara mateix a Catalunya: el radar de les dues últimes hores en un mapa '
+      + 'que es pot moure i ampliar, amb la temperatura de cada municipi, el vent '
+      + 'previst i els avisos oficials. Cartografia de l’ICGC.',
+      'Dónde llueve ahora mismo en Cataluña: el radar de las dos últimas horas en un mapa '
+      + 'que se puede mover y ampliar, con la temperatura de cada municipio, el viento '
+      + 'previsto y los avisos oficiales. Cartografía del ICGC.'),
+    alternates: { canonical: '/radar' },
+  };
+}
 
 type Params = Promise<{ lloc?: string; avisos?: string }>;
 
@@ -104,29 +112,31 @@ function referenceCities(limit = 9): Array<{ nom: string; lat: number; lon: numb
 }
 
 export default async function RadarPage({ searchParams }: { searchParams: Params }) {
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const [data, air, temps, warnings, params] = await Promise.all([
     radar(),
     windField(),
     municipalTemperatures(),
-    warningOverlay(),
+    warningOverlay(lang),
     searchParams,
   ]);
 
   const trail = [
-    { nom: 'Catalunya', path: '/' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
     { nom: 'Radar', path: '/radar' },
   ];
 
   if (!data) {
     return (
       <article data-wide>
-        <JsonLd data={graph(breadcrumbLd(trail))} />
+        <JsonLd data={graph(breadcrumbLd(trail, lang))} />
         <PageHero
           crumbs={trail}
-          eyebrow="Radar de pluja"
+          eyebrow={t('Radar de pluja', 'Radar de lluvia')}
           icon="rain"
-          title="On plou ara mateix"
-          lead="Encara no hi ha cap imatge de radar."
+          title={t('On plou ara mateix', 'Dónde llueve ahora mismo')}
+          lead={t('Encara no hi ha cap imatge de radar.', 'Todavía no hay ninguna imagen de radar.')}
         />
       </article>
     );
@@ -152,7 +162,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
   // ── On obre ───────────────────────────────────────────────────────────────
   const place = params.lloc ? locationByPath(params.lloc) : undefined;
   const focus = place?.lat != null && place.lon != null
-    ? { point: { lon: place.lon, lat: place.lat, name: place.nom } }
+    ? { point: { lon: place.lon, lat: place.lat, name: placeName(place.nom, lang) } }
     : null;
 
   // ── El vent d'ara, i una sola hora ────────────────────────────────────────
@@ -185,7 +195,9 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         viewBox={`${xa.toFixed(1)} ${ya.toFixed(1)} ${(xb - xa).toFixed(1)} ${(yb - ya).toFixed(1)}`}
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label={`Radar de precipitació sobre Catalunya a ${hour(frame.local)}`}
+        aria-label={tr(lang,
+          `Radar de precipitació sobre Catalunya a ${hour(frame.local)}`,
+          `Radar de precipitación sobre Cataluña a las ${hour(frame.local)}`)}
         className="min-h-0 w-full flex-1"
       >
         {tiles.map((tile) => (
@@ -213,14 +225,14 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
                 fontSize={11} fontWeight={600}
                 fill="oklch(99% 0 0)"
                 stroke="oklch(20% 0.02 250)" strokeWidth={2.4} paintOrder="stroke"
-              >{c.nom}</text>
+              >{placeName(c.nom, lang)}</text>
             </g>
           );
         })}
       </svg>
       <p className="p-3 text-[13px] text-[var(--muted)]">
-        L’última imatge del radar. Per moure el mapa, ampliar-lo i veure la
-        seqüència, la temperatura i el vent cal JavaScript.
+        {t('L’última imatge del radar. Per moure el mapa, ampliar-lo i veure la seqüència, la temperatura i el vent cal JavaScript.',
+          'La última imagen del radar. Para mover el mapa, ampliarlo y ver la secuencia, la temperatura y el viento hace falta JavaScript.')}
       </p>
     </div>
   );
@@ -229,14 +241,21 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
 
   return (
     <article data-wide>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow="Radar de pluja"
+        eyebrow={t('Radar de pluja', 'Radar de lluvia')}
         icon="rain"
-        title="On plou ara mateix"
-        lead={(
+        title={t('On plou ara mateix', 'Dónde llueve ahora mismo')}
+        lead={lang === 'es' ? (
+          <>
+            Imagen del radar del {dateLong(frame.local, lang)}, a{' '}
+            <strong className="tnum">{hourSpoken(frame.local, lang)}</strong>
+            {ageMin != null && frame.time === lastObserved?.time && <>, {ago(ageMin, lang)}</>}.
+            {' '}Puede mover el mapa y ampliarlo para ver dónde cae.
+          </>
+        ) : (
           <>
             Imatge del radar de {dateLong(frame.local)}, a{' '}
             <strong className="tnum">{hourSpoken(frame.local)}</strong>
@@ -247,6 +266,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
       />
 
       <RadarMap
+        lang={lang}
         frames={frames}
         tiles={{ z: grid.z, xy: tiles }}
         focus={focus}
@@ -270,7 +290,13 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         observed={temps.observed}
         total={temps.total}
         range={temps.min != null && temps.max != null ? { min: temps.min, max: temps.max } : null}
-        radarLegend={(
+        radarLegend={lang === 'es' ? (
+          <p key="radar">
+            Radar de {data.source}, una imagen cada diez minutos. Un píxel del radar
+            son unos 460 metros: al acercarse, el mapa de debajo gana detalle y la
+            lluvia se amplía.
+          </p>
+        ) : (
           <p key="radar">
             Radar de {data.source}, una imatge cada deu minuts. Un píxel del radar
             són uns 460 metres: acostant-s’hi, el mapa de sota guanya detall i la
@@ -280,8 +306,22 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
         temperatureLegend={(
           <div key="temperatura">
             {temps.min != null && temps.max != null ? (
-              <TemperatureLegend span={{ min: temps.min, max: temps.max }} />
+              <TemperatureLegend span={{ min: temps.min, max: temps.max }} lang={lang} />
             ) : null}
+            {lang === 'es' ? (
+            <p className="mt-2">
+              La temperatura de cada municipio, corregida por la altitud desde
+              la estación del Meteocat que le corresponde. Los que no salen pintados no
+              tienen ninguna lo bastante cerca.
+              {temps.min != null && temps.max != null ? (
+                <>
+                  {' '}Ahora hay{' '}
+                  <strong className="tnum text-[var(--ink-2)]">{num(temps.max - temps.min, 1)} grados</strong>{' '}
+                  entre el más cálido y el más frío.
+                </>
+              ) : null}
+            </p>
+            ) : (
             <p className="mt-2">
               La temperatura de cada municipi, corregida per l’altitud des de
               l’estació del Meteocat que li toca. Els que no surten pintats no en
@@ -294,28 +334,70 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
                 </>
               ) : null}
             </p>
+            )}
           </div>
         )}
-        windLegend={windHour ? (
+        windLegend={windHour ? (lang === 'es' ? (
+          <p key="vent">
+            Cada hilo es una partícula que sigue el viento, y cuanto más marcado, más
+            fuerza. <strong className="font-medium text-[var(--ink-2)]">Es viento
+            previsto, no medido</strong>: el medido está en la ficha de cada lugar, con
+            su estación y su hora.
+          </p>
+        ) : (
           <p key="vent">
             Cada fil és una partícula que segueix el vent, i com més marcat, més
             força. <strong className="font-medium text-[var(--ink-2)]">És vent
             previst, no mesurat</strong>: el mesurat és a la fitxa de cada lloc, amb
             la seva estació i la seva hora.
           </p>
-        ) : null}
-        warningsLegend={warnings ? (
+        )) : null}
+        warningsLegend={warnings ? (lang === 'es' ? (
+          <p key="avisos" className="mt-2">
+            Las manchas de color son los{' '}
+            <Link href="/avisos">avisos oficiales de AEMET</Link> vigentes, por zona
+            de Meteoalerta: dentro de una zona pintada, el aviso no distingue un pueblo
+            de otro. Cuando una zona tiene más de uno, el color es el del más alto.
+          </p>
+        ) : (
           <p key="avisos" className="mt-2">
             Les taques de color són els{' '}
             <Link href="/avisos">avisos oficials de l’AEMET</Link> vigents, per zona
             de Meteoalerta: dins d’una zona pintada, l’avís no distingeix un poble
             d’un altre. Quan una zona en té més d’un, el color és el del més alt.
           </p>
-        ) : null}
+        )) : null}
         fallback={fallback}
       />
 
-      <Fold title="Què veu i què no veu un radar" summary="Gotes a l’aire, que no sempre són pluja a terra">
+      <Fold
+        title={t('Què veu i què no veu un radar', 'Qué ve y qué no ve un radar')}
+        summary={t('Gotes a l’aire, que no sempre són pluja a terra', 'Gotas en el aire, que no siempre son lluvia en el suelo')}
+      >
+        {lang === 'es' ? (
+        <div className="card prose">
+          <p>
+            Un radar no mide la lluvia que llega al suelo: mide las gotas que
+            hay <em>en el aire</em>, a unos cuantos centenares de metros
+            de altura, y no siempre coinciden.
+          </p>
+          <p>
+            <strong>En verano, ecos que no mojan.</strong> Con la capa baja
+            seca, la lluvia se evapora antes de tocar el suelo: el radar pinta
+            azul y en la calle no cae nada.
+          </p>
+          <p>
+            <strong>En el Pirineo, valles ciegos.</strong> El relieve tapa el haz, y hay
+            hondonadas que el radar no ve. Sin eco no quiere decir sin lluvia.
+          </p>
+          <p>
+            <strong>En invierno, nieve y lluvia se confunden.</strong> Cuando los copos
+            se funden justo por encima del suelo, el radar exagera la intensidad. Para
+            saber si nevará, la cota de nieve de cada ficha es más fiable que esta
+            imagen.
+          </p>
+        </div>
+        ) : (
         <div className="card prose">
           <p>
             Un radar no mesura la pluja que arriba a terra: mesura les gotes que
@@ -338,6 +420,7 @@ export default async function RadarPage({ searchParams }: { searchParams: Params
             imatge.
           </p>
         </div>
+        )}
       </Fold>
     </article>
   );

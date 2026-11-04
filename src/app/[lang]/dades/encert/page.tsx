@@ -11,6 +11,8 @@ import {
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
+import { getLang } from '@/lib/i18n';
+import { tr, type Lang } from '@/lib/lang';
 
 /*
  * Es genera a cada petició i el CDN la guarda cinc minuts: la regla és a
@@ -19,17 +21,23 @@ import { Fold } from '@/components/Fold';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Com encerta la temperatura',
-  description: "L'error de la temperatura d'ara d'aquest web i el dels models meteorològics, "
-    + 'mesurat hora a hora contra les estacions de la XEMA.',
-  alternates: { canonical: '/dades/encert' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Com encerta la temperatura', 'Cómo acierta la temperatura'),
+    description: tr(lang,
+      "L'error de la temperatura d'ara d'aquest web i el dels models meteorològics, "
+      + 'mesurat hora a hora contra les estacions de la XEMA.',
+      'El error de la temperatura actual de esta web y el de los modelos meteorológicos, '
+      + 'medido hora a hora contra las estaciones de la XEMA.'),
+    alternates: { canonical: '/dades/encert' },
+  };
+}
 
-const trail = [
-  { nom: 'Catalunya', path: '/' },
-  { nom: 'Dades obertes', path: '/dades' },
-  { nom: 'Com encerta', path: '/dades/encert' },
+const trailOf = (lang: Lang) => [
+  { nom: tr(lang, 'Catalunya', 'Cataluña'), path: '/' },
+  { nom: tr(lang, 'Dades obertes', 'Datos abiertos'), path: '/dades' },
+  { nom: tr(lang, 'Com encerta', 'Cómo acierta'), path: '/dades/encert' },
 ];
 
 /** Els models sols, sense cap de les dues xifres d'aquest web. */
@@ -38,6 +46,19 @@ const MODELS = COMPARE_SOURCES.filter((s) => s !== OURS && s !== OURS_A);
 /** Les fonts de la taula dels grups: les dues d'aquest web, la genèrica i la millor. */
 const GROUP_SOURCES: CompareSource[] = [OURS, OURS_A, 'best_match', 'meteofrance_arome_france_hd'];
 const GROUP_LABEL: Partial<Record<CompareSource, string>> = { [OURS]: 'Aquest web', [OURS_A]: 'Amb tres models' };
+const GROUP_ETIQUETA: Partial<Record<CompareSource, string>> = { [OURS]: 'Esta web', [OURS_A]: 'Con tres modelos' };
+
+/**
+ * Les etiquetes de SOURCE_LABEL que porten text, en castellà. Els noms dels
+ * models no es tradueixen. Viuen aquí mentre 	emperature-compare.ts no en
+ * tingui la versió castellana.
+ */
+const SOURCE_ETIQUETA: Partial<Record<CompareSource, string>> = {
+  tempscat: 'Esta web',
+  'tempscat-a': 'Esta web, en los puntos con tres modelos',
+  best_match: 'Open-Meteo (el que elige para cada punto)',
+};
+const sourceLabel = (s: CompareSource, lang: Lang) => (lang === 'es' ? SOURCE_ETIQUETA[s] ?? SOURCE_LABEL[s] : SOURCE_LABEL[s]);
 
 interface Row { codi: string; st: CompareStation; altitud: number; km: number; dAlt: number }
 
@@ -60,17 +81,21 @@ const pct = (v: number | null) => (v == null ? '—' : `${num(v * 100, 0)} %`);
 const signed = (v: number | null) => (v == null ? '—' : `${v > 0 ? '+' : ''}${num(v, 2)} °C`);
 
 export default async function EncertPage() {
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
+  const trail = trailOf(lang);
   const cmp = await temperatureCompare();
 
   if (!cmp) {
     return (
       <article>
-        <JsonLd data={graph(breadcrumbLd(trail))} />
+        <JsonLd data={graph(breadcrumbLd(trail, lang))} />
         <PageHero
           crumbs={trail}
-          eyebrow="Dades obertes"
-          title="Com encerta la temperatura"
-          lead="Encara no hi ha cap dia comparat. La comparació es fa un cop al dia, amb el dia anterior."
+          eyebrow={t('Dades obertes', 'Datos abiertos')}
+          title={t('Com encerta la temperatura', 'Cómo acierta la temperatura')}
+          lead={t('Encara no hi ha cap dia comparat. La comparació es fa un cop al dia, amb el dia anterior.',
+            'Todavía no hay ningún día comparado. La comparación se hace una vez al día, con el día anterior.')}
         />
       </article>
     );
@@ -111,19 +136,19 @@ export default async function EncertPage() {
   const kmMedian = median(rows.map((r) => r.km));
 
   const groups: Array<{ label: string; note?: string; t: Partial<Record<CompareSource, CompareTally>>; k?: number }> = [
-    { label: "L'estació veïna més propera, a menys de 10 km", t: bySource(rows.filter((r) => r.km < 10)), k: rows.filter((r) => r.km < 10).length },
-    { label: 'A 10 km o més', t: bySource(rows.filter((r) => r.km >= 10)), k: rows.filter((r) => r.km >= 10).length },
-    { label: 'Per sota de 300 m', t: bySource(rows.filter((r) => r.altitud < 300)), k: rows.filter((r) => r.altitud < 300).length },
-    { label: 'De 300 a 800 m', t: bySource(rows.filter((r) => r.altitud >= 300 && r.altitud < 800)), k: rows.filter((r) => r.altitud >= 300 && r.altitud < 800).length },
-    { label: 'De 800 a 1.500 m', t: bySource(rows.filter((r) => r.altitud >= 800 && r.altitud < 1500)), k: rows.filter((r) => r.altitud >= 800 && r.altitud < 1500).length },
-    { label: 'A 1.500 m o més', t: bySource(rows.filter((r) => r.altitud >= 1500)), k: rows.filter((r) => r.altitud >= 1500).length },
+    { label: t("L'estació veïna més propera, a menys de 10 km", 'La estación vecina más cercana, a menos de 10 km'), t: bySource(rows.filter((r) => r.km < 10)), k: rows.filter((r) => r.km < 10).length },
+    { label: t('A 10 km o més', 'A 10 km o más'), t: bySource(rows.filter((r) => r.km >= 10)), k: rows.filter((r) => r.km >= 10).length },
+    { label: t('Per sota de 300 m', 'Por debajo de 300 m'), t: bySource(rows.filter((r) => r.altitud < 300)), k: rows.filter((r) => r.altitud < 300).length },
+    { label: t('De 300 a 800 m', 'De 300 a 800 m'), t: bySource(rows.filter((r) => r.altitud >= 300 && r.altitud < 800)), k: rows.filter((r) => r.altitud >= 300 && r.altitud < 800).length },
+    { label: t('De 800 a 1.500 m', 'De 800 a 1.500 m'), t: bySource(rows.filter((r) => r.altitud >= 800 && r.altitud < 1500)), k: rows.filter((r) => r.altitud >= 800 && r.altitud < 1500).length },
+    { label: t('A 1.500 m o més', 'A 1.500 m o más'), t: bySource(rows.filter((r) => r.altitud >= 1500)), k: rows.filter((r) => r.altitud >= 1500).length },
     {
-      label: 'Amb més de 200 m de desnivell fins a la veïna més propera',
+      label: t('Amb més de 200 m de desnivell fins a la veïna més propera', 'Con más de 200 m de desnivel hasta la vecina más cercana'),
       t: bySource(rows.filter((r) => r.dAlt > 200)), k: rows.filter((r) => r.dAlt > 200).length,
     },
     // UTC: de 9 a 15 h són les hores centrals del dia amb horari d'estiu i d'hivern.
-    { label: 'Hores centrals del dia', note: 'de 9 a 15 h UTC', t: byHours(data, (h) => h >= 9 && h <= 15) },
-    { label: 'De nit', note: 'de 19 a 5 h UTC', t: byHours(data, (h) => h >= 19 || h <= 5) },
+    { label: t('Hores centrals del dia', 'Horas centrales del día'), note: t('de 9 a 15 h UTC', 'de 9 a 15 h UTC'), t: byHours(data, (h) => h >= 9 && h <= 15) },
+    { label: t('De nit', 'De noche'), note: t('de 19 a 5 h UTC', 'de 19 a 5 h UTC'), t: byHours(data, (h) => h >= 19 || h <= 5) },
   ];
 
   // Un registre d'abans pot no portar alguna de les fonts.
@@ -132,14 +157,23 @@ export default async function EncertPage() {
 
   return (
     <article data-wide>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow="Dades obertes"
+        eyebrow={t('Dades obertes', 'Datos abiertos')}
         icon="thermometer"
-        title="Com encerta la temperatura"
-        lead={ours != null && generic != null && best != null && bestModel ? (
+        title={t('Com encerta la temperatura', 'Cómo acierta la temperatura')}
+        lead={ours != null && generic != null && best != null && bestModel ? (lang === 'es' ? (
+          <>
+            La temperatura actual que muestra esta web se equivoca, de media,{' '}
+            <strong className="tnum">{num(ours, 2)} °C</strong>
+            {oursA != null && <>, y <strong className="tnum">{num(oursA, 2)} °C</strong> en los pueblos donde se parte de tres modelos</>}.
+            La que elige Open-Meteo para cada punto, <strong className="tnum">{num(generic, 2)} °C</strong>, y
+            el modelo que más acierta, {sourceLabel(bestModel, lang)},{' '}
+            <strong className="tnum">{num(best, 2)} °C</strong>.
+          </>
+        ) : (
           <>
             La temperatura d&apos;ara que ensenya aquest web s&apos;equivoca, de mitjana,{' '}
             <strong className="tnum">{num(ours, 2)} °C</strong>
@@ -148,13 +182,20 @@ export default async function EncertPage() {
             el model que més encerta, {SOURCE_LABEL[bestModel]},{' '}
             <strong className="tnum">{num(best, 2)} °C</strong>.
           </>
-        ) : undefined}
+        )) : undefined}
         stats={[
-          ours != null && { label: 'Aquest web', icon: 'thermometer', value: num(ours, 2), unit: '°C', sub: "d'error mitjà" },
-          generic != null && { label: 'Open-Meteo', icon: 'thermometer', value: num(generic, 2), unit: '°C', sub: 'el que tria per a cada punt' },
-          { label: 'Comparacions', value: int(n), sub: `${int(rows.length)} estacions · ${days} ${days === 1 ? 'dia' : 'dies'}` },
+          ours != null && { label: t('Aquest web', 'Esta web'), icon: 'thermometer', value: num(ours, 2), unit: '°C', sub: t("d'error mitjà", 'de error medio') },
+          generic != null && { label: 'Open-Meteo', icon: 'thermometer', value: num(generic, 2), unit: '°C', sub: t('el que tria per a cada punt', 'el que elige para cada punto') },
+          { label: t('Comparacions', 'Comparaciones'), value: int(n), sub: tr(lang,
+            `${int(rows.length)} estacions · ${days} ${days === 1 ? 'dia' : 'dies'}`,
+            `${int(rows.length)} estaciones · ${days} ${days === 1 ? 'día' : 'días'}`) },
         ]}
-        note={(
+        note={lang === 'es' ? (
+          <>
+            Del {dateShort(data.scored[0], lang)} al {dateShort(data.scored.at(-1)!, lang)}, hora a hora, contra
+            lo que han medido las estaciones de la XEMA. Se actualiza cada mañana.
+          </>
+        ) : (
           <>
             Del {dateShort(data.scored[0])} al {dateShort(data.scored.at(-1)!)}, hora a hora, contra
             el que han mesurat les estacions de la XEMA. Es posa al dia cada matí.
@@ -162,23 +203,23 @@ export default async function EncertPage() {
         )}
       />
 
-      <Section id="fonts" title="Totes les fonts">
+      <Section id="fonts" title={t('Totes les fonts', 'Todas las fuentes')}>
         <div className="card">
           <div className="scroll-x">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th scope="col">Font</th>
-                  <th scope="col" className="num">Error mitjà</th>
-                  <th scope="col" className="num">Biaix</th>
-                  <th scope="col" className="num">Errors de més de 3 °C</th>
+                  <th scope="col">{t('Font', 'Fuente')}</th>
+                  <th scope="col" className="num">{t('Error mitjà', 'Error medio')}</th>
+                  <th scope="col" className="num">{t('Biaix', 'Sesgo')}</th>
+                  <th scope="col" className="num">{t('Errors de més de 3 °C', 'Errores de más de 3 °C')}</th>
                 </tr>
               </thead>
               <tbody>
                 {ranked.map((s) => (
                   <tr key={s}>
                     <th scope="row" className={`text-left normal-case tracking-normal ${s === OURS ? 'font-semibold text-[var(--ink)]' : 'font-normal'}`}>
-                      {SOURCE_LABEL[s]}
+                      {sourceLabel(s, lang)}
                     </th>
                     <td className="num tnum">{deg(compareMae(all[s]))}</td>
                     <td className="num tnum">{signed(compareBias(all[s]))}</td>
@@ -188,24 +229,33 @@ export default async function EncertPage() {
               </tbody>
             </table>
           </div>
+          {lang === 'es' ? (
+            <p className="source">
+              El error medio es la diferencia con la temperatura medida, sin signo. El
+              sesgo es la misma diferencia con signo: positivo quiere decir que la fuente da más
+              calor del que hace. La cifra de esta web acierta más que el mejor modelo en{' '}
+              {wins} de las {rows.length} estaciones.
+            </p>
+          ) : (
           <p className="source">
             L&apos;error mitjà és la diferència amb la temperatura mesurada, sense signe. El
             biaix és la mateixa diferència amb signe: positiu vol dir que la font diu més
             calor de la que fa. La xifra d&apos;aquest web encerta més que el millor model a{' '}
             {wins} de les {rows.length} estacions.
           </p>
+          )}
         </div>
       </Section>
 
-      <Section id="on" title="On encerta més i on menys">
+      <Section id="on" title={t('On encerta més i on menys', 'Dónde acierta más y dónde menos')}>
         <div className="card">
           <div className="scroll-x">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th scope="col">Estacions</th>
+                  <th scope="col">{t('Estacions', 'Estaciones')}</th>
                   {groupSources.map((s) => (
-                    <th key={s} scope="col" className="num">{GROUP_LABEL[s] ?? SOURCE_LABEL[s].replace(/ \(.*\)$/, '')}</th>
+                    <th key={s} scope="col" className="num">{(lang === 'es' ? GROUP_ETIQUETA[s] : GROUP_LABEL[s]) ?? sourceLabel(s, lang).replace(/ \(.*\)$/, '')}</th>
                   ))}
                 </tr>
               </thead>
@@ -218,7 +268,7 @@ export default async function EncertPage() {
                       <th scope="row" className="text-left font-normal normal-case tracking-normal">
                         {g.label}
                         <span className="block text-xs text-[var(--muted)]">
-                          {g.k != null ? `${g.k} ${g.k === 1 ? 'estació' : 'estacions'}` : g.note}
+                          {g.k != null ? `${g.k} ${g.k === 1 ? t('estació', 'estación') : t('estacions', 'estaciones')}` : g.note}
                         </span>
                       </th>
                       {maes.map((v, i) => (
@@ -232,16 +282,60 @@ export default async function EncertPage() {
               </tbody>
             </table>
           </div>
+          {lang === 'es' ? (
+            <p className="source">
+              Error medio de cada grupo; en negrita, el más bajo. «Con tres modelos» es la
+              misma cifra en los 350 puntos donde la predicción es la media de tres modelos —los
+              pueblos más grandes—; el resto parte de la elección de Open-Meteo, y a partir de 500 m
+              también de AROME.
+            </p>
+          ) : (
           <p className="source">
             Error mitjà de cada grup; en negreta, el més baix. «Amb tres models» és la
             mateixa xifra als 350 punts on la predicció és la mitjana de tres models —els
             pobles més grans—; la resta parteix de la tria d&apos;Open-Meteo, i a partir de 500 m
             també d&apos;AROME.
           </p>
+          )}
         </div>
       </Section>
 
-      <Fold title="Com es mesura" summary="Traient cada estació, una per una">
+      <Fold title={t('Com es mesura', 'Cómo se mide')} summary={t('Traient cada estació, una per una', 'Quitando cada estación, una por una')}>
+        {lang === 'es' ? (
+          <div className="measure space-y-3">
+            <p>
+              La temperatura de una ficha parte del modelo meteorológico en ese punto y a
+              esa altitud, y le suma el error que el mismo modelo está cometiendo en las
+              estaciones de la XEMA de alrededor: cada estación pesa más cuanto más cerca está y
+              cuanto más parecida es su altitud, y lejos de toda estación queda el modelo
+              solo. El error se mide con la última lectura, que llega con una hora de
+              retraso, y se suma al modelo de la hora actual.
+            </p>
+            <p>
+              En el pueblo no hay ningún termómetro para comprobarlo, pero en cada estación sí: para
+              cada estación y cada hora, se calcula la cifra que daría esta web{' '}
+              <strong>sin esa estación</strong>, con las lecturas de las demás de
+              la hora anterior, y se compara con lo que ha medido.
+            </p>
+            <p>
+              A los modelos se les pide la temperatura que preveían para esa hora en las
+              coordenadas y a la cota de la estación, en el archivo de predicción
+              de Open-Meteo. Una hora solo cuenta si todas las fuentes tienen valor, y las
+              lecturas que las estaciones vecinas desmienten no se usan.
+            </p>
+            <p>
+              Es una comparación desfavorable para esta web: sin la estación, la vecina
+              más cercana queda a {kmMedian != null ? `${num(kmMedian, 1)} km` : 'unos cuantos kilómetros'} de
+              mediana, y la de un pueblo queda más cerca. Las aplicaciones comerciales no
+              publican qué decían horas atrás y no se pueden medir así; la mayoría usan
+              alguno de estos modelos.
+            </p>
+            <p>
+              Cuándo se actualizó por última vez está en{' '}
+              <Link href="/estat">el estado de los datos</Link>.
+            </p>
+          </div>
+        ) : (
         <div className="measure space-y-3">
           <p>
             La temperatura d&apos;una fitxa parteix del model meteorològic en aquell punt i a
@@ -275,6 +369,7 @@ export default async function EncertPage() {
             <Link href="/estat">l&apos;estat de les dades</Link>.
           </p>
         </div>
+        )}
       </Fold>
     </article>
   );
