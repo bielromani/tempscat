@@ -151,6 +151,17 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  /*
+   * L'iPhone demana `/apple-touch-icon.png` per la seva compte quan algú desa el
+   * web a la pantalla d'inici o el comparteix, sense mirar l'enllaç de la pàgina,
+   * i Next la serveix a `/apple-icon.png`. Eren unes quaranta 404 a la setmana.
+   */
+  async rewrites() {
+    return [
+      { source: '/apple-touch-icon:variant(.*).png', destination: '/apple-icon.png' },
+    ];
+  },
+
   async headers() {
     return [
       {

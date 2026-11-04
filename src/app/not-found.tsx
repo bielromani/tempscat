@@ -13,10 +13,30 @@ import { locationByPath } from '@/lib/territory';
  * enllaç vell o d'un nom de poble escrit a mà a la barra, i el que necessita és
  * el cercador, no una disculpa.
  *
- * Next ja hi posa `noindex` i torna un 404, que és el que ha de fer.
+ * Next ja hi posa `noindex` i torna un 404, que és el que ha de fer. Però el
+ * `layout` hi afegia les seves —`index, follow` i el canònic de la portada—, i la
+ * pàgina sortia amb dues ordres de robots contradictòries i dient que era la
+ * portada. Per això les dues es tornen a escriure aquí.
+ *
+ * ## Per què el cos arriba buit i el pinta el navegador
+ *
+ * Quan una pàgina dinàmica crida `notFound()`, Next 16 no pot pintar aquesta
+ * pàgina al servidor: l'error arriba a la closca, i el que s'envia és un
+ * `<html id="__next_error__">` amb el `<head>` bo, l'estat 404 i el cos buit, que
+ * omple el navegador. Passa a totes les rutes dinàmiques —`[comarca]` les agafa
+ * gairebé totes— i no a la de l'arrel, que es pregenera sencera.
+ *
+ * L'arreglaria un `proxy.ts` que retornés la 404 abans de renderitzar, però
+ * hauria de mirar cada petició de pàgina, també les que el CDN ja té guardades:
+ * mesurat del 28 d'octubre al 3 de novembre de 2026, 381.000 peticions bones
+ * contra 903 de no trobades, i la majoria eren robots buscant `/wp-admin`. Un
+ * cercador rep l'estat 404 igualment; qui no té JavaScript és qui veu la pàgina
+ * en blanc.
  */
 export const metadata: Metadata = {
   title: 'Pàgina no trobada · tempscat',
+  robots: { index: false, follow: true },
+  alternates: { canonical: null },
 };
 
 export default function NotFound() {
