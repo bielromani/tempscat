@@ -759,6 +759,38 @@ function plausibleSnowExtreme(
   return best;
 }
 
+/** Quants dies enrere es miren els forats de la xarxa. */
+const GAP_WINDOW_DAYS = 40;
+
+/**
+ * Els dies que la font no ha publicat per a quasi cap estació.
+ *
+ * El 25, el 26, el 27 i el 28 d'octubre de 2026 el dataset diari va tenir 1, 0,
+ * 0 i 5 estacions de 188, i no ho va veure ningú: el worker torna a demanar els
+ * 400 dies cada vegada i aquells dies no hi eren. Les fitxes ho deien estació a
+ * estació —«té dada de 11 dels últims quinze dies»— però res no deia que era
+ * la font sencera, que és una cosa que no s'arregla mirant l'aparell.
+ *
+ * Un dia és un forat quan el tenen menys de la meitat de les estacions que té
+ * un dia normal de la finestra. L'últim dia no compta: la font el va omplint
+ * durant el matí, i a primera hora en porta tres quartes parts.
+ */
+function networkGaps(valid: Array<{ daily: DailyRecord[] }>, newest: string): string[] {
+  const perDay = new Map<string, number>();
+  for (const v of valid) {
+    for (const d of v.daily) {
+      if (d.precip != null || d.tMean != null) perDay.set(d.day, (perDay.get(d.day) ?? 0) + 1);
+    }
+  }
+  const days: string[] = [];
+  const end = Date.parse(`${newest}T00:00:00Z`);
+  for (let k = GAP_WINDOW_DAYS; k >= 1; k--) days.push(new Date(end - k * 86_400_000).toISOString().slice(0, 10));
+  const counts = days.map((d) => perDay.get(d) ?? 0).sort((a, b) => a - b);
+  const median = counts[Math.floor(counts.length / 2)];
+  if (!median) return [];
+  return days.filter((d) => (perDay.get(d) ?? 0) < median / 2);
+}
+
 async function main() {
   // El comptador de quota i el registre de frescor viuen al magatzem:
   // sense això, cada execució automàtica començaria de zero i en
@@ -1040,6 +1072,8 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
   if (dry) console.log(`\nRatxa seca més llarga ara: ${dry.dryStreak} dies a ${nom.get(dry.station)}`);
 
   const newest = valid.flatMap((v) => v.daily.map((d) => d.day)).sort().at(-1) ?? null;
+  const gaps = newest ? networkGaps(valid, newest) : [];
+  if (gaps.length) console.log(`\nDies que la font no ha publicat: ${gaps.join(', ')}`);
   const source = 'Meteocat XEMA · dades obertes';
   const dataTs = newest ? `${newest}T00:00:00Z` : null;
 
@@ -1090,6 +1124,7 @@ avís: ${failed.length} estacions han fallat i es conserven les anteriors: ${fai
     stalenessLimitMin: 60 * 24 * 4,
     rows: valid.length,
     apiCalls: calls,
+    gaps,
   });
 
   console.log(`\n→ data/cache/xema-history.json (${((Date.now() - started) / 1000 / 60).toFixed(1)} min, ${calls} consultes)`);

@@ -160,7 +160,7 @@ interface Props {
  * Només si l'agregat és d'avui: passada la mitjanit, la instantània pot portar
  * encara els extrems del dia anterior.
  */
-function withObservedToday(daily: DailyPoint[], today: string, current: CurrentConditions | null): DailyPoint[] {
+export function withObservedToday(daily: DailyPoint[], today: string, current: CurrentConditions | null): DailyPoint[] {
   if (!current || current.aggregatesDay !== today) return daily;
   const t = current.temperatureAdjusted;
   return daily.map((d) => {
