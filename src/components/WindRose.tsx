@@ -1,6 +1,7 @@
 import { msToKmh } from '@/lib/variables';
 import { directionPrep, int, num } from '@/lib/format';
 import type { WindRose as WindRoseData } from '@/lib/weather';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * Rosa de los vientos, SVG de servidor.
@@ -53,7 +54,8 @@ function gustColor(kmh: number | null): string {
   return `oklch(${l.toFixed(0)}% ${c.toFixed(3)} ${(250 - k * 40).toFixed(0)})`;
 }
 
-export function WindRose({ rose }: { rose: WindRoseData }) {
+export function WindRose({ rose, lang = 'ca' }: { rose: WindRoseData; lang?: Lang }) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const maxShare = Math.max(...rose.sectors.map((s) => s.share));
   if (maxShare <= 0) return null;
 
@@ -69,8 +71,11 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
     { deg: 180, label: 'S' }, { deg: 270, label: 'O' },
   ];
 
-  const describe = `Rosa dels vents: les ratxes vénen sobretot del ${rose.prevailing?.label ?? '—'}, `
-    + `en ${((rose.prevailing?.share ?? 0) * 100).toFixed(0)} % dels ${int(rose.days)} dies de sèrie.`;
+  const describe = tr(lang,
+    `Rosa dels vents: les ratxes vénen sobretot del ${rose.prevailing?.label ?? '—'}, `
+    + `en ${((rose.prevailing?.share ?? 0) * 100).toFixed(0)} % dels ${int(rose.days)} dies de sèrie.`,
+    `Rosa de los vientos: las rachas vienen sobre todo del ${rose.prevailing?.label ?? '—'}, `
+    + `en el ${((rose.prevailing?.share ?? 0) * 100).toFixed(0)} % de los ${int(rose.days)} días de serie.`);
 
   return (
     <figure className="m-0 flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
@@ -121,9 +126,9 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
            * mira, y el árbol rehecho, que no se ve.
            */
           const tip = [
-            `${s.label} · ${num(s.share * 100, 1)} % dels dies`,
-            kmh != null ? `ratxa mitjana ${int(kmh)} km/h` : null,
-            s.gustMax != null ? `màxima ${int(msToKmh(s.gustMax))} km/h` : null,
+            `${s.label} · ${num(s.share * 100, 1)} % ${t('dels dies', 'de los días')}`,
+            kmh != null ? `${t('ratxa mitjana', 'racha media')} ${int(kmh)} km/h` : null,
+            s.gustMax != null ? `${t('màxima', 'máxima')} ${int(msToKmh(s.gustMax))} km/h` : null,
           ].filter(Boolean).join(' · ');
           return (
             <path
@@ -157,13 +162,19 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
       </svg>
 
       <figcaption className="min-w-[16rem] max-w-[36rem] flex-1">
-        {rose.prevailing && (
+        {rose.prevailing && (lang === 'es' ? (
+          <p className="text-[15px] leading-relaxed text-[var(--ink-2)]">
+            Las rachas más fuertes de cada día vienen {directionPrep(rose.prevailing.label, lang)}
+            <strong className="font-semibold text-[var(--ink)]">{rose.prevailing.label}</strong>{' '}
+            en el {(rose.prevailing.share * 100).toFixed(0)} % de los días.
+          </p>
+        ) : (
           <p className="text-[15px] leading-relaxed text-[var(--ink-2)]">
             Les ratxes més fortes de cada dia vénen {directionPrep(rose.prevailing.label)}
             <strong className="font-semibold text-[var(--ink)]">{rose.prevailing.label}</strong>{' '}
             en el {(rose.prevailing.share * 100).toFixed(0)} % dels dies.
           </p>
-        )}
+        ))}
         <ul className="rows mt-3">
           {[...rose.sectors]
             .filter((s) => s.days > 0)
@@ -181,12 +192,24 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
                 </span>
                 <span className="tnum text-right text-[13px] text-[var(--muted)]">
                   <strong className="font-semibold text-[var(--ink)]">{(s.share * 100).toFixed(0)} %</strong>
-                  {s.gustMean != null && ` · ${msToKmh(s.gustMean).toFixed(0)} km/h de mitjana`}
-                  {s.gustMax != null && ` · fins a ${num(msToKmh(s.gustMax), 0)}`}
+                  {s.gustMean != null && ` · ${msToKmh(s.gustMean).toFixed(0)} km/h ${t('de mitjana', 'de media')}`}
+                  {s.gustMax != null && ` · ${t('fins a', 'hasta')} ${num(msToKmh(s.gustMax), 0)}`}
                 </span>
               </li>
             ))}
         </ul>
+        {lang === 'es' ? (
+          <p className="source">
+            Cada día cuenta una vez, por la dirección de su racha máxima:{' '}
+            {int(rose.days)} días de serie, medidos{' '}
+            <strong className="font-medium text-[var(--ink-2)]">a {rose.heightM} m</strong>
+            {rose.heightM < 10 && ' (en la montaña el mástil es más bajo porque a 10 m no '
+              + 'aguanta el hielo, y allí el viento se mide más flojo)'}. El radio va con
+            la raíz cuadrada de la frecuencia, porque el ojo compara áreas.
+            Dice de dónde viene el viento fuerte, no la frecuencia de las brisas: la
+            marinada sale poco porque pocas veces es la racha del día.
+          </p>
+        ) : (
         <p className="source">
           Cada dia compta una vegada, per la direcció de la seva ratxa màxima:{' '}
           {int(rose.days)} dies de sèrie, mesurats{' '}
@@ -197,6 +220,7 @@ export function WindRose({ rose }: { rose: WindRoseData }) {
           Diu d&apos;on ve el vent fort, no la freqüència de les brises: la
           marinada hi surt poc perquè poques vegades és la ratxa del dia.
         </p>
+        )}
       </figcaption>
     </figure>
   );

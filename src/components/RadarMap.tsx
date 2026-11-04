@@ -18,6 +18,8 @@ import {
  */
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { WindLayer, decodeWind, type WindData } from './wind-layer';
+import { tr, type Lang } from '@/lib/lang';
+import { placeName } from '@/lib/format';
 
 /**
  * El radar: la pluja de les dues últimes hores en un mapa que es mou, i la
@@ -128,6 +130,8 @@ interface Props {
   warningsLegend: ReactNode;
   /** L'última imatge, dibuixada pel servidor: el que es veu sense JavaScript. */
   fallback: ReactNode;
+  /** L'idioma dels rètols que escriu el mapa; els peus ja venen escrits del servidor. */
+  lang?: Lang;
 }
 
 type Capa = 'radar' | 'temperatura' | 'vent';
@@ -178,8 +182,9 @@ type MapLike = {
 
 export default function RadarMap({
   frames, tiles, focus, wind, warnings, warningsOn, colors, degrees, observed, total, range,
-  radarLegend, temperatureLegend, windLegend, warningsLegend, fallback,
+  radarLegend, temperatureLegend, windLegend, warningsLegend, fallback, lang = 'ca',
 }: Props) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<MapLike | null>(null);
   /** Els marcs que ja tenen fonts i capes creades. */
@@ -225,7 +230,7 @@ export default function RadarMap({
          * l'última imatge del radar que ha dibuixat el servidor, amb una frase.
          */
         if (!document.createElement('canvas').getContext('webgl2')) {
-          if (!dead) setError('Aquest navegador no pot dibuixar el mapa que es mou. Aquí teniu l’última imatge del radar.');
+          if (!dead) setError(tr(lang, 'Aquest navegador no pot dibuixar el mapa que es mou. Aquí teniu l’última imatge del radar.', 'Este navegador no puede dibujar el mapa que se mueve. Aquí tiene la última imagen del radar.'));
           return;
         }
         const maplibre = await import('maplibre-gl');
@@ -249,11 +254,11 @@ export default function RadarMap({
           attributionControl: { compact: true },
           // Els rètols dels botons, que MapLibre porta en anglès.
           locale: {
-            'NavigationControl.ZoomIn': 'Apropa',
-            'NavigationControl.ZoomOut': 'Allunya',
-            'GeolocateControl.FindMyLocation': 'On sóc',
-            'GeolocateControl.LocationNotAvailable': 'No es pot saber on sou',
-            'AttributionControl.ToggleAttribution': 'D’on surt el mapa',
+            'NavigationControl.ZoomIn': tr(lang, 'Apropa', 'Acercar'),
+            'NavigationControl.ZoomOut': tr(lang, 'Allunya', 'Alejar'),
+            'GeolocateControl.FindMyLocation': tr(lang, 'On sóc', 'Dónde estoy'),
+            'GeolocateControl.LocationNotAvailable': tr(lang, 'No es pot saber on sou', 'No se puede saber dónde está'),
+            'AttributionControl.ToggleAttribution': tr(lang, 'D’on surt el mapa', 'De dónde sale el mapa'),
             'ScaleControl.Kilometers': 'km',
             'ScaleControl.Meters': 'm',
           },
@@ -457,11 +462,13 @@ export default function RadarMap({
       windCache.current.set(windShown.name, data);
       layer.setData(data);
     };
-    img.onerror = () => { if (!dead) setError(`no s'ha pogut llegir el vent de ${windShown.label}`); };
+    img.onerror = () => {
+      if (!dead) setError(tr(lang, `no s'ha pogut llegir el vent de ${windShown.label}`, `no se ha podido leer el viento de las ${windShown.label}`));
+    };
     img.src = abs(`/vent/${windShown.name}.png`);
 
     return () => { dead = true; };
-  }, [ready, capa, wind, windShown]);
+  }, [ready, capa, wind, windShown, lang]);
 
   // ── La temperatura, que es baixa quan s'encén ────────────────────────────
   useEffect(() => {
@@ -475,7 +482,10 @@ export default function RadarMap({
     (async () => {
       try {
         const res = await fetch(abs('/mapa/geo/municipis'));
-        if (!res.ok) throw new Error(`la geometria dels municipis no ha arribat (${res.status})`);
+        if (!res.ok) {
+          throw new Error(tr(lang, `la geometria dels municipis no ha arribat (${res.status})`,
+            `la geometría de los municipios no ha llegado (${res.status})`));
+        }
         const geo = await res.json() as {
           features: Array<{ properties: { code: string; name: string; c?: string; t?: number } }>;
         };
@@ -511,7 +521,7 @@ export default function RadarMap({
         const pick = (e: unknown) => {
           const ev = e as { features?: Array<{ properties: { name: string; t?: number } }> };
           const p = ev.features?.[0]?.properties;
-          if (p) setHover({ name: p.name, t: p.t ?? null });
+          if (p) setHover({ name: placeName(p.name, lang), t: p.t ?? null });
         };
         // `mousemove` per al ratolí i `click` per al dit, que no passa per sobre de res.
         m.on('mousemove', 'municipis-color', pick);
@@ -525,7 +535,7 @@ export default function RadarMap({
     })();
 
     return () => { dead = true; };
-  }, [ready, capa, colors, degrees]);
+  }, [ready, capa, colors, degrees, lang]);
 
   // ── Les zones d'avís ─────────────────────────────────────────────────────
   /*
@@ -584,11 +594,11 @@ export default function RadarMap({
   return (
     <figure className="card m-0 flex flex-col gap-4">
       {/* Les tres capes són excloents: o pluja, o temperatura, o vent. */}
-      <div role="group" aria-label="Què s'ensenya al mapa" className="radar-seg sm:max-w-md">
+      <div role="group" aria-label={t("Què s'ensenya al mapa", 'Qué se muestra en el mapa')} className="radar-seg sm:max-w-md">
         {([
-          ['radar', 'Pluja'],
+          ['radar', t('Pluja', 'Lluvia')],
           ['temperatura', 'Temperatura'],
-          ...(wind ? [['vent', 'Vent'] as const] : []),
+          ...(wind ? [['vent', t('Vent', 'Viento')] as const] : []),
         ] as const).map(([k, text]) => (
           <button
             key={k}
@@ -618,7 +628,7 @@ export default function RadarMap({
         >
           {error ? (
             <p className="m-3 rounded-xl bg-[var(--paper)] p-3 text-sm text-[var(--ink-2)]">
-              <strong className="text-[var(--ink)]">El mapa no ha arrencat.</strong> {error}
+              <strong className="text-[var(--ink)]">{t('El mapa no ha arrencat.', 'El mapa no ha arrancado.')}</strong> {error}
             </p>
           ) : null}
           {fallback}
@@ -626,23 +636,23 @@ export default function RadarMap({
 
         {!ready && !error ? (
           <p className="pointer-events-none absolute left-3 top-3 z-20 rounded-full bg-[var(--paper)]/90 px-3 py-1 text-sm text-[var(--ink-2)] shadow-sm">
-            S’està carregant el mapa…
+            {t('S’està carregant el mapa…', 'Cargando el mapa…')}
           </p>
         ) : null}
 
         {ready && !error && capa === 'temperatura' ? (
           <p className="pointer-events-none absolute left-3 top-3 rounded-full bg-[var(--paper)]/90 px-3 py-1 text-sm tabular-nums text-[var(--ink)] shadow-sm">
             {loadingTemp ? (
-              <span className="text-[var(--muted)]">S’estan baixant els municipis…</span>
+              <span className="text-[var(--muted)]">{t('S’estan baixant els municipis…', 'Descargando los municipios…')}</span>
             ) : hover ? (
               <>
                 <span className="font-semibold">{hover.name}</span>
                 <span className="ml-2">
-                  {hover.t != null ? `${deg(hover.t)} °C` : 'sense observació'}
+                  {hover.t != null ? `${deg(hover.t)} °C` : t('sense observació', 'sin observación')}
                 </span>
               </>
             ) : (
-              <span className="text-[var(--muted)]">Toqueu un municipi</span>
+              <span className="text-[var(--muted)]">{t('Toqueu un municipi', 'Toque un municipio')}</span>
             )}
           </p>
         ) : null}
@@ -658,14 +668,14 @@ export default function RadarMap({
                 max={frames.length - 1}
                 step={1}
                 value={i}
-                aria-label="Instant del radar"
-                aria-valuetext={`${f?.label}, ${f?.kind === 'past' ? 'observació' : 'predicció'}`}
+                aria-label={t('Instant del radar', 'Instante del radar')}
+                aria-valuetext={`${f?.label}, ${f?.kind === 'past' ? t('observació', 'observación') : t('predicció', 'predicción')}`}
                 onChange={(e) => { setPlaying(false); setI(Number(e.target.value)); }}
                 className="rscrub w-full"
               />
               <div className="mt-1 flex justify-between text-[11px] text-[var(--muted)]">
                 <span className="tnum">{frames[0].label}</span>
-                <span className="tnum">{frames[Math.max(0, lastPast)]?.label} · ara</span>
+                <span className="tnum">{frames[Math.max(0, lastPast)]?.label}{t(' · ara', ' · ahora')}</span>
                 {lastPast < span && <span className="tnum">{frames[frames.length - 1].label}</span>}
               </div>
             </>
@@ -675,8 +685,8 @@ export default function RadarMap({
               <p className="radar-big tnum" aria-live="off">{f?.label}</p>
               <p className="mt-1 text-[12.5px] text-[var(--muted)]">
                 {f?.kind === 'nowcast'
-                  ? 'predicció immediata'
-                  : i === lastPast ? 'l’última imatge' : 'observació'}
+                  ? t('predicció immediata', 'predicción inmediata')
+                  : i === lastPast ? t('l’última imatge', 'la última imagen') : t('observació', 'observación')}
               </p>
             </div>
             {frames.length > 1 && (
@@ -686,7 +696,7 @@ export default function RadarMap({
                 aria-pressed={playing}
                 onClick={() => setPlaying((p) => !p)}
               >
-                {playing ? 'Atura' : 'Reprodueix les 2 hores'}
+                {playing ? t('Atura', 'Detener') : t('Reprodueix les 2 hores', 'Reproducir las 2 horas')}
               </button>
             )}
           </div>
@@ -702,8 +712,10 @@ export default function RadarMap({
           </p>
           <p className="mt-1 text-[12.5px] text-[var(--muted)]">
             {hover
-              ? (hover.t != null ? hover.name : `${hover.name}, sense observació`)
-              : `ara, del municipi més fred al més càlid · ${observed} de ${total} amb observació`}
+              ? (hover.t != null ? hover.name : `${hover.name}, ${t('sense observació', 'sin observación')}`)
+              : tr(lang,
+                `ara, del municipi més fred al més càlid · ${observed} de ${total} amb observació`,
+                `ahora, del municipio más frío al más cálido · ${observed} de ${total} con observación`)}
           </p>
         </div>
       )}
@@ -712,7 +724,7 @@ export default function RadarMap({
         <div>
           <p className="radar-big tnum">{windShown.label}</p>
           <p className="mt-1 text-[12.5px] text-[var(--muted)]">
-            vent previst a deu metres del terra · fins a {windShown.maxKmh} km/h
+            {t('vent previst a deu metres del terra · fins a ', 'viento previsto a diez metros del suelo · hasta ')}{windShown.maxKmh} km/h
           </p>
         </div>
       )}
@@ -736,9 +748,9 @@ export default function RadarMap({
               { verd: 'green', groc: 'yellow', taronja: 'orange', vermell: 'red' }[warnings.worst ?? 'groc']
             })` }}
           />
-          {avisos ? 'Amaga els avisos' : 'Mostra els avisos'}
+          {avisos ? t('Amaga els avisos', 'Ocultar los avisos') : t('Mostra els avisos', 'Mostrar los avisos')}
           <span className="ml-auto text-[var(--muted)] tnum">
-            {warnings.zones} {warnings.zones === 1 ? 'zona' : 'zones'}
+            {warnings.zones} {warnings.zones === 1 ? 'zona' : t('zones', 'zonas')}
           </span>
         </button>
       ) : null}

@@ -18,13 +18,17 @@
  *
  * Una subscripció per aparell, a `subs/<empremta de l'adreça>.json`: l'adreça,
  * les dues claus que el navegador genera per xifrar, els llocs triats (fins a
- * deu) i dues dates. Ni nom, ni correu, ni IP, ni res que digui qui és la
- * persona: és el mínim perquè el missatge arribi. Ho diu `/privacitat`.
+ * deu), l'idioma del web des d'on es va activar i dues dates. Ni nom, ni
+ * correu, ni IP, ni res que digui qui és la persona: és el mínim perquè el
+ * missatge arribi, i en l'idioma de qui el llegeix. Ho diu `/privacitat`, i si
+ * aquí s'hi afegeix un camp, allà també.
  *
- * Importa només `s3-sign.ts`, que només importa `node:crypto`.
+ * Importa només `s3-sign.ts`, que només importa `node:crypto`, i el tipus de
+ * `lang.ts`, que es borra en compilar.
  */
 import { createHash } from 'node:crypto';
 import { s3Error, s3Fetch, type S3Config } from './s3-sign.ts';
+import type { Lang } from './lang.ts';
 
 export const MAX_PLACES = 10;
 
@@ -38,6 +42,11 @@ export interface PushSubscriptionRecord {
   endpoint: string;
   keys: { p256dh: string; auth: string };
   places: PushPlace[];
+  /**
+   * L'idioma del domini des d'on es va activar: `es` des d'`es.tempscat.cat`.
+   * Les subscripcions anteriors al castellà no el porten, i són en català.
+   */
+  lang?: Lang;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,8 +1,9 @@
 import { atomFeed, icsFeed } from '@/lib/syndication';
 import { activeWarnings } from '@/lib/weather';
 import { comarcaBySlug } from '@/lib/territory';
-import { comarcaName } from '@/lib/format';
-import { SITE_URL } from '@/lib/site';
+import { aComarca, comarcaName } from '@/lib/format';
+import { siteUrl } from '@/lib/site';
+import { langFromHost, tr } from '@/lib/lang';
 
 /**
  * Los avisos como feed, de toda Catalunya o de una comarca.
@@ -17,6 +18,10 @@ import { SITE_URL } from '@/lib/site';
  * Va sin `noindex`, al contrario que los feeds de datos: un feed de avisos es un
  * documento que la gente enlaza y comparte, y que un buscador lo conozca no crea
  * páginas duplicadas — es un tipo de contenido distinto, no una copia.
+ *
+ * En es.tempscat.cat la misma dirección sirve el feed en castellano: la ruta no
+ * pasa por [lang], así que el idioma sale del dominio de la petición. Cada
+ * dominio tiene su caché, y los identificadores llevan su propio dominio.
  */
 export const revalidate = 300;
 
@@ -29,13 +34,14 @@ export const revalidate = 300;
  * la cita o crea una segunda. Con un dominio inventado, los identificadores de
  * todos los avisos publicados hasta hoy apuntaban a un sitio que no existe.
  */
-const SITE = SITE_URL;
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ comarca?: string[] }> },
 ) {
   const { comarca } = await params;
+  const lang = langFromHost(req.headers.get('host'));
+  const SITE = siteUrl(lang);
 
   if (comarca && comarca.length > 1) {
     return new Response('Not found', { status: 404 });
@@ -44,15 +50,15 @@ export async function GET(
   const slug = comarca?.[0];
   const c = slug ? comarcaBySlug(slug) : undefined;
   if (slug && !c) {
-    return new Response(`No hi ha cap comarca a /${slug}`, { status: 404 });
+    return new Response(tr(lang, `No hi ha cap comarca a /${slug}`, `No hay ninguna comarca en /${slug}`), { status: 404 });
   }
 
   const warnings = (await activeWarnings())
     .filter((w) => !c || w.comarcaCodis.includes(c.codi))
     .sort((a, b) => a.onset.localeCompare(b.onset));
 
-  const where = c ? comarcaName(c.nom) : 'Catalunya';
-  const title = `Avisos meteorològics · ${where}`;
+  const where = c ? comarcaName(c.nom, lang) : tr(lang, 'Catalunya', 'Cataluña');
+  const title = tr(lang, `Avisos meteorològics · ${where}`, `Avisos meteorológicos · ${where}`);
   const path = `/avisos/feed${slug ? `/${slug}` : ''}`;
 
   const headers = {
@@ -62,7 +68,7 @@ export async function GET(
   };
 
   if (new URL(req.url).searchParams.get('format') === 'ics') {
-    return new Response(icsFeed(warnings, title), {
+    return new Response(icsFeed(warnings, title, lang), {
       headers: {
         ...headers,
         'Content-Type': 'text/calendar; charset=utf-8',
@@ -76,10 +82,12 @@ export async function GET(
       self: `${SITE}${path}`,
       site: SITE,
       title,
-      subtitle: c
-        ? `Avisos oficials de l'AEMET vigents ${comarcaName(c.nom)}`
-        : "Avisos oficials de l'AEMET vigents a Catalunya",
-    }),
+      subtitle: lang === 'es'
+        ? `Avisos oficiales de AEMET vigentes ${c ? aComarca(c.nom, lang) : 'en Cataluña'}`
+        : c
+          ? `Avisos oficials de l'AEMET vigents ${comarcaName(c.nom)}`
+          : "Avisos oficials de l'AEMET vigents a Catalunya",
+    }, lang),
     { headers: { ...headers, 'Content-Type': 'application/atom+xml; charset=utf-8' } },
   );
 }

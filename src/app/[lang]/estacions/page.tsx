@@ -10,6 +10,19 @@ import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero } from '@/components/PageHero';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
+
+/**
+ * Els noms dels àmbits en castellà. Els que són topònims —Penedès, Ponent— no
+ * es tradueixen; els que són descripció, sí. La clau segueix sent la catalana,
+ * que és la que fan servir les àncores.
+ */
+const AMBITO: Record<string, string> = {
+  'Comarques gironines': 'Comarcas gerundenses',
+  'Comarques centrals': 'Comarcas centrales',
+  'Àmbit metropolità': 'Ámbito metropolitano',
+};
 
 /**
  * Índice de estaciones, agrupado por comarca.
@@ -34,11 +47,14 @@ export const dynamic = 'force-dynamic';
  */
 export async function generateMetadata(): Promise<Metadata> {
   const n = operativeStations().length;
+  const lang = await getLang();
   return {
-    title: `Les ${n} estacions automàtiques de la XEMA`,
-    description:
+    title: tr(lang, `Les ${n} estacions automàtiques de la XEMA`, `Las ${n} estaciones automáticas de la XEMA`),
+    description: tr(lang,
       'Totes les estacions meteorològiques automàtiques de Catalunya en servei, '
       + 'per comarca, amb la seva altitud i la lectura més recent.',
+      'Todas las estaciones meteorológicas automáticas de Cataluña en servicio, '
+      + 'por comarca, con su altitud y la lectura más reciente.'),
     alternates: { canonical: '/estacions' },
   };
 }
@@ -50,6 +66,10 @@ type Params = Promise<{ q?: string }>;
 
 export default async function EstacionsPage({ searchParams }: { searchParams: Params }) {
   const params = await searchParams;
+  const lang = await getLang();
+  const es = lang === 'es';
+  const t = (ca: string, es: string) => tr(lang, ca, es);
+  const ambitName = (name: string) => (es ? AMBITO[name] ?? name : name);
   const stations = operativeStations();
   const obs = await allObservations();
   const tempOf = new Map(
@@ -91,7 +111,7 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
           match(fq, stationShort(st.nom)),
           st.codi.toLowerCase() === fq ? 100 : 0,
           st.municipiNom ? Math.round(match(fq, st.municipiNom) * 0.8) : 0,
-          st.comarcaNom ? Math.round(match(fq, comarcaName(st.comarcaNom)) * 0.6) : 0,
+          st.comarcaNom ? Math.round(match(fq, comarcaName(st.comarcaNom, lang)) * 0.6) : 0,
         ),
       }))
       .filter((h) => h.score > 0)
@@ -100,26 +120,26 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
     : [];
   const suggestions = [...new Set([
     ...stations.map((st) => capFirst(stationShort(st.nom))),
-    ...withStation.map((c) => comarcaName(c.nom)),
-  ])].sort((x, y) => x.localeCompare(y, 'ca'));
+    ...withStation.map((c) => comarcaName(c.nom, lang)),
+  ])].sort((x, y) => x.localeCompare(y, lang));
 
   const row = (st: typeof stations[number], withComarca = false) => {
-    const t = tempOf.get(st.codi) ?? null;
+    const temp = tempOf.get(st.codi) ?? null;
     return (
       <li key={st.codi}>
         <Link href={`/estacions/${st.codi}`} className="row-main">
           <span className="row-title">{capFirst(stationShort(st.nom))}</span>
           <span className="row-sub tnum">
             {st.altitud != null ? `${int(st.altitud)} m` : '—'}
-            {withComarca && st.comarcaNom && ` · ${comarcaName(st.comarcaNom)}`} · {st.codi}
+            {withComarca && st.comarcaNom && ` · ${comarcaName(st.comarcaNom, lang)}`} · {st.codi}
           </span>
         </Link>
-        {t != null && (
+        {temp != null && (
           <span
             className="temp-pill"
-            style={{ background: temperatureColor(t), color: temperatureInk(t) }}
+            style={{ background: temperatureColor(temp), color: temperatureInk(temp) }}
           >
-            {num(t, 0)}°
+            {num(temp, 0)}°
           </span>
         )}
       </li>
@@ -127,20 +147,27 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
   };
 
   const trail = [
-    { nom: 'Catalunya', path: '/' },
-    { nom: 'Estacions', path: '/estacions' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
+    { nom: t('Estacions', 'Estaciones'), path: '/estacions' },
   ];
 
   return (
     <article data-wide>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow="Estacions automàtiques"
+        eyebrow={t('Estacions automàtiques', 'Estaciones automáticas')}
         icon="thermometer"
-        title="Les estacions de la XEMA"
-        lead={(
+        title={t('Les estacions de la XEMA', 'Las estaciones de la XEMA')}
+        lead={es ? (
+          <>
+            {stations.length} estaciones en servicio
+            {highest && lowest && <>, entre {int(lowest.altitud)} y {int(highest.altitud)}&nbsp;m</>}.
+            Cada una tiene su ficha, con los récords y las normales de su
+            propia serie y de dónde le viene el viento.
+          </>
+        ) : (
           <>
             {stations.length} estacions en servei
             {highest && lowest && <>, entre {int(lowest.altitud)} i {int(highest.altitud)}&nbsp;m</>}.
@@ -150,19 +177,32 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
         )}
         stats={[
           {
-            label: 'En servei', icon: 'thermometer', value: String(stations.length),
-            sub: `a ${withStation.length} de ${comarques.length} comarques`,
+            label: t('En servei', 'En servicio'), icon: 'thermometer', value: String(stations.length),
+            sub: tr(lang, `a ${withStation.length} de ${comarques.length} comarques`, `en ${withStation.length} de ${comarques.length} comarcas`),
           },
           highest && {
-            label: 'La més alta', icon: 'thermometer', value: int(highest.altitud), unit: 'm',
+            label: t('La més alta', 'La más alta'), icon: 'thermometer', value: int(highest.altitud), unit: 'm',
             sub: <Link href={`/estacions/${highest.codi}`}>{highest.nom}</Link>,
           },
           lowest && {
-            label: 'La més baixa', icon: 'thermometer', value: int(lowest.altitud), unit: 'm',
+            label: t('La més baixa', 'La más baja'), icon: 'thermometer', value: int(lowest.altitud), unit: 'm',
             sub: <Link href={`/estacions/${lowest.codi}`}>{lowest.nom}</Link>,
           },
         ]}
-        note={(
+        note={es ? (
+          <>
+            La web cubre {int(publishedPlaces())} poblaciones con{' '}
+            {stations.length} termómetros: entre la estación y el pueblo siempre hay
+            una corrección por desnivel, y cuanta más distancia y más desnivel, menos
+            fiable es.
+            {without.length > 0 && (
+              <>
+                {' '}{without.length === 1 ? 'Hay una comarca' : `Hay ${without.length} comarcas`}{' '}
+                sin ninguna estación en servicio: {without.map((c) => comarcaName(c.nom, lang)).join(', ')}.
+              </>
+            )}
+          </>
+        ) : (
           <>
             El web cobreix {int(publishedPlaces())} poblacions amb{' '}
             {stations.length} termòmetres: entre l&apos;estació i el poble hi ha sempre
@@ -189,11 +229,11 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
             mapa de /rànquings, i repetir-la aquí seria la mateixa pàgina dues
             vegades. Aquí la pregunta és on hi ha termòmetres i a quina alçada.
           */
-          <section className="card" aria-label="La xarxa d'estacions">
+          <section className="card" aria-label={t("La xarxa d'estacions", 'La red de estaciones')}>
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
-              La xarxa, per altitud
+              {t('La xarxa, per altitud', 'La red, por altitud')}
             </p>
             <PointsMap
               outline={outline.features}
@@ -202,7 +242,9 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
               height={outline.height}
               maxHeight={400}
               scale={2}
-              ariaLabel={`Mapa de Catalunya amb les ${stations.length} estacions de la XEMA en servei`}
+              ariaLabel={tr(lang,
+                `Mapa de Catalunya amb les ${stations.length} estacions de la XEMA en servei`,
+                `Mapa de Cataluña con las ${stations.length} estaciones de la XEMA en servicio`)}
               points={stations.map((s) => ({
                 key: s.codi,
                 lat: s.lat,
@@ -215,7 +257,12 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
                   ? `${s.nom} · ${int(s.altitud)} m`
                   : s.nom,
               }))}
-              footer={(
+              footer={es ? (
+                <>
+                  Del verde de la llanura al blanco de la cima. Al pasar por encima de cada
+                  punto aparecen el nombre y la cota.
+                </>
+              ) : (
                 <>
                   Del verd de la plana al blanc del cim. Passant per sobre de cada
                   punt en surt el nom i la cota.
@@ -231,26 +278,30 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
         torna aquí amb `?q=` i el servidor filtra.
       */}
       <form action="/estacions#cerca" method="get" role="search" id="cerca" className="mar-search mt-6">
-        <label htmlFor="estacions-q" className="sr-only">Cerca una estació, un poble o una comarca</label>
+        <label htmlFor="estacions-q" className="sr-only">{t('Cerca una estació, un poble o una comarca', 'Busque una estación, un pueblo o una comarca')}</label>
         <input
           id="estacions-q"
           name="q"
           type="search"
           defaultValue={q}
           list="estacions-noms"
-          placeholder="Cerca una estació, un poble o una comarca"
+          placeholder={t('Cerca una estació, un poble o una comarca', 'Busque una estación, un pueblo o una comarca')}
           autoComplete="off"
         />
-        <button type="submit">Cerca</button>
+        <button type="submit">{t('Cerca', 'Buscar')}</button>
         <datalist id="estacions-noms">
           {suggestions.map((n) => <option key={n} value={n} />)}
         </datalist>
       </form>
 
       {q && (
-        <section className="mb-6" aria-label={`Resultats per ${q}`}>
+        <section className="mb-6" aria-label={tr(lang, `Resultats per ${q}`, `Resultados para ${q}`)}>
           <p className="card-label">
-            {hits.length > 0
+            {es
+              ? hits.length > 0
+                ? `${hits.length === 1 ? 'Una estación' : `${hits.length} estaciones`} para «${q}»`
+                : `Ninguna estación se llama «${q}» ni está en un pueblo o una comarca que se llame así`
+              : hits.length > 0
               ? `${hits.length === 1 ? 'Una estació' : `${hits.length} estacions`} per «${q}»`
               : `Cap estació no es diu «${q}» ni és en un poble o una comarca que es digui així`}
           </p>
@@ -260,21 +311,21 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
                 {hits.slice(0, MAX_HITS).map((st) => row(st, true))}
               </ul>
               {hits.length > MAX_HITS && (
-                <p className="source">N&apos;hi ha {hits.length - MAX_HITS} més. Afineu la cerca.</p>
+                <p className="source">{es ? <>Hay {hits.length - MAX_HITS} más. Afine la búsqueda.</> : <>N&apos;hi ha {hits.length - MAX_HITS} més. Afineu la cerca.</>}</p>
               )}
             </div>
           )}
-          <p className="card-foot"><Link href="/estacions">Totes les estacions ›</Link></p>
+          <p className="card-foot"><Link href="/estacions">{t('Totes les estacions ›', 'Todas las estaciones ›')}</Link></p>
         </section>
       )}
 
       {/* Els àmbits, per saltar-hi. Són àncores: no cal cap script. */}
-      <nav aria-label="Zones" className="mb-2">
+      <nav aria-label={t('Zones', 'Zonas')} className="mb-2">
         <ul className="chips">
           {ambits.map(([name, cs]) => (
             <li key={name}>
               <a href={`#zona-${anchorSlug(name)}`}>
-                {name} <span>{cs.reduce((n, c) => n + (byComarca.get(c.codi)?.length ?? 0), 0)}</span>
+                {ambitName(name)} <span>{cs.reduce((n, c) => n + (byComarca.get(c.codi)?.length ?? 0), 0)}</span>
               </a>
             </li>
           ))}
@@ -294,9 +345,9 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
           aria-labelledby={`h-${anchorSlug(name)}`}
         >
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
-            <h2 id={`h-${anchorSlug(name)}`} className="card-title">{name}</h2>
+            <h2 id={`h-${anchorSlug(name)}`} className="card-title">{ambitName(name)}</h2>
             <p className="text-[13px] text-[var(--muted)] tnum">
-              {cs.length} {cs.length === 1 ? 'comarca' : 'comarques'}
+              {cs.length} {cs.length === 1 ? 'comarca' : t('comarques', 'comarcas')}
             </p>
           </div>
           <div className="gap-3 sm:columns-2 lg:columns-3">
@@ -305,13 +356,13 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
                 .slice()
                 .sort((a, b) => (b.altitud ?? 0) - (a.altitud ?? 0));
               return (
-                <section key={c.codi} className="card mb-3 break-inside-avoid" aria-label={comarcaName(c.nom)}>
+                <section key={c.codi} className="card mb-3 break-inside-avoid" aria-label={comarcaName(c.nom, lang)}>
                   <p className="card-label justify-between">
                     <Link href={c.path} className="text-[var(--ink-2)] no-underline hover:text-[var(--ink)] hover:underline">
-                      {comarcaName(c.nom)}
+                      {comarcaName(c.nom, lang)}
                     </Link>
                     <span className="tnum font-medium normal-case tracking-normal">
-                      {list.length} {list.length === 1 ? 'estació' : 'estacions'}
+                      {list.length} {list.length === 1 ? t('estació', 'estación') : t('estacions', 'estaciones')}
                     </span>
                   </p>
                   <ul className="rows">{list.map((st) => row(st))}</ul>
@@ -322,11 +373,19 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
         </section>
       ))}
 
+      {es ? (
+        <p className="source mt-6">
+          Temperatura de la última lectura de cada estación, sin corregir: es la del
+          termómetro a su cota.
+          {orphans.length > 0 && ` ${orphans.length} estaciones sin comarca asignada en el catálogo de origen.`}
+        </p>
+      ) : (
       <p className="source mt-6">
         Temperatura de l&apos;última lectura de cada estació, sense corregir: és la del
         termòmetre a la seva cota.
         {orphans.length > 0 && ` ${orphans.length} estacions sense comarca assignada al catàleg d'origen.`}
       </p>
+      )}
     </article>
   );
 }
