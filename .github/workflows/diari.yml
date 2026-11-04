@@ -61,3 +61,11 @@ jobs:
       # predicció d'ahir ja no existeix enlloc.
       - run: npm run worker:verify
         if: always()
+
+      # La temperatura d'ara de les fitxes contra la dels models, hora a hora
+      # del dia d'ahir. Aquesta sí que es pot fer cap enrere —Open-Meteo guarda
+      # el que deia cada model per a cada hora—, així que el primer cop, o quan
+      # canvia la llista de fonts, recupera trenta dies d'una volta (unes 430
+      # unitats de quota, un cop). Després, unes 190 al dia.
+      - run: npm run worker:compare
+        if: always()

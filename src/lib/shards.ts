@@ -231,6 +231,7 @@ export const FRESHNESS_SOURCES = [
   'xema-history',
   'forecast-field',
   'forecast-verify',
+  'temperature-compare',
   'cameras',
   'fgc-mountain',
 ] as const;

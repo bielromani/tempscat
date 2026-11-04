@@ -67,6 +67,7 @@ async function thematic(lastModified: Date): Promise<MetadataRoute.Sitemap> {
     ['/nautica', 0.7],
     ['/estacions', 0.6],
     ['/dades', 0.5],
+    ['/dades/encert', 0.4],
     ['/estat', 0.4],
     ['/cameres', 0.7],
     ['/senderisme/rutes', 0.7],
