@@ -344,9 +344,10 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
                     {temp(nowUp, 0)}
                   </p>
                   <ul className="space-y-1 text-[15px] text-[var(--ink-2)]">
-                    {current.temperature != null && (
+                    {/* La del lloc de sortida, que és d'on es corregeix la de dalt. */}
+                    {(current.temperatureAdjusted ?? current.temperature) != null && (
                       <li>
-                        <span className="tnum font-medium text-[var(--ink)]">{temp(current.temperature, 0)}</span>{' '}
+                        <span className="tnum font-medium text-[var(--ink)]">{temp(current.temperatureAdjusted ?? current.temperature, 0)}</span>{' '}
                         a {int(base.altitud ?? 0)} m
                       </li>
                     )}
@@ -362,7 +363,9 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
                   </ul>
                 </div>
                 <p className="source">
-                  Mesurat a l&apos;estació {deName(current.station.nom)}, a{' '}
+                  {current.estimate
+                    ? <>La temperatura és la del model, corregida amb les estacions del voltant; el vent i la humitat, de l&apos;estació {deName(current.station.nom)}, a{' '}</>
+                    : <>Mesurat a l&apos;estació {deName(current.station.nom)}, a{' '}</>}
                   {num(current.station.distKm, 1)} km{isNow ? `, ${ago(current.ageMin)}` : ''}.
                   {current.provisional && ' Dada provisional.'} La temperatura de dalt està
                   corregida amb el gradient estàndard fins al punt més alt de l&apos;itinerari:

@@ -15,10 +15,11 @@
  *
  * ## Les tres decisions que fan que el número sigui honest
  *
- * **La nostra xifra es fa exactament com la fa una fitxa**: la veïna amb menys
- * `stationCost` dins de 60 km, i la lectura corregida per la diferència de
- * cota amb el mateix gradient. Si aquí es fes més llest que a la pàgina, es
- * mesuraria un mètode que ningú no veu.
+ * **La nostra xifra es fa exactament com la fa una fitxa**: el model al punt
+ * més `correctionAt()` amb els residus de les altres estacions, la mateixa
+ * funció que fa servir el worker d'observació. I amb els residus de **l'hora
+ * anterior**, que és el retard amb què arriba la XEMA. Si aquí es fes més
+ * llest que a la pàgina, es mesuraria un mètode que ningú no veu.
  *
  * **El model rep la cota de l'estació** (`elevation=`). Open-Meteo hi baixa la
  * temperatura de la seva casella, que és el mateix que fem nosaltres amb la
@@ -40,16 +41,17 @@ import { readFileSync } from 'node:fs';
 import { build } from '../lib/paths.ts';
 import { fetchWithRetry } from '../lib/http.ts';
 import { soqlAll } from '../lib/socrata.ts';
-import { haversineKm, stationCost } from '../lib/geo.ts';
+import { haversineKm } from '../lib/geo.ts';
 import {
   DAILY_LIMITS, QuotaGuard, publish, pullSnapshot, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
-import { LAPSE_RATE, callWeight } from '../../src/lib/variables.ts';
+import { callWeight } from '../../src/lib/variables.ts';
 import { suspectTemperatures } from '../../src/lib/temperature-check.ts';
 import {
-  BACKFILL_DAYS, COMPARE_MODELS, COMPARE_SHARD, COMPARE_SOURCES, GUIDED, NEIGHBOUR_MAX_KM, OURS,
+  BACKFILL_DAYS, COMPARE_MODELS, COMPARE_SHARD, COMPARE_SOURCES, NEIGHBOUR_MAX_KM, OURS, OURS_A, TIER_A_MODELS,
   emptyCompare, emptyCompareTally, type CompareScores, type CompareSource, type CompareTally,
 } from '../../src/lib/temperature-compare.ts';
+import { correctionAt, meanOf, type StationResidual } from '../../src/lib/now-temperature.ts';
 
 const SOURCE = 'temperature-compare';
 
@@ -90,10 +92,10 @@ function daysArg(): number {
  * (`timezone=GMT`): així una hora és la mateixa hora a les dues bandes sense
  * cap conversió que es pugui equivocar el dia del canvi d'horari.
  */
-async function measured(from: string, toExclusive: string): Promise<Map<string, Map<string, number>>> {
+async function measured(fromInstant: string, toExclusive: string): Promise<Map<string, Map<string, number>>> {
   const rows = await soqlAll<Reading>('nzvn-apee', {
     select: 'codi_estacio,data_lectura,valor_lectura',
-    where: `codi_variable='32' AND data_lectura >= '${from}T00:00:00'`
+    where: `codi_variable='32' AND data_lectura >= '${fromInstant}'`
       + ` AND data_lectura < '${toExclusive}T00:00:00' AND date_extract_mm(data_lectura) = 0`,
     order: 'data_lectura,codi_estacio',
   });
@@ -217,7 +219,8 @@ async function main() {
     const to = missing.at(-1)!;
     console.log(`Dies pendents: ${missing.length} (${from} → ${to})`);
 
-    const truthByHour = await measured(from, plusDays(to, 1));
+    // Des de l'última hora del dia d'abans: la primera hora es corregeix amb ella.
+    const truthByHour = await measured(`${plusDays(from, -1)}T23:00:00`, plusDays(to, 1));
 
     /*
      * Els models, només per als dies que la XEMA ja té, i en trams seguits.
@@ -227,7 +230,7 @@ async function main() {
      * pagar el tram sencer fins que sortís de la finestra. La XEMA no costa
      * quota i Open-Meteo sí: primer es mira què hi ha, i després es paga.
      */
-    const daysMeasured = new Set([...truthByHour.keys()].map((h) => h.slice(0, 10)));
+    const daysMeasured = new Set([...truthByHour.keys()].map((h) => h.slice(0, 10)).filter((d) => d >= from));
     const withData = missing.filter((d) => daysMeasured.has(d));
     const runs: string[][] = [];
     for (const d of withData) {
@@ -237,7 +240,9 @@ async function main() {
     }
     const models = new Map<string, Map<string, Partial<Record<CompareSource, number>>>>();
     for (const run of runs) {
-      for (const [codi, byHour] of await modelled(stations, run[0], run.at(-1)!, quota)) {
+      // Amb el dia d'abans, per a l'hora anterior a la primera: dins dels catorze
+      // dies, un dia més no costa cap unitat.
+      for (const [codi, byHour] of await modelled(stations, plusDays(run[0], -1), run.at(-1)!, quota)) {
         const into = models.get(codi) ?? new Map();
         for (const [h, v] of byHour) into.set(h, v);
         models.set(codi, into);
@@ -245,45 +250,62 @@ async function main() {
       apiCalls += Math.ceil(stations.length / CHUNK);
     }
 
-    const perDay = new Map<string, number>();
+    /*
+     * Les lectures que les veïnes desmenteixen surten de cada hora: ni fan de
+     * veritat ni de veïna. La mateixa funció que el worker d'observació, amb
+     * els mateixos llindars.
+     */
+    const goodByHour = new Map<string, Array<{ codi: string; lat: number; lon: number; altitud: number; t: number }>>();
     for (const [hour, readings] of truthByHour) {
-      const day = hour.slice(0, 10);
-      if (!missing.includes(day)) continue;
-
-      /*
-       * Les lectures que les veïnes desmenteixen surten d'aquesta hora: ni fan
-       * de veritat ni de veïna. La mateixa funció que el worker d'observació,
-       * amb els mateixos llindars.
-       */
       const points = [...readings].flatMap(([codi, t]) => {
         const s = meta.get(codi);
         return s ? [{ codi, lat: s.lat, lon: s.lon, altitud: s.altitud, t }] : [];
       });
       const suspect = new Set(suspectTemperatures(points).map((x) => x.codi));
-      const good = points.filter((p) => !suspect.has(p.codi));
+      goodByHour.set(hour, points.filter((p) => !suspect.has(p.codi)));
+    }
+    const hourBefore = (hour: string) => new Date(Date.parse(`${hour}:00:00Z`) - 3_600_000).toISOString().slice(0, 13);
+
+    const perDay = new Map<string, number>();
+    for (const [hour, good] of goodByHour) {
+      const day = hour.slice(0, 10);
+      if (!missing.includes(day)) continue;
+
+      /*
+       * Els residus de l'hora anterior: lectura menys model, a cada estació. Un
+       * joc contra el `best_match` i un altre contra la mitjana dels tres del
+       * nivell A, perquè el residu ha de ser contra el mateix model que es
+       * corregeix.
+       */
+      const before = hourBefore(hour);
+      const residuals = { bm: [] as Array<StationResidual & { codi: string }>, a: [] as Array<StationResidual & { codi: string }> };
+      for (const q of goodByHour.get(before) ?? []) {
+        const m = models.get(q.codi)?.get(before);
+        if (!m) continue;
+        if (m.best_match != null) residuals.bm.push({ ...q, residual: q.t - m.best_match });
+        const a = meanOf(TIER_A_MODELS.map((k) => m[k]));
+        if (a != null) residuals.a.push({ ...q, residual: q.t - a });
+      }
 
       for (const p of good) {
-        // La veïna, triada com la tria el build per a una fitxa.
-        let best: { q: typeof p; d: number; cost: number } | null = null;
-        for (const q of good) {
-          if (q.codi === p.codi) continue;
-          const d = haversineKm(p.lat, p.lon, q.lat, q.lon);
-          if (d > NEIGHBOUR_MAX_KM) continue;
-          const cost = stationCost(d, p.altitud - q.altitud);
-          if (!best || cost < best.cost) best = { q, d, cost };
-        }
-        if (!best) continue;
-
         const said = models.get(p.codi)?.get(hour);
         if (!said || COMPARE_MODELS.some((m) => said[m] == null)) continue;
-        // El que el model diu a la veïna, per a la xifra guiada.
-        const atNeighbour = models.get(best.q.codi)?.get(hour)?.best_match;
-        if (atNeighbour == null) continue;
+        const others = (list: Array<StationResidual & { codi: string }>) => list.filter((q) => q.codi !== p.codi);
+        const bm = others(residuals.bm);
+        if (!bm.length) continue;
+
+        // La veïna més propera, només per poder dir en quins casos s'encerta més.
+        let nearest: { d: number; dAlt: number } | null = null;
+        for (const q of bm) {
+          const d = haversineKm(p.lat, p.lon, q.lat, q.lon);
+          if (d <= NEIGHBOUR_MAX_KM && (!nearest || d < nearest.d)) nearest = { d, dAlt: Math.abs(p.altitud - q.altitud) };
+        }
+        if (!nearest) continue;
 
         const estimates: Partial<Record<CompareSource, number>> = {
           ...said,
-          [OURS]: best.q.t - (p.altitud - best.q.altitud) * LAPSE_RATE,
-          [GUIDED]: best.q.t + (said.best_match! - atNeighbour),
+          [OURS]: said.best_match! + correctionAt(p, bm).correction,
+          [OURS_A]: meanOf(TIER_A_MODELS.map((k) => said[k]))! + correctionAt(p, others(residuals.a)).correction,
         };
 
         const st = (scores.stations[p.codi] ??= { bySource: {}, sumNeighbourKm: 0, sumNeighbourDAlt: 0 });
@@ -293,8 +315,8 @@ async function main() {
           add((st.bySource[src] ??= emptyCompareTally()), err);
           add((byHour[src] ??= emptyCompareTally()), err);
         }
-        st.sumNeighbourKm += best.d;
-        st.sumNeighbourDAlt += Math.abs(p.altitud - best.q.altitud);
+        st.sumNeighbourKm += nearest.d;
+        st.sumNeighbourDAlt += nearest.dAlt;
         compared++;
         perDay.set(day, (perDay.get(day) ?? 0) + 1);
       }

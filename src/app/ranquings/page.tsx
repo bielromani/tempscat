@@ -121,8 +121,8 @@ function PlaceList({ rows }: { rows: PlaceRow[] }) {
               <span className="row-sub">
                 {r.comarcaNom && comarcaName(r.comarcaNom)}
                 {r.altitud != null && ` · ${int(r.altitud)}\u00a0m`}
-                {' · '}estació {deName(stationShort(r.stationNom))}
-                {r.dAltM != null && Math.abs(r.dAltM) >= 25 && ` (${signed(r.dAltM, 0, 'm')})`}
+                {!r.estimated && <>{' · '}estació {deName(stationShort(r.stationNom))}</>}
+                {!r.estimated && r.dAltM != null && Math.abs(r.dAltM) >= 25 && ` (${signed(r.dAltM, 0, 'm')})`}
               </span>
             </span>
           </span>
@@ -386,9 +386,10 @@ export default async function RanquingsPage() {
 
       <Section id="pobles" title="Als pobles">
         <p className="-mt-1 mb-4 measure text-[15px] leading-relaxed text-[var(--ink-2)]">
-          Aquí són poblacions, no termòmetres: la lectura de l&apos;estació de
-          referència corregida pel desnivell de cada municipi. És una{' '}
-          <strong className="font-semibold text-[var(--ink)]">estimació</strong>, no una mesura.
+          Aquí són poblacions, no termòmetres: la temperatura del model a cada
+          municipi, corregida amb el que marquen les estacions del voltant. És una{' '}
+          <strong className="font-semibold text-[var(--ink)]">estimació</strong>, no una mesura.{' '}
+          <Link href="/dades/encert" className="underline">Quant encerta</Link>.
         </p>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
           <Block title="Els municipis més frescos ara" icon="thermometer">

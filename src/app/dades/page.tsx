@@ -264,9 +264,11 @@ export default function DadesPage() {
             <p>
               Cada observació porta l&apos;estació d&apos;on surt, a quina distància és i
               quant desnivell hi ha. <C>temperature_station</C> és la lectura crua, i{' '}
-              <C>temperature</C>, la mateixa corregida pel desnivell amb el gradient
-              estàndard de 6,5 °C/km. Amb les dues podeu decidir si us fieu de la
-              correcció.
+              <C>temperature</C>, la temperatura del lloc: el model meteorològic corregit
+              amb el que marquen les estacions del voltant (<C>temperature_method</C>{' '}
+              ho diu, i <Link href="/dades/encert">aquí hi ha quant encerta</Link>). Si
+              aquesta xifra falta, és la lectura corregida pel desnivell amb el
+              gradient estàndard de 6,5 °C/km.
             </p>
           </div>
           <div className="card prose">

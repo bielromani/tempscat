@@ -60,6 +60,8 @@ export interface PlaceRow {
   /** Desnivel respecto a su estación: el lector tiene derecho a saber cuánta corrección lleva. */
   dAltM: number | null;
   stationNom: string;
+  /** El model corregit amb les estacions, i no la lectura d'una amb el gradient. */
+  estimated: boolean;
 }
 
 export interface Rankings {
@@ -197,7 +199,8 @@ export async function rankings(): Promise<Rankings | null> {
   for (const { loc, cur } of observed) {
     if (!cur || cur.temperatureAdjusted == null) continue;
     const dAlt = cur.station.dAltM;
-    if (dAlt != null && Math.abs(dAlt) > MAX_CORRECTION_M) { excluded++; continue; }
+    // El llindar és del gradient: la xifra corregida amb les estacions no en depèn.
+    if (!cur.estimate && dAlt != null && Math.abs(dAlt) > MAX_CORRECTION_M) { excluded++; continue; }
     places.push({
       id: loc.id,
       nom: loc.nom,
@@ -207,6 +210,7 @@ export async function rankings(): Promise<Rankings | null> {
       value: cur.temperatureAdjusted,
       dAltM: dAlt,
       stationNom: cur.station.nom,
+      estimated: cur.estimate != null,
     });
   }
 

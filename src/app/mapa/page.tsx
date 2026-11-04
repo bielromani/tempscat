@@ -184,7 +184,7 @@ export default async function MapaPage() {
             </ol>
             <p className="source">
               Mediana de la temperatura dels municipis de cada comarca, cadascun amb
-              l&apos;observació de la seva estació corregida pel desnivell.
+              el model corregit per les estacions del voltant.
               {obs && <> {obs.source}.</>} Límits administratius de l&apos;Institut
               Cartogràfic i Geològic de Catalunya.
             </p>
@@ -198,8 +198,8 @@ export default async function MapaPage() {
             <strong>La mediana dels municipis de la comarca</strong>, no la
             mitjana de les seves estacions. Al Ripollès hi ha estacions a 1.900
             metres i a 700, i la mitjana entre elles no correspon a cap lloc
-            habitat. Cada municipi porta l&apos;observació de la seva estació
-            corregida pel desnivell, i la mediana d&apos;aquests valors descriu la
+            habitat. Cada municipi porta la seva temperatura —el model corregit amb
+            el que marquen les estacions del voltant—, i la mediana d&apos;aquests valors descriu la
             comarca sense que un sol poble de muntanya la desplaci.
           </p>
           <p>

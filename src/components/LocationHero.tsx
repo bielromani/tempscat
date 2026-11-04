@@ -497,28 +497,61 @@ export function LocationHero({
             <span
               aria-hidden
               className="mt-[5px] size-[7px] shrink-0 rounded-full"
-              style={{ background: current.ageMin <= 90 ? 'oklch(85% 0.16 145)' : 'oklch(83% 0.15 95)' }}
+              style={{ background: (current.estimate?.ageMin ?? current.ageMin) <= 90 ? 'oklch(85% 0.16 145)' : 'oklch(83% 0.15 95)' }}
             />
-            <p className="m-0 text-[12px] leading-relaxed">
-              Mesurat a l&apos;estació{' '}
-              <Link
-                href={`/estacions/${current.station.codi}`}
-                className="font-semibold underline decoration-1 underline-offset-2"
-                style={{ color: 'inherit' }}
-              >
-                {deName(current.station.nom)}
-              </Link>
-              , a {num(current.station.distKm, 1)} km
-              {current.station.dAltM != null && ` i ${signed(current.station.dAltM, 0, 'm')} de desnivell`}
-              {' · '}{ago(current.ageMin)}
-              {current.provisional && ' · lectura provisional'}
-              {' · '}{current.source}.
-              {corrected && current.temperature != null && (
-                <> Temperatura corregida pel desnivell: l&apos;estació marca {num(current.temperature, 1)} °C
-                  {' '}a {loc.altitud != null && current.station.dAltM != null ? loc.altitud - current.station.dAltM : '?'} m.
-                </>
-              )}
-            </p>
+            {current.estimate ? (
+              /*
+               * El número no és la lectura d'una estació, i s'ha de dir així:
+               * de què surt, quina estació en dona la referència i què marca
+               * ella, perquè qui vulgui la lectura crua la tingui al costat.
+               */
+              <p className="m-0 text-[12px] leading-relaxed">
+                {current.estimate.modelOnly
+                  ? <>Model meteorològic per a aquest punt i aquesta altitud: no hi ha cap estació de la XEMA prou a prop per corregir-lo</>
+                  : <>Model meteorològic corregit amb les estacions de la XEMA del voltant</>}
+                {' · '}{ago(current.estimate.ageMin)}.{' '}
+                {current.temperature != null && (
+                  <>
+                    L&apos;estació de referència,{' '}
+                    <Link
+                      href={`/estacions/${current.station.codi}`}
+                      className="font-semibold underline decoration-1 underline-offset-2"
+                      style={{ color: 'inherit' }}
+                    >
+                      {current.station.nom}
+                    </Link>
+                    , a {num(current.station.distKm, 1)} km
+                    {corrected && ` i ${signed(current.station.dAltM, 0, 'm')} de desnivell`}, marcava {num(current.temperature, 1)} °C
+                    {' '}{ago(current.ageMin)}{current.provisional && ' (lectura provisional)'}.{' '}
+                  </>
+                )}
+                <Link href="/dades/encert" className="underline decoration-1 underline-offset-2" style={{ color: 'inherit' }}>
+                  Com es calcula i quant encerta
+                </Link>
+                {' · '}Dades de la XEMA del Meteocat i d&apos;Open-Meteo.
+              </p>
+            ) : (
+              <p className="m-0 text-[12px] leading-relaxed">
+                Mesurat a l&apos;estació{' '}
+                <Link
+                  href={`/estacions/${current.station.codi}`}
+                  className="font-semibold underline decoration-1 underline-offset-2"
+                  style={{ color: 'inherit' }}
+                >
+                  {deName(current.station.nom)}
+                </Link>
+                , a {num(current.station.distKm, 1)} km
+                {current.station.dAltM != null && ` i ${signed(current.station.dAltM, 0, 'm')} de desnivell`}
+                {' · '}{ago(current.ageMin)}
+                {current.provisional && ' · lectura provisional'}
+                {' · '}{current.source}.
+                {corrected && current.temperature != null && (
+                  <> Temperatura corregida pel desnivell: l&apos;estació marca {num(current.temperature, 1)} °C
+                    {' '}a {loc.altitud != null && current.station.dAltM != null ? loc.altitud - current.station.dAltM : '?'} m.
+                  </>
+                )}
+              </p>
+            )}
           </div>
         )}
       </div>

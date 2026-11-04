@@ -24,9 +24,22 @@ export interface CurrentConditions {
   ageMin: number;
   /** El Meteocat valida las lecturas a posteriori: las recientes son provisionales. */
   provisional: boolean;
+  /** La lectura de l'estació, tal com la dona. */
   temperature: number | null;
-  /** Corregida por el desnivel entre la estación y esta ubicación. */
+  /**
+   * La temperatura d'ara del lloc. Normalment és el model corregit amb les
+   * estacions del voltant (`estimate`); si aquesta xifra no hi és, la lectura
+   * de l'estació corregida pel desnivell. Ver `src/lib/now-temperature.ts`.
+   */
   temperatureAdjusted: number | null;
+  /** D'on surt `temperatureAdjusted` quan no és la lectura de l'estació. */
+  estimate: {
+    /** L'instant per al qual s'ha calculat. */
+    at: string;
+    ageMin: number;
+    /** Cap estació prou a prop: és el model, corregit per l'altitud. */
+    modelOnly: boolean;
+  } | null;
   apparent: number | null;
   humidity: number | null;
   windSpeed: number | null;
