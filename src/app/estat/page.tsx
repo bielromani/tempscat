@@ -79,7 +79,11 @@ function errorReason(msg: string): string {
   if (/JSON|Unexpected token|parse/i.test(msg)) return 'la font ha tornat una resposta il·legible';
   // Els que escriuen els workers ja són en català i diuen més que una etiqueta.
   const own = msg.replace(/^Error:\s*/, '');
-  if (/[àèéíòóúç·’]/.test(own) && !/\b(the|failed|is|not|of)\b/.test(own)) return clip(own, 160);
+  // Per l'accent, o per com comencen: «La font no ha publicat cap dia complet»
+  // no en porta cap, i sortia com si fos el procés el que havia fallat.
+  if ((/[àèéíòóúç·’]/.test(own) || /^La font /.test(own)) && !/\b(the|failed|is|not|of)\b/.test(own)) {
+    return clip(own, 160);
+  }
   return 'el procés s’ha aturat amb un error';
 }
 
