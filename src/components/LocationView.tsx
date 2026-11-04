@@ -21,6 +21,7 @@ import { CameraBlock } from './CameraBlock';
 import { ResortBlock } from './ResortBlock';
 import { networkLabel, refApart, type Route } from '@/lib/routes';
 import { aqiBand } from '@/lib/air-variables';
+import { pushAlertsAvailable } from '@/lib/push-available';
 import { gaugeName } from '@/lib/water';
 import {
   aName, comarcaName, deComarca, deName, int, monthName, num, signed,
@@ -273,6 +274,14 @@ export function LocationView({
             <section className="card" aria-labelledby="h-dies">
               <CardLabel id="h-dies" icon="partly-cloudy-day">Els pròxims {forecast.daily.length} dies</CardLabel>
               <DailyList daily={daily} today={today} rainWarnings={narrative?.rainWarnings} />
+              {/* Un enllaç i prou: el codi que subscriu viu a la seva pàgina, no a la fitxa. */}
+              {pushAlertsAvailable() && (
+                <p className="card-foot">
+                  <Link href={`/avisos/alertes?lloc=${loc.path}`}>
+                    Avisos taronja i vermells al mòbil ›
+                  </Link>
+                </p>
+              )}
             </section>
           )}
         </div>

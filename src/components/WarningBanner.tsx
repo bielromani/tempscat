@@ -1,5 +1,6 @@
 import { phenomenonName, probabilityText, thresholdValue, zoneName } from '@/lib/warning-labels';
 import { stackWarnings, type WarningGroup, type WarningLevel } from '@/lib/weather';
+import { dayShort, whenLine } from '@/lib/warning-when';
 import { External } from './External';
 
 /**
@@ -47,90 +48,6 @@ const LEVEL_STYLE: Record<WarningLevel, { bg: string; ink: string; label: string
   taronja: { bg: 'var(--cap-orange)', ink: 'oklch(20% 0.04 55)', label: 'Taronja' },
   vermell: { bg: 'var(--cap-red)', ink: 'oklch(98% 0.01 27)', label: 'Vermell' },
 };
-
-const DIES = ['dg.', 'dl.', 'dt.', 'dc.', 'dj.', 'dv.', 'ds.'];
-const MESOS = [
-  'de gener', 'de febrer', 'de març', 'd’abril', 'de maig', 'de juny',
-  'de juliol', 'd’agost', 'de setembre', 'd’octubre', 'de novembre', 'de desembre',
-];
-
-/**
- * La hora de AEMET en hora local de Madrid, partida en piezas.
- *
- * El CAP trae la hora local con su desplazamiento —`2026-09-02T13:00:00+02:00`—
- * así que cortar la cadena por caracteres daría lo correcto casi siempre. Se
- * convierte de verdad igualmente: si algún día emitieran en UTC, cortar la
- * cadena publicaría una ola de calor de las once de la mañana a las siete de la
- * tarde, y no fallaría nada.
- */
-function parts(iso: string) {
-  const local = new Date(iso)
-    .toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
-    .replace(' ', 'T');
-  const y = Number(local.slice(0, 4));
-  const m = Number(local.slice(5, 7));
-  const d = Number(local.slice(8, 10));
-  return { y, m, d, hhmm: local.slice(11, 16), day: local.slice(0, 10), weekday: new Date(Date.UTC(y, m - 1, d)).getUTCDay() };
-}
-
-/**
- * El final d'un avís: el dia de l'instant, i l'hora arrodonida al minut següent
- * quan acaba en :59.
- *
- * L'AEMET tanca els trams a les 20:59:59, i escrit tal qual la targeta deia
- * «a 20:59», que es llegeix com un error de rellotge. Un tram que acaba a les
- * 23:59:59 és «a 24:00» del mateix dia, no «a 00:00» de l'endemà.
- */
-function endParts(iso: string) {
-  const p = parts(iso);
-  if (!p.hhmm.endsWith(':59')) return p;
-  const h = Number(p.hhmm.slice(0, 2)) + 1;
-  return { ...p, hhmm: `${String(h).padStart(2, '0')}:00` };
-}
-
-/** «dc. 2 de setembre» */
-function dayLabel(iso: string): string {
-  const p = parts(iso);
-  return `${DIES[p.weekday]} ${p.d} ${MESOS[p.m - 1]}`;
-}
-
-/** «dc. 2» — para la lista de días de un grupo, donde el mes ya se ha dicho. */
-function dayShort(iso: string): string {
-  const p = parts(iso);
-  return `${DIES[p.weekday]} ${p.d}`;
-}
-
-/**
- * Cuándo vale el aviso, en una línea.
- *
- * Tres formas, y cada una dice algo distinto:
- *  · un solo tramo → «dc. 2 de setembre, de 13:00 a 21:00»; si passa la
- *    mitjanit, cada hora amb el seu dia: «de dc. 2, 22:00, a dj. 3 de
- *    setembre, 21:00». Amb un sol dia, «de 22:00 a 21:00» semblava al revés.
- *  · varios tramos con la misma franja horaria → «de dc. 2 a dv. 4 de setembre,
- *    de 13:00 a 21:00», que es el caso normal de una ola de calor
- *  · varios tramos con franjas distintas → solo el rango de días; las horas van
- *    en la lista de cada día, porque una franja única sería falsa
- */
-function whenLine(g: WarningGroup): string {
-  const expires = g.expires;
-  const first = parts(g.onset);
-  const last = endParts(expires);
-  const sameWindow = g.spans.every(
-    (s) => parts(s.onset).hhmm === first.hhmm && endParts(s.expires).hhmm === last.hhmm,
-  );
-
-  if (first.day === last.day) {
-    return `${dayLabel(g.onset)}, de ${first.hhmm} a ${last.hhmm}`;
-  }
-  if (g.spans.length === 1) {
-    return `de ${dayShort(g.onset)}, ${first.hhmm}, a ${dayLabel(expires)}, ${last.hhmm}`;
-  }
-  if (sameWindow) {
-    return `de ${dayShort(g.onset)} a ${dayLabel(expires)}, de ${first.hhmm} a ${last.hhmm}`;
-  }
-  return `de ${dayShort(g.onset)} a ${dayLabel(expires)}`;
-}
 
 /** El peor de los días del grupo: si el viernes son 36 °C y el miércoles 35, el titular dice 36. */
 function worstThreshold(g: WarningGroup): { worst: string | null; perDay: boolean } {

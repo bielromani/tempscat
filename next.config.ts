@@ -61,6 +61,7 @@ const LIVE_PAGES = [
   '/radar',
   '/mapa',
   '/avisos',
+  '/avisos/alertes', // el `?lloc=` la fa dinàmica
   '/mar',
   '/nautica',
   '/neu',
@@ -148,6 +149,17 @@ const nextConfig: NextConfig = {
       ...['can-baro', 'el-carmel', 'la-vall-d-hebron', 'la-salut'].map((b) => ({
         source: `/barcelones/barcelona/${b}`, destination: '/barcelones/barcelona', permanent: true,
       })),
+    ];
+  },
+
+  /*
+   * L'iPhone demana `/apple-touch-icon.png` per la seva compte quan algú desa el
+   * web a la pantalla d'inici o el comparteix, sense mirar l'enllaç de la pàgina,
+   * i Next la serveix a `/apple-icon.png`. Eren unes quaranta 404 a la setmana.
+   */
+  async rewrites() {
+    return [
+      { source: '/apple-touch-icon:variant(.*).png', destination: '/apple-icon.png' },
     ];
   },
 

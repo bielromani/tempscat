@@ -11,6 +11,7 @@ import { activeWarnings, groupWarnings } from '@/lib/weather';
 import { mapOutline, warningOverlay, type WarningOverlay } from '@/lib/map';
 import { projectToMap } from '@/lib/mercator';
 import { allComarques } from '@/lib/territory';
+import { pushAlertsAvailable } from '@/lib/push-available';
 import { AMBITS, groupByZone } from '@/lib/zones';
 
 /**
@@ -362,6 +363,14 @@ export default async function AvisosPage() {
             qui s&apos;hi subscriu: el fitxer el va a buscar el vostre lector.
           </p>
           <ul className="rows mt-3">
+            {pushAlertsAvailable() && (
+              <li>
+                <Link href="/avisos/alertes" className="row-main">
+                  <span className="row-title">Al mòbil, els taronja i vermells</span>
+                  <span className="row-sub">Una notificació per als llocs que trieu</span>
+                </Link>
+              </li>
+            )}
             <li>
               <Link href="/avisos/feed" className="row-main">
                 <span className="row-title">Tot Catalunya, feed Atom</span>

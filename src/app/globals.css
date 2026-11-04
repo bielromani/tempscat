@@ -1450,6 +1450,26 @@ a.tram-town:hover { text-decoration: underline; }
 .warn-bar.is-taronja { --lvl: var(--cap-orange); }
 .warn-bar.is-vermell { --lvl: var(--cap-red); }
 
+/* ── Botons (els avisos al mòbil) ── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  color: var(--ink);
+  font-size: 15px;
+  cursor: pointer;
+}
+.btn:hover { background: oklch(100% 0 0 / 0.12); border-color: var(--line); }
+.btn:disabled { opacity: 0.6; cursor: progress; }
+.btn-primary { background: var(--brand); border-color: transparent; color: white; font-weight: 600; padding: 10px 20px; }
+.btn-primary:hover { background: var(--brand); filter: brightness(1.1); }
+.btn-quiet { font-size: 14px; padding: 5px 13px; }
+
 } /* @layer components */
 
 /* ── Fora de la capa: regles que han de guanyar a les utilitats ─────────────── */

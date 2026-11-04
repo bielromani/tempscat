@@ -31,6 +31,7 @@
     "worker:forecast": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/forecast-refresh.ts",
     "workers": "npm run worker:xema && npm run worker:warnings && npm run worker:radar && npm run worker:forecast",
     "worker:warnings": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/aemet-warnings.ts",
+    "worker:push": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/push-alerts.ts",
     "worker:history": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/xema-history.ts",
     "worker:field": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/forecast-field.ts",
     "worker:verify": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/forecast-verify.ts",
@@ -55,7 +56,8 @@
     "test:align": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-forecast-align.ts",
     "test:rain": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-rain.ts",
     "test:qc": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-temperature-check.ts",
-    "test": "npm run test:catalan && npm run test:astronomy && npm run test:align && npm run test:search && npm run test:climate && npm run test:hours && npm run test:colors && npm run test:warnings && npm run test:sky && npm run test:wind && npm run test:rain && npm run test:qc && npm run test:narrative",
+    "test:push": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-push.ts",
+    "test": "npm run test:catalan && npm run test:astronomy && npm run test:align && npm run test:search && npm run test:climate && npm run test:hours && npm run test:colors && npm run test:warnings && npm run test:sky && npm run test:wind && npm run test:rain && npm run test:qc && npm run test:push && npm run test:narrative",
     "worker:water": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/water.ts",
     "worker:air-stations": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-stations.ts",
     "worker:sea": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/sea.ts",
@@ -83,11 +85,13 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "sharp": "^0.35.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "web-push": "^3.6.7"
   },
   "type": "module"
 }

@@ -49,3 +49,14 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: npm run worker:warnings
+      # Els avisos al mòbil, en un pas a part i després: si fallen, la franja
+      # d'avisos de les fitxes ja s'ha publicat igual. Sense les claus no fan res
+      # i surten bé. Les regles de què s'envia són a `src/lib/push-alerts.ts`.
+      - run: npm run worker:push
+        if: always()
+        env:
+          PUSH_R2_BUCKET: ${{ secrets.PUSH_R2_BUCKET || vars.PUSH_R2_BUCKET }}
+          PUSH_R2_ACCESS_KEY_ID: ${{ secrets.PUSH_R2_ACCESS_KEY_ID }}
+          PUSH_R2_SECRET_ACCESS_KEY: ${{ secrets.PUSH_R2_SECRET_ACCESS_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY || vars.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
