@@ -21,7 +21,7 @@ export function CoastalWarning({ warnings }: { warnings: Warning[] }) {
   if (!coastal.length) return null;
 
   const worst = coastal.reduce((a, w) => (RANK.indexOf(w.level) > RANK.indexOf(a.level) ? w : a));
-  const zones = [...new Set(coastal.flatMap((w) => w.zones.map(zoneName)))];
+  const zones = [...new Set(coastal.flatMap((w) => w.zones.map((z) => zoneName(z))))];
   const level = worst.level as keyof typeof CAP;
   // L'hora de l'AEMET ve en UTC: es diu en hora de Madrid.
   const until = dateTimeLong(

@@ -24,7 +24,17 @@
  * esté, esto.
  *
  * ## Como el resto de los ficheros compartidos, este no importa nada
+ *
+ * (Salvo el tipo de `lang.ts`, que se borra al compilar.)
+ *
+ * ## Y en castellano
+ *
+ * El castellano sí tiene el texto de AEMET, pero la tarjeta se sigue
+ * escribiendo con los códigos, igual que en catalán: así las dos versiones
+ * dicen exactamente lo mismo y no depende de cómo redacte cada aviso.
  */
+
+import type { Lang } from './lang.ts';
 
 /**
  * Los diez fenómenos del plan Meteoalerta que aparecen en Catalunya, más los
@@ -81,14 +91,60 @@ export const ZONES: Record<string, string> = {
   'Valle de Arán': 'Val d’Aran',
 };
 
-/** El fenómeno en catalán. Genérico si el código no consta. */
-export function phenomenonName(code: string): string {
+/** Los mismos fenómenos en castellano. */
+const FENOMENOS: Record<string, string> = {
+  AT: 'Temperaturas máximas',
+  BT: 'Temperaturas mínimas',
+  PR: 'Lluvia',
+  TO: 'Tormenta',
+  NE: 'Nevadas',
+  NI: 'Niebla',
+  VI: 'Viento',
+  CO: 'Fenómenos costeros',
+  AL: 'Aludes',
+  VS: 'Polvo en suspensión',
+  GA: 'Rachas de viento',
+  DE: 'Deshielo',
+};
+
+/**
+ * Las zonas en castellano: las de AEMET, con los topónimos oficiales —que en
+ * castellano también son «Empordà» y «Val d'Aran»— y en minúscula lo que es
+ * descripción («litoral de Barcelona»), como en catalán.
+ */
+const ZONAS: Record<string, string> = {
+  'Ampurdán': 'Empordà',
+  'Costa - Ampurdán': 'costa del Empordà',
+  'Costa - Litoral de Barcelona': 'costa del litoral de Barcelona',
+  'Costa - Litoral norte de Tarragona': 'costa del litoral norte de Tarragona',
+  'Costa - Litoral sur de Girona': 'costa del litoral sur de Girona',
+  'Costa - Litoral sur de Tarragona': 'costa del litoral sur de Tarragona',
+  'Depresión central de Barcelona': 'Depresión Central de Barcelona',
+  'Depresión central de Lleida': 'Depresión Central de Lleida',
+  'Depresión central de Tarragona': 'Depresión Central de Tarragona',
+  'Litoral de Barcelona': 'litoral de Barcelona',
+  'Litoral norte de Tarragona': 'litoral norte de Tarragona',
+  'Litoral sur de Girona': 'litoral sur de Girona',
+  'Litoral sur de Tarragona': 'litoral sur de Tarragona',
+  'Pirineo de Girona': 'Pirineo de Girona',
+  'Pirineo de Lleida': 'Pirineo de Lleida',
+  'Prelitoral de Barcelona': 'prelitoral de Barcelona',
+  'Prelitoral de Girona': 'prelitoral de Girona',
+  'Prelitoral norte de Tarragona': 'prelitoral norte de Tarragona',
+  'Prelitoral sur de Tarragona': 'prelitoral sur de Tarragona',
+  'Prepirineo de Barcelona': 'Prepirineo de Barcelona',
+  'Valle de Arán': 'Val d’Aran',
+};
+
+/** El fenómeno en el idioma de la página. Genérico si el código no consta. */
+export function phenomenonName(code: string, lang: Lang = 'ca'): string {
+  if (lang === 'es') return FENOMENOS[code] ?? 'Aviso meteorológico';
   return PHENOMENA[code] ?? 'Avís meteorològic';
 }
 
-/** La zona en catalán. Tal cual si no consta, que es mejor que callarla. */
-export function zoneName(desc: string): string {
-  return ZONES[desc] ?? desc;
+/** La zona en el idioma de la página. Tal cual si no consta, que es mejor que callarla. */
+export function zoneName(desc: string, lang: Lang = 'ca'): string {
+  return (lang === 'es' ? ZONAS : ZONES)[desc] ?? desc;
 }
 
 /**
@@ -149,7 +205,7 @@ export function thresholdValue(threshold: string | undefined): string | null {
   return window ? `${clean} en ${window}` : clean;
 }
 
-/** «del 40 % al 70 %», que es como se escribe un rango en catalán. */
+/** «del 40 % al 70 %», que es como se escribe un rango en catalán y en castellano. */
 export function probabilityText(probability: string | undefined): string | null {
   if (!probability) return null;
   const m = probability.match(/^(\d+)\s*%\s*-\s*(\d+)\s*%$/);

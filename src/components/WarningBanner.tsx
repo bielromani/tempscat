@@ -100,7 +100,7 @@ function Body({ g, showWhen = true }: { g: WarningGroup; showWhen?: boolean }) {
   return (
     <>
       <p className="mt-1.5 text-sm leading-snug opacity-95">
-        {g.zones.map(zoneName).join(', ')}
+        {g.zones.map((z) => zoneName(z)).join(', ')}
       </p>
 
       {/* Els que acompanyen ja porten la data a la línia que es veu plegada:

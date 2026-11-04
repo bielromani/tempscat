@@ -61,7 +61,7 @@ export function atomFeed(warnings: Warning[], opts: FeedOptions): string {
     // manteniendo el identificador, tiene que aparecer como entrada nueva, porque
     // para el lector es información nueva.
     const id = `${opts.site}/avisos#${w.id}-${w.level}`;
-    const zones = w.zones.length ? `\n      Zones: ${w.zones.map(zoneName).join(', ')}` : '';
+    const zones = w.zones.length ? `\n      Zones: ${w.zones.map((z) => zoneName(z)).join(', ')}` : '';
     /*
      * El titular es nostre i en catala, no el d'AEMET.
      *
@@ -194,7 +194,7 @@ export function icsFeed(warnings: Warning[], name: string): string {
         `Avís ${w.level}`,
         phenomenonName(w.phenomenon),
         thresholdValue(w.threshold),
-        w.zones.map(zoneName).join(', ') || null,
+        w.zones.map((z) => zoneName(z)).join(', ') || null,
       ].filter(Boolean).join(' · '))}`),
       fold(`DESCRIPTION:${escapeIcs([
         `Vigent ${dateTimeLong(local(w.onset))} → ${dateTimeLong(local(w.expires))}`,
