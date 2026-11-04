@@ -38,6 +38,12 @@
 export const COMPARE_SHARD = 'compare/temperatura';
 
 /**
+ * 1: el model corregit amb les estacions.
+ * 2: amb la deriva horària del residu, i AROME als punts de B i C de 500 m amunt.
+ */
+export const COMPARE_METHOD = 2;
+
+/**
  * El nostre mètode, com el fa una fitxa dels nivells B i C: el `best_match`
  * corregit. Són 2.840 dels 3.190 punts, i és la xifra que es dona de titular.
  */
@@ -94,6 +100,12 @@ export interface CompareScores {
    * començar: una font nova amb menys hores que les altres no es pot comparar.
    */
   sources: string[];
+  /**
+   * La versió del càlcul de la nostra xifra. Com amb les fonts: si canvia, el
+   * registre es torna a començar, perquè sumar dies d'un mètode amb dies d'un
+   * altre dona una mitjana que no és de cap dels dos.
+   */
+  method?: number;
   /** Les dates (UTC) ja puntuades. Un dia no entra mai dues vegades. */
   scored: string[];
   stations: Record<string, CompareStation>;
@@ -102,7 +114,7 @@ export interface CompareScores {
 }
 
 export function emptyCompare(): CompareScores {
-  return { sources: [...COMPARE_SOURCES], scored: [], stations: {}, byHour: {} };
+  return { sources: [...COMPARE_SOURCES], method: COMPARE_METHOD, scored: [], stations: {}, byHour: {} };
 }
 
 export function emptyCompareTally(): CompareTally {

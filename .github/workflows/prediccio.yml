@@ -6,17 +6,19 @@ name: Predicció
 # el diari (10.000) sinó el **mensual: 300.000**, que surt a 10.000/dia de
 # mitjana. Amb els punts d'avui i el repartiment de models per nivell:
 #
-#     A  350 punts × 3 models  = 1.365 unitats per volta
-#     B  1.679 punts × 1 model = 3.190 unitats per volta
-#     C  1.161 punts × 1 model = 2.206 unitats per volta
-#     i amb A, el model a les 189 estacions = 189 unitats per volta
-#     (la temperatura d'ara de les fitxes: `src/lib/now-temperature.ts`)
+#     A  350 punts × 3 models                    = 1.225 unitats per volta
+#     B  1.679 punts, i AROME als 438 de 500 m amunt = 2.957 unitats per volta
+#     C  1.161 punts, i AROME als 730 de 500 m amunt = 2.472 unitats per volta
+#     i amb A, el model a les 189 estacions           =   189 unitats per volta
+#     (la temperatura d'ara de les fitxes: `src/lib/now-temperature.ts`; el
+#     `best_match` costa 1,5 per punt des que la sensació i el punt de rosada
+#     es calculen en comptes de demanar-los)
 #
 # D'aquí surten les quatre hores de sota: **A dues vegades al dia, B i C una**.
 #
-#     2 × (1.365 + 189) + 3.190 + 2.206 = 8.504/dia = 255.000/mes = 85 % del sostre
+#     2 × (1.225 + 189) + 2.957 + 2.472 = 8.257/dia = 248.000/mes = 83 % del sostre
 #
-# El 15 % que queda no és marge de sobres: és el que permet un `--fill` després
+# El 17 % que queda no és marge de sobres: és el que permet un `--fill` després
 # d'un tall de xarxa sense passar-se de la ratlla.
 #
 # **Per què A i no B o C més sovint.** Els 350 punts del nivell A cobreixen les

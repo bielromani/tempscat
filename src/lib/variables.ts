@@ -240,7 +240,7 @@ export const VARIABLES: Record<VariableSlug, VariableDef> = {
 
 /** Lo mínimo para el meteograma, las tarjetas de 7 días y el bloque principal. */
 export const ESSENTIAL_HOURLY: VariableSlug[] = [
-  'temperature', 'apparent_temperature', 'precipitation', 'precipitation_probability',
+  'temperature', 'precipitation', 'precipitation_probability',
   'weather_code', 'cloud_cover', 'humidity', 'wind_speed', 'wind_direction', 'wind_gust',
 ];
 
@@ -256,10 +256,14 @@ export const ESSENTIAL_HOURLY: VariableSlug[] = [
  * Y encima se cobran: Open-Meteo factura por decenas de variables, así que
  * dejar de pedirlas bajó el peso de cada llamada de 1,9 a 1,7 — un 10 % de
  * cuota diaria recuperado sin quitar ni un modelo.
+ *
+ * Y de 1,7 a 1,5 el 4 de noviembre de 2026: la sensación y el punto de rocío
+ * ya no se piden, se calculan en `mergeHourly` con la temperatura, la humedad
+ * y el viento. Lo ahorrado paga AROME en los puntos de montaña.
  */
 export const RICH_HOURLY: VariableSlug[] = [
   ...ESSENTIAL_HOURLY,
-  'dew_point', 'pressure', 'uv_index', 'visibility', 'freezing_level', 'snowfall', 'cape',
+  'pressure', 'uv_index', 'visibility', 'freezing_level', 'snowfall', 'cape',
 ];
 
 /**
@@ -365,6 +369,17 @@ export function meanDirection(degrees: number[]): number | null {
   }
   if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return null;
   return (((Math.atan2(y, x) * 180) / Math.PI) + 360) % 360;
+}
+
+/**
+ * Punt de rosada, de la temperatura i la humitat relativa (Magnus, amb les
+ * constants d'Alduchov i Eskridge). Entre −40 i 50 °C s'equivoca menys d'una
+ * dècima, que és com s'escriu.
+ */
+export function dewPoint(tempC: number, humidity: number): number {
+  const rh = Math.min(100, Math.max(1, humidity));
+  const g = Math.log(rh / 100) + (17.625 * tempC) / (243.04 + tempC);
+  return (243.04 * g) / (17.625 - g);
 }
 
 /**

@@ -235,7 +235,8 @@ export default async function EncertPage() {
           <p className="source">
             Error mitjà de cada grup; en negreta, el més baix. «Amb tres models» és la
             mateixa xifra als 350 punts on la predicció és la mitjana de tres models —els
-            pobles més grans—; a la resta es parteix d&apos;un.
+            pobles més grans—; la resta parteix de la tria d&apos;Open-Meteo, i a partir de 500 m
+            també d&apos;AROME.
           </p>
         </div>
       </Section>

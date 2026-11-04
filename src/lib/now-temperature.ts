@@ -30,6 +30,8 @@
  * Mesurat el 4 de novembre de 2026 sobre trenta dies (paràmetres ajustats amb
  * els dies senars i avaluats amb els parells): 0,85 °C on el punt té tres
  * models i 0,95 on només en té un, contra 1,13 d'AROME i 1,18 de `best_match`.
+ * Amb la deriva horària (a sota) i AROME als punts de 500 m amunt, la
+ * comparativa dels 28 dies sencers dona 0,94 per a B i C i 0,88 per a A.
  *
  * ## La condició que ho fa funcionar
  *
@@ -64,6 +66,13 @@ export const CORRECTION_M = 150;
 export const CORRECTION_SHRINK = 0.1;
 /** Més enllà, una estació no compta gens. */
 export const CORRECTION_MAX_KM = 60;
+/**
+ * Els punts dels nivells B i C a partir d'aquesta altitud porten AROME a més de
+ * `best_match`. Ho decideix `forecast-refresh.ts`, i ho ha de saber la
+ * comparativa per mesurar el que fa una fitxa.
+ */
+export const AROME_FROM_M = 500;
+
 /** Per sota d'aquest pes la xifra és el model, i la pàgina ho diu. */
 export const MODEL_ONLY_WEIGHT = 0.1;
 /** Una lectura més vella no corregeix res: el residu d'abans d'ahir no és el d'ara. */
@@ -190,4 +199,79 @@ export function fetchFor(fetches: StationModelFetch[], refreshedAt: string | und
   const t = Date.parse(refreshedAt);
   return fetches.reduce((best, f) =>
     Math.abs(Date.parse(f.fetchedAt) - t) < Math.abs(Date.parse(best.fetchedAt) - t) ? f : best);
+}
+
+/* ── La deriva horària del residu ──────────────────────────────────────────
+ *
+ * El residu de la lectura (fa una hora) no és el d'ara: l'error d'un model a
+ * les 9 del matí no és el de les 8, perquè cada model escalfa i refreda a un
+ * ritme que no és ben bé el del terreny, i cada estació té el seu. Així que
+ * per a cada estació, cada joc de models i cada hora del dia es guarda quant
+ * canvia el residu d'una hora a la següent, i se suma al residu abans
+ * d'interpolar-lo. Mesurat: de 0,946 a 0,926 °C partint de `best_match`, i de
+ * 0,854 a 0,831 amb AROME.
+ *
+ * És una mitjana que oblida: cada dada nova pesa més que les velles
+ * (`DRIFT_DECAY`), i amb poques dades tira cap a zero (`DRIFT_PRIOR`) —una
+ * estació nova no corregeix res fins que n'ha vist uns quants dies—.
+ */
+
+export const DRIFT_SHARD = 'temperatura-deriva';
+/** Per actualització d'una mateixa hora del dia, que n'hi ha dues al dia: memòria de deu dies. */
+export const DRIFT_DECAY = 0.95;
+/** Quantes observacions «fictícies» de canvi zero hi ha al començament. */
+export const DRIFT_PRIOR = 2;
+/** El retard més gran a què s'aplica: més enllà, la deriva d'una hora no diu res. */
+const DRIFT_MAX_HOURS = 2;
+
+export interface StationDrift {
+  /** Els residus de les últimes hores, per instant ISO de la lectura. */
+  recent: Record<string, number>;
+  /** Per hora UTC del dia: suma ponderada dels canvis i el seu pes. */
+  sum: number[];
+  n: number[];
+}
+
+export interface DriftState {
+  /** Joc de models (`best_match,meteofrance_arome_france_hd`) → estació → deriva. */
+  sets: Record<string, Record<string, StationDrift>>;
+}
+
+export function emptyStationDrift(): StationDrift {
+  return { recent: {}, sum: Array(24).fill(0), n: Array(24).fill(0) };
+}
+
+/**
+ * Apunta el residu d'una lectura. Si n'hi ha un d'una hora abans i aquesta
+ * lectura no s'havia vist, el canvi entra a la mitjana de la seva hora.
+ * Torna si l'ha fet servir.
+ */
+export function recordResidual(d: StationDrift, ts: string, residual: number): boolean {
+  const t = Date.parse(ts);
+  if (!Number.isFinite(t)) return false;
+  // La clau sempre en el mateix format: la XEMA escriu `…:00Z` i `toISOString`, `…:00.000Z`.
+  const key = new Date(t).toISOString();
+  if (d.recent[key] != null) return false;
+  d.recent[key] = residual;
+  for (const k of Object.keys(d.recent)) {
+    if (t - Date.parse(k) > 3 * 3_600_000) delete d.recent[k];
+  }
+  const before = d.recent[new Date(t - 3_600_000).toISOString()];
+  if (before == null) return false;
+  const hod = new Date(t).getUTCHours();
+  d.sum[hod] = d.sum[hod] * DRIFT_DECAY + (residual - before);
+  d.n[hod] = d.n[hod] * DRIFT_DECAY + 1;
+  return true;
+}
+
+/**
+ * El residu d'una lectura portat a un altre instant: el de la lectura més el
+ * que sol canviar en aquella hora del dia, en proporció a les hores que han
+ * passat.
+ */
+export function driftedResidual(d: StationDrift | undefined, residual: number, readingMs: number, atMs: number): number {
+  if (!d) return residual;
+  const hours = Math.min(DRIFT_MAX_HOURS, Math.max(0, (atMs - readingMs) / 3_600_000));
+  const hod = new Date(atMs).getUTCHours();
+  return residual + (d.sum[hod] / (d.n[hod] + DRIFT_PRIOR)) * hours;
 }
