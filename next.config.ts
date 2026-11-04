@@ -75,6 +75,7 @@ const LIVE_PAGES = [
   '/aigua',
   '/aire',
   '/estat',
+  '/dades/encert',
 ];
 
 const nextConfig: NextConfig = {

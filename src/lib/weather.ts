@@ -28,6 +28,7 @@ import { LEVEL_RANK, type Warning } from './warning-stack';
 import type { RainWarning } from './narrative';
 import type { MeasuredRain } from './recent-rain';
 import { WARNING_ZONES_SHARD, type WarningZones } from './warning-zones';
+import { COMPARE_SHARD, type CompareScores } from './temperature-compare';
 
 /**
  * Observación y predicción para una ubicación.
@@ -877,6 +878,16 @@ export interface FreshnessEntry {
  * Se piden las nueve, y las que no estén salen igualmente: un worker que nunca
  * ha publicado es una cosa que este panel tiene que decir, no callar.
  */
+/**
+ * La comparativa de temperatura: un sol fitxer petit, que només llegeix
+ * `/dades/encert`. El què es mesura és a `temperature-compare.ts`.
+ */
+export async function temperatureCompare(): Promise<{ data: CompareScores; fetchedAt: string } | null> {
+  const snap = await snapshot<CompareScores>(COMPARE_SHARD);
+  if (!snap?.data?.scored?.length) return null;
+  return { data: snap.data, fetchedAt: snap.fetchedAt };
+}
+
 export async function freshness(): Promise<Array<
   FreshnessEntry & {
     stale: boolean; ageMin: number | null; missing?: true;

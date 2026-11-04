@@ -27,6 +27,7 @@ const LABELS: Record<string, string> = {
   'radar': 'Radar de precipitació (RainViewer)',
   'forecast-field': 'Camp de vent del mapa (Open-Meteo)',
   'forecast-verify': 'Encert dels models, comprovat contra la XEMA',
+  'temperature-compare': "La temperatura d'ara, comparada amb la dels models",
   'water': 'Embassaments, cabals i sequera (ACA)',
   'air-stations': 'Qualitat de l’aire mesurada (XVPCA)',
   'sea': 'Banderes de platja i onatge',

@@ -191,6 +191,7 @@ npm run worker:cameres    # cameres de muntanya de FGC, cada hora
 npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
 npm run worker:field      # el camp de vent del mapa · cada hora, i al final de `prediccio.yml`
 npm run worker:verify     # quant encerta cada model, contra la XEMA · un cop al dia
+npm run worker:compare    # la temperatura d'ara de les fitxes contra la dels models · un cop al dia
 ```
 
 Pruebas:
@@ -1491,6 +1492,26 @@ cuota para exactamente la misma información.
   si queda fora i és 300 m o més per sobre, el més alt: una mitjana de la comarca barrejaria
   Bellver amb la Molina. Quatre dies, amb `withObservedToday` com a la fitxa, i amb
   `forecastFor` sense límit d'hores: amb 48, els punts del nivell B només en tenien dos.
+
+- **La temperatura d'ara de les fitxes, comparada amb la dels models.** (4 de novembre de
+  2026.) `worker:compare` (`scripts/workers/temperature-compare.ts`, i el que es mesura a
+  `src/lib/temperature-compare.ts`) fa veure, per a cada estació i cada hora d'ahir, que
+  l'estació no hi és: la nostra xifra surt de la veïna triada com la tria el build
+  (`stationCost`, 60 km) i corregida pel gradient, i la de cada model, de l'API de predicció
+  **històrica** d'Open-Meteo amb `elevation=` la cota de l'estació. Com que Open-Meteo guarda
+  el que deia cada model, el primer cop recupera trenta dies d'una volta. És una prova en
+  contra nostra: la veïna d'una estació queda a 8,6 km de mediana i l'estació d'un poble, a
+  5,6. Google o Apple no es poden mesurar —no publiquen què deien ahir—; `best_match` és el
+  més semblant a una aplicació genèrica.
+  Els primers 28 dies (5 d'octubre – 3 de novembre, 121.500 comparacions): aquest web
+  **1,13 °C** d'error mitjà, AROME 1,15, `best_match` 1,23, ICON-EU 1,29, ECMWF 1,43, GFS
+  1,63. Guanyem de dia (0,81 contra 1,00) i per sota de 800 m; **perdem quan la veïna és a
+  més de 200 m de desnivell** (1,81 contra 1,36 de `best_match`): el gradient fix no sap
+  quan hi ha inversió. Per això hi ha una tercera xifra en prova, `guiat` —la veïna més la
+  diferència que el model veu entre els dos punts—, que allà baixa a 1,52. Si la fitxa ha de
+  canviar de mètode amb desnivell gran, que ho decideixin uns quants mesos d'això, no un.
+  Si canvia la llista de fonts, el registre es torna a començar sol (`sources`): una font
+  nova amb menys hores que les altres no es pot comparar.
 
 # This is NOT the Next.js you know
 

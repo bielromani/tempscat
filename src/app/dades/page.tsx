@@ -318,7 +318,9 @@ export default function DadesPage() {
             La predicció és orientativa i el feed no és un servei amb garanties. Per
             a decisions de seguretat, la font són el Meteocat i Protecció Civil. Si
             munteu res que en depengui, a <Link href="/estat">l&apos;estat de les dades</Link>{' '}
-            hi ha quan es va actualitzar cada font per última vegada.
+            hi ha quan es va actualitzar cada font per última vegada, i a{' '}
+            <Link href="/dades/encert">com encerta la temperatura</Link>, quant s&apos;equivoca
+            la temperatura d&apos;ara comparada amb la dels models.
           </p>
         </div>
       </Section>
