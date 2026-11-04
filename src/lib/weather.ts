@@ -28,6 +28,9 @@ import { LEVEL_RANK, type Warning } from './warning-stack';
 import type { RainWarning } from './narrative';
 import type { MeasuredRain } from './recent-rain';
 import { WARNING_ZONES_SHARD, type WarningZones } from './warning-zones';
+import {
+  MODEL_ONLY_WEIGHT, NOW_MAX_AGE_MIN, NOW_SHARD, type NowTemperature,
+} from './now-temperature';
 import { COMPARE_SHARD, type CompareScores } from './temperature-compare';
 
 /**
@@ -165,8 +168,24 @@ export function tempAtAltitude(
   return Math.round((value - (toM - fromM) * LAPSE_RATE) * 10) / 10;
 }
 
+/**
+ * La temperatura d'ara d'un lloc, de la xifra que el worker d'observació
+ * calcula per a cada punt de predicció. El punt té la seva cota i el lloc la
+ * seva: entre totes dues hi ha, al 90 % dels llocs, menys de vint metres.
+ */
+async function estimateFor(loc: Location): Promise<{ t: number; at: string; ageMin: number; modelOnly: boolean } | null> {
+  if (!loc.forecastPointId) return null;
+  const snap = await snapshot<NowTemperature>(NOW_SHARD);
+  const p = snap?.data.points[loc.forecastPointId];
+  if (!snap || !p) return null;
+  const ageMin = Math.round((Date.now() - Date.parse(snap.data.at)) / 60_000);
+  if (ageMin > NOW_MAX_AGE_MIN) return null;
+  const t = loc.altitud != null ? p.t - (loc.altitud - p.e) * LAPSE_RATE : p.t;
+  return { t: Math.round(t * 10) / 10, at: snap.data.at, ageMin, modelOnly: p.w < MODEL_ONLY_WEIGHT };
+}
+
 export async function currentFor(loc: Location): Promise<CurrentConditions | null> {
-  const snap = await snapshot<RawObservation[]>('xema-current');
+  const [snap, estimate] = await Promise.all([snapshot<RawObservation[]>('xema-current'), estimateFor(loc)]);
   if (!snap || !loc.stationRef) return null;
   const obs = snap.data.find((o) => o.station === loc.stationRef!.codi);
   if (!obs) return null;
@@ -175,13 +194,12 @@ export async function currentFor(loc: Location): Promise<CurrentConditions | nul
   const wind = obs.values.wind_speed?.value ?? null;
   const hum = obs.values.humidity?.value ?? null;
 
-  // El desnivel entre la ubicación y su estación de referencia se corrige con
-  // el gradiente estándar. Es una aproximación honesta: en noches despejadas de
-  // invierno con inversión térmica el signo se invierte, y eso requiere el
-  // motor de fusión de la fase 4, que aún no existe. Mientras tanto la página
-  // no debe presentar esto como más preciso de lo que es.
+  // Sense la xifra corregida, la lectura de l'estació amb el gradient estàndar:
+  // el mètode d'abans, que mesurat amb el retard de la XEMA fa 1,38 °C d'error
+  // contra 0,85–0,95 de l'altre. Només és el recurs per quan l'altre falta.
   const dAlt = loc.stationRef.dAltM;
-  const adjusted = t != null && dAlt != null ? t - dAlt * LAPSE_RATE : t;
+  const fromStation = t != null && dAlt != null ? t - dAlt * LAPSE_RATE : t;
+  const adjusted = estimate?.t ?? fromStation;
 
   return {
     station: loc.stationRef,
@@ -190,6 +208,7 @@ export async function currentFor(loc: Location): Promise<CurrentConditions | nul
     provisional: Object.values(obs.values).some((v) => v?.provisional),
     temperature: t,
     temperatureAdjusted: adjusted != null ? Math.round(adjusted * 10) / 10 : null,
+    estimate: estimate ? { at: estimate.at, ageMin: estimate.ageMin, modelOnly: estimate.modelOnly } : null,
     apparent: adjusted != null && wind != null && hum != null
       ? Math.round(apparentTemperature(adjusted, wind, hum) * 10) / 10
       : null,

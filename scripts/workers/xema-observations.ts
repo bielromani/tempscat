@@ -19,10 +19,15 @@ import { readFileSync } from 'node:fs';
 import { fetchJson } from '../lib/http.ts';
 import { build } from '../lib/paths.ts';
 import {
-  DAILY_LIMITS, QuotaGuard, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
+  DAILY_LIMITS, QuotaGuard, publish, pullSnapshot, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
 import { XEMA_TO_SLUG, type VariableSlug } from '../../src/lib/variables.ts';
 import { suspectTemperatures, type TempPoint } from '../../src/lib/temperature-check.ts';
+import {
+  BASE_SHARD, MODEL_ONLY_WEIGHT, NOW_SHARD, RESIDUAL_MAX_AGE_MIN, STATION_MODELS_SHARD,
+  correctionAt, fetchFor, meanOf, valueAt,
+  type BaseTemperature, type NowTemperature, type StationModels, type StationResidual,
+} from '../../src/lib/now-temperature.ts';
 import type { Station } from '../04-fetch-stations.ts';
 
 const DATASET = 'nzvn-apee';
@@ -80,6 +85,70 @@ export interface StationObservation {
  * dejaría fuera las dos primeras horas del día catalán en verano — y en esas
  * horas es cuando cae la mínima.
  */
+interface ForecastPointRow { id: string; lat: number; lon: number; altitud: number | null }
+
+/**
+ * La temperatura d'ara de cada punt de predicció: el model corregit amb el que
+ * les estacions diuen que s'està equivocant. El mètode i les xifres que el
+ * justifiquen són a `src/lib/now-temperature.ts`.
+ *
+ * Es fa aquí i no a la pàgina perquè la fan servir també les llistes i els
+ * rànquings dels 947 municipis, que haurien de llegir la predicció de les 43
+ * comarques per treure'n una xifra cadascun. Així tothom llegeix la mateixa.
+ *
+ * Torna null —i la pàgina es queda amb la lectura de l'estació— si falta una
+ * de les dues meitats del model, que les escriu el worker de predicció.
+ */
+function nowTemperature(
+  observations: StationObservation[], stations: Station[], base: BaseTemperature, models: StationModels, at: number,
+): NowTemperature {
+  const located = new Map(stations.map((s) => [s.codi, s]));
+  const points = JSON.parse(readFileSync(build('forecast-points.json'), 'utf8')) as ForecastPointRow[];
+  const baseStart = Date.parse(base.start);
+
+  /*
+   * Un joc de residus per a cada parella de petició i models: un punt del
+   * nivell A en fa la mitjana de tres, i el residu ha de ser contra la mateixa
+   * mitjana. N'acaben sortint dos o tres.
+   */
+  const residualSets = new Map<string, StationResidual[]>();
+  const residualsFor = (tier: string, modelsOfPoint: string[]): StationResidual[] => {
+    const fetch = fetchFor(models.fetches, base.refreshedAt[tier]);
+    if (!fetch) return [];
+    const key = `${fetch.fetchedAt}|${modelsOfPoint.join(',')}`;
+    const cached = residualSets.get(key);
+    if (cached) return cached;
+    const start = Date.parse(fetch.start);
+    const out: StationResidual[] = [];
+    for (const o of observations) {
+      const reading = o.values.temperature;
+      const s = located.get(o.station);
+      if (!reading || !s || s.altitud == null) continue;
+      const ts = Date.parse(reading.ts);
+      if (at - ts > RESIDUAL_MAX_AGE_MIN * 60_000) continue;
+      const series = fetch.stations[o.station];
+      const said = meanOf(modelsOfPoint.map((m) => valueAt(series?.[m], start, ts)));
+      if (said == null) continue;
+      out.push({ lat: s.lat, lon: s.lon, altitud: s.altitud, residual: reading.value - said });
+    }
+    residualSets.set(key, out);
+    return out;
+  };
+
+  const out: NowTemperature['points'] = {};
+  for (const p of points) {
+    const b = base.points[p.id];
+    if (!b) continue;
+    const raw = valueAt(b.t, baseStart, at);
+    if (raw == null) continue;
+    const residuals = residualsFor(b.tier, b.models);
+    const { correction, weight } = correctionAt({ lat: p.lat, lon: p.lon, altitud: p.altitud ?? b.e }, residuals);
+    // `raw` va en dècimes, com la sèrie d'on surt.
+    out[p.id] = { t: Math.round(raw + correction * 10) / 10, e: b.e, w: Math.round(weight * 100) / 100 };
+  }
+  return { at: new Date(at).toISOString(), points: out };
+}
+
 function localMidnightUtc(): string {
   const now = new Date();
   const local = now.toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' });
@@ -329,6 +398,29 @@ async function main() {
   }
 
   writeSnapshot('xema-current', 'Meteocat XEMA · dades obertes', observations, newest);
+
+  /*
+   * La temperatura d'ara de les fitxes. Si no surt, la pàgina fa servir la
+   * lectura de l'estació com abans: per això un error aquí s'explica i no
+   * atura el worker, que la seva feina principal ja l'ha feta.
+   */
+  try {
+    const [base, models] = await Promise.all([
+      pullSnapshot<BaseTemperature>(BASE_SHARD),
+      pullSnapshot<StationModels>(STATION_MODELS_SHARD),
+    ]);
+    if (!base || !models?.data.fetches.length) {
+      console.log('\nTemperatura d\'ara: encara no hi ha el model a les estacions; les fitxes fan servir la lectura.');
+    } else {
+      const est = nowTemperature(observations, stations, base.data, models.data, now);
+      const n = Object.keys(est.points).length;
+      const alone = Object.values(est.points).filter((p) => p.w < MODEL_ONLY_WEIGHT).length;
+      writeSnapshot(NOW_SHARD, 'Meteocat XEMA + Open-Meteo', est, est.at);
+      console.log(`\nTemperatura d'ara: ${n} punts · ${alone} sense cap estació a prop (model sol)`);
+    }
+  } catch (err) {
+    console.warn(`\nTemperatura d'ara: no s'ha pogut calcular (${String(err).slice(0, 120)}); les fitxes fan servir la lectura.`);
+  }
   recordFreshness({
     source: 'xema-observations',
     lastSuccessAt: new Date().toISOString(),

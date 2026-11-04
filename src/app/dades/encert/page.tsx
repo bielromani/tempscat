@@ -4,7 +4,7 @@ import { temperatureCompare } from '@/lib/weather';
 import { stationByCodi } from '@/lib/territory';
 import { dateShort, int, num } from '@/lib/format';
 import {
-  COMPARE_SOURCES, GUIDED, OURS, SOURCE_LABEL,
+  COMPARE_SOURCES, OURS, OURS_A, SOURCE_LABEL,
   compareBias, compareGt3, compareMae, sumTallies,
   type CompareScores, type CompareSource, type CompareStation, type CompareTally,
 } from '@/lib/temperature-compare';
@@ -32,11 +32,12 @@ const trail = [
   { nom: 'Com encerta', path: '/dades/encert' },
 ];
 
-/** Els models, sense la nostra xifra ni la que és en prova. */
-const MODELS = COMPARE_SOURCES.filter((s) => s !== OURS && s !== GUIDED);
+/** Els models sols, sense cap de les dues xifres d'aquest web. */
+const MODELS = COMPARE_SOURCES.filter((s) => s !== OURS && s !== OURS_A);
 
-/** Les fonts de la taula dels grups: la nostra, la de prova, la genèrica i la millor. */
-const GROUP_SOURCES: CompareSource[] = [OURS, GUIDED, 'best_match', 'meteofrance_arome_france_hd'];
+/** Les fonts de la taula dels grups: les dues d'aquest web, la genèrica i la millor. */
+const GROUP_SOURCES: CompareSource[] = [OURS, OURS_A, 'best_match', 'meteofrance_arome_france_hd'];
+const GROUP_LABEL: Partial<Record<CompareSource, string>> = { [OURS]: 'Aquest web', [OURS_A]: 'Amb tres models' };
 
 interface Row { codi: string; st: CompareStation; altitud: number; km: number; dAlt: number }
 
@@ -110,14 +111,14 @@ export default async function EncertPage() {
   const kmMedian = median(rows.map((r) => r.km));
 
   const groups: Array<{ label: string; note?: string; t: Partial<Record<CompareSource, CompareTally>>; k?: number }> = [
-    { label: "L'estació de referència, a menys de 10 km", t: bySource(rows.filter((r) => r.km < 10)), k: rows.filter((r) => r.km < 10).length },
+    { label: "L'estació veïna més propera, a menys de 10 km", t: bySource(rows.filter((r) => r.km < 10)), k: rows.filter((r) => r.km < 10).length },
     { label: 'A 10 km o més', t: bySource(rows.filter((r) => r.km >= 10)), k: rows.filter((r) => r.km >= 10).length },
     { label: 'Per sota de 300 m', t: bySource(rows.filter((r) => r.altitud < 300)), k: rows.filter((r) => r.altitud < 300).length },
     { label: 'De 300 a 800 m', t: bySource(rows.filter((r) => r.altitud >= 300 && r.altitud < 800)), k: rows.filter((r) => r.altitud >= 300 && r.altitud < 800).length },
     { label: 'De 800 a 1.500 m', t: bySource(rows.filter((r) => r.altitud >= 800 && r.altitud < 1500)), k: rows.filter((r) => r.altitud >= 800 && r.altitud < 1500).length },
     { label: 'A 1.500 m o més', t: bySource(rows.filter((r) => r.altitud >= 1500)), k: rows.filter((r) => r.altitud >= 1500).length },
     {
-      label: 'Amb més de 200 m de desnivell fins a l’estació',
+      label: 'Amb més de 200 m de desnivell fins a la veïna més propera',
       t: bySource(rows.filter((r) => r.dAlt > 200)), k: rows.filter((r) => r.dAlt > 200).length,
     },
     // UTC: de 9 a 15 h són les hores centrals del dia amb horari d'estiu i d'hivern.
@@ -125,11 +126,9 @@ export default async function EncertPage() {
     { label: 'De nit', note: 'de 19 a 5 h UTC', t: byHours(data, (h) => h >= 19 || h <= 5) },
   ];
 
-  // La font en prova pot no ser-hi en un registre d'abans que existís.
+  // Un registre d'abans pot no portar alguna de les fonts.
   const groupSources = GROUP_SOURCES.filter((s) => all[s]?.n);
-  const steep = groups.find((g) => g.label.startsWith('Amb més de 200 m'));
-  const steepWorse = steep != null
-    && (compareMae(steep.t[OURS]) ?? 0) > (compareMae(steep.t.best_match) ?? Infinity);
+  const oursA = compareMae(all[OURS_A]);
 
   return (
     <article data-wide>
@@ -143,9 +142,10 @@ export default async function EncertPage() {
         lead={ours != null && generic != null && best != null && bestModel ? (
           <>
             La temperatura d&apos;ara que ensenya aquest web s&apos;equivoca, de mitjana,{' '}
-            <strong className="tnum">{num(ours, 2)} °C</strong>. La que tria Open-Meteo per a
-            cada punt, <strong className="tnum">{num(generic, 2)} °C</strong>, i el model que
-            més encerta, {SOURCE_LABEL[bestModel]},{' '}
+            <strong className="tnum">{num(ours, 2)} °C</strong>
+            {oursA != null && <>, i <strong className="tnum">{num(oursA, 2)} °C</strong> als pobles on es parteix de tres models</>}.
+            La que tria Open-Meteo per a cada punt, <strong className="tnum">{num(generic, 2)} °C</strong>, i
+            el model que més encerta, {SOURCE_LABEL[bestModel]},{' '}
             <strong className="tnum">{num(best, 2)} °C</strong>.
           </>
         ) : undefined}
@@ -205,7 +205,7 @@ export default async function EncertPage() {
                 <tr>
                   <th scope="col">Estacions</th>
                   {groupSources.map((s) => (
-                    <th key={s} scope="col" className="num">{s === OURS ? 'Aquest web' : s === GUIDED ? 'En prova' : SOURCE_LABEL[s].replace(/ \(.*\)$/, '')}</th>
+                    <th key={s} scope="col" className="num">{GROUP_LABEL[s] ?? SOURCE_LABEL[s].replace(/ \(.*\)$/, '')}</th>
                   ))}
                 </tr>
               </thead>
@@ -233,17 +233,9 @@ export default async function EncertPage() {
             </table>
           </div>
           <p className="source">
-            Error mitjà de cada grup; en negreta, el més baix.
-            {steepWorse && (
-              <> Amb l&apos;estació de referència a una altra cota, la xifra d&apos;aquest web
-                s&apos;equivoca més que la d&apos;Open-Meteo: la correcció per altitud és fixa, i
-                una nit d&apos;inversió tèrmica el fons de la vall és més fred que el
-                vessant.</>
-            )}
-            {groupSources.includes(GUIDED) && (
-              <> «En prova» és la lectura de l&apos;estació més la diferència que el model veu
-                entre els dos punts; encara no és la que ensenyen les fitxes.</>
-            )}
+            Error mitjà de cada grup; en negreta, el més baix. «Amb tres models» és la
+            mateixa xifra als 350 punts on la predicció és la mitjana de tres models —els
+            pobles més grans—; a la resta es parteix d&apos;un.
           </p>
         </div>
       </Section>
@@ -251,12 +243,18 @@ export default async function EncertPage() {
       <Fold title="Com es mesura" summary="Traient cada estació, una per una">
         <div className="measure space-y-3">
           <p>
-            Una fitxa de poble ensenya la lectura de l&apos;estació de la XEMA que li queda més
-            a prop, tenint en compte el desnivell, corregida per la diferència
-            d&apos;altitud. Al poble no hi ha cap termòmetre per comprovar-ho, però a cada
-            estació sí: per a cada estació i cada hora, es calcula la xifra que en donaria
-            aquest web <strong>sense aquella estació</strong>, amb les altres i del mateix
-            mode que una fitxa, i es compara amb el que ha mesurat.
+            La temperatura d&apos;una fitxa parteix del model meteorològic en aquell punt i a
+            aquella altitud, i li suma l&apos;error que el mateix model està fent a les
+            estacions de la XEMA del voltant: cada estació hi pesa més com més a prop és i
+            com més semblant és la seva altitud, i lluny de tota estació queda el model
+            sol. L&apos;error es mesura amb la darrera lectura, que arriba amb una hora de
+            retard, i se suma al model de l&apos;hora d&apos;ara.
+          </p>
+          <p>
+            Al poble no hi ha cap termòmetre per comprovar-ho, però a cada estació sí: per
+            a cada estació i cada hora, es calcula la xifra que en donaria aquest web{' '}
+            <strong>sense aquella estació</strong>, amb les lectures de les altres de
+            l&apos;hora anterior, i es compara amb el que ha mesurat.
           </p>
           <p>
             Als models se&apos;ls demana la temperatura que preveien per a aquella hora a les
@@ -265,8 +263,8 @@ export default async function EncertPage() {
             lectures que les estacions veïnes desmenteixen no es fan servir.
           </p>
           <p>
-            És una comparació desfavorable per a aquest web: sense l&apos;estació, la de
-            referència queda a {kmMedian != null ? `${num(kmMedian, 1)} km` : 'uns quants quilòmetres'} de
+            És una comparació desfavorable per a aquest web: sense l&apos;estació, la veïna
+            més propera queda a {kmMedian != null ? `${num(kmMedian, 1)} km` : 'uns quants quilòmetres'} de
             mediana, i la d&apos;un poble queda més a prop. Les aplicacions comercials no
             publiquen què deien hores enrere i no es poden mesurar així; la majoria fan
             servir algun d&apos;aquests models.

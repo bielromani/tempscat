@@ -50,6 +50,11 @@ import {
 import {
   VARIABLES, ESSENTIAL_HOURLY, RICH_HOURLY, callWeight, type VariableSlug,
 } from '../../src/lib/variables.ts';
+import { instantOf } from '../../src/lib/format.ts';
+import {
+  BASE_SHARD, STATION_MODELS, STATION_MODELS_SHARD,
+  type BaseTemperature, type StationModelFetch, type StationModels,
+} from '../../src/lib/now-temperature.ts';
 
 type Tier = 'A' | 'B' | 'C' | 'D';
 
@@ -407,6 +412,104 @@ async function fetchBatch(
   return out;
 }
 
+/* ── La temperatura d'ara ──────────────────────────────────────────────────
+ *
+ * La fitxa ensenya el model al lloc corregit amb l'error que el model fa a les
+ * estacions de la XEMA (`src/lib/now-temperature.ts`). El càlcul el fa el
+ * worker d'observació cada deu minuts; d'aquí surten les dues meitats del
+ * model que necessita, i han de ser de la mateixa execució: per això es
+ * demanen aquí i no en un worker a part.
+ */
+
+/** Quantes peticions a les estacions es guarden, per triar la de cada nivell. */
+const STATION_FETCHES_KEPT = 3;
+
+/** Hores de la temperatura per punt: tres enrere i fins a dos dies i mig endavant. */
+const BASE_HOURS_BEFORE = 3;
+const BASE_HOURS = 63;
+
+interface StationRow { codi: string; lat: number; lon: number; altitud: number | null; operativa: boolean }
+
+function measuringStations(): Array<StationRow & { altitud: number }> {
+  return (JSON.parse(readFileSync(build('stations.json'), 'utf8')) as StationRow[])
+    .filter((s): s is StationRow & { altitud: number } =>
+      s.operativa && s.altitud != null && Number.isFinite(s.lat) && Number.isFinite(s.lon));
+}
+
+/** El cost de demanar el model a les estacions: tres models valen com un. */
+function stationModelsCost(n: number): number {
+  return callWeight(STATION_MODELS.length, 4, n);
+}
+
+/**
+ * El model a la cota exacta de cada estació (`elevation=`), amb el dia
+ * d'abans: el worker d'observació hi compara lectures que tenen fins a tres
+ * hores, i aquesta petició ha de servir fins a la següent, mig dia després.
+ */
+async function fetchStationModels(stations: Array<StationRow & { altitud: number }>): Promise<StationModelFetch> {
+  const fetchedAt = new Date().toISOString();
+  const out: StationModelFetch['stations'] = {};
+  let start = '';
+  for (let i = 0; i < stations.length; i += 100) {
+    const chunk = stations.slice(i, i + 100);
+    const params = new URLSearchParams({
+      latitude: chunk.map((s) => s.lat.toFixed(5)).join(','),
+      longitude: chunk.map((s) => s.lon.toFixed(5)).join(','),
+      elevation: chunk.map((s) => s.altitud).join(','),
+      hourly: 'temperature_2m',
+      models: STATION_MODELS.join(','),
+      timezone: 'GMT',
+      past_days: '1',
+      forecast_days: '3',
+    });
+    const res = await fetchWithRetry(`https://api.open-meteo.com/v1/forecast?${params}`, {
+      retries: 5, backoffMs: 5_000, timeoutMs: 90_000,
+    });
+    const text = (await res.text()).replace(/:\s*-?nan\b/gi, ':null').replace(/([[,])\s*-?nan\b/gi, '$1null');
+    const data = JSON.parse(text) as OpenMeteoResponse | OpenMeteoResponse[];
+    const list = Array.isArray(data) ? data : [data];
+    list.forEach((r, k) => {
+      const s = chunk[k];
+      if (!s || !r.hourly?.time?.length) return;
+      // `timezone=GMT`: l'hora ja és UTC, i n'hi ha prou amb dir-ho.
+      start ||= `${r.hourly.time[0]}:00Z`;
+      out[s.codi] = Object.fromEntries(STATION_MODELS.map((m) => [
+        m, (r.hourly[`temperature_2m_${m}`] ?? []).map((v) => (v == null ? null : Math.round(v * 10) / 10)),
+      ]));
+    });
+  }
+  if (!start) throw new Error("Open-Meteo no ha tornat cap sèrie per a les estacions");
+  return { fetchedAt, start, stations: out };
+}
+
+/**
+ * La temperatura del model a cada punt, i res més: és el que el worker
+ * d'observació necessita cada deu minuts, i la predicció sencera són 43
+ * fitxers que no cal que es baixi.
+ *
+ * És la mateixa mitjana entre models que fa `mergeHourly` per a la pàgina,
+ * sense corregir per cap cota: la de la fitxa la posa la pàgina.
+ */
+function baseTemperature(result: ForecastData, points: ForecastPoint[], refreshedAt: Record<string, string>): BaseTemperature | null {
+  if (!result.times.length) return null;
+  // La mitjanit local no és mai ambigua; les hores següents van seguides en UTC.
+  const start0 = instantOf(result.times[0]);
+  const first = Math.max(0, Math.floor((Date.now() - start0) / 3_600_000) - BASE_HOURS_BEFORE);
+  const tierOf = new Map(points.map((p) => [p.id, p.tier]));
+  const out: BaseTemperature['points'] = {};
+  for (const [id, byModel] of Object.entries(result.points)) {
+    const models = Object.keys(byModel).filter((m) => byModel[m].values.temperature?.length);
+    if (!models.length) continue;
+    const t: Array<number | null> = [];
+    for (let i = first; i < Math.min(first + BASE_HOURS, result.times.length); i++) {
+      const xs = models.map((m) => byModel[m].values.temperature![i]).filter((v): v is number => v != null);
+      t.push(xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) : null);
+    }
+    out[id] = { e: byModel[models[0]].modelElevation, tier: tierOf.get(id) ?? '', models, t };
+  }
+  return { start: new Date(start0 + first * 3_600_000).toISOString(), refreshedAt, points: out };
+}
+
 async function main() {
   // El comptador de quota i el registre de frescor viuen al magatzem:
   // sense això, cada execució automàtica començaria de zero i en
@@ -443,6 +546,39 @@ async function main() {
   const limit = Number(process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 0;
 
   const before = await readForecast();
+
+  /*
+   * `--stations-only` demana només el model a les estacions (189 unitats) i
+   * torna a escriure la temperatura per punt amb la predicció que ja hi ha.
+   *
+   * És per arrencar: sense això, la temperatura d'ara de les fitxes no surt
+   * fins al pròxim refresc del nivell A, i forçar-ne un en costa 3.290. La
+   * petició no és de la mateixa execució que la predicció dels punts, i això
+   * la fa una mica pitjor fins que arriba el refresc de debò.
+   */
+  if (process.argv.includes('--stations-only')) {
+    if (!before) throw new Error('--stations-only necessita una predicció ja publicada');
+    const stations = measuringStations();
+    const cost = stationModelsCost(stations.length);
+    if (!quota.canSpend('open-meteo', cost)) throw new Error(`sense quota per a ${cost} unitats`);
+    const stationFetch = await fetchStationModels(stations);
+    quota.spend('open-meteo', cost);
+    let kept: StationModelFetch[] = [];
+    try {
+      kept = (await pullSnapshot<StationModels>(STATION_MODELS_SHARD))?.data.fetches ?? [];
+    } catch (err) {
+      console.warn(`No s'han pogut llegir les peticions anteriors a les estacions: ${String(err).slice(0, 90)}`);
+    }
+    writeSnapshot(STATION_MODELS_SHARD, 'Open-Meteo · CC-BY 4.0',
+      { fetches: [stationFetch, ...kept].slice(0, STATION_FETCHES_KEPT) } satisfies StationModels, stationFetch.fetchedAt);
+    const base = baseTemperature(before.data, points, before.index.refreshedAt ?? {});
+    if (base) writeSnapshot(BASE_SHARD, 'Open-Meteo · CC-BY 4.0', base, base.start);
+    console.log(`Model a les estacions: ${Object.keys(stationFetch.stations).length} · temperatura per punt: ${Object.keys(base?.points ?? {}).length}`);
+    console.log(quota.report());
+    const pub = await publish();
+    if (!pub.skipped) console.log(`Publicat: ${pub.uploaded} fitxers`);
+    return;
+  }
 
   /*
    * Un nivell que s'acaba de refrescar no es torna a demanar.
@@ -499,16 +635,26 @@ async function main() {
     if (!missing) return;
   }
 
+  /*
+   * El model a les estacions, només amb el nivell A: dues vegades al dia,
+   * 378 unitats. Els nivells B i C fan servir la petició més propera a la
+   * seva hora —tres hores abans o després, gairebé sempre de la mateixa
+   * execució—; demanar-la també amb ells serien 378 unitats més per guanyar
+   * centèsimes.
+   */
+  const stations = measuringStations();
+  const stationsDue = eligible.includes('A') && !fillOnly && !limit;
+
   // ── Presupuesto ───────────────────────────────────────────────────────────
   const cost = steps.reduce(
     (s, st) => s + callWeight(st.spec.variables.length, FORECAST_DAYS, st.points.length), 0,
-  );
+  ) + (stationsDue ? stationModelsCost(stations.length) : 0);
   const daily = eligible.reduce((s, t) => {
     const n = points.filter((p) => p.tier === t).length;
     return s + PLAN_BY_TIER[t].reduce(
       (a, spec) => a + callWeight(spec.variables.length, FORECAST_DAYS, n) * (24 / spec.everyHours), 0,
     );
-  }, 0);
+  }, 0) + (eligible.includes('A') ? 2 * stationModelsCost(stations.length) : 0);
 
   console.log('Pla de refresc');
   for (const st of steps) {
@@ -518,6 +664,9 @@ async function main() {
       ` × ${String(st.spec.variables.length).padStart(2)} vars = ${String(Math.round(w)).padStart(5)} u` +
       ` · cada ${st.spec.everyHours} h`,
     );
+  }
+  if (stationsDue) {
+    console.log(`     estacions (3 models, temperatura)   ${String(stations.length).padStart(5)} punts            = ${String(Math.round(stationModelsCost(stations.length))).padStart(5)} u`);
   }
   const perBatch = callWeight(RICH_HOURLY.length, FORECAST_DAYS, BATCH);
   console.log(`\nCost d'aquest refresc: ${Math.round(cost).toLocaleString('ca-ES')} unitats`);
@@ -669,6 +818,24 @@ async function main() {
     }
   }
 
+  /*
+   * Si falla, la predicció segueix: és la peça important. El worker
+   * d'observació farà servir la petició anterior, que és d'una execució
+   * diferent i per tant una mica pitjor, i quan sigui massa vella les fitxes
+   * tornaran a la lectura de l'estació.
+   */
+  let stationFetch: StationModelFetch | null = null;
+  if (stationsDue) {
+    try {
+      stationFetch = await fetchStationModels(stations);
+      quota.spend('open-meteo', stationModelsCost(stations.length));
+      await publishQuota();
+      console.log(`Model a les estacions: ${Object.keys(stationFetch.stations).length} de ${stations.length}`);
+    } catch (err) {
+      console.warn(`El model a les estacions no s'ha pogut demanar: ${String(err).slice(0, 120)}`);
+    }
+  }
+
   alignAll(result, timesOf);
   summariseAndTrim(result, previous, points, fetched);
 
@@ -724,6 +891,20 @@ async function main() {
   }
 
   const written = writeForecast(result, points, 'Open-Meteo · CC-BY 4.0', marks);
+
+  const base = baseTemperature(result, points, marks);
+  if (base) writeSnapshot(BASE_SHARD, 'Open-Meteo · CC-BY 4.0', base, base.start);
+  if (stationFetch) {
+    // Les anteriors, del magatzem i no del disc: a Actions el disc arrenca buit.
+    let kept: StationModelFetch[] = [];
+    try {
+      kept = (await pullSnapshot<StationModels>(STATION_MODELS_SHARD))?.data.fetches ?? [];
+    } catch (err) {
+      console.warn(`No s'han pogut llegir les peticions anteriors a les estacions: ${String(err).slice(0, 90)}`);
+    }
+    const fetches = [stationFetch, ...kept].slice(0, STATION_FETCHES_KEPT);
+    writeSnapshot(STATION_MODELS_SHARD, 'Open-Meteo · CC-BY 4.0', { fetches } satisfies StationModels, stationFetch.fetchedAt);
+  }
   recordFreshness({
     source: 'forecast-refresh',
     lastSuccessAt: new Date().toISOString(),

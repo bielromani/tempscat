@@ -94,6 +94,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/sky.ts` | De la nuvolositat, l'hora i la lluna a les capes del cel del titular |
 | `src/lib/recent-rain.ts` | La pluja d'avui i d'ahir, que la sèrie diària encara no té, i la ratxa seca |
 | `src/lib/temperature-check.ts` | Quina temperatura desmenteixen les veïnes de la mateixa cota |
+| `src/lib/now-temperature.ts` | La temperatura d'ara: el model corregit amb l'error que fa a les estacions |
 
 ## Dónde viven los datos vivos
 
@@ -143,7 +144,7 @@ Cuatro cosas más que no son evidentes:
 
 Los workers corren en GitHub Actions, en `.github/workflows/`. El reparto y el
 porqué de cada hora están en `prediccio.yml`, que es el único que gasta cuota de
-verdad: **A dos veces al día, B y C una** — 8.126 unidades diarias, el 81 % del
+verdad: **A dos veces al día, B y C una** — 8.504 unidades diarias, el 85 % del
 techo mensual.
 
 **Pero el reloj de los tres de alta frecuencia no es de GitHub.** Su
@@ -185,7 +186,7 @@ npm run worker:xema       # observació, cada 10 min
 npm run worker:radar      # radar RainViewer, cada 10 min
 npm run worker:warnings   # avisos AEMET, cada 15 min · necessita .env.local
 npm run worker:air        # qualitat de l'aire i pol·len, cada 12 h
-npm run worker:forecast   # predicció · accepta --tiers=A,B,C i --fill
+npm run worker:forecast   # predicció · accepta --tiers=A,B,C, --fill i --stations-only
 npm run worker:history    # rècords i normals, un cop al dia
 npm run worker:cameres    # cameres de muntanya de FGC, cada hora
 npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
@@ -1493,25 +1494,47 @@ cuota para exactamente la misma información.
   Bellver amb la Molina. Quatre dies, amb `withObservedToday` com a la fitxa, i amb
   `forecastFor` sense límit d'hores: amb 48, els punts del nivell B només en tenien dos.
 
-- **La temperatura d'ara de les fitxes, comparada amb la dels models.** (4 de novembre de
-  2026.) `worker:compare` (`scripts/workers/temperature-compare.ts`, i el que es mesura a
-  `src/lib/temperature-compare.ts`) fa veure, per a cada estació i cada hora d'ahir, que
-  l'estació no hi és: la nostra xifra surt de la veïna triada com la tria el build
-  (`stationCost`, 60 km) i corregida pel gradient, i la de cada model, de l'API de predicció
-  **històrica** d'Open-Meteo amb `elevation=` la cota de l'estació. Com que Open-Meteo guarda
-  el que deia cada model, el primer cop recupera trenta dies d'una volta. És una prova en
-  contra nostra: la veïna d'una estació queda a 8,6 km de mediana i l'estació d'un poble, a
-  5,6. Google o Apple no es poden mesurar —no publiquen què deien ahir—; `best_match` és el
-  més semblant a una aplicació genèrica.
-  Els primers 28 dies (5 d'octubre – 3 de novembre, 121.500 comparacions): aquest web
-  **1,13 °C** d'error mitjà, AROME 1,15, `best_match` 1,23, ICON-EU 1,29, ECMWF 1,43, GFS
-  1,63. Guanyem de dia (0,81 contra 1,00) i per sota de 800 m; **perdem quan la veïna és a
-  més de 200 m de desnivell** (1,81 contra 1,36 de `best_match`): el gradient fix no sap
-  quan hi ha inversió. Per això hi ha una tercera xifra en prova, `guiat` —la veïna més la
-  diferència que el model veu entre els dos punts—, que allà baixa a 1,52. Si la fitxa ha de
-  canviar de mètode amb desnivell gran, que ho decideixin uns quants mesos d'això, no un.
-  Si canvia la llista de fonts, el registre es torna a començar sol (`sources`): una font
-  nova amb menys hores que les altres no es pot comparar.
+- **La temperatura d'ara de les fitxes ja no és la lectura d'una estació: és el model corregit
+  amb les estacions.** (4 de novembre de 2026.) `worker:compare` (`scripts/workers/temperature-compare.ts`)
+  fa veure, per a cada estació i cada hora d'ahir, que l'estació no hi és, i compara la xifra
+  d'una fitxa i la de cada model —de l'API de predicció **històrica** d'Open-Meteo, amb
+  `elevation=` la cota de l'estació— amb el que ha mesurat. Google o Apple no es poden mesurar
+  (no publiquen què deien ahir); `best_match` és el més semblant a una aplicació genèrica.
+  **La primera versió es va equivocar a favor nostre**: comparava la veïna i l'estació a la
+  mateixa hora, i la fitxa té la lectura amb 45–65 minuts de retard. Amb el retard, el mètode
+  d'aleshores —la veïna triada pel build, corregida amb el gradient fix— feia **1,38 °C**,
+  pitjor que AROME (1,13) i que `best_match` (1,18): una lectura d'una hora, el racó d'una
+  sola estació, i un gradient que les nits d'inversió va al revés.
+  Ara és una **interpolació òptima de residus** (`src/lib/now-temperature.ts`, el mateix
+  càlcul al worker, a la comparativa i a la pàgina): el model al punt més la mitjana ponderada
+  de lectura − model a les estacions del voltant (15 km, 150 m, ε 0,1). El residu de l'hora
+  de la lectura se suma al model d'ara, i així el retard deixa de fer mal. Ajustat amb els
+  dies senars i avaluat amb els parells, i després els 28 dies sencers: **0,99 °C** on el punt
+  només té `best_match` (nivells B i C) i **0,89** on en té tres (A), contra 1,15 d'AROME i
+  1,23 de `best_match`. Encerta més que el millor model a 123 de 184 estacions. Entre 800 i
+  1.500 m queda a 1,31 contra 1,26 d'AROME: és on hi ha marge.
+  Quatre coses que no són evidents:
+  **El model del lloc i el de les estacions han de ser de la mateixa execució.** Simulat amb
+  l'API d'execucions anteriors: tot d'un dia abans, 1,01; tot fresc, 0,99; el lloc d'un dia
+  abans amb les estacions fresques, **1,12**. Per això el model a les estacions
+  (`forecast/estacions`, tres models, `elevation=`) el demana el **worker de predicció** als
+  refrescos del nivell A —189 unitats cada un, 378 al dia— i se'n guarden tres: per a cada
+  nivell es fa servir la que es va demanar més a prop de quan es va refrescar.
+  **El residu s'ha de calcular amb el model a l'estació, no amb el punt de predicció més
+  proper.** Fent-ho amb el punt, que pot ser a 14 km i a una altra cota, la muntanya queda
+  pitjor que AROME. Els llocs, en canvi, són al seu punt (mediana 0 km i 0 m).
+  **Ho calcula el worker d'observació, cada deu minuts, per als 3.190 punts**
+  (`temperatura-ara`), i no la pàgina: `currentFor` el fan servir els rànquings i els mapes
+  dels 947 municipis, que haurien de llegir la predicció de les 43 comarques. Llegeix la
+  temperatura per punt que deixa el worker de predicció (`forecast/temperatura`, la mateixa
+  mitjana entre models que fa `mergeHourly`), no la predicció sencera.
+  **Si falta, la fitxa torna a la lectura de l'estació**, sense error: sense model a les
+  estacions, amb una estimació de més de 90 minuts, o amb un punt sense base. Per arrencar
+  sense esperar el refresc A, `npm run worker:forecast -- --stations-only` (189 unitats).
+  La pàgina diu d'on surt: «model meteorològic corregit amb les estacions de la XEMA del
+  voltant», l'estació de referència i què marca ella, i l'enllaç a `/dades/encert`.
+  Si canvia la llista de fonts de la comparativa, el registre es torna a començar sol
+  (`sources`): una font nova amb menys hores que les altres no es pot comparar.
 
 # This is NOT the Next.js you know
 

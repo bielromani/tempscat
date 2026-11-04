@@ -118,8 +118,14 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
       provisional: current.provisional,
       /** Lectura cruda de la estación. */
       temperature_station: current.temperature,
-      /** Corregida por el desnivel con el gradiente estándar de 6,5 °C/km. */
+      /**
+       * La temperatura d'ara del lloc: el model corregit amb les estacions del
+       * voltant, o, si aquesta xifra falta, la lectura corregida pel desnivell.
+       * Ver `src/lib/now-temperature.ts`.
+       */
       temperature: current.temperatureAdjusted,
+      temperature_method: current.estimate ? 'model_corrected_by_stations' : 'station_lapse_rate',
+      temperature_estimated_at: current.estimate?.at ?? null,
       apparent_temperature: current.apparent,
       humidity: current.humidity,
       wind_speed: current.windSpeed,

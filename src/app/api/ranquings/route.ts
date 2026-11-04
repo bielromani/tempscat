@@ -53,6 +53,7 @@ export async function GET() {
     value: p2.value,
     station_name: p2.stationNom,
     elevation_difference_m: p2.dAltM,
+    method: p2.estimated ? 'model_corrected_by_stations' : 'station_lapse_rate',
   });
 
   const body = {

@@ -9,12 +9,14 @@ name: Predicció
 #     A  350 punts × 3 models  = 1.365 unitats per volta
 #     B  1.679 punts × 1 model = 3.190 unitats per volta
 #     C  1.161 punts × 1 model = 2.206 unitats per volta
+#     i amb A, el model a les 189 estacions = 189 unitats per volta
+#     (la temperatura d'ara de les fitxes: `src/lib/now-temperature.ts`)
 #
 # D'aquí surten les quatre hores de sota: **A dues vegades al dia, B i C una**.
 #
-#     2 × 1.365 + 3.190 + 2.206 = 8.126/dia = 244.000/mes = 81 % del sostre
+#     2 × (1.365 + 189) + 3.190 + 2.206 = 8.504/dia = 255.000/mes = 85 % del sostre
 #
-# El 19 % que queda no és marge de sobres: és el que permet un `--fill` després
+# El 15 % que queda no és marge de sobres: és el que permet un `--fill` després
 # d'un tall de xarxa sense passar-se de la ratlla.
 #
 # **Per què A i no B o C més sovint.** Els 350 punts del nivell A cobreixen les
