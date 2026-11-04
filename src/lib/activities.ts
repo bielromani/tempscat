@@ -3,6 +3,7 @@ import { allObservations, allHistory } from './weather';
 import { operativeStations } from './territory';
 import { allBeaches, seaPoints, type Beach, type SeaPoint } from './sea';
 import { msToKmh } from './variables';
+import type { Lang } from './lang';
 
 /**
  * Condicions per sortir: muntanya i mar.
@@ -352,7 +353,28 @@ export async function nauticalConditions(): Promise<NauticalConditions | null> {
  * caminar per una carena deixa de ser còmode i la 8 on deixa de ser sensat**, i
  * això ho diu una escala de 1805 i no nosaltres.
  */
-export function beaufort(kmh: number): { force: number; name: string; note: string } {
+export function beaufort(kmh: number, lang: Lang = 'ca'): { force: number; name: string; note: string } {
+  if (lang === 'es') {
+    // Los nombres de la escala en castellano, los de AEMET para cada fuerza.
+    const tabla: Array<[number, number, string, string]> = [
+      [1, 1, 'calma', 'el humo sube recto'],
+      [3, 2, 'ventolina', 'las hojas apenas se mueven'],
+      [11, 3, 'flojo', 'las banderas se despliegan'],
+      [19, 4, 'bonancible', 'se levantan hojas y polvo'],
+      [28, 5, 'fresquito', 'los arbustos se balancean'],
+      [38, 6, 'fresco', 'cuesta caminar de cara; en la cresta, incómodo'],
+      [49, 7, 'frescachón', 'los árboles se mueven enteros'],
+      [61, 8, 'temporal', 'cuesta mantenerse en pie; en la cresta, no'],
+      [74, 9, 'temporal fuerte', 'desperfectos en los tejados'],
+      [88, 10, 'temporal duro', 'árboles arrancados'],
+      [102, 11, 'temporal muy duro', 'destrozos generalizados'],
+      [117, 12, 'temporal huracanado', ''],
+    ];
+    for (const [max, force, name, note] of tabla) {
+      if (kmh < max) return { force, name, note };
+    }
+    return { force: 12, name: 'temporal huracanado', note: '' };
+  }
   const table: Array<[number, number, string, string]> = [
     [1, 1, 'calma', 'el fum puja recte'],
     [3, 2, 'ventolina', 'les fulles amb prou feines es mouen'],
@@ -385,7 +407,13 @@ export function beaufort(kmh: number): { force: number; name: string; note: stri
  * Les etiquetes són curtes a propòsit: van dins d'una cel·la que es repeteix
  * vint vegades, i l'explicació llarga va un cop al peu de la pàgina.
  */
-export function periodMeaning(seconds: number): string {
+export function periodMeaning(seconds: number, lang: Lang = 'ca'): string {
+  if (lang === 'es') {
+    if (seconds < 7) return 'mar de viento';
+    if (seconds < 9) return 'entre viento y mar de fondo';
+    if (seconds < 12) return 'mar de fondo';
+    return 'mar de fondo lejano';
+  }
   if (seconds < 7) return 'mar de vent';
   if (seconds < 9) return 'entre vent i fons';
   if (seconds < 12) return 'mar de fons';

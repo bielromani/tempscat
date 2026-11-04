@@ -15,7 +15,10 @@
  * de lo que necesita mostrar una web.
  *
  * Este fichero no importa nada: lo usan tanto los scripts como la aplicación.
+ * (El `import type` de `lang.ts` se borra al compilar.)
  */
+
+import type { Lang } from './lang.ts';
 
 const RAD = Math.PI / 180;
 const DEG = 180 / Math.PI;
@@ -185,7 +188,7 @@ export interface MoonPhase {
   phase: number;
   /** Fracción iluminada del disco, 0–1. */
   illumination: number;
-  /** Nombre catalán de la fase. */
+  /** Nombre de la fase, en el idioma que se haya pedido. */
   name: string;
   /** Días transcurridos desde la última luna nueva. */
   age: number;
@@ -234,10 +237,17 @@ function moonLongitude(d: number): number {
  * elíptica, así que a igual fracción de ciclo corresponde distinta iluminación,
  * y el nombre debe coincidir con lo que se ve, no con el calendario.
  */
-function phaseName(illumination: number, waxing: boolean): string {
+function phaseName(illumination: number, waxing: boolean, lang: Lang = 'ca'): string {
   const pct = illumination * 100;
   // Umbrales prácticos, no instantáneos: a partir del 97 % el disco se ve
   // lleno a simple vista, y por debajo del 3 % no se ve.
+  if (lang === 'es') {
+    if (pct < 3) return 'Luna nueva';
+    if (pct > 97) return 'Luna llena';
+    if (pct < 45) return waxing ? 'Luna creciente' : 'Luna menguante';
+    if (pct <= 55) return waxing ? 'Cuarto creciente' : 'Cuarto menguante';
+    return waxing ? 'Gibosa creciente' : 'Gibosa menguante';
+  }
   if (pct < 3) return 'Lluna nova';
   if (pct > 97) return 'Lluna plena';
   if (pct < 45) return waxing ? 'Lluna creixent' : 'Lluna minvant';
@@ -245,7 +255,7 @@ function phaseName(illumination: number, waxing: boolean): string {
   return waxing ? 'Gibosa creixent' : 'Gibosa minvant';
 }
 
-export function moonPhase(date: Date): MoonPhase {
+export function moonPhase(date: Date, lang: Lang = 'ca'): MoonPhase {
   const d = toDays(date);
   const lonMoon = moonLongitude(d);
   const Ls = eclipticLongitude(solarMeanAnomaly(d));
@@ -260,7 +270,7 @@ export function moonPhase(date: Date): MoonPhase {
   return {
     phase,
     illumination,
-    name: phaseName(illumination, waxing),
+    name: phaseName(illumination, waxing, lang),
     age: phase * SYNODIC,
   };
 }

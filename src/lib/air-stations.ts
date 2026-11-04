@@ -1,6 +1,7 @@
 import 'server-only';
 import { snapshot } from './cache-store';
 import type { Location } from './territory';
+import type { Lang } from './lang';
 
 /**
  * Calidad del aire **medida**: la Xarxa de Vigilància i Previsió de la
@@ -99,8 +100,21 @@ export const STATION_AREA: Record<string, string> = {
   rural: 'rural',
 };
 
-export function stationKind(s: { type: string; area: string }): string {
-  const t = STATION_TYPE[s.type] ?? s.type;
-  const a = STATION_AREA[s.area] ?? s.area;
+const TIPO_ESTACION: Record<string, string> = {
+  traffic: 'tráfico',
+  background: 'fondo',
+  industrial: 'industrial',
+};
+
+const AREA_ESTACION: Record<string, string> = {
+  urban: 'urbana',
+  suburban: 'suburbana',
+  rural: 'rural',
+};
+
+export function stationKind(s: { type: string; area: string }, lang: Lang = 'ca'): string {
+  const es = lang === 'es';
+  const t = (es ? TIPO_ESTACION : STATION_TYPE)[s.type] ?? s.type;
+  const a = (es ? AREA_ESTACION : STATION_AREA)[s.area] ?? s.area;
   return [a, t].filter(Boolean).join(', ');
 }

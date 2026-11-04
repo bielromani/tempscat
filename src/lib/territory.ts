@@ -1,7 +1,9 @@
 import 'server-only';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { project, type TileGrid } from './mercator';
+import { project, type TileGrid } from './mercator.ts';
+import { placeName } from './format.ts';
+import type { Lang } from './lang.ts';
 
 /**
  * Acceso al territorio construido por el pipeline de `scripts/`.
@@ -225,16 +227,21 @@ export function entitatsOfMunicipi(municipiCodi: string): Location[] {
     .sort((a, b) => (b.poblacio ?? 0) - (a.poblacio ?? 0));
 }
 
-/** Migas de pan, de Catalunya hacia abajo. */
-export function breadcrumbs(loc: Location): Array<{ nom: string; path: string }> {
-  const out: Array<{ nom: string; path: string }> = [{ nom: 'Catalunya', path: '/' }];
+/**
+ * Migas de pan, de Catalunya hacia abajo.
+ *
+ * En castellano, «Cataluña» y el topónimo con el artículo en mayúscula: «El
+ * Prat de Llobregat» (ver `placeName`). La comarca va sin artículo en las dos.
+ */
+export function breadcrumbs(loc: Location, lang: Lang = 'ca'): Array<{ nom: string; path: string }> {
+  const out: Array<{ nom: string; path: string }> = [{ nom: lang === 'es' ? 'Cataluña' : 'Catalunya', path: '/' }];
   const comarca = comarcaOf(loc);
   if (comarca) out.push({ nom: comarca.nom, path: comarca.path });
   if (loc.level !== 'municipi' && loc.municipiCodi) {
     const mun = db().locations.find((l) => l.level === 'municipi' && l.municipiCodi === loc.municipiCodi);
-    if (mun) out.push({ nom: mun.nom, path: mun.path });
+    if (mun) out.push({ nom: placeName(mun.nom, lang), path: mun.path });
   }
-  out.push({ nom: loc.nom, path: loc.path });
+  out.push({ nom: placeName(loc.nom, lang), path: loc.path });
   return out;
 }
 

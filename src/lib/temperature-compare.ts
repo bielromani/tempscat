@@ -32,8 +32,10 @@
  * punt, que és el més semblant a una aplicació genèrica.
  *
  * El llegeixen el worker que l'escriu i la pàgina que l'ensenya, i per això
- * no importa res.
+ * no importa res. (L'`import type` de `lang.ts` s'esborra en compilar.)
  */
+
+import type { Lang } from './lang.ts';
 
 export const COMPARE_SHARD = 'compare/temperatura';
 
@@ -71,6 +73,18 @@ export const SOURCE_LABEL: Record<CompareSource, string> = {
   icon_eu: 'ICON-EU (DWD)',
   meteofrance_arome_france_hd: 'AROME (Météo-France)',
 };
+
+const SOURCE_LABEL_ES: Record<CompareSource, string> = {
+  ...SOURCE_LABEL,
+  tempscat: 'Esta web',
+  'tempscat-a': 'Esta web, en los puntos con tres modelos',
+  best_match: 'Open-Meteo (el que elige para cada punto)',
+};
+
+/** El nombre de cada fuente en el idioma de la página. */
+export function sourceLabel(source: CompareSource, lang: Lang = 'ca'): string {
+  return (lang === 'es' ? SOURCE_LABEL_ES : SOURCE_LABEL)[source];
+}
 
 /**
  * Sumatoris, no mitjanes: una mitjana desada no es pot seguir acumulant sense
