@@ -2,8 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import { Inter } from 'next/font/google';
 import { Logo } from '@/components/Logo';
-import { IS_PRODUCTION, SITE_URL } from '@/lib/site';
-import { PRIMARY, SECTIONS } from '@/lib/nav';
+import { IS_PRODUCTION, siteUrl } from '@/lib/site';
+import { primary, sections } from '@/lib/nav';
+import { getLang } from '@/lib/i18n';
+import { LOCALE, OG_LOCALE, tr } from '@/lib/lang';
 import { SiteSearch } from '@/components/SiteSearch';
 import { MenuClose } from '@/components/MenuClose';
 import './globals.css';
@@ -36,16 +38,31 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'sw
  */
 export const viewport: Viewport = { themeColor: '#0e1e35', colorScheme: 'dark' };
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
+/*
+ * Els dos idiomes es fan amb el mateix arbre: `ca` i `es` són els únics valors
+ * que `next.config.ts` hi posa (vegeu `src/lib/lang.ts`).
+ */
+export function generateStaticParams() {
+  return [{ lang: 'ca' }, { lang: 'es' }];
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+  /*
+   * Cada idioma té el seu domini, i les canòniques relatives (`'/radar'`) s'hi
+   * resolen: la versió castellana d'una pàgina declara la seva, no la catalana.
+   */
+  metadataBase: new URL(siteUrl(lang)),
   title: {
-    default: 'El temps a Catalunya · tempscat',
+    default: tr(lang, 'El temps a Catalunya · tempscat', 'El tiempo en Cataluña · tempscat'),
     template: '%s',
   },
-  description:
+  description: tr(lang,
     'El temps a cada poble de Catalunya: l’observació de l’estació més propera, corregida per l’altitud, i la predicció hora a hora i a catorze dies.',
+    'El tiempo en cada pueblo de Cataluña: la observación de la estación más cercana, corregida por la altitud, y la predicción hora a hora y a catorce días.'),
   alternates: { canonical: '/' },
-  openGraph: { locale: 'ca_ES', type: 'website', siteName: 'tempscat' },
+  openGraph: { locale: OG_LOCALE[lang], type: 'website', siteName: 'tempscat' },
   // La imatge gran en compartir: la fan els `opengraph-image.tsx` (vegeu `src/lib/og.tsx`).
   twitter: { card: 'summary_large_image' },
   /*
@@ -53,14 +70,38 @@ export const metadata: Metadata = {
    * prueba, y sin esto acabarías con cuarenta copias del sitio compitiendo
    * entre ellas y con la de verdad.
    */
-  robots: IS_PRODUCTION
+  robots: IS_PRODUCTION && (lang === 'ca' || ES_PUBLIC)
     ? { index: true, follow: true }
     : { index: false, follow: false, nocache: true },
-};
+  };
+}
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/*
+ * El castellà no s'indexa fins que no estigui traduït sencer: una fitxa a mig
+ * traduir indexada en castellà és pitjor que cap. Es posa a `true` el dia que
+ * l'última pàgina deixi de tenir text en català.
+ */
+const ES_PUBLIC = false;
+
+/** D'on surt cada dada: qui, i què, en els dos idiomes. La CC-BY l'exigeix. */
+const SOURCES: Array<[string, string, string]> = [
+  ['Meteocat (XEMA)', 'observació de la xarxa de 189 estacions automàtiques, via dades obertes de la Generalitat',
+    'observación de la red de 189 estaciones automáticas, vía datos abiertos de la Generalitat'],
+  ['Open-Meteo', 'predicció multimodel, CC-BY 4.0', 'predicción multimodelo, CC-BY 4.0'],
+  ['AEMET', 'avisos oficials en format CAP', 'avisos oficiales en formato CAP'],
+  ['Agència Catalana de l’Aigua', 'embassaments, cabals i sequera', 'embalses, caudales y sequía'],
+  ['CAMS Europa · XVPCA', 'qualitat de l’aire', 'calidad del aire'],
+  ['RainViewer', 'tessel·les de radar', 'teselas de radar'],
+  ['Protecció Civil', 'banderes de platja, que posen els socorristes', 'banderas de playa, que ponen los socorristas'],
+  ['ICGC', 'límits administratius i topònims', 'límites administrativos y topónimos'],
+  ['Meteocons', 'de Bas Milius, icones del temps, llicència MIT', 'de Bas Milius, iconos del tiempo, licencia MIT'],
+];
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   return (
-    <html lang="ca" className={inter.variable}>
+    <html lang={LOCALE[lang]} className={inter.variable}>
       <body className="min-h-screen flex flex-col">
         {/*
           * Qui és aquest lloc i com s'hi busca, un cop i per a tot el web.
@@ -78,14 +119,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {
             '@type': 'WebSite',
             name: 'tempscat',
-            alternateName: 'El temps a Catalunya',
-            url: absolute('/'),
-            inLanguage: 'ca',
+            alternateName: t('El temps a Catalunya', 'El tiempo en Cataluña'),
+            url: absolute('/', lang),
+            inLanguage: LOCALE[lang],
             potentialAction: {
               '@type': 'SearchAction',
               target: {
                 '@type': 'EntryPoint',
-                urlTemplate: absolute('/cerca?q={search_term_string}'),
+                urlTemplate: absolute('/cerca?q={search_term_string}', lang),
               },
               'query-input': 'required name=search_term_string',
             },
@@ -108,12 +149,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="#contingut"
           className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-[var(--ink)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[var(--paper)]"
         >
-          Salta al contingut
+          {t('Salta al contingut', 'Saltar al contenido')}
         </a>
         <header className="site-top">
           {/* `relative`: al mòbil, els suggeriments del cercador es col·loquen contra aquesta fila. */}
           <div className="relative mx-auto flex h-16 max-w-[70rem] items-center gap-x-6 px-5">
-            <Link href="/" aria-label="tempscat, a la portada" className="shrink-0 no-underline">
+            <Link href="/" aria-label={t('tempscat, a la portada', 'tempscat, a la portada')} className="shrink-0 no-underline">
               <Logo id="top" />
             </Link>
 
@@ -122,8 +163,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               desplegable i la fila té tres peces: la marca, el cercador i el
               menú.
             */}
-            <nav aria-label="Principal" className="site-nav hidden md:flex">
-              {PRIMARY.map((l) => (
+            <nav aria-label={t('Principal', 'Principal')} className="site-nav hidden md:flex">
+              {primary(lang).map((l) => (
                 <Link key={l.href} href={l.href}>{l.label}</Link>
               ))}
             </nav>
@@ -135,7 +176,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               * posar-lo —el perquè és a `SiteSearch.tsx`—. Sense JavaScript
               * continua sent un formulari: Enter obre `/cerca?q=…`.
               */}
-            <SiteSearch />
+            <SiteSearch lang={lang} />
 
             {/*
               El menú és un `<details>` i l'obre el navegador. Només al mòbil, on
@@ -146,16 +187,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <details className="menu relative shrink-0 md:hidden">
               <MenuClose />
               <summary
-                aria-label="Menú"
+                aria-label={t('Menú', 'Menú')}
                 className="flex size-10 cursor-pointer items-center justify-center rounded-full text-[var(--ink)]"
               >
                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                   <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </summary>
-              <nav aria-label="Seccions" className="menu-panel">
+              <nav aria-label={t('Seccions', 'Secciones')} className="menu-panel">
                 <ul className="m-0 list-none p-0">
-                  {PRIMARY.map((l) => (
+                  {primary(lang).map((l) => (
                     <li key={l.href}><Link href={l.href}>{l.label}</Link></li>
                   ))}
                 </ul>
@@ -170,17 +211,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="mx-auto max-w-[70rem] px-5 py-12">
             <div className="grid gap-10 lg:grid-cols-[1.4fr_3fr]">
               <div>
-                <Link href="/" aria-label="tempscat, a la portada" className="no-underline">
+                <Link href="/" aria-label={t('tempscat, a la portada', 'tempscat, a la portada')} className="no-underline">
                   <Logo id="foot" />
                 </Link>
                 <p className="mt-3 max-w-xs text-sm leading-relaxed text-[var(--muted)]">
-                  El temps de cada poble de Catalunya, amb la seva altitud i
-                  l&apos;estació que el mesura.
+                  {t('El temps de cada poble de Catalunya, amb la seva altitud i l’estació que el mesura.',
+                    'El tiempo de cada pueblo de Cataluña, con su altitud y la estación que lo mide.')}
                 </p>
               </div>
               {/* El mapa del lloc sencer: aquí hi ha les pàgines que no caben a dalt. */}
-              <nav aria-label="Mapa del lloc" className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-                {SECTIONS.map((g) => (
+              <nav aria-label={t('Mapa del lloc', 'Mapa del sitio')} className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                {sections(lang).map((g) => (
                   <div key={g.title}>
                     <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                       {g.title}
@@ -204,57 +245,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               * ve cada número és la millor decisió de producte del lloc.
               */}
             <div className="mt-10 border-t border-[var(--line-soft)] pt-6 text-sm text-[var(--muted)]">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide">D&apos;on surten les dades</h2>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide">{t('D’on surten les dades', 'De dónde salen los datos')}</h2>
               <ul className="grid gap-x-8 gap-y-1.5 sm:grid-cols-2">
-                <li>
-                  <strong className="font-medium text-[var(--ink-2)]">Meteocat (XEMA)</strong> — observació de
-                  la xarxa de 189 estacions automàtiques, via dades obertes de la Generalitat
-                </li>
-                <li>
-                  <strong className="font-medium text-[var(--ink-2)]">Open-Meteo</strong> — predicció multimodel,
-                  CC-BY 4.0
-                </li>
-                <li>
-                  <strong className="font-medium text-[var(--ink-2)]">AEMET</strong> — avisos oficials en format CAP
-                </li>
-                <li>
-                  <strong className="font-medium text-[var(--ink-2)]">Agència Catalana de l&apos;Aigua</strong> —
-                  embassaments, cabals i sequera
-                </li>
-                <li>
-                  <strong className="font-medium text-[var(--ink-2)]">CAMS Europa</strong> i{' '}
-                  <strong className="font-medium text-[var(--ink-2)]">XVPCA</strong> — qualitat de l&apos;aire
-                </li>
-                <li>
-                  <strong className="font-medium text-[var(--ink-2)]">RainViewer</strong> — tessel·les de radar
-                </li>
-                <li>
-                  <strong className="font-medium text-[var(--ink-2)]">Protecció Civil</strong> i socorristes —
-                  banderes de platja
-                </li>
-                <li>
-                  <strong className="font-medium text-[var(--ink-2)]">ICGC</strong> — límits administratius i
-                  topònims
-                </li>
-                <li>
-                  <strong className="font-medium text-[var(--ink-2)]">Meteocons</strong>, de Bas Milius — icones
-                  del temps, llicència MIT
-                </li>
+                {SOURCES.map(([who, ca, es]) => (
+                  <li key={who}>
+                    <strong className="font-medium text-[var(--ink-2)]">{who}</strong> — {t(ca, es)}
+                  </li>
+                ))}
               </ul>
 
               <p className="mt-6 max-w-2xl text-xs leading-relaxed">
-                Cada pàgina diu de quina estació surt el seu número, a quina distància
-                és i a quina hora es va prendre la lectura.{' '}
+                {t('Cada pàgina diu de quina estació surt el seu número, a quina distància és i a quina hora es va prendre la lectura.',
+                  'Cada página dice de qué estación sale su número, a qué distancia está y a qué hora se tomó la lectura.')}{' '}
                 <Link href="/dades" className="text-[var(--ink-2)] no-underline hover:underline">
-                  Tot es pot llegir en JSON i en CSV
+                  {t('Tot es pot llegir en JSON i en CSV', 'Todo se puede leer en JSON y en CSV')}
                 </Link>
-                . La predicció és orientativa: per a decisions de seguretat,
-                consulteu el Meteocat i Protecció Civil.
+                {t('. La predicció és orientativa: per a decisions de seguretat, consulteu el Meteocat i Protecció Civil.',
+                  '. La predicción es orientativa: para decisiones de seguridad, consulte el Meteocat y Protecció Civil.')}
               </p>
 
               <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs">
-                <Link href="/avis-legal" className="text-[var(--ink-2)] no-underline hover:underline">Avís legal</Link>
-                <Link href="/privacitat" className="text-[var(--ink-2)] no-underline hover:underline">Privadesa i galetes</Link>
+                <Link href="/avis-legal" className="text-[var(--ink-2)] no-underline hover:underline">{t('Avís legal', 'Aviso legal')}</Link>
+                <Link href="/privacitat" className="text-[var(--ink-2)] no-underline hover:underline">{t('Privadesa i galetes', 'Privacidad y cookies')}</Link>
+                {/* L'altre idioma, a la mateixa pàgina no: a la portada. Vegeu `LangSwitch` a les pàgines que en saben el camí. */}
+                <a href={siteUrl(lang === 'ca' ? 'es' : 'ca')} hrefLang={lang === 'ca' ? 'es' : 'ca'} lang={lang === 'ca' ? 'es' : 'ca'}
+                  className="text-[var(--ink-2)] no-underline hover:underline">
+                  {lang === 'ca' ? 'En castellano' : 'En català'}
+                </a>
               </p>
             </div>
           </div>

@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteSearch } from '@/components/SiteSearch';
-import { QUICK_PLACES, SECTIONS } from '@/lib/nav';
+import { QUICK_PLACES, sections as navSections } from '@/lib/nav';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 import { locationByPath } from '@/lib/territory';
 
 /**
@@ -32,36 +34,41 @@ import { locationByPath } from '@/lib/territory';
  * contra 903 de no trobades, i la majoria eren robots buscant `/wp-admin`. Un
  * cercador rep l'estat 404 igualment; qui no té JavaScript és qui veu la pàgina
  * en blanc.
+ *
+ * El títol porta els dos idiomes: una `not-found` només admet `metadata` fix,
+ * i no pot saber en quin domini s'ha demanat.
  */
 export const metadata: Metadata = {
-  title: 'Pàgina no trobada · tempscat',
+  title: 'Pàgina no trobada · Página no encontrada · tempscat',
   robots: { index: false, follow: true },
   alternates: { canonical: null },
 };
 
-export default function NotFound() {
+export default async function NotFound() {
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const quick = QUICK_PLACES.map((p) => locationByPath(p)).filter((l) => l != null);
-  const sections = SECTIONS.flatMap((g) => g.links).filter((l) => l.icon).slice(0, 6);
+  const sections = navSections(lang).flatMap((g) => g.links).filter((l) => l.icon).slice(0, 6);
 
   return (
     <article className="mx-auto max-w-2xl py-6">
       <p className="page-eyebrow">Error 404</p>
-      <h1 className="page-title">Aquesta pàgina no existeix</h1>
+      <h1 className="page-title">{t('Aquesta pàgina no existeix', 'Esta página no existe')}</h1>
       <p className="mt-3 text-lg text-[var(--ink-2)]">
-        Potser l&apos;enllaç és antic o l&apos;adreça té una lletra canviada. Cerqueu el
-        poble, la platja o l&apos;estació que volíeu:
+        {t('Potser l’enllaç és antic o l’adreça té una lletra canviada. Cerqueu el poble, la platja o l’estació que volíeu:',
+          'Quizá el enlace es antiguo o la dirección tiene una letra cambiada. Busque el pueblo, la playa o la estación que quería:')}
       </p>
 
       <div className="mt-6">
-        <SiteSearch variant="page" />
+        <SiteSearch lang={lang} variant="page" />
       </div>
-      <ul className="chips mt-4" aria-label="Accessos ràpids">
+      <ul className="chips mt-4" aria-label={t('Accessos ràpids', 'Accesos rápidos')}>
         {quick.map((l) => (
           <li key={l.path}><Link href={l.path}>{l.nom}</Link></li>
         ))}
       </ul>
 
-      <h2 className="card-title mt-10">O aneu a una secció</h2>
+      <h2 className="card-title mt-10">{t('O aneu a una secció', 'O vaya a una sección')}</h2>
       <ul className="mt-3 grid gap-2 sm:grid-cols-2">
         {sections.map((l) => (
           <li key={l.href}>
@@ -75,7 +82,7 @@ export default function NotFound() {
       </ul>
 
       <p className="mt-8 text-sm text-[var(--muted)]">
-        O torneu a la <Link href="/">portada</Link>.
+        {t('O torneu a la ', 'O vuelva a la ')}<Link href="/">{t('portada', 'portada')}</Link>.
       </p>
     </article>
   );

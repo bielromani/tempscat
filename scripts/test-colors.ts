@@ -98,7 +98,7 @@ for (const raw of ['transparent', 'var(--cap-red)', '#ff0000']) {
  * llegeix el DOM. El que no pot passar és que se separin — un taronja oficial
  * d'un to al mapa i d'un altre a la targeta no fallaria enlloc.
  */
-const css = readFileSync(join(ROOT, 'src', 'app', 'globals.css'), 'utf8');
+const css = readFileSync(join(ROOT, 'src', 'app', '[lang]', 'globals.css'), 'utf8');
 for (const [level, value] of Object.entries(CAP_OKLCH)) {
   const name = { verd: 'green', groc: 'yellow', taronja: 'orange', vermell: 'red' }[level]!;
   const m = css.match(new RegExp(`--cap-${name}:\s*([^;]+);`));

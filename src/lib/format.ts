@@ -22,8 +22,26 @@
  *    intervenga.
  *
  * Este fichero no importa nada, así que lo pueden usar los componentes y los
- * scripts por igual.
+ * scripts por igual. (El `import type` de `lang.ts` se borra al compilar.)
+ *
+ * ## Y en castellano
+ *
+ * Desde noviembre de 2026 cada función que escribe palabras acepta un `lang`
+ * al final, que por defecto es `'ca'`: el código que no lo pasa sigue
+ * escribiendo catalán. Las reglas del castellano que no son evidentes:
+ *
+ *  · **Los topónimos no se traducen**, pero el artículo que forma parte del
+ *    nombre va en mayúscula y **no se contrae** (Ortografía de la RAE): «en El
+ *    Prat de Llobregat», «de L'Hospitalet», «de Les Borges Blanques». Es lo que
+ *    hace la prensa: «el aeropuerto de El Prat».
+ *  · **Las comarcas, en cambio, sí contraen**, porque su artículo no es parte
+ *    del nombre sino el de un nombre común: «del Bages», «al Maresme». Y tienen
+ *    género propio en castellano: «la Anoia», «el Alt Camp», «las Garrigues».
+ *  · El trato es de usted. El catalán del sitio es de vós, y el equivalente
+ *    formal en castellano es usted, no vosotros.
  */
+
+import type { Lang } from './lang.ts';
 
 const MESOS = [
   'gener', 'febrer', 'març', 'abril', 'maig', 'juny',
@@ -34,6 +52,17 @@ const MESOS_ABREV = [
   'gen.', 'febr.', 'març', 'abr.', 'maig', 'juny',
   'jul.', 'ag.', 'set.', 'oct.', 'nov.', 'des.',
 ];
+
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+const MESES_ABREV = [
+  'ene.', 'feb.', 'mar.', 'abr.', 'may.', 'jun.',
+  'jul.', 'ago.', 'sept.', 'oct.', 'nov.', 'dic.',
+];
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const DIAS_ABREV = ['dom.', 'lun.', 'mar.', 'mié.', 'jue.', 'vie.', 'sáb.'];
 
 const DIES = ['diumenge', 'dilluns', 'dimarts', 'dimecres', 'dijous', 'divendres', 'dissabte'];
 const DIES_ABREV = ['dg.', 'dl.', 'dt.', 'dc.', 'dj.', 'dv.', 'ds.'];
@@ -56,8 +85,9 @@ function weekday(p: Parts): number {
   return new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay();
 }
 
-/** «de» o «d'» según la inicial del mes: 31 d'agost, 1 de setembre. */
-function deMes(m: number): string {
+/** «de» o «d'» según la inicial del mes: 31 d'agost, 1 de setembre. En castellano, siempre «de». */
+function deMes(m: number, lang: Lang = 'ca'): string {
+  if (lang === 'es') return `de ${MESES[m - 1]}`;
   const nom = MESOS[m - 1];
   return /^[aeiouàèéíòóú]/i.test(nom) ? `d'${nom}` : `de ${nom}`;
 }
@@ -127,57 +157,67 @@ export function hourAxis(iso: string): string {
  *
  * I les 0 són «mitjanit»: «cap a les 0 h» no ho diu ningú.
  */
-export function theHour(h: number, unit = true): string {
+export function theHour(h: number, unit = true, lang: Lang = 'ca'): string {
   const hh = ((h % 24) + 24) % 24;
+  if (lang === 'es') {
+    if (hh === 0) return 'medianoche';
+    return `${hh === 1 ? 'la' : 'las'} ${hh}${unit ? ' h' : ''}`;
+  }
   if (hh === 0) return 'mitjanit';
   return `${hh === 1 ? 'la' : 'les'} ${hh}${unit ? ' h' : ''}`;
 }
 
 /** «les 8 h» / «les 8.30 h» / «la 1 h», como se escribe en catalán. */
-export function hourSpoken(iso: string): string {
+export function hourSpoken(iso: string, lang: Lang = 'ca'): string {
   const { hh, mm } = parse(iso);
-  return mm === 0 ? theHour(hh) : `${hh === 1 ? 'la' : 'les'} ${hh}.${String(mm).padStart(2, '0')} h`;
+  if (mm === 0) return theHour(hh, true, lang);
+  const art = hh === 1 ? 'la' : lang === 'es' ? 'las' : 'les';
+  return `${art} ${hh}${lang === 'es' ? ':' : '.'}${String(mm).padStart(2, '0')} h`;
 }
 
 // ── Fechas ──────────────────────────────────────────────────────────────────
 
 /** 31 d'agost */
-export function dateShort(iso: string): string {
+export function dateShort(iso: string, lang: Lang = 'ca'): string {
   const p = parse(iso);
-  return `${p.d} ${deMes(p.m)}`;
+  return `${p.d} ${deMes(p.m, lang)}`;
 }
 
 /** 31 ag. — para tarjetas estrechas. */
-export function dateTiny(iso: string): string {
+export function dateTiny(iso: string, lang: Lang = 'ca'): string {
   const p = parse(iso);
-  return `${p.d} ${MESOS_ABREV[p.m - 1]}`;
+  return `${p.d} ${(lang === 'es' ? MESES_ABREV : MESOS_ABREV)[p.m - 1]}`;
 }
 
 /** diumenge, 31 d'agost */
-export function dateLong(iso: string): string {
+export function dateLong(iso: string, lang: Lang = 'ca'): string {
   const p = parse(iso);
-  return `${DIES[weekday(p)]}, ${p.d} ${deMes(p.m)}`;
+  return `${days(lang)[weekday(p)]}, ${p.d} ${deMes(p.m, lang)}`;
 }
 
 /** dg. 31 */
-export function dayTiny(iso: string): string {
+export function dayTiny(iso: string, lang: Lang = 'ca'): string {
   const p = parse(iso);
-  return `${DIES_ABREV[weekday(p)]} ${p.d}`;
+  return `${(lang === 'es' ? DIAS_ABREV : DIES_ABREV)[weekday(p)]} ${p.d}`;
 }
 
 /** diumenge */
-export function dayName(iso: string): string {
-  return DIES[weekday(parse(iso))];
+export function dayName(iso: string, lang: Lang = 'ca'): string {
+  return days(lang)[weekday(parse(iso))];
+}
+
+function days(lang: Lang): string[] {
+  return lang === 'es' ? DIAS : DIES;
 }
 
 /** 31 d'agost de 2026 — para récords y fechas históricas. */
-export function dateFull(iso: string): string {
+export function dateFull(iso: string, lang: Lang = 'ca'): string {
   const p = parse(iso);
-  return `${p.d} ${deMes(p.m)} de ${p.y}`;
+  return `${p.d} ${deMes(p.m, lang)} de ${p.y}`;
 }
 
-export function monthName(m: number): string {
-  return MESOS[m - 1];
+export function monthName(m: number, lang: Lang = 'ca'): string {
+  return (lang === 'es' ? MESES : MESOS)[m - 1];
 }
 
 /**
@@ -186,8 +226,8 @@ export function monthName(m: number): string {
  * Se exporta porque el error sale enseguida en cuanto alguien escribe «al llarg
  * de » y concatena el nombre: «al llarg de agost» estuvo publicado un rato.
  */
-export function monthOf(m: number): string {
-  return deMes(m);
+export function monthOf(m: number, lang: Lang = 'ca'): string {
+  return deMes(m, lang);
 }
 
 // ── Topónimos con preposición ───────────────────────────────────────────────
@@ -213,8 +253,17 @@ function splitArticle(nom: string): { article: string; rest: string } {
   return m ? { article: m[1].toLowerCase(), rest: nom.slice(m[1].length) } : { article: '', rest: nom };
 }
 
-/** «del Prat de Llobregat», «de l'Aldea», «d'Amposta». */
-export function deName(nom: string): string {
+/**
+ * El topónimo como se escribe en castellano: el artículo del nombre en
+ * mayúscula, «El Prat de Llobregat», «L'Hospitalet». Ver la cabecera.
+ */
+export function placeName(nom: string, lang: Lang = 'ca'): string {
+  return lang === 'es' ? capFirst(nom) : nom;
+}
+
+/** «del Prat de Llobregat», «de l'Aldea», «d'Amposta». En castellano, «de El Prat». */
+export function deName(nom: string, lang: Lang = 'ca'): string {
+  if (lang === 'es') return `de ${placeName(nom, lang)}`;
   const { article, rest } = splitArticle(nom);
   switch (article) {
     case 'el ': return `del ${rest}`;
@@ -236,12 +285,13 @@ export function deName(nom: string): string {
  * o per O (oest) van amb apòstrof. La fitxa va publicar «vent del ESE» en totes
  * les que el tenien, i és la mateixa falta que «de el Prat».
  */
-export function fromDirection(cardinal: string): string {
-  return `${directionPrep(cardinal)}${cardinal}`;
+export function fromDirection(cardinal: string, lang: Lang = 'ca'): string {
+  return `${directionPrep(cardinal, lang)}${cardinal}`;
 }
 
-/** Només la preposició, per quan el rumb va marcat a part: «de l'» o «del ». */
-export function directionPrep(cardinal: string): string {
+/** Només la preposició, per quan el rumb va marcat a part: «de l'» o «del ». En castellà, sempre «del ». */
+export function directionPrep(cardinal: string, lang: Lang = 'ca'): string {
+  if (lang === 'es') return 'del ';
   return /^[EO]/.test(cardinal) ? "de l'" : 'del ';
 }
 
@@ -259,8 +309,14 @@ export function articleFirst(nom: string): string {
   return art.endsWith("'") ? `${art}${m[1]}` : `${art} ${m[1]}`;
 }
 
-/** «al Prat de Llobregat», «a l'Aldea», «a Amposta». */
-export function aName(nom: string): string {
+/**
+ * «al Prat de Llobregat», «a l'Aldea», «a Amposta».
+ *
+ * En castellano es «en», no «a»: «el tiempo en El Prat». Quien necesite el «a»
+ * de dirección («ir a El Prat») lo escribe a mano con `placeName`.
+ */
+export function aName(nom: string, lang: Lang = 'ca'): string {
+  if (lang === 'es') return `en ${placeName(nom, lang)}`;
   const { article, rest } = splitArticle(nom);
   switch (article) {
     case 'el ': return `al ${rest}`;
@@ -281,7 +337,8 @@ export function aName(nom: string): string {
  * l'article va amb ella. `joined` diu si entre les dues peces hi va un espai
  * —«a l'» s'enganxa al nom—, perquè el text del titular sencer sigui el correcte.
  */
-export function aNameParts(nom: string): { prep: string; rest: string; joined: boolean } {
+export function aNameParts(nom: string, lang: Lang = 'ca'): { prep: string; rest: string; joined: boolean } {
+  if (lang === 'es') return { prep: 'en', rest: placeName(nom, lang), joined: false };
   const { article, rest } = splitArticle(nom);
   switch (article) {
     case 'el ': return { prep: 'al', rest, joined: false };
@@ -328,6 +385,16 @@ const COMARCA_ARTICLE: Record<string, string> = {
   'Osona': '',
 };
 
+/**
+ * Y en castellano. El género es el del castellano y el apóstrofo desaparece:
+ * «el Alt Camp», «la Anoia», «el Urgell», «las Garrigues». Osona, sin artículo.
+ */
+const COMARCA_ARTICULO: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(COMARCA_ARTICLE).map(([k, v]) => [k, v === 'les ' ? 'las ' : v])),
+  'Alt Camp': 'el ', 'Alt Empordà': 'el ', 'Alt Penedès': 'el ', 'Alt Urgell': 'el ',
+  'Alta Ribagorça': 'la ', 'Anoia': 'la ', 'Urgell': 'el ',
+};
+
 /** «l'Alt Camp», «el Bages», «Osona». */
 /**
  * «de» o «d'» davant d'un mot que no porta article: d'esquí, de senderisme.
@@ -343,20 +410,25 @@ export function deWord(word: string): string {
   return /^[aeiouàèéíòóúh]/i.test(word.trim()) ? `d'${word}` : `de ${word}`;
 }
 
-export function comarcaName(nom: string): string {
-  const article = COMARCA_ARTICLE[nom];
+export function comarcaName(nom: string, lang: Lang = 'ca'): string {
+  const article = (lang === 'es' ? COMARCA_ARTICULO : COMARCA_ARTICLE)[nom];
   // Si aparece una comarca nueva y no está en la tabla, se devuelve pelada: es
   // preferible un artículo que falta a uno inventado del género equivocado.
   return article == null ? nom : `${article}${nom}`;
 }
 
-/** «de l'Alt Camp», «del Bages», «d'Osona». */
-export function deComarca(nom: string): string {
+/** «de l'Alt Camp», «del Bages», «d'Osona». En castellano, «del Alt Camp», «de la Anoia». */
+export function deComarca(nom: string, lang: Lang = 'ca'): string {
+  if (lang === 'es') {
+    const n = comarcaName(nom, lang);
+    return n.startsWith('el ') ? `del ${n.slice(3)}` : `de ${n}`;
+  }
   return deName(comarcaName(nom));
 }
 
-/** «a l'Alt Camp», «al Bages», «a Osona». */
-export function aComarca(nom: string): string {
+/** «a l'Alt Camp», «al Bages», «a Osona». En castellano, «en el Bages», «en la Selva». */
+export function aComarca(nom: string, lang: Lang = 'ca'): string {
+  if (lang === 'es') return `en ${comarcaName(nom, lang)}`;
   return aName(comarcaName(nom));
 }
 
@@ -368,14 +440,14 @@ export function aComarca(nom: string): string {
  * Es el reemplazo de 08-31 00:00. Con el día de la semana delante ya no hay
  * ambigüedad posible entre el mes y la hora.
  */
-export function dateTime(iso: string): string {
-  return `${dayTiny(iso)}, ${hour(iso)}`;
+export function dateTime(iso: string, lang: Lang = 'ca'): string {
+  return `${dayTiny(iso, lang)}, ${hour(iso)}`;
 }
 
 /** diumenge 31, a les 8 h — para textos corridos. */
-export function dateTimeLong(iso: string): string {
+export function dateTimeLong(iso: string, lang: Lang = 'ca'): string {
   const p = parse(iso);
-  return `${DIES[weekday(p)]} ${p.d}, a ${hourSpoken(iso)}`;
+  return `${days(lang)[weekday(p)]} ${p.d}, a ${hourSpoken(iso, lang)}`;
 }
 
 /**
@@ -384,29 +456,38 @@ export function dateTimeLong(iso: string): string {
  * El día de hoy se pasa siempre desde fuera (la fecha local de Madrid que la
  * página ya calcula) para no volver a plantear aquí el problema de las zonas.
  */
-export function relativeDay(iso: string, today: string): string {
+export function relativeDay(iso: string, today: string, lang: Lang = 'ca'): string {
   const day = iso.slice(0, 10);
-  if (day === today) return 'avui';
+  const es = lang === 'es';
+  if (day === today) return es ? 'hoy' : 'avui';
   const diff = Math.round(
     (Date.parse(`${day}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000,
   );
-  if (diff === 1) return 'demà';
-  if (diff === 2) return 'demà passat';
-  if (diff === -1) return 'ahir';
-  return DIES[weekday(parse(iso))];
+  if (diff === 1) return es ? 'mañana' : 'demà';
+  if (diff === 2) return es ? 'pasado mañana' : 'demà passat';
+  if (diff === -1) return es ? 'ayer' : 'ahir';
+  return days(lang)[weekday(parse(iso))];
 }
 
 /** Igual que relativeDay pero abreviado, para las tarjetas de 7 días. */
-export function relativeDayTiny(iso: string, today: string): string {
-  const r = relativeDay(iso, today);
-  if (r === 'avui' || r === 'demà') return r;
-  return DIES_ABREV[weekday(parse(iso))];
+export function relativeDayTiny(iso: string, today: string, lang: Lang = 'ca'): string {
+  const r = relativeDay(iso, today, lang);
+  if (['avui', 'demà', 'hoy', 'mañana'].includes(r)) return r;
+  return (lang === 'es' ? DIAS_ABREV : DIES_ABREV)[weekday(parse(iso))];
 }
 
 // ── Tiempo transcurrido ─────────────────────────────────────────────────────
 
 /** ara mateix · fa 12 min · fa 2 hores */
-export function ago(minutes: number): string {
+export function ago(minutes: number, lang: Lang = 'ca'): string {
+  if (lang === 'es') {
+    if (minutes < 1) return 'ahora mismo';
+    if (minutes < 60) return `hace ${minutes} min`;
+    const h = Math.round(minutes / 60);
+    if (h < 24) return h === 1 ? 'hace 1 hora' : `hace ${h} horas`;
+    const d = Math.round(h / 24);
+    return d === 1 ? 'hace 1 día' : `hace ${d} días`;
+  }
   if (minutes < 1) return 'ara mateix';
   if (minutes < 60) return `fa ${minutes} min`;
   const h = Math.round(minutes / 60);
@@ -470,7 +551,8 @@ export function signed(value: number | null | undefined, decimals = 1, unit = ''
  * Ordinal catalán: 1r, 2n, 3r, 4t y, a partir del cinco, siempre è. Vale
  * también para los compuestos, porque vint-i-unè es 21è.
  */
-export function ordinal(n: number): string {
+export function ordinal(n: number, lang: Lang = 'ca'): string {
+  if (lang === 'es') return `${n}.º`;
   if (n === 1) return '1r';
   if (n === 2) return '2n';
   if (n === 3) return '3r';

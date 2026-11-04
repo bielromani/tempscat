@@ -1,4 +1,5 @@
 import 'server-only';
+import type { Lang } from './lang';
 
 /**
  * De dónde se cuelga el sitio.
@@ -72,7 +73,19 @@ export const SITE_URL = resolved.url;
  */
 export const IS_PRODUCTION = resolved.production;
 
-/** URL absoluta de una ruta interna. */
-export function absolute(path: string): string {
-  return `${SITE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+/**
+ * L'origen de cada idioma: el castellà és el mateix domini amb `es.` davant
+ * (vegeu `src/lib/lang.ts`). En local, `es.localhost:3000`, que el navegador
+ * ja resol a la mateixa màquina.
+ */
+export function siteUrl(lang: Lang = 'ca'): string {
+  if (lang === 'ca') return SITE_URL;
+  const u = new URL(SITE_URL);
+  u.hostname = `es.${u.hostname.replace(/^www\./, '')}`;
+  return u.origin;
+}
+
+/** URL absoluta de una ruta interna, en l'idioma que es demani. */
+export function absolute(path: string, lang: Lang = 'ca'): string {
+  return `${siteUrl(lang)}${path.startsWith('/') ? path : `/${path}`}`;
 }

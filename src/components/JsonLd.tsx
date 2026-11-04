@@ -1,4 +1,5 @@
 import { absolute } from '@/lib/site';
+import type { Lang } from '@/lib/lang';
 
 /**
  * Les dades estructurades, en un sol lloc.
@@ -42,14 +43,14 @@ export function JsonLd({ data }: { data: unknown }) {
  * construeixen a banda, un dia una pàgina en dirà tres al lector i quatre al
  * buscador.
  */
-export function breadcrumbLd(trail: Array<{ nom: string; path: string }>) {
+export function breadcrumbLd(trail: Array<{ nom: string; path: string }>, lang: Lang = 'ca') {
   return {
     '@type': 'BreadcrumbList',
     itemListElement: trail.map((b, i) => ({
       '@type': 'ListItem',
       position: i + 1,
       name: b.nom,
-      item: absolute(b.path),
+      item: absolute(b.path, lang),
     })),
   };
 }

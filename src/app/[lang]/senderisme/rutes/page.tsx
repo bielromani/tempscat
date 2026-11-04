@@ -136,7 +136,7 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
     : [];
   const suggestions = [...new Set([
     ...axes.map((a) => a.ref),
-    ...[...comarques.values()].map(comarcaName),
+    ...[...comarques.values()].map((c) => comarcaName(c)),
     // Sense l'etapa: «Senda Pirenaica - E07» una vegada i no quaranta-cinc.
     ...routes.map((r) => r.name.replace(STAGE, '')),
   ])].sort((x, y) => x.localeCompare(y, 'ca'));

@@ -235,7 +235,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
   const lead = comarcaNames.length === 1
     ? (shape ? `${shape}, dins ${deComarca(comarcaNames[0])}.` : `Tot el recorregut és dins ${deComarca(comarcaNames[0])}.`)
     : comarcaNames.length > 1
-      ? `${shape ? `${shape}. ` : ''}Travessa ${listOf(comarcaNames.map(comarcaName))}.`
+      ? `${shape ? `${shape}. ` : ''}Travessa ${listOf(comarcaNames.map((c) => comarcaName(c)))}.`
       : shape && `${shape}.`;
 
   /*

@@ -79,6 +79,12 @@ const LIVE_PAGES = [
   '/dades/encert',
 ];
 
+/** Les rutes que no són pàgines i que tenen un segment dinàmic. Vegeu `rewrites()`. */
+const NOT_PAGES = '(?!api/|base/|relleu/|vent/|radar/t/|cameres/i/|mapa/geo/|avisos/feed|_next/)';
+
+/** El castellà: qualsevol domini que comenci per `es.` (`es.tempscat.cat`, `es.localhost`). */
+const ES_HOST = { type: 'host' as const, value: 'es\\..*' };
+
 const nextConfig: NextConfig = {
   /*
    * El territorio tiene que viajar con las funciones.
@@ -158,9 +164,36 @@ const nextConfig: NextConfig = {
    * i Next la serveix a `/apple-icon.png`. Eren unes quaranta 404 a la setmana.
    */
   async rewrites() {
-    return [
-      { source: '/apple-touch-icon:variant(.*).png', destination: '/apple-icon.png' },
-    ];
+    return {
+      beforeFiles: [],
+      /*
+       * ── L'idioma surt del domini ──────────────────────────────────────────
+       *
+       * Les pàgines viuen a `app/[lang]/…`, i aquí s'hi posa l'idioma:
+       * `es.tempscat.cat/radar` es fa amb `/es/radar` i `tempscat.cat/radar`,
+       * amb `/ca/radar`. Qui navega no veu mai el prefix. El perquè del
+       * subdomini és a `src/lib/lang.ts`.
+       *
+       * `afterFiles`, perquè abans hi passin els fitxers de `public/` i les
+       * rutes fixes (`/api/cerca`, `/sitemap.xml`). Les rutes de dades amb
+       * segments dinàmics —tessel·les, imatges, el feed— es comproven
+       * **després** d'aquestes reescriptures, i per això van excloses a mà a
+       * `NOT_PAGES`: sense això, `/base/9/260/190` es tornaria
+       * `/ca/base/9/260/190` i el mapa es quedaria sense fons. Si s'afegeix
+       * una ruta de dades amb un segment dinàmic, va a la llista.
+       *
+       * `/ca/…` i `/es/…` escrits a mà **no** s'exclouen: es tornen
+       * `/ca/ca/…`, que és un 404. Si no, cada pàgina tindria una segona adreça.
+       */
+      afterFiles: [
+        { source: '/apple-touch-icon:variant(.*).png', destination: '/apple-icon.png' },
+        { source: '/', has: [ES_HOST], destination: '/es' },
+        { source: `/:path(${NOT_PAGES}.+)`, has: [ES_HOST], destination: '/es/:path' },
+        { source: '/', destination: '/ca' },
+        { source: `/:path(${NOT_PAGES}.+)`, destination: '/ca/:path' },
+      ],
+      fallback: [],
+    };
   },
 
   async headers() {

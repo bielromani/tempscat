@@ -23,7 +23,7 @@
     "data:all": "npm run data:nomenclator && npm run data:geo && npm run data:stations && npm run data:geocode && npm run data:elevation && npm run data:polygons && npm run data:build && npm run data:map && npm run data:validate",
     "test:catalan": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-catalan.ts",
     "data:elevation": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/05-fetch-elevation.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
+    "typecheck": "next typegen && tsc --noEmit -p tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
     "data:import": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/09-import-db.ts",
     "data:polygons": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/06-fetch-polygons.ts",
     "data:barris": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/17-barris.ts",

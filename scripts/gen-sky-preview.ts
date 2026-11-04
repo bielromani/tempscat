@@ -61,7 +61,7 @@ const W = 375;
  * mida de les tessel·les, la velocitat i el punt de partida són el que s'ha de
  * mirar aquí, i amb una còpia es miraria una altra cosa.
  */
-const css = readFileSync('src/app/globals.css', 'utf8');
+const css = readFileSync('src/app/[lang]/globals.css', 'utf8');
 const driftEnd = css.indexOf('\n}\n', css.indexOf('@keyframes cel-drift')) + 2;
 const drift = css.slice(css.indexOf('.cel-drift {'), driftEnd);
 

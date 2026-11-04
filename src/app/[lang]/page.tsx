@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { CAPITAL_PATHS as CAPITALS, QUICK_PLACES as QUICK, SECTIONS } from '@/lib/nav';
+import { CAPITAL_PATHS as CAPITALS, QUICK_PLACES as QUICK, sections } from '@/lib/nav';
+import { getLang } from '@/lib/i18n';
 import { allComarques, buildSummary, locationByPath, type Location } from '@/lib/territory';
 import { rankings } from '@/lib/rankings';
 import {
@@ -55,6 +56,7 @@ async function capitalNow(loc: Location) {
 }
 
 export default async function Home() {
+  const lang = await getLang();
   const capitals = CAPITALS.map((p) => locationByPath(p)).filter((l): l is Location => l != null);
   const [rank, warnings, map, caps] = await Promise.all([
     rankings(),
@@ -85,7 +87,7 @@ export default async function Home() {
             totes les pàgines— i sense JavaScript és un formulari.
           */}
           <div className="mt-6">
-            <SiteSearch variant="page" />
+            <SiteSearch lang={lang} variant="page" />
           </div>
           <ul className="chips mt-4" aria-label="Accessos ràpids">
             {quick.map((l) => (
@@ -231,7 +233,7 @@ export default async function Home() {
         {/* Les que no porten icona —les estacions, les dades obertes, l'estat—
             són del projecte i no del temps: viuen al peu. */}
         <ul className="explore">
-          {SECTIONS.flatMap((g) => g.links).filter((l) => l.icon).map((l) => (
+          {sections(lang).flatMap((g) => g.links).filter((l) => l.icon).map((l) => (
             <li key={l.href}>
               <Link href={l.href} className="explore-link">
                 <span className="explore-icon">

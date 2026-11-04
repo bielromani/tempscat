@@ -7,7 +7,8 @@ import { allCameras } from './cameras';
 import { allRoutes } from './routes';
 import { fold, match, matchWithContext } from './search-match';
 import { deName } from './format';
-import { SECTIONS } from './nav';
+import { sections } from './nav';
+import type { Lang } from './lang';
 import type { SearchKind } from './search-kinds';
 
 export type { SearchKind } from './search-kinds';
@@ -84,7 +85,7 @@ const WEIGHT: Record<SearchKind, number> = {
   aforament: -8,
 };
 
-export async function search(raw: string): Promise<SearchResults> {
+export async function search(raw: string, lang: Lang = 'ca'): Promise<SearchResults> {
   const q = fold(raw);
   if (q.length < MIN_QUERY) return { query: raw, hits: [], total: 0 };
 
@@ -184,7 +185,7 @@ export async function search(raw: string): Promise<SearchResults> {
   }
 
   // ── Pàgines del lloc ──────────────────────────────────────────────────────
-  for (const g of SECTIONS) {
+  for (const g of sections(lang)) {
     for (const l of g.links) add('pagina', match(q, l.label), l.label, l.href, g.title);
   }
 
