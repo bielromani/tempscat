@@ -59,8 +59,14 @@ jobs:
       # El resultat no serveix per a res fins d'aquí a dos mesos, i corre igual:
       # un historial de comparacions no es pot construir cap enrere, perquè la
       # predicció d'ahir ja no existeix enlloc.
+      #
+      # Des del 5 de novembre de 2026 també desa la predicció municipal de
+      # l'AEMET al costat de la de la fitxa, per comparar-les amb les mateixes
+      # estacions. Sense la clau, ho salta i segueix puntuant els models.
       - run: npm run worker:verify
         if: always()
+        env:
+          AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
 
       # La temperatura d'ara de les fitxes contra la dels models, hora a hora
       # del dia d'ahir. Aquesta sí que es pot fer cap enrere —Open-Meteo guarda
