@@ -97,8 +97,11 @@ export function absolute(path: string, lang: Lang = 'ca'): string {
  *
  * Mana sobre tres coses alhora, i per això viu aquí: la meta robots del
  * castellà, l'`hreflang` de les dues llengües i el sitemap del castellà.
+ *
+ * Posat a `true` el 5 de novembre de 2026: `check:castella` contra
+ * `https://es.tempscat.cat`, 33 pàgines, cap paraula en català.
  */
-export const ES_PUBLIC = false;
+export const ES_PUBLIC = true;
 
 /**
  * La canònica i l'`hreflang` d'una pàgina, per a `metadata.alternates`.

@@ -9,8 +9,9 @@
 dirección a `/ca/…` o `/es/…` según el dominio y las páginas viven en `src/app/[lang]/…`. Por qué
 subdominio y no prefijo: en `src/lib/lang.ts`.
 
-Hasta que no quede ni una página con texto en catalán, el castellano lleva `noindex`
-(`ES_PUBLIC` en `src/app/[lang]/layout.tsx`).
+El castellano se indexa desde el 5 de noviembre de 2026 (`ES_PUBLIC` en `src/lib/site.ts`). Hasta
+entonces llevaba `noindex`: una ficha a medio traducir indexada es peor que ninguna. Si un día hay
+que volver a cerrarlo, es esa constante.
 
 ## Cómo se escribe una página en las dos lenguas
 
@@ -163,8 +164,11 @@ Por orden. Cada punto, en su rama, con su comprobación.
 4. ✅ La ficha de lugar y sus bloques, que son las 4.293 páginas.
 5. ✅ Las páginas de sección.
 6. ✅ Lo legal, los feeds, las imágenes para compartir, el sitemap y `hreflang`.
-7. `es.tempscat.cat` en Vercel y en Cloudflare, `check:castella` contra el dominio de verdad y
-   `ES_PUBLIC = true`.
+7. ✅ `es.tempscat.cat` en Vercel y en Cloudflare (CNAME `es`, solo DNS), `check:castella` contra
+   el dominio de verdad —33 páginas, cero— y `ES_PUBLIC = true`.
+
+Después de publicarlo: dar de alta `es.tempscat.cat` en Google Search Console y enviarle sus
+sitemaps (`https://es.tempscat.cat/robots.txt` los lista).
 
 Queda en catalán, a propósito: el `og:image:alt` de las imágenes para compartir, que Next solo deja
 fijo por fichero (variarlo cambiaría la dirección de la imagen), y los nombres propios de rutas,
