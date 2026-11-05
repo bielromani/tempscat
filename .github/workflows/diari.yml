@@ -51,23 +51,6 @@ jobs:
       - run: npm run worker:water
         if: always()
 
-      # L'encert de cada model, comprovat contra el que han mesurat les
-      # estacions. Va **després** de tot: llegeix la predicció que el refresc
-      # de les 05:00 acaba de deixar i les mesures d'ahir que ja ha publicat el
-      # worker d'observació, i no baixa res.
-      #
-      # El resultat no serveix per a res fins d'aquí a dos mesos, i corre igual:
-      # un historial de comparacions no es pot construir cap enrere, perquè la
-      # predicció d'ahir ja no existeix enlloc.
-      #
-      # Des del 5 de novembre de 2026 també desa la predicció municipal de
-      # l'AEMET al costat de la de la fitxa, per comparar-les amb les mateixes
-      # estacions. Sense la clau, ho salta i segueix puntuant els models.
-      - run: npm run worker:verify
-        if: always()
-        env:
-          AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
-
       # La temperatura d'ara de les fitxes contra la dels models, hora a hora
       # del dia d'ahir. Aquesta sí que es pot fer cap enrere —Open-Meteo guarda
       # el que deia cada model per a cada hora—, així que el primer cop, o quan
@@ -75,3 +58,31 @@ jobs:
       # unitats de quota, un cop). Després, unes 190 al dia.
       - run: npm run worker:compare
         if: always()
+
+  # L'encert de cada model, comprovat contra el que han mesurat les estacions.
+  # Llegeix la predicció que el refresc de les 05:00 ha deixat i les mesures
+  # d'ahir que ja ha publicat el worker d'observació: no depèn de res de la
+  # feina d'abans, i per això va al costat i no darrere.
+  #
+  # El resultat no serveix per a res fins d'aquí a dos mesos, i corre igual: un
+  # historial de comparacions no es pot construir cap enrere, perquè la
+  # predicció d'ahir ja no existeix enlloc.
+  #
+  # Des del 5 de novembre de 2026 també desa la predicció municipal de l'AEMET
+  # al costat de la de la fitxa, per comparar-les amb les mateixes estacions.
+  # L'AEMET deixa fer set municipis per minut, i són 138: uns 23 minuts, que és
+  # el motiu de la feina a part. Sense la clau, ho salta i puntua els models.
+  encert:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET || vars.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || vars.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || vars.R2_SECRET_ACCESS_KEY }}
+      DATA_BASE_URL: ${{ secrets.DATA_BASE_URL || vars.DATA_BASE_URL }}
+      AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: npm run worker:verify
