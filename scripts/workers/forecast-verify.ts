@@ -109,6 +109,18 @@ const H2H_DALT = 100;
 
 const AEMET_BASE = 'https://opendata.aemet.es/opendata/api';
 
+/*
+ * L'AEMET deixa fer **unes catorze peticions per minut** per clau, i la del
+ * contingut també compta: set municipis per minut, no més (mesurat el 5 de
+ * novembre de 2026). Anant més de pressa no s'avança res —cada 429 vol dir un
+ * minut sencer d'espera— i, com que la clau és la mateixa dels avisos, el
+ * worker d'avisos es trobaria el minut gastat. Una cada cinc segons en són
+ * dotze: en queden dues per als avisos, i els 138 municipis són uns 23 minuts.
+ */
+const AEMET_GAP_MS = 5_000;
+/** Passat aquest temps es desa el que hi hagi: cada estació va amb les dues prediccions o no hi va. */
+const AEMET_BUDGET_MS = 30 * 60_000;
+
 interface Station {
   codi: string; nom: string; lat: number; lon: number;
   altitud: number | null; operativa: boolean; municipiIne5?: string;
@@ -468,18 +480,38 @@ async function captureHeadToHead(
     return out;
   }
 
+  /*
+   * Es comença per un municipi diferent cada dia: si algun dia s'acaba el temps,
+   * els que es queden fora no són sempre els mateixos.
+   */
+  const ines = [...new Set(pairs.map((p) => p.ine))].sort();
+  const shift = Math.floor(Date.parse(`${today}T00:00:00Z`) / 86_400_000) % Math.max(1, ines.length);
+  const order = [...ines.slice(shift), ...ines.slice(0, shift)];
+
   const aemetByIne = new Map<string, Map<string, { tMax: number | null; tMin: number | null }>>();
+  const started = Date.now();
   let failed = 0;
-  for (const ine of new Set(pairs.map((p) => p.ine))) {
+  let skipped = 0;
+  for (const [i, ine] of order.entries()) {
+    if (Date.now() - started > AEMET_BUDGET_MS) {
+      skipped = order.length - i;
+      break;
+    }
     try {
       aemetByIne.set(ine, await aemetDaily(ine, key, quota));
     } catch (err) {
       failed++;
       console.log(`  AEMET ${ine}: ${(err as Error).message}`);
     }
-    await sleep(400);
+    if ((i + 1) % 25 === 0) {
+      console.log(`  AEMET: ${i + 1} de ${order.length} · ${Math.round((Date.now() - started) / 1000)} s`);
+    }
   }
-  console.log(`Prediccions municipals de l'AEMET: ${aemetByIne.size} · fallades: ${failed}`);
+  console.log(
+    `Prediccions municipals de l'AEMET: ${aemetByIne.size} · fallades: ${failed}` +
+    (skipped ? ` · ${skipped} sense temps` : '') +
+    ` · ${Math.round((Date.now() - started) / 1000)} s`,
+  );
 
   for (const { station, town, ine } of pairs) {
     const byModel = points.get(town.forecastPointId!);
@@ -525,6 +557,7 @@ async function aemetDaily(
   interface Meta { estado: number; datos?: string; descripcion: string }
   let meta: Meta | null = null;
   for (let attempt = 1; attempt <= 4; attempt++) {
+    await aemetPace();
     meta = await fetchJson<Meta>(`${AEMET_BASE}/prediccion/especifica/municipio/diaria/${ine}`, {
       headers: { api_key: key }, timeoutMs: 30_000,
     });
@@ -534,6 +567,7 @@ async function aemetDaily(
   }
   if (!meta?.datos) throw new Error(`sense dades: ${meta?.estado} ${meta?.descripcion}`);
 
+  await aemetPace();
   const res = await fetchWithRetry(meta.datos, { timeoutMs: 30_000 });
   quota.spend('aemet', 1);
   const body = JSON.parse(await res.text()) as Array<{
@@ -547,6 +581,17 @@ async function aemetDaily(
     });
   }
   return out;
+}
+
+/**
+ * Una petició a l'AEMET cada `AEMET_GAP_MS`, comptant-les totes dues: la de la
+ * URL temporal i la del contingut. Vegeu `AEMET_GAP_MS`.
+ */
+let aemetLast = 0;
+async function aemetPace(): Promise<void> {
+  const wait = aemetLast + AEMET_GAP_MS - Date.now();
+  if (wait > 0) await sleep(wait);
+  aemetLast = Date.now();
 }
 
 main().catch((err) => reportFailure({
