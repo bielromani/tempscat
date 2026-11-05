@@ -240,7 +240,7 @@ export function DetailTiles({
     tiles.push(
       <Tile key="nuvols" icon="overcast" label={t('Nuvolositat', 'Nubosidad')}>
         <p className="tile-value tnum">{nowHour.cloudCover}<small>%</small></p>
-        <p className="tile-note">{t('Del cel cobert, segons el model.', 'Del cielo cubierto, según el modelo.')}</p>
+        <p className="tile-note">{t('Del cel cobert, segons el model.', 'Parte del cielo cubierta, según el modelo.')}</p>
       </Tile>,
     );
   }
