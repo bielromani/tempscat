@@ -283,6 +283,25 @@ const taronja: RainWarning = { level: 'taronja', phenomenon: 'PR', from: `${DAY}
   expect('«a la 1 h», no «a les 1 h»', /a la 1 h/.test(c) && !/les 1 h/.test(c), c);
 }
 
+{
+  // Passada la mitjanit, la sèrie pot començar ahir: avui i demà es busquen per la data.
+  const base = fc(series({})).daily[0];
+  const prev = new Date(Date.parse(`${DAY}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  const shifted = {
+    ...fc(series({}), 3),
+    daily: [
+      { ...base, date: prev, tMax: 25, weatherCode: 61, precipitation: 9.9 },
+      { ...base, weatherCode: 3 },
+      { ...base, date: NEXT, tMax: 13, weatherCode: 61, precipitation: 4.2 },
+    ],
+  };
+  const n = narrativeFor(shifted, null, NOW, DAY);
+  expect('ahir al davant: avui és avui', n?.today?.includes('17 °C') === true, n?.today);
+  expect('ahir al davant: demà és demà', n?.tomorrow?.includes('4,2 mm') === true, n?.tomorrow);
+  const stale = { ...shifted, daily: shifted.daily.slice(0, 1) };
+  expect('sense avui, sense frase', narrativeFor(stale, null, NOW, DAY) === null, 'hi ha frase');
+}
+
 if (bad) {
   console.error(`\n${bad} ${bad === 1 ? 'fallada' : 'fallades'}.`);
   process.exit(1);
