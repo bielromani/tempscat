@@ -3,6 +3,7 @@ import { fromDirection, hour, num } from '@/lib/format';
 import { temperatureColor } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
 import type { HourlyPoint } from '@/lib/forecast-types';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * Les pròximes hores, una cosa cada vegada.
@@ -44,9 +45,12 @@ interface Props {
   models: number;
   /** Únic a la pàgina: els radios s'agrupen pel nom. */
   id?: string;
+  lang?: Lang;
 }
 
-export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
+export function NextHours({ hourly, nowHour, models, id = 'ara', lang = 'ca' }: Props) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
+  const now = t('ara', 'ahora');
   const start = Math.max(0, hourly.findIndex((h) => h.time.slice(0, 13) === nowHour));
   const hours = hourly.slice(start, start + HOURS);
   if (hours.length < 2) return null;
@@ -65,8 +69,8 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
 
       <div className="tablist mb-3 flex gap-5 border-b border-[var(--line-soft)] text-sm">
         <label htmlFor={`t-${id}-1`} className="pb-2">Temperatura</label>
-        <label htmlFor={`t-${id}-2`} className="pb-2">Pluja</label>
-        <label htmlFor={`t-${id}-3`} className="pb-2">Vent</label>
+        <label htmlFor={`t-${id}-2`} className="pb-2">{t('Pluja', 'Lluvia')}</label>
+        <label htmlFor={`t-${id}-3`} className="pb-2">{t('Vent', 'Viento')}</label>
       </div>
 
       {/* ── Temperatura ── */}
@@ -74,9 +78,9 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
         <ol className="flex min-w-max gap-1">
           {hours.map((h, i) => (
             <li key={h.time} className={`w-[60px] shrink-0 rounded-2xl px-1 py-2 text-center${i === 0 ? ' bg-[var(--accent-soft)]' : ''}`}>
-              <p className="text-[11px] text-[var(--muted)]">{i === 0 ? 'ara' : hour(h.time)}</p>
+              <p className="text-[11px] text-[var(--muted)]">{i === 0 ? now : hour(h.time)}</p>
               <div className="my-1 flex justify-center">
-                <WeatherIcon code={h.weatherCode} isDay={h.isDay} size={30} />
+                <WeatherIcon code={h.weatherCode} isDay={h.isDay} size={30} lang={lang} />
               </div>
               <p className="tnum text-lg font-semibold text-[var(--ink)]">
                 {h.temperature != null ? `${num(h.temperature)}°` : '—'}
@@ -97,8 +101,11 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
         </ol>
         {models > 1 && hours.some((h) => (h.spread ?? 0) >= SPREAD_C) && (
           <p className="source measure">
-            Les hores amb dues xifres a sota són aquelles en què els {models} models
-            de predicció no coincideixen. El marge va del més fred al més càlid.
+            {tr(
+              lang,
+              `Les hores amb dues xifres a sota són aquelles en què els ${models} models de predicció no coincideixen. El marge va del més fred al més càlid.`,
+              `Las horas con dos cifras debajo son aquellas en que los ${models} modelos de predicción no coinciden. El margen va del más frío al más cálido.`,
+            )}
           </p>
         )}
       </section>
@@ -128,16 +135,19 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
                 <p className="tnum text-sm font-medium text-[var(--ink)]">
                   {mm >= 0.05 ? num(mm, 1) : '—'}
                 </p>
-                <p className="text-[11px] text-[var(--muted)]">{i === 0 ? 'ara' : hour(h.time)}</p>
+                <p className="text-[11px] text-[var(--muted)]">{i === 0 ? now : hour(h.time)}</p>
               </li>
             );
           })}
         </ol>
         <p className="source measure">
           {anyRain
-            ? 'A dalt, la probabilitat que plogui; a baix, quanta aigua, en mm. Un 80 % amb '
-              + '0,2 mm és plugim gairebé segur; un 30 % amb 8 mm, un ruixat poc probable però fort.'
-            : 'Cap hora amb pluja prevista. La probabilitat surt igualment: un 20 % no és zero.'}
+            ? t('A dalt, la probabilitat que plogui; a baix, quanta aigua, en mm. Un 80 % amb '
+              + '0,2 mm és plugim gairebé segur; un 30 % amb 8 mm, un ruixat poc probable però fort.',
+            'Arriba, la probabilidad de que llueva; abajo, cuánta agua, en mm. Un 80 % con '
+              + '0,2 mm es llovizna casi segura; un 30 % con 8 mm, un chubasco poco probable pero fuerte.')
+            : t('Cap hora amb pluja prevista. La probabilitat surt igualment: un 20 % no és zero.',
+              'Ninguna hora con lluvia prevista. La probabilidad sale igualmente: un 20 % no es cero.')}
         </p>
       </section>
 
@@ -149,9 +159,9 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
             const gust = h.windGust != null ? msToKmh(h.windGust) : null;
             return (
               <li key={h.time} className={`w-[60px] shrink-0 rounded-2xl px-1 py-2 text-center${i === 0 ? ' bg-[var(--accent-soft)]' : ''}`}>
-                <p className="text-[11px] text-[var(--muted)]">{i === 0 ? 'ara' : hour(h.time)}</p>
+                <p className="text-[11px] text-[var(--muted)]">{i === 0 ? now : hour(h.time)}</p>
                 {h.windDirection != null ? (
-                  <div className="my-1 flex justify-center" title={`Ve ${fromDirection(windCardinal(h.windDirection))}`}>
+                  <div className="my-1 flex justify-center" title={`${t('Ve', 'Viene')} ${fromDirection(windCardinal(h.windDirection), lang)}`}>
                     {/* La fletxa apunta cap on va el vent, no d'on ve: és el que
                         la gent llegeix sense pensar-hi. El cardinal de sota diu
                         l'origen, que és la convenció meteorològica. */}
@@ -167,7 +177,7 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
                   {kmh != null ? Math.round(kmh) : '—'}
                 </p>
                 <p className="tnum text-[11px] text-[var(--muted)]">
-                  {gust != null ? `ratxa ${Math.round(gust)}` : ' '}
+                  {gust != null ? `${t('ratxa', 'racha')} ${Math.round(gust)}` : ' '}
                 </p>
                 {h.windDirection != null && (
                   <p className="text-[11px] text-[var(--muted)]">{windCardinal(h.windDirection)}</p>
@@ -183,8 +193,10 @@ export function NextHours({ hourly, nowHour, models, id = 'ara' }: Props) {
           })}
         </ol>
         <p className="source measure">
-          En km/h. La fletxa assenyala cap on bufa el vent, i la lletra de sota,
-          d&apos;on ve. La ratxa és el cop més fort de l&apos;hora.
+          {t(
+            "En km/h. La fletxa assenyala cap on bufa el vent, i la lletra de sota, d'on ve. La ratxa és el cop més fort de l'hora.",
+            'En km/h. La flecha señala hacia dónde sopla el viento, y la letra de debajo, de dónde viene. La racha es el golpe más fuerte de la hora.',
+          )}
         </p>
       </section>
     </div>

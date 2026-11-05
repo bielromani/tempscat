@@ -1,4 +1,5 @@
-import { weatherCode } from '@/lib/weather-codes';
+import { codeLong, weatherCode } from '@/lib/weather-codes';
+import type { Lang } from '@/lib/lang';
 
 /**
  * Icones del temps: els Meteocons de Bas Milius (MIT), servits des de `public/`.
@@ -64,11 +65,15 @@ interface Props {
    * `warnedIconLabel()` a `narrative.ts`, no aquest component.
    */
   label?: string | null;
+  /** El idioma del nombre por defecto, cuando no llega `label`. */
+  lang?: Lang;
 }
 
-export function WeatherIcon({ code, isDay = true, size = 32, className, animated = false, decorative = false, label }: Props) {
+export function WeatherIcon({
+  code, isDay = true, size = 32, className, animated = false, decorative = false, label, lang = 'ca',
+}: Props) {
   const name = weatherIconName(code, isDay);
-  const alt = decorative ? '' : (label ?? weatherCode(code).caLong);
+  const alt = decorative ? '' : (label ?? codeLong(weatherCode(code), lang));
   const style = { flexShrink: 0 } as const;
 
   if (!animated || name === 'not-available') {

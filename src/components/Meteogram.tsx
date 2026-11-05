@@ -1,6 +1,7 @@
 import { temperatureColor } from '@/lib/scales';
 import { msToKmh, windCardinal } from '@/lib/variables';
-import { weatherCode } from '@/lib/weather-codes';
+import { codeLong, weatherCode } from '@/lib/weather-codes';
+import { tr, type Lang } from '@/lib/lang';
 import { weatherIconSrc } from './WeatherIcon';
 import { fromDirection, hour, num, relativeDay } from '@/lib/format';
 import type { HourlyPoint } from '@/lib/weather';
@@ -55,6 +56,7 @@ interface Props {
    * — ver el bloque del final del componente.
    */
   tableFor?: string;
+  lang?: Lang;
 }
 
 const W = 1000;
@@ -77,8 +79,10 @@ const PRECIP_BASE = TEMP_BOTTOM + PRECIP_H;
 const RAIN = 'oklch(52% 0.13 245)';
 
 export function Meteogram({
-  hourly, hours = 48, showSpread = true, nowHour = null, tableFor,
+  hourly, hours = 48, showSpread = true, nowHour = null, tableFor, lang = 'ca',
 }: Props) {
+  // `t` ja és la temperatura dins de les funcions d'aquí: el traductor es diu `tx`.
+  const tx = (ca: string, es: string) => tr(lang, ca, es);
   const data = hourly.slice(0, hours);
   if (data.length < 2) return null;
 
@@ -158,7 +162,11 @@ export function Meteogram({
     return [{ ...hi, kind: 'max' as const }, { ...lo, kind: 'min' as const }];
   });
 
-  const describe = `Temperatura de ${tMin} a ${tMax} °C, precipitació i vent per a les pròximes ${data.length} hores.`;
+  const describe = tr(
+    lang,
+    `Temperatura de ${tMin} a ${tMax} °C, precipitació i vent per a les pròximes ${data.length} hores.`,
+    `Temperatura de ${tMin} a ${tMax} °C, precipitación y viento para las próximas ${data.length} horas.`,
+  );
 
   return (
     <figure className="m-0">
@@ -210,7 +218,7 @@ export function Meteogram({
                   x={(x0 + x1) / 2} y={DAY_Y} textAnchor="middle"
                   fontSize={12} fontWeight={600} fill="var(--ink-2)"
                 >
-                  {relativeDay(day, today)}
+                  {relativeDay(day, today, lang)}
                   <tspan fill="var(--muted)" fontWeight={400}> {Number(day.slice(8, 10))}</tspan>
                 </text>
               </g>
@@ -227,7 +235,7 @@ export function Meteogram({
                 x={x(i) - ICON / 2} y={ICON_Y} width={ICON} height={ICON}
                 opacity={nowIdx > i ? 0.45 : 1}
               >
-                <title>{`${hour(d.time)} · ${weatherCode(d.weatherCode).caLong}`}</title>
+                <title>{`${hour(d.time)} · ${codeLong(weatherCode(d.weatherCode), lang)}`}</title>
               </image>
             );
           })}
@@ -248,7 +256,7 @@ export function Meteogram({
 
           {spreadPath && (
             <path d={spreadPath} fill="var(--accent)" opacity={0.13}>
-              <title>Marge de desacord entre models</title>
+              <title>{tx('Marge de desacord entre models', 'Margen de desacuerdo entre modelos')}</title>
             </path>
           )}
 
@@ -303,7 +311,7 @@ export function Meteogram({
                 fill={RAIN} rx={1}
               >
                 <title>
-                  {`${hour(d.time)} · ${num(mm, 1)} mm${d.precipProbability != null ? ` · ${d.precipProbability} % de probabilitat` : ''}`}
+                  {`${hour(d.time)} · ${num(mm, 1)} mm${d.precipProbability != null ? ` · ${d.precipProbability} % ${tx('de probabilitat', 'de probabilidad')}` : ''}`}
                 </title>
               </rect>
             );
@@ -336,7 +344,7 @@ export function Meteogram({
                     fill={kmh >= 40 ? 'var(--bad)' : 'var(--ink-2)'}
                     opacity={kmh < 5 ? 0.3 : 0.85}
                   >
-                    <title>{`${hour(d.time)} · ${kmh.toFixed(0)} km/h ${fromDirection(windCardinal(d.windDirection))}`}</title>
+                    <title>{`${hour(d.time)} · ${kmh.toFixed(0)} km/h ${fromDirection(windCardinal(d.windDirection), lang)}`}</title>
                   </path>
                 </g>
                 {i % 6 === 1 && (
@@ -370,7 +378,7 @@ export function Meteogram({
             mm
           </text>
           <text x={PAD.left - 8} y={WIND_Y + 4} textAnchor="end" fontSize={10} fill="var(--muted)">
-            vent
+            {tx('vent', 'viento')}
           </text>
 
           {/* ── Ahora ─────────────────────────────────────────────────────── */}
@@ -391,7 +399,7 @@ export function Meteogram({
                 x={x(nowIdx) + 5} y={PRECIP_BASE + 13}
                 fontSize={10} fontWeight={600} fill="var(--accent)"
                 stroke="var(--surface)" strokeWidth={3} paintOrder="stroke"
-              >ara</text>
+              >{tx('ara', 'ahora')}</text>
             </g>
           )}
         </svg>
@@ -406,23 +414,23 @@ export function Meteogram({
         </li>
         <li className="flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-2.5 w-2 rounded-sm" style={{ background: RAIN }} />
-          pluja en mm
+          {tx('pluja en mm', 'lluvia en mm')}
         </li>
         <li className="flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-2.5 w-2 rounded-sm" style={{ background: RAIN, opacity: 0.2 }} />
-          probabilitat
+          {tx('probabilitat', 'probabilidad')}
         </li>
         <li className="flex items-center gap-1.5">
-          <span aria-hidden>▲</span> direcció i força del vent
+          <span aria-hidden>▲</span> {tx('direcció i força del vent', 'dirección y fuerza del viento')}
         </li>
         <li className="flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-2.5 w-3 rounded-sm" style={{ background: 'var(--ink)', opacity: 0.08 }} />
-          nit
+          {tx('nit', 'noche')}
         </li>
         {showSpread && data.some((d) => d.spread != null) && (
           <li className="flex items-center gap-1.5">
             <span aria-hidden className="inline-block h-2.5 w-3 rounded-sm" style={{ background: 'var(--accent)', opacity: 0.2 }} />
-            desacord entre models
+            {tx('desacord entre models', 'desacuerdo entre modelos')}
           </li>
         )}
       </ul>
@@ -450,7 +458,7 @@ export function Meteogram({
             htmlFor={tableFor}
             className="cursor-pointer text-[var(--muted)] underline decoration-dotted hover:text-[var(--ink)]"
           >
-            Les mateixes dades, hora per hora i en xifres
+            {tx('Les mateixes dades, hora per hora i en xifres', 'Los mismos datos, hora a hora y en cifras')}
           </label>
         </p>
       )}

@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import type { CurrentConditions, LocationForecast } from '@/lib/forecast-types';
 import type { Location } from '@/lib/territory';
-import { weatherCode } from '@/lib/weather-codes';
+import { codeLong, weatherCode } from '@/lib/weather-codes';
+import { sourceText } from '@/lib/sea';
+import { tr, type Lang } from '@/lib/lang';
 import { unratedRainLabel } from '@/lib/narrative';
 import { skyStyle, drawsRain, drawsSnow } from '@/lib/sky';
 import { aNameParts, ago, deName, fromDirection, int, num, signed } from '@/lib/format';
@@ -61,12 +63,14 @@ interface Props {
    * `unratedRainLabel()`.
    */
   rainWarned?: boolean;
+  lang?: Lang;
 }
 
 export function LocationHero({
   loc, comarcaLabel, breadcrumbs, current, nowHour, today, hour, sunriseH, sunsetH, moonPhase,
-  rainWarned = false,
+  rainWarned = false, lang = 'ca',
 }: Props) {
+  const tx = (ca: string, es: string) => tr(lang, ca, es);
   const sky = skyStyle({
     hour,
     sunriseH,
@@ -100,9 +104,9 @@ export function LocationHero({
   const whole = t != null ? Math.trunc(t) : null;
   const decimal = t != null ? Math.abs(Math.round((t - Math.trunc(t)) * 10)) : null;
   const condition = nowHour?.weatherCode != null
-    ? (rainWarned && unratedRainLabel(nowHour.weatherCode)) || weatherCode(nowHour.weatherCode).caLong
+    ? (rainWarned && unratedRainLabel(nowHour.weatherCode, lang)) || codeLong(weatherCode(nowHour.weatherCode), lang)
     : null;
-  const place = aNameParts(loc.nom);
+  const place = aNameParts(loc.nom, lang);
   const corrected = current?.station.dAltM != null && Math.abs(current.station.dAltM) >= 25;
 
   /*
@@ -377,7 +381,7 @@ export function LocationHero({
         el dia que la barra creixi ningú no el relacionarà amb això.
       */}
       <div className="relative mx-auto max-w-[70rem] px-5 pb-12 sm:pb-14" style={{ color: 'oklch(99% 0 0)', paddingTop: 84 }}>
-        <nav aria-label="Ruta de navegació" className="text-[13px]">
+        <nav aria-label={tx('Ruta de navegació', 'Ruta de navegación')} className="text-[13px]">
           <ol className="flex flex-wrap items-center gap-x-1.5">
             {/* L'últim element de la ruta és aquesta mateixa pàgina i el seu
                 nom ja és el titular de sota: no s'escriu dues vegades. I el
@@ -402,7 +406,7 @@ export function LocationHero({
         */}
         <h1 className="mt-5">
           <span className="block text-[13px] font-semibold uppercase tracking-[0.08em] opacity-80">
-            El temps {place.prep}
+            {tx('El temps', 'El tiempo')} {place.prep}
           </span>
           {!place.joined && ' '}
           <span className="mt-0.5 block text-[38px] font-[750] leading-[1.04] tracking-[-0.04em] sm:text-[56px]">
@@ -412,14 +416,14 @@ export function LocationHero({
         <p className="mt-1.5 text-[14px] opacity-85">
           {loc.level !== 'municipi' && breadcrumbs.length > 2 && `${breadcrumbs[breadcrumbs.length - 2].nom} · `}
           {comarcaLabel}
-          {loc.altitud != null && ` · ${int(loc.altitud)} m d'altitud`}
-          {loc.poblacio != null && loc.poblacio > 0 && ` · ${int(loc.poblacio)} habitants`}
+          {loc.altitud != null && tx(` · ${int(loc.altitud)} m d'altitud`, ` · ${int(loc.altitud)} m de altitud`)}
+          {loc.poblacio != null && loc.poblacio > 0 && ` · ${int(loc.poblacio)} ${tx('habitants', 'habitantes')}`}
         </p>
 
         <div className="mt-4 flex items-center gap-2 sm:gap-4">
           {/* L'animada, i l'estàtica a qui té el moviment reduït. */}
           {nowHour?.weatherCode != null && (
-            <WeatherIcon code={nowHour.weatherCode} isDay={sky.isDay} size={96} animated decorative />
+            <WeatherIcon code={nowHour.weatherCode} isDay={sky.isDay} size={96} animated decorative lang={lang} />
           )}
           {whole != null ? (
             <div className="flex items-start">
@@ -431,7 +435,7 @@ export function LocationHero({
               <span className="mt-2 text-[30px] font-light sm:text-[38px]">{decimal ? `,${decimal}` : ''}°</span>
             </div>
           ) : (
-            <p className="text-lg opacity-90">Encara no hi ha observació per a aquest punt.</p>
+            <p className="text-lg opacity-90">{tx('Encara no hi ha observació per a aquest punt.', 'Todavía no hay observación para este punto.')}</p>
           )}
         </div>
 
@@ -439,7 +443,7 @@ export function LocationHero({
           {condition}
           {tMax != null && tMin != null && (
             <span className="tnum font-normal opacity-90">
-              {condition ? ' · ' : ''}Màx. {num(tMax)}° · Mín. {num(tMin)}°
+              {condition ? ' · ' : ''}{tx('Màx.', 'Máx.')} {num(tMax)}° · Mín. {num(tMin)}°
             </span>
           )}
         </p>
@@ -466,13 +470,13 @@ export function LocationHero({
           const feels = ap == null || t == null || Math.round(ap) === Math.round(t)
             ? null
             : cause === 'xafogor'
-              ? `Xafogor: amb la humitat, se'n noten ${ap.toFixed(0)}°`
+              ? tx(`Xafogor: amb la humitat, se'n noten ${ap.toFixed(0)}°`, `Bochorno: con la humedad, se notan ${ap.toFixed(0)}°`)
               : cause === 'vent'
-                ? `Amb el vent, se'n noten ${ap.toFixed(0)}°`
-                : `Sensació de ${ap.toFixed(0)}°`;
+                ? tx(`Amb el vent, se'n noten ${ap.toFixed(0)}°`, `Con el viento, se notan ${ap.toFixed(0)}°`)
+                : tx(`Sensació de ${ap.toFixed(0)}°`, `Sensación de ${ap.toFixed(0)}°`);
           const wind = current?.windSpeed != null
-            ? `vent ${msToKmh(current.windSpeed).toFixed(0)} km/h${
-              current.windDirection != null ? ` ${fromDirection(windCardinal(current.windDirection))}` : ''}`
+            ? `${tx('vent', 'viento')} ${msToKmh(current.windSpeed).toFixed(0)} km/h${
+              current.windDirection != null ? ` ${fromDirection(windCardinal(current.windDirection), lang)}` : ''}`
             : null;
           if (!feels && !wind) return null;
           // Amb la sensació davant, el vent hi va en minúscula; sense ella, el
@@ -507,12 +511,18 @@ export function LocationHero({
                */
               <p className="m-0 text-[12px] leading-relaxed">
                 {current.estimate.modelOnly
-                  ? <>Model meteorològic per a aquest punt i aquesta altitud: no hi ha cap estació de la XEMA prou a prop per corregir-lo</>
-                  : <>Model meteorològic corregit amb les estacions de la XEMA del voltant</>}
-                {' · '}{ago(current.estimate.ageMin)}.{' '}
+                  ? tx(
+                    'Model meteorològic per a aquest punt i aquesta altitud: no hi ha cap estació de la XEMA prou a prop per corregir-lo',
+                    'Modelo meteorológico para este punto y esta altitud: no hay ninguna estación de la XEMA lo bastante cerca para corregirlo',
+                  )
+                  : tx(
+                    'Model meteorològic corregit amb les estacions de la XEMA del voltant',
+                    'Modelo meteorológico corregido con las estaciones de la XEMA de los alrededores',
+                  )}
+                {' · '}{ago(current.estimate.ageMin, lang)}.{' '}
                 {current.temperature != null && (
                   <>
-                    L&apos;estació de referència,{' '}
+                    {tx("L'estació de referència,", 'La estación de referencia,')}{' '}
                     <Link
                       href={`/estacions/${current.station.codi}`}
                       className="font-semibold underline decoration-1 underline-offset-2"
@@ -521,32 +531,33 @@ export function LocationHero({
                       {current.station.nom}
                     </Link>
                     , a {num(current.station.distKm, 1)} km
-                    {corrected && ` i ${signed(current.station.dAltM, 0, 'm')} de desnivell`}, marcava {num(current.temperature, 1)} °C
-                    {' '}{ago(current.ageMin)}{current.provisional && ' (lectura provisional)'}.{' '}
+                    {corrected && tx(` i ${signed(current.station.dAltM, 0, 'm')} de desnivell`, ` y ${signed(current.station.dAltM, 0, 'm')} de desnivel`)}
+                    {tx(', marcava', ', marcaba')} {num(current.temperature, 1)} °C
+                    {' '}{ago(current.ageMin, lang)}{current.provisional && ' (lectura provisional)'}.{' '}
                   </>
                 )}
                 <Link href="/dades/encert" className="underline decoration-1 underline-offset-2" style={{ color: 'inherit' }}>
-                  Com es calcula i quant encerta
+                  {tx('Com es calcula i quant encerta', 'Cómo se calcula y cuánto acierta')}
                 </Link>
-                {' · '}Dades de la XEMA del Meteocat i d&apos;Open-Meteo.
+                {' · '}{tx("Dades de la XEMA del Meteocat i d'Open-Meteo.", 'Datos de la XEMA del Meteocat y de Open-Meteo.')}
               </p>
             ) : (
               <p className="m-0 text-[12px] leading-relaxed">
-                Mesurat a l&apos;estació{' '}
+                {tx("Mesurat a l'estació", 'Medido en la estación')}{' '}
                 <Link
                   href={`/estacions/${current.station.codi}`}
                   className="font-semibold underline decoration-1 underline-offset-2"
                   style={{ color: 'inherit' }}
                 >
-                  {deName(current.station.nom)}
+                  {deName(current.station.nom, lang)}
                 </Link>
                 , a {num(current.station.distKm, 1)} km
-                {current.station.dAltM != null && ` i ${signed(current.station.dAltM, 0, 'm')} de desnivell`}
-                {' · '}{ago(current.ageMin)}
+                {current.station.dAltM != null && tx(` i ${signed(current.station.dAltM, 0, 'm')} de desnivell`, ` y ${signed(current.station.dAltM, 0, 'm')} de desnivel`)}
+                {' · '}{ago(current.ageMin, lang)}
                 {current.provisional && ' · lectura provisional'}
-                {' · '}{current.source}.
+                {' · '}{sourceText(current.source, lang)}.
                 {corrected && current.temperature != null && (
-                  <> Temperatura corregida pel desnivell: l&apos;estació marca {num(current.temperature, 1)} °C
+                  <>{tx(" Temperatura corregida pel desnivell: l'estació marca", ' Temperatura corregida por el desnivel: la estación marca')} {num(current.temperature, 1)} °C
                     {' '}a {loc.altitud != null && current.station.dAltM != null ? loc.altitud - current.station.dAltM : '?'} m.
                   </>
                 )}

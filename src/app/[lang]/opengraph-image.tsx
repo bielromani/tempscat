@@ -20,5 +20,6 @@ export default async function Image({ params }: { params: Promise<{ lang: string
     kicker: tr(lang, 'El temps a', 'El tiempo en'),
     title: tr(lang, 'Cada poble de Catalunya', 'Cada pueblo de Cataluña'),
     subtitle: tr(lang, 'Amb la seva altitud i l’estació que el mesura', 'Con su altitud y la estación que lo mide'),
+    lang,
   });
 }

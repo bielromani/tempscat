@@ -140,7 +140,7 @@ export default async function Home() {
               <Link href={c.loc.path} className="capital">
                 <span className="capital-name">{placeName(c.loc.nom, lang)}</span>
                 <span className="capital-temp tnum">{c.temp != null ? `${num(c.temp)}°` : '—'}</span>
-                {c.code != null && <WeatherIcon code={c.code} isDay={c.isDay} size={52} className="capital-icon" />}
+                {c.code != null && <WeatherIcon code={c.code} isDay={c.isDay} size={52} className="capital-icon" lang={lang} />}
                 <span className="capital-cond tnum">
                   {[
                     c.code != null && codeLabel(weatherCode(c.code), lang),

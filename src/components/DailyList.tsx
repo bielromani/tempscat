@@ -4,6 +4,7 @@ import { temperatureColor } from '@/lib/scales';
 import { num, relativeDayTiny, dateTiny } from '@/lib/format';
 import { rainWarnedOn, warnedIconLabel, type RainWarning } from '@/lib/narrative';
 import type { DailyPoint } from '@/lib/forecast-types';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * Els catorze dies, en llista: el dia, la icona, la pluja, i la mínima i la
@@ -24,11 +25,12 @@ import type { DailyPoint } from '@/lib/forecast-types';
  *  un model determinista comença a tenir poca traça. */
 const CONFIDENT_DAYS = 7;
 
-export function DailyList({ daily, today, rainWarnings = [] }: {
+export function DailyList({ daily, today, rainWarnings = [], lang = 'ca' }: {
   daily: DailyPoint[];
   today: string;
   /** Un dia amb avís de pluja no porta «feble» a la icona: vegeu `warnedIconLabel()`. */
   rainWarnings?: RainWarning[];
+  lang?: Lang;
 }) {
   const all = daily.flatMap((d) => [d.tMax, d.tMin]).filter((v): v is number => v != null);
   if (!all.length) return null;
@@ -42,20 +44,20 @@ export function DailyList({ daily, today, rainWarnings = [] }: {
         const trend = i >= CONFIDENT_DAYS;
         const left = d.tMin != null ? ((d.tMin - lo) / span) * 100 : 0;
         const width = d.tMin != null && d.tMax != null ? ((d.tMax - d.tMin) / span) * 100 : 0;
-        const label = relativeDayTiny(d.date, today);
+        const label = relativeDayTiny(d.date, today, lang);
         return (
           <Fragment key={d.date}>
             {i === CONFIDENT_DAYS && (
-              <li className="dl-sep" aria-hidden="true">Tendència, orientativa</li>
+              <li className="dl-sep" aria-hidden="true">{tr(lang, 'Tendència, orientativa', 'Tendencia, orientativa')}</li>
             )}
             <li className={trend ? 'dl-row is-trend' : 'dl-row'}>
               <span className="dl-day">
                 <span className="capitalize">{label}</span>
                 {/* La data només quan el dia no és «avui» ni «demà»: allà la
                     data no afegeix res i ocupa lloc. */}
-                {i > 1 && <span className="dl-date tnum">{dateTiny(d.date)}</span>}
+                {i > 1 && <span className="dl-date tnum">{dateTiny(d.date, lang)}</span>}
               </span>
-              <WeatherIcon code={d.weatherCode} size={34} label={warnedIconLabel(d.weatherCode, rainWarnedOn(rainWarnings, d.date))} />
+              <WeatherIcon code={d.weatherCode} size={34} label={warnedIconLabel(d.weatherCode, rainWarnedOn(rainWarnings, d.date), lang)} lang={lang} />
               <span className="dl-rain tnum">
                 {d.precipProbability >= 20 && <span>{d.precipProbability} %</span>}
                 {!trend && d.precipitation >= 0.5 && <small>{num(d.precipitation, 1)} mm</small>}

@@ -3,6 +3,7 @@ import { deName, int, num, ordinal } from '@/lib/format';
 import type { RainConditions } from '@/lib/conditions';
 import type { RainProgress } from '@/lib/climate-math';
 import type { StationRef } from '@/lib/territory';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * L'aigua que ha caigut, i quan.
@@ -32,7 +33,13 @@ import type { StationRef } from '@/lib/territory';
  * de sumar un zero.
  */
 /** «avui», «fa 3 dies», «fa més de 45 dies» o «no consta»: l'últim dia de més de 5 mm. */
-export function lastWetDay(c: RainConditions): string {
+export function lastWetDay(c: RainConditions, lang: Lang = 'ca'): string {
+  if (lang === 'es') {
+    if (c.daysSinceRain != null) {
+      return c.daysSinceRain === 0 ? 'hoy' : `hace ${c.daysSinceRain} ${c.daysSinceRain === 1 ? 'día' : 'días'}`;
+    }
+    return c.dryDaysChecked >= 15 ? `hace más de ${c.dryDaysChecked} días` : 'no consta';
+  }
   if (c.daysSinceRain != null) {
     return c.daysSinceRain === 0 ? 'avui' : `fa ${c.daysSinceRain} ${c.daysSinceRain === 1 ? 'dia' : 'dies'}`;
   }
@@ -40,7 +47,7 @@ export function lastWetDay(c: RainConditions): string {
 }
 
 export function RainBlock({
-  conditions, station, stationHref, ytd,
+  conditions, station, stationHref, ytd, lang = 'ca',
 }: {
   conditions: RainConditions;
   station: StationRef;
@@ -53,8 +60,10 @@ export function RainBlock({
    * curta, sempre cap avall, i «va sec» seria una conclusió de l'avería.
    */
   ytd?: RainProgress | null;
+  lang?: Lang;
 }) {
   const c = conditions;
+  const t = (ca: string, es: string) => tr(lang, ca, es);
 
   /*
    * «No consta» no serveix per a les dues coses.
@@ -66,20 +75,20 @@ export function RainBlock({
    * que vol saber qui ho mira. Es distingeixen amb `dryDaysChecked`, que diu
    * fins on s'ha pogut mirar enrere.
    */
-  const lastShower = lastWetDay(c);
+  const lastShower = lastWetDay(c, lang);
 
   return (
     <div className="card">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">15 dies</dt>
+          <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">{t('15 dies', '15 días')}</dt>
           <dd className="tnum text-xl font-semibold text-[var(--ink)]">
             {num(c.rain15, 1)}
             <span className="ml-1 text-xs font-normal text-[var(--muted)]">mm</span>
           </dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">30 dies</dt>
+          <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">{t('30 dies', '30 días')}</dt>
           <dd className="tnum text-xl font-semibold text-[var(--ink)]">
             {num(c.rain30, 1)}
             <span className="ml-1 text-xs font-normal text-[var(--muted)]">mm</span>
@@ -89,12 +98,12 @@ export function RainBlock({
           {/* El llindar va a l'etiqueta. «Últim ruixat: fa 38 dies» i, més avall,
               «fa 11 dies que no hi plou» semblaven dues respostes a la mateixa
               pregunta; són dues preguntes, 5 mm i 0,2 mm. */}
-          <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">Últim dia de més de 5 mm</dt>
+          <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">{t('Últim dia de més de 5 mm', 'Último día de más de 5 mm')}</dt>
           <dd className="text-xl font-semibold text-[var(--ink)]">{lastShower}</dd>
         </div>
         <div>
           <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">
-            Mitjana de mín. i màx., 10 dies
+            {t('Mitjana de mín. i màx., 10 dies', 'Media de mín. y máx., 10 días')}
           </dt>
           <dd className="tnum text-xl font-semibold text-[var(--ink)]">
             {c.tMinAvg10 != null && c.tMaxAvg10 != null
@@ -106,7 +115,7 @@ export function RainBlock({
 
       {c.frostRecently && (
         <p className="mt-3 text-sm text-[var(--ink-2)]">
-          Hi ha glaçat en els últims deu dies.
+          {t('Hi ha glaçat en els últims deu dies.', 'Ha helado en los últimos diez días.')}
         </p>
       )}
 
@@ -118,8 +127,11 @@ export function RainBlock({
       */}
       {c.days15 < 15 && (
         <p className="mt-3 text-sm text-[var(--ink-2)]">
-          L&apos;estació té dada de {c.days15} dels últims quinze dies, així que
-          l&apos;acumulat es queda curt: els dies que falten no compten com a secs.
+          {tr(
+            lang,
+            `L'estació té dada de ${c.days15} dels últims quinze dies, així que l'acumulat es queda curt: els dies que falten no compten com a secs.`,
+            `La estación tiene dato de ${c.days15} de los últimos quince días, así que el acumulado se queda corto: los días que faltan no cuentan como secos.`,
+          )}
         </p>
       )}
 
@@ -136,37 +148,57 @@ export function RainBlock({
       */}
       {ytd && (
         <div className="mt-4 border-t border-[var(--line-soft)] pt-3">
-          <p className="text-sm leading-relaxed text-[var(--ink-2)]">
-            De l&apos;1 de gener n&apos;han caigut{' '}
-            <strong className="tnum font-semibold text-[var(--ink)]">{int(ytd.precip)} mm</strong>,
-            quan a aquestes altures de l&apos;any se&apos;n solen portar {int(ytd.normal)}.{' '}
-            {ytd.rank === 1
-              ? `És l'any més plujós dels ${ytd.total} de la sèrie.`
-              : ytd.rank === ytd.total
-                ? `És l'any més sec dels ${ytd.total} de la sèrie.`
-                : `És el ${ordinal(ytd.rank)} més plujós de ${ytd.total}.`}
-            {ytd.rank !== 1 && ytd.rank !== ytd.total && (
-              ` De més a menys, la sèrie va dels ${int(ytd.wettest.precip)} mm del `
-              + `${ytd.wettest.year} als ${int(ytd.driest.precip)} del ${ytd.driest.year}.`
-            )}
-          </p>
+          {lang === 'es' ? (
+            <p className="text-sm leading-relaxed text-[var(--ink-2)]">
+              Desde el 1 de enero han caído{' '}
+              <strong className="tnum font-semibold text-[var(--ink)]">{int(ytd.precip)} mm</strong>,
+              cuando a estas alturas del año suelen llevarse {int(ytd.normal)}.{' '}
+              {ytd.rank === 1
+                ? `Es el año más lluvioso de los ${ytd.total} de la serie.`
+                : ytd.rank === ytd.total
+                  ? `Es el año más seco de los ${ytd.total} de la serie.`
+                  : `Es el ${ordinal(ytd.rank, lang)} más lluvioso de ${ytd.total}.`}
+              {ytd.rank !== 1 && ytd.rank !== ytd.total && (
+                ` De más a menos, la serie va de los ${int(ytd.wettest.precip)} mm de `
+                + `${ytd.wettest.year} a los ${int(ytd.driest.precip)} de ${ytd.driest.year}.`
+              )}
+            </p>
+          ) : (
+            <p className="text-sm leading-relaxed text-[var(--ink-2)]">
+              De l&apos;1 de gener n&apos;han caigut{' '}
+              <strong className="tnum font-semibold text-[var(--ink)]">{int(ytd.precip)} mm</strong>,
+              quan a aquestes altures de l&apos;any se&apos;n solen portar {int(ytd.normal)}.{' '}
+              {ytd.rank === 1
+                ? `És l'any més plujós dels ${ytd.total} de la sèrie.`
+                : ytd.rank === ytd.total
+                  ? `És l'any més sec dels ${ytd.total} de la sèrie.`
+                  : `És el ${ordinal(ytd.rank)} més plujós de ${ytd.total}.`}
+              {ytd.rank !== 1 && ytd.rank !== ytd.total && (
+                ` De més a menys, la sèrie va dels ${int(ytd.wettest.precip)} mm del `
+                + `${ytd.wettest.year} als ${int(ytd.driest.precip)} del ${ytd.driest.year}.`
+              )}
+            </p>
+          )}
         </div>
       )}
 
       <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-        Mesurada a l&apos;estació{' '}
+        {t("Mesurada a l'estació", 'Medida en la estación')}{' '}
         {stationHref
           ? (
             <Link href={stationHref} className="font-medium text-[var(--ink-2)] no-underline hover:underline">
-              {deName(station.nom)}
+              {deName(station.nom, lang)}
             </Link>
           )
-          : <strong className="font-medium text-[var(--ink-2)]">{deName(station.nom)}</strong>},
-        a {num(station.distKm, 1)} km
+          : <strong className="font-medium text-[var(--ink-2)]">{deName(station.nom, lang)}</strong>},
+        {t(' a ', ' a ')}{num(station.distKm, 1)} km
         {station.dAltM != null && Math.abs(station.dAltM) >= 25
-          && ` i ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivell`}.
-        Una tempesta descarrega en una vall i no a la del costat: això situa, no
-        substitueix el que hagi caigut aquí.
+          && t(` i ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivell`,
+            ` y ${station.dAltM > 0 ? '' : '−'}${Math.abs(station.dAltM)} m de desnivel`)}.
+        {t(
+          ' Una tempesta descarrega en una vall i no a la del costat: això situa, no substitueix el que hagi caigut aquí.',
+          ' Una tormenta descarga en un valle y no en el de al lado: esto sitúa, no sustituye lo que haya caído aquí.',
+        )}
       </p>
     </div>
   );

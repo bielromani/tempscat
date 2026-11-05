@@ -2,6 +2,7 @@ import 'server-only';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
+import { tr, type Lang } from './lang';
 
 /**
  * La imatge que surt quan es comparteix un enllaç: WhatsApp, Telegram, xarxes.
@@ -67,6 +68,8 @@ export interface OgCard {
   title: string;
   /** Sota el nom: comarca, altitud. */
   subtitle?: string;
+  /** El peu i el domini. El que va a dalt ja arriba escrit en l'idioma de la pàgina. */
+  lang?: Lang;
 }
 
 /** La mida del nom segons la llargada: «Lilla» i «Sant Martí de Centelles» han de cabre tots dos. */
@@ -78,7 +81,7 @@ function titleSize(title: string): number {
   return 56;
 }
 
-export async function ogImage({ kicker, title, subtitle }: OgCard): Promise<ImageResponse> {
+export async function ogImage({ kicker, title, subtitle, lang = 'ca' }: OgCard): Promise<ImageResponse> {
   const [regular, extraBold] = await fonts;
 
   return new ImageResponse(
@@ -148,8 +151,8 @@ export async function ogImage({ kicker, title, subtitle }: OgCard): Promise<Imag
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 26, opacity: 0.92 }}>
-          <span>Hora a hora i a 14 dies, amb l’estació més propera</span>
-          <span style={{ fontWeight: 800 }}>tempscat.cat</span>
+          <span>{tr(lang, 'Hora a hora i a 14 dies, amb l’estació més propera', 'Hora a hora y a 14 días, con la estación más cercana')}</span>
+          <span style={{ fontWeight: 800 }}>{tr(lang, 'tempscat.cat', 'es.tempscat.cat')}</span>
         </div>
       </div>
     ),

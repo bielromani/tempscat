@@ -430,7 +430,7 @@ export default async function RutaPage({ params }: { params: Promise<{ slug: str
             {aheadHours >= 2 && (
               <section className="card" aria-labelledby="h-hores">
                 <CardLabel id="h-hores" icon="clear-day">Hora a hora</CardLabel>
-                <NextHours hourly={hourlyUp} nowHour={nowHour} models={forecast?.models.length ?? 1} id="ruta" />
+                <NextHours hourly={hourlyUp} nowHour={nowHour} models={forecast?.models.length ?? 1} id="ruta" lang={lang} />
                 {lang === 'es' ? (
                   <p className="source">
                     La temperatura es la de {int(route.maxM)} m, subida desde el punto de predicción

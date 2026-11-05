@@ -91,7 +91,8 @@ export async function AirQuality({ air, today, lang: given }: Props) {
           {air.driver && (
             <p className="mt-2 text-sm leading-snug" style={{ opacity: 0.85 }}>
               {lang === 'es'
-                ? `El contaminante que lo marca: ${airName(air.driver.slug, lang).toLowerCase()}.`
+                // Solo la inicial: «partículas finas PM2,5», no «pm2,5».
+                ? `El contaminante que lo marca: ${airName(air.driver.slug, lang).replace(/^./, (c) => c.toLowerCase())}.`
                 : <>Ho marca {air.driver.nom.toLowerCase()}.</>}
             </p>
           )}

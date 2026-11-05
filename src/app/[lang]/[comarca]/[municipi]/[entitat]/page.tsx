@@ -6,7 +6,9 @@ import {
   breadcrumbs, comarcaOf, entitatsOfMunicipi, locationByPath, locationById,
 } from '@/lib/territory';
 import { fichaData } from '@/lib/ficha-data';
-import { aName, deName } from '@/lib/format';
+import { aName, deName, placeName } from '@/lib/format';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 
 /**
@@ -34,11 +36,16 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { comarca, municipi, entitat } = await params;
   const loc = locationByPath(`/${comarca}/${municipi}/${entitat}`);
   if (!loc) return {};
+  const lang = await getLang();
   const com = comarcaOf(loc);
   const mun = locationById(loc.parentId ?? '');
   return {
-    title: `El temps ${aName(loc.nom)}${mun ? ` (${mun.nom})` : ''} · ${com?.nom ?? 'Catalunya'}`,
-    description: com ? metaDescription(loc, com) : undefined,
+    title: tr(
+      lang,
+      `El temps ${aName(loc.nom)}${mun ? ` (${mun.nom})` : ''} · ${com?.nom ?? 'Catalunya'}`,
+      `El tiempo ${aName(loc.nom, lang)}${mun ? ` (${placeName(mun.nom, lang)})` : ''} · ${com?.nom ?? 'Cataluña'}`,
+    ),
+    description: com ? metaDescription(loc, com, lang) : undefined,
     alternates: { canonical: loc.path },
   };
 }
@@ -47,6 +54,7 @@ export default async function EntitatPage({ params }: { params: Params }) {
   const { comarca, municipi, entitat } = await params;
   const loc = locationByPath(`/${comarca}/${municipi}/${entitat}`);
   if (!loc) notFound();
+  const lang = await getLang();
 
   const com = comarcaOf(loc);
   if (!com) notFound();
@@ -54,7 +62,7 @@ export default async function EntitatPage({ params }: { params: Params }) {
   const municipiLoc = locationByPath(`/${comarca}/${municipi}`) ?? null;
   const siblings = entitatsOfMunicipi(loc.municipiCodi!).filter((s) => s.id !== loc.id);
 
-  const data = await fichaData(loc);
+  const data = await fichaData(loc, lang);
 
   return (
     <>
@@ -62,24 +70,31 @@ export default async function EntitatPage({ params }: { params: Params }) {
         {...data}
         loc={loc}
         comarca={com}
-        breadcrumbs={breadcrumbs(loc)}
+        breadcrumbs={breadcrumbs(loc, lang)}
         siblings={siblings}
-        siblingsLabel={loc.level === 'barri'
-          ? `Altres barris ${deName(municipiLoc?.nom ?? '')} amb el temps propi`
-          : municipiLoc ? `Altres nuclis ${deName(municipiLoc.nom)}` : 'Altres nuclis del municipi'}
+        siblingsLabel={lang === 'es'
+          ? (loc.level === 'barri'
+            ? `Otros barrios ${deName(municipiLoc?.nom ?? '', lang)} con su propio tiempo`
+            : municipiLoc ? `Otros núcleos ${deName(municipiLoc.nom, lang)}` : 'Otros núcleos del municipio')
+          : (loc.level === 'barri'
+            ? `Altres barris ${deName(municipiLoc?.nom ?? '')} amb el temps propi`
+            : municipiLoc ? `Altres nuclis ${deName(municipiLoc.nom)}` : 'Altres nuclis del municipi')}
         neighbours={[]}
         neighboursLabel=""
-        description={describeLocation(loc, com, municipiLoc, siblings) + (
+        description={describeLocation(loc, com, municipiLoc, siblings, lang) + (
           // D'on surt el barri: el de Barcelona és de l'Ajuntament, la resta d'OSM (ODbL).
           loc.geocodeSource === 'osm'
-            ? ' El contorn del barri és d’OpenStreetMap i els seus col·laboradors (ODbL).'
-            : loc.level === 'barri' ? ' Els barris són els de l’Ajuntament de Barcelona (Open Data BCN).' : ''
+            ? tr(lang, ' El contorn del barri és d’OpenStreetMap i els seus col·laboradors (ODbL).',
+              ' El contorno del barrio es de OpenStreetMap y sus colaboradores (ODbL).')
+            : loc.level === 'barri' ? tr(lang, ' Els barris són els de l’Ajuntament de Barcelona (Open Data BCN).',
+              ' Los barrios son los del Ajuntament de Barcelona (Open Data BCN).') : ''
         )}
+        lang={lang}
       />
       <JsonLd data={graph(
         {
           '@type': 'Place',
-          name: loc.nom,
+          name: placeName(loc.nom, lang),
           containedInPlace: municipiLoc
             ? { '@type': 'AdministrativeArea', name: municipiLoc.nom }
             : { '@type': 'AdministrativeArea', name: com.nom },
@@ -88,7 +103,7 @@ export default async function EntitatPage({ params }: { params: Params }) {
             latitude: loc.lat, longitude: loc.lon, elevation: loc.altitud,
           } : undefined,
         },
-        breadcrumbLd(breadcrumbs(loc)),
+        breadcrumbLd(breadcrumbs(loc, lang), lang),
       )} />
     </>
   );

@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 
 /**
  * La capçalera de les pàgines de secció: la mateixa composició que la portada.
@@ -68,9 +70,11 @@ export function StatGrid({ stats: all, className = '' }: { stats: MaybeStat[]; c
   );
 }
 
-export function Crumbs({ trail }: { trail: Crumb[] }) {
+/** Async per l'etiqueta del `nav`, que és l'única cosa que porta text propi: els noms arriben ja escrits. */
+export async function Crumbs({ trail }: { trail: Crumb[] }) {
+  const lang = await getLang();
   return (
-    <nav aria-label="Ruta de navegació" className="crumbs">
+    <nav aria-label={tr(lang, 'Ruta de navegació', 'Ruta de navegación')} className="crumbs">
       {trail.map((c, i) => (
         <span key={c.path}>
           {i > 0 && <span aria-hidden className="crumbs-sep">›</span>}

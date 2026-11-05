@@ -7,7 +7,9 @@ import {
   locationByPath, neighboursOf,
 } from '@/lib/territory';
 import { fichaData } from '@/lib/ficha-data';
-import { aName, deName } from '@/lib/format';
+import { aName, deName, placeName } from '@/lib/format';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 
 /**
@@ -35,10 +37,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { comarca, municipi } = await params;
   const loc = locationByPath(`/${comarca}/${municipi}`);
   if (!loc) return {};
+  const lang = await getLang();
   const com = comarcaOf(loc);
   return {
-    title: `El temps ${aName(loc.nom)} · ${com?.nom ?? 'Catalunya'}`,
-    description: com ? metaDescription(loc, com) : undefined,
+    title: tr(
+      lang,
+      `El temps ${aName(loc.nom)} · ${com?.nom ?? 'Catalunya'}`,
+      `El tiempo ${aName(loc.nom, lang)} · ${com?.nom ?? 'Cataluña'}`,
+    ),
+    description: com ? metaDescription(loc, com, lang) : undefined,
     alternates: { canonical: loc.path },
   };
 }
@@ -47,6 +54,7 @@ export default async function MunicipiPage({ params }: { params: Params }) {
   const { comarca, municipi } = await params;
   const loc = locationByPath(`/${comarca}/${municipi}`);
   if (!loc || loc.level !== 'municipi') notFound();
+  const lang = await getLang();
 
   const com = comarcaOf(loc);
   if (!com) notFound();
@@ -57,7 +65,7 @@ export default async function MunicipiPage({ params }: { params: Params }) {
   const adjacent = neighboursOf(loc.id, 'adjacent').slice(0, 8);
 
   // Totes les lectures alhora, i les mateixes que la fitxa d'un nucli: ver `fichaData()`.
-  const data = await fichaData(loc);
+  const data = await fichaData(loc, lang);
 
   return (
     <>
@@ -65,26 +73,27 @@ export default async function MunicipiPage({ params }: { params: Params }) {
         {...data}
         loc={loc}
         comarca={com}
-        breadcrumbs={breadcrumbs(loc)}
+        breadcrumbs={breadcrumbs(loc, lang)}
         siblings={entitats}
         siblingsLabel={entitats.length > 0 && entitats.every((e) => e.level === 'barri')
-          ? `Els barris de més amunt, amb el temps propi`
-          : `Nuclis i entitats ${deName(loc.nom)}`}
+          ? tr(lang, `Els barris de més amunt, amb el temps propi`, 'Los barrios más altos, con su propio tiempo')
+          : tr(lang, `Nuclis i entitats ${deName(loc.nom)}`, `Núcleos y entidades ${deName(loc.nom, lang)}`)}
         neighbours={adjacent}
-        neighboursLabel="Municipis limítrofs"
-        description={describeMunicipi(loc, com, entitats)}
+        neighboursLabel={tr(lang, 'Municipis limítrofs', 'Municipios limítrofes')}
+        description={describeMunicipi(loc, com, entitats, lang)}
+        lang={lang}
       />
       <JsonLd data={graph(
         {
           '@type': 'Place',
-          name: loc.nom,
+          name: placeName(loc.nom, lang),
           containedInPlace: { '@type': 'AdministrativeArea', name: com.nom },
           geo: loc.lat != null ? {
             '@type': 'GeoCoordinates',
             latitude: loc.lat, longitude: loc.lon, elevation: loc.altitud,
           } : undefined,
         },
-        breadcrumbLd(breadcrumbs(loc)),
+        breadcrumbLd(breadcrumbs(loc, lang), lang),
       )} />
     </>
   );

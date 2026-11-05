@@ -1,4 +1,5 @@
 import type { Narrative } from '@/lib/narrative';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * El resum del dia, en català i en una targeta: el que vol dir el número gran.
@@ -16,12 +17,12 @@ import type { Narrative } from '@/lib/narrative';
  * pròximes hores. Les franges segueixen al feed JSON (`day_parts`), on sí que
  * són útils per a qui les vol reaprofitar.
  */
-export function Headline({ narrative }: { narrative: Narrative }) {
+export function Headline({ narrative, lang = 'ca' }: { narrative: Narrative; lang?: Lang }) {
   const { today, change, tomorrow, vsYesterday, notes } = narrative;
   const more = [vsYesterday, tomorrow].filter(Boolean).join(' ');
 
   return (
-    <section className="card summary" aria-label="Resum del dia">
+    <section className="card summary" aria-label={tr(lang, 'Resum del dia', 'Resumen del día')}>
       <p className="summary-lead">
         <strong>{today}</strong>
         {change && <> {change}</>}

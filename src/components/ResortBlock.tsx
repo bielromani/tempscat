@@ -124,7 +124,17 @@ export async function ResortBlock({
 
           {resort.lastSnowfall && (
             <p className="mt-1.5 text-[13px] text-[var(--muted)]">
-              Última nevada: {resort.lastSnowfall}
+              {/*
+                FGC no en declara el format i fora de temporada ve buit. Si és
+                una data ISO, en castellà s'escriu com les altres dates; si és
+                text, passa per la mateixa taula que la resta de camps d'FGC.
+                El català el segueix ensenyant tal com arriba.
+              */}
+              Última nevada: {lang === 'es'
+                ? (/^\d{4}-\d{2}-\d{2}/.test(resort.lastSnowfall)
+                  ? dateFull(resort.lastSnowfall.slice(0, 10), lang)
+                  : fgcText(resort.lastSnowfall, lang))
+                : resort.lastSnowfall}
               {resort.lastSnowfallCm != null && `, ${int(resort.lastSnowfallCm)} cm`}
             </p>
           )}
