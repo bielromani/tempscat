@@ -110,12 +110,38 @@ export interface Scores {
   scored: string[];
   /** `model → variable → antelació → sumatori`. */
   models: Record<string, Partial<Record<VerifyVar, Record<string, Tally>>>>;
+  /**
+   * La fitxa contra cada rival, **només on hi ha tots dos**.
+   *
+   * `rival → variable → antelació → { ours, theirs }`. No es pot treure de
+   * `models.tempscat` i `models.aemet`: cada rival falla uns dies i uns pobles
+   * diferents —l'AEMET pel seu límit de peticions, yr.no o el Meteocat pel
+   * seu compte— i dues mitjanes sobre conjunts diferents no es poden posar
+   * de costat. Aquí cada comparació entra a les dues bandes alhora o a cap.
+   */
+  duels?: Record<string, Partial<Record<VerifyVar, Record<string, { ours: Tally; theirs: Tally }>>>>;
 }
 
 /** Un registre buit, que és per on es comença. */
 export function emptyScores(): Scores {
-  return { scored: [], models: {} };
+  return { scored: [], models: {}, duels: {} };
 }
+
+/**
+ * Els que publiquen una predicció per a un lloc concret i que es pot desar el
+ * mateix dia. La clau és la que porten a `Pending` i a `Scores.duels`.
+ * Google, Apple o eltiempo.es no hi són perquè no en publiquen cap que es
+ * pugui consultar així.
+ */
+export const RIVALS = {
+  aemet: 'AEMET',
+  yrno: 'yr.no (MET Norway)',
+  meteocat: 'Meteocat',
+} as const;
+export type Rival = keyof typeof RIVALS;
+
+/** La clau de la predicció d'aquest web, la de la fitxa, dins de `Pending`. */
+export const OURS = 'tempscat';
 
 /** L'error mitjà absolut, o null si encara no hi ha res. */
 export function mae(t: Tally | undefined): number | null {

@@ -45,13 +45,16 @@
  * encerta més que el que li diuen els altres**. Això només es pot mesurar amb
  * qui publica la seva predicció per a un lloc concret, i de manera que es pugui
  * desar el mateix dia: l'AEMET, amb la predicció diària de cada municipi a la
- * seva API oberta. Google, Apple o eltiempo.es no en publiquen cap que es pugui
- * consultar així, i el Meteocat demana una clau que no tenim.
+ * seva API oberta, i yr.no (MET Norway), una de les aplicacions més fetes
+ * servir d'Europa, amb la seva (CC BY 4.0). El Meteocat hi és preparat i
+ * apagat fins que hi hagi clau. Google, Apple o eltiempo.es no en publiquen
+ * cap que es pugui consultar així.
  *
- * Així que, al costat dels models, es desen dues entrades més, i **sempre
- * juntes, per a les mateixes estacions i els mateixos dies**:
+ * Així que, al costat dels models, es desen més entrades
+ * (`RIVALS` a `src/lib/verify.ts`):
  *
- *  · `aemet`: la màxima i la mínima que l'AEMET dona per al municipi.
+ *  · `aemet`, `yrno`, `meteocat`: la màxima i la mínima que cadascú dona per
+ *    al municipi.
  *  · `tempscat`: el que diu la fitxa d'aquell mateix municipi —el consens de
  *    models del seu punt, corregit a la cota del poble—, calculat igual que
  *    `forecastFor()`.
@@ -63,8 +66,9 @@
  * 140 estacions. L'AEMET no dona mil·límetres —només probabilitat—, així que
  * aquesta comparació és de temperatura.
  *
- * Una entrada sense l'altra no es desa: amb dies o estacions diferents, els
- * dos números no es podrien posar de costat.
+ * Cada rival es compara amb la fitxa només on hi són tots dos
+ * (`Scores.duels`): amb dies o estacions diferents, els dos números no es
+ * podrien posar de costat.
  *
  * Sortida: verify/pendent/<dia>.json i verify/encert.json
  */
@@ -78,8 +82,8 @@ import { aggregateDaily, mergeHourly, type PointForecast } from '../../src/lib/f
 import { LAPSE_RATE } from '../../src/lib/variables.ts';
 import { FORECAST_INDEX, forecastShard, type ForecastIndex } from '../../src/lib/shards.ts';
 import {
-  LEADS, VERIFY_VARS, emptyScores, pendingShard, scoresShard,
-  type Pending, type Predicted, type Scores, type Tally,
+  LEADS, OURS, RIVALS, VERIFY_VARS, emptyScores, pendingShard, scoresShard,
+  type Pending, type Predicted, type Rival, type Scores, type Tally,
 } from '../../src/lib/verify.ts';
 
 /**
@@ -216,12 +220,13 @@ async function main() {
       .map((l) => [l.municipiIne5, l]),
   );
   const headToHead = stations.flatMap((s) => {
-    const ine = s.municipiIne5?.padStart(6, '0').slice(0, 5);
+    const ine6 = s.municipiIne5?.padStart(6, '0');
+    const ine = ine6?.slice(0, 5);
     const town = ine ? towns.get(ine) : undefined;
     if (!town || s.altitud == null) return [];
     if (Math.abs(town.altitud! - s.altitud) > H2H_DALT) return [];
     if (distKm(s.lat, s.lon, town.lat, town.lon) > H2H_KM) return [];
-    return [{ station: s, town, ine: ine! }];
+    return [{ station: s, town, ine: ine!, ine6: ine6! }];
   });
   console.log(`Estacions que representen el seu poble, per a l'AEMET: ${headToHead.length}`);
 
@@ -280,6 +285,29 @@ async function main() {
             t.sumError += err;
             t.sumAbs += Math.abs(err);
             scored++;
+          }
+        }
+
+        /*
+         * La fitxa contra cada rival, en el mateix pas i només on hi ha
+         * tots dos: vegeu `Scores.duels`.
+         */
+        const ours = byModel[OURS];
+        if (!ours) continue;
+        for (const rival of Object.keys(RIVALS) as Rival[]) {
+          const theirs = byModel[rival];
+          if (!theirs) continue;
+          for (const v of VERIFY_VARS) {
+            const got = real[v];
+            if (got == null || ours[v] == null || theirs[v] == null) continue;
+            const d = (((scores.duels ??= {})[rival] ??= {})[v] ??= {});
+            const pair = (d[lead] ??= { ours: emptyTally(), theirs: emptyTally() });
+            for (const [t, said] of [[pair.ours, ours[v]!], [pair.theirs, theirs[v]!]] as const) {
+              const err = said - got;
+              t.n++;
+              t.sumError += err;
+              t.sumAbs += Math.abs(err);
+            }
           }
         }
       }
@@ -367,13 +395,11 @@ async function main() {
     }
   }
 
-  // ── 2b. El que diu aquest web i el que diu l'AEMET, del mateix poble ──────
+  // ── 2b. El que diu aquest web i el que diuen els altres, del mateix poble ──
   const h2h = await captureHeadToHead(headToHead, foundTown, times, today, quota);
   for (const lead of LEADS) {
-    for (const [codi, pair] of Object.entries(h2h[String(lead)] ?? {})) {
-      const slot = (captured[String(lead)][codi] ??= {});
-      slot.tempscat = pair.tempscat;
-      slot.aemet = pair.aemet;
+    for (const [codi, bySource] of Object.entries(h2h[String(lead)] ?? {})) {
+      Object.assign((captured[String(lead)][codi] ??= {}), bySource);
     }
   }
 
@@ -399,13 +425,22 @@ async function main() {
       issued: today,
       stations: stationsForLead,
     };
-    writeSnapshot(pendingShard(target), 'Open-Meteo + Meteocat XEMA', next, target);
+    writeSnapshot(pendingShard(target), 'Open-Meteo + AEMET + MET Norway + Meteocat XEMA', next, target);
     written++;
   }
 
   writeSnapshot(scoresShard(), 'Open-Meteo + Meteocat XEMA', scores, scores.scored.at(-1) ?? null);
 
   const lines: string[] = [];
+  for (const [rival, vars] of Object.entries(scores.duels ?? {})) {
+    const t = vars.tMax?.['1'];
+    if (t && t.ours.n) {
+      lines.push(
+        `  fitxa contra ${rival.padEnd(15)} tMax a 1 dia: ${(t.ours.sumAbs / t.ours.n).toFixed(2)}`
+        + ` contra ${(t.theirs.sumAbs / t.theirs.n).toFixed(2)} °C · ${t.ours.n} comparacions`,
+      );
+    }
+  }
   for (const [model, vars] of Object.entries(scores.models)) {
     const t = vars.tMax?.['1'];
     if (t && t.n) {
@@ -454,8 +489,8 @@ async function main() {
 }
 
 /**
- * El que diu la fitxa d'un poble i el que diu l'AEMET del mateix poble, per a
- * cada antelació. Només surt una estació si hi ha **les dues**.
+ * El que diu la fitxa d'un poble i el que en diuen els altres, per a cada
+ * antelació: l'AEMET, yr.no i, quan hi hagi clau, el Meteocat.
  *
  * La fitxa es calcula com `forecastFor()`: tots els models del punt del poble,
  * amb la correcció de la cota del poble contra la que suposa el primer model,
@@ -463,22 +498,19 @@ async function main() {
  * aquell llegeix del magatzem amb `server-only`, però les dues funcions que
  * fan la feina són les mateixes.
  *
- * Si l'AEMET no respon o no hi ha clau, no es desa cap entrada `aemet` ni
- * `tempscat`: els models es segueixen puntuant igual.
+ * Cada rival es demana pel seu compte i pot fallar pel seu compte: si l'AEMET
+ * es queda sense temps, yr.no no se'n ressent. Una estació només es desa si hi
+ * ha la fitxa i **almenys un** rival; l'emparellament fi —la mateixa estació i
+ * el mateix dia a les dues bandes— el fa la puntuació (`Scores.duels`).
  */
 async function captureHeadToHead(
-  pairs: Array<{ station: Station; town: Town; ine: string }>,
+  pairs: Array<{ station: Station; town: Town; ine: string; ine6: string }>,
   points: Map<string, ShardPoint>,
   times: string[],
   today: string,
   quota: QuotaGuard,
-): Promise<Record<string, Record<string, { tempscat: Predicted; aemet: Predicted }>>> {
-  const out: Record<string, Record<string, { tempscat: Predicted; aemet: Predicted }>> = {};
-  const key = process.env.AEMET_API_KEY;
-  if (!key) {
-    console.log("Sense AEMET_API_KEY: no es desa la comparació amb l'AEMET.");
-    return out;
-  }
+): Promise<Record<string, Record<string, Record<string, Predicted>>>> {
+  const out: Record<string, Record<string, Record<string, Predicted>>> = {};
 
   /*
    * Es comença per un municipi diferent cada dia: si algun dia s'acaba el temps,
@@ -487,36 +519,31 @@ async function captureHeadToHead(
   const ines = [...new Set(pairs.map((p) => p.ine))].sort();
   const shift = Math.floor(Date.parse(`${today}T00:00:00Z`) / 86_400_000) % Math.max(1, ines.length);
   const order = [...ines.slice(shift), ...ines.slice(0, shift)];
+  const byIne = new Map(pairs.map((p) => [p.ine, p]));
 
-  const aemetByIne = new Map<string, Map<string, { tMax: number | null; tMin: number | null }>>();
-  const started = Date.now();
-  let failed = 0;
-  let skipped = 0;
-  for (const [i, ine] of order.entries()) {
-    if (Date.now() - started > AEMET_BUDGET_MS) {
-      skipped = order.length - i;
-      break;
-    }
-    try {
-      aemetByIne.set(ine, await aemetDaily(ine, key, quota));
-    } catch (err) {
-      failed++;
-      console.log(`  AEMET ${ine}: ${(err as Error).message}`);
-    }
-    if ((i + 1) % 25 === 0) {
-      console.log(`  AEMET: ${i + 1} de ${order.length} · ${Math.round((Date.now() - started) / 1000)} s`);
-    }
+  // yr.no primer: és ràpid, i així no depèn de quant trigui l'AEMET.
+  const rivals: Partial<Record<Rival, Map<string, Map<string, Daily>>>> = {};
+  rivals.yrno = await eachTown('yr.no', order, (ine) => yrnoDaily(byIne.get(ine)!.town, quota));
+
+  const meteocatKey = process.env.METEOCAT_API_KEY;
+  if (meteocatKey) {
+    rivals.meteocat = await eachTown(
+      'Meteocat', order, (ine) => meteocatDaily(byIne.get(ine)!.ine6, meteocatKey, quota),
+    );
+  } else {
+    console.log('Sense METEOCAT_API_KEY: no es desa la comparació amb el Meteocat.');
   }
-  console.log(
-    `Prediccions municipals de l'AEMET: ${aemetByIne.size} · fallades: ${failed}` +
-    (skipped ? ` · ${skipped} sense temps` : '') +
-    ` · ${Math.round((Date.now() - started) / 1000)} s`,
-  );
+
+  const aemetKey = process.env.AEMET_API_KEY;
+  if (aemetKey) {
+    rivals.aemet = await eachTown("l'AEMET", order, (ine) => aemetDaily(ine, aemetKey, quota), AEMET_BUDGET_MS);
+  } else {
+    console.log("Sense AEMET_API_KEY: no es desa la comparació amb l'AEMET.");
+  }
 
   for (const { station, town, ine } of pairs) {
     const byModel = points.get(town.forecastPointId!);
-    const aemet = aemetByIne.get(ine);
-    if (!byModel || !aemet) continue;
+    if (!byModel) continue;
     const models = Object.keys(byModel);
     if (!models.length) continue;
 
@@ -530,17 +557,173 @@ async function captureHeadToHead(
     for (const lead of LEADS) {
       const target = plusDays(today, lead);
       const ours = daily.find((x) => x.date === target);
-      const theirs = aemet.get(target);
-      if (!ours || !theirs || theirs.tMax == null || theirs.tMin == null) continue;
-      (out[String(lead)] ??= {})[station.codi] = {
-        tempscat: {
-          tMax: ours.tMax != null ? Math.round(ours.tMax * 10) / 10 : null,
-          tMin: ours.tMin != null ? Math.round(ours.tMin * 10) / 10 : null,
-          precip: null,
-        },
-        aemet: { tMax: theirs.tMax, tMin: theirs.tMin, precip: null },
+      if (!ours) continue;
+      const entry: Record<string, Predicted> = {};
+      for (const [rival, days] of Object.entries(rivals)) {
+        const theirs = days?.get(ine)?.get(target);
+        if (!theirs || theirs.tMax == null || theirs.tMin == null) continue;
+        entry[rival] = { tMax: theirs.tMax, tMin: theirs.tMin, precip: null };
+      }
+      if (!Object.keys(entry).length) continue;
+      entry[OURS] = {
+        tMax: ours.tMax != null ? Math.round(ours.tMax * 10) / 10 : null,
+        tMin: ours.tMin != null ? Math.round(ours.tMin * 10) / 10 : null,
+        precip: null,
       };
+      (out[String(lead)] ??= {})[station.codi] = entry;
     }
+  }
+  return out;
+}
+
+/** Màxima i mínima d'un dia, tal com les dona una font. */
+interface Daily { tMax: number | null; tMin: number | null }
+
+/** Demana un rival per a cada municipi, amb un temps màxim i comptant les fallades. */
+async function eachTown(
+  label: string,
+  order: string[],
+  fetchOne: (ine: string) => Promise<Map<string, Daily>>,
+  budgetMs = 20 * 60_000,
+): Promise<Map<string, Map<string, Daily>>> {
+  const byIne = new Map<string, Map<string, Daily>>();
+  const started = Date.now();
+  let failed = 0;
+  let skipped = 0;
+  for (const [i, ine] of order.entries()) {
+    if (Date.now() - started > budgetMs) {
+      skipped = order.length - i;
+      break;
+    }
+    try {
+      byIne.set(ine, await fetchOne(ine));
+    } catch (err) {
+      failed++;
+      console.log(`  ${label} ${ine}: ${(err as Error).message}`);
+    }
+    if ((i + 1) % 25 === 0) {
+      console.log(`  ${label}: ${i + 1} de ${order.length} · ${Math.round((Date.now() - started) / 1000)} s`);
+    }
+  }
+  console.log(
+    `Prediccions municipals de ${label}: ${byIne.size} · fallades: ${failed}` +
+    (skipped ? ` · ${skipped} sense temps` : '') +
+    ` · ${Math.round((Date.now() - started) / 1000)} s`,
+  );
+  return byIne;
+}
+
+/**
+ * La data local de Madrid d'un instant, `AAAA-MM-DD`. Els instants de yr.no van
+ * en UTC i s'han de partir per dia de Catalunya, com els de la XEMA.
+ */
+function madridDate(ms: number): string {
+  return new Date(ms).toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).slice(0, 10);
+}
+
+const YR_BASE = 'https://api.met.no/weatherapi/locationforecast/2.0/complete';
+/**
+ * MET Norway demana que cada client s'identifiqui amb una adreça de contacte
+ * i bloqueja els que no ho fan. Les dades són CC BY 4.0.
+ */
+const YR_UA = 'tempscat.cat/1.0 https://tempscat.cat';
+
+/**
+ * La màxima i la mínima que yr.no dona per a cada dia, al nucli del municipi i
+ * a la seva cota (`altitude=`, que és el que fa la seva aplicació).
+ *
+ * La sèrie és horària fins a uns dos dies i mig i després va de sis en sis
+ * hores. Amb sis hores, la temperatura instantània se salta la màxima de la
+ * tarda, així que també es fan servir `air_temperature_max` i `_min` dels
+ * trams de sis hores que cauen sencers dins del dia. Un dia sense cobertura
+ * sencera —el primer, que comença a mitja tarda— no es desa.
+ */
+async function yrnoDaily(town: Town, quota: QuotaGuard): Promise<Map<string, Daily>> {
+  await sleep(250);
+  const url = `${YR_BASE}?lat=${town.lat.toFixed(4)}&lon=${town.lon.toFixed(4)}`
+    + (town.altitud != null ? `&altitude=${Math.round(town.altitud)}` : '');
+  const body = await fetchJson<{
+    properties: {
+      timeseries: Array<{
+        time: string;
+        data: {
+          instant: { details: { air_temperature?: number } };
+          next_6_hours?: { details?: { air_temperature_max?: number; air_temperature_min?: number } };
+        };
+      }>;
+    };
+  }>(url, { headers: { 'User-Agent': YR_UA }, timeoutMs: 30_000 });
+  quota.spend('yrno', 1);
+
+  const byDay = new Map<string, { values: number[]; hours: Set<number> }>();
+  for (const t of body.properties.timeseries) {
+    const ms = Date.parse(t.time);
+    const day = madridDate(ms);
+    const slot = byDay.get(day) ?? { values: [], hours: new Set<number>() };
+    byDay.set(day, slot);
+    const temp = t.data.instant.details.air_temperature;
+    if (typeof temp === 'number') {
+      slot.values.push(temp);
+      slot.hours.add(ms);
+    }
+    /*
+     * Un tram de sis hores compta si almenys cinc cauen dins del dia: els trams
+     * de yr.no van de 00, 06, 12 i 18 UTC, i el del vespre acaba a l'01:00
+     * d'hivern (02:00 d'estiu) de l'endemà. Exigint-lo sencer, el tercer dia
+     * no sortiria mai. L'hora que sobra és de matinada, que és on el dia ja
+     * s'acaba: per a la màxima no hi fa res i per a la mínima, poc.
+     */
+    const six = t.data.next_6_hours?.details;
+    if (six) {
+      const inside = [1, 2, 3, 4, 5].map((h) => ms + h * 3_600_000).filter((h) => madridDate(h) === day);
+      if (inside.length >= 4) {
+        if (typeof six.air_temperature_max === 'number') slot.values.push(six.air_temperature_max);
+        if (typeof six.air_temperature_min === 'number') slot.values.push(six.air_temperature_min);
+        for (const h of inside) slot.hours.add(h);
+      }
+    }
+  }
+
+  const out = new Map<string, Daily>();
+  for (const [day, { values, hours }] of byDay) {
+    // Un dia té 23, 24 o 25 hores; amb menys de 23 cobertes no és el dia sencer.
+    if (hours.size < 23 || !values.length) continue;
+    out.set(day, {
+      tMax: Math.round(Math.max(...values) * 10) / 10,
+      tMin: Math.round(Math.min(...values) * 10) / 10,
+    });
+  }
+  return out;
+}
+
+const METEOCAT_BASE = 'https://api.meteo.cat/pronostic/v1/municipal';
+
+/**
+ * La predicció municipal del Meteocat: màxima i mínima per data.
+ *
+ * **Preparat però apagat**: només corre si hi ha `METEOCAT_API_KEY`. El pla
+ * gratuït de la seva API prohibeix difondre a tercers el que retorna (vegeu
+ * `docs/09-legal-y-costes.md`), així que no se n'ensenya mai cap xifra: només
+ * entra a la comparació, i abans de publicar-ne el resultat s'ha de tenir per
+ * escrit del Meteocat que es pot.
+ *
+ * El codi és l'INE de sis xifres, amb el dígit de control, que és el que porta
+ * la XEMA. El format de la resposta no s'ha pogut provar sense clau: si no és
+ * el que s'espera, llança, i ho diu el registre de cada municipi.
+ */
+async function meteocatDaily(ine6: string, key: string, quota: QuotaGuard): Promise<Map<string, Daily>> {
+  await sleep(250);
+  const body = await fetchJson<{
+    dies?: Array<{ data: string; variables?: { tmax?: { valor?: number }; tmin?: { valor?: number } } }>;
+  }>(`${METEOCAT_BASE}/${ine6}`, { headers: { 'X-Api-Key': key }, timeoutMs: 30_000 });
+  quota.spend('meteocat', 1);
+  if (!Array.isArray(body.dies)) throw new Error('resposta sense `dies`: ha canviat el format?');
+  const out = new Map<string, Daily>();
+  for (const d of body.dies) {
+    out.set(d.data.slice(0, 10), {
+      tMax: typeof d.variables?.tmax?.valor === 'number' ? d.variables.tmax.valor : null,
+      tMin: typeof d.variables?.tmin?.valor === 'number' ? d.variables.tmin.valor : null,
+    });
   }
   return out;
 }
@@ -553,7 +736,7 @@ async function captureHeadToHead(
  */
 async function aemetDaily(
   ine: string, key: string, quota: QuotaGuard,
-): Promise<Map<string, { tMax: number | null; tMin: number | null }>> {
+): Promise<Map<string, Daily>> {
   interface Meta { estado: number; datos?: string; descripcion: string }
   let meta: Meta | null = null;
   for (let attempt = 1; attempt <= 4; attempt++) {
@@ -573,7 +756,7 @@ async function aemetDaily(
   const body = JSON.parse(await res.text()) as Array<{
     prediccion?: { dia?: Array<{ fecha: string; temperatura?: { maxima?: number | null; minima?: number | null } }> };
   }>;
-  const out = new Map<string, { tMax: number | null; tMin: number | null }>();
+  const out = new Map<string, Daily>();
   for (const d of body[0]?.prediccion?.dia ?? []) {
     out.set(d.fecha.slice(0, 10), {
       tMax: typeof d.temperatura?.maxima === 'number' ? d.temperatura.maxima : null,
