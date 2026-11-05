@@ -11,6 +11,7 @@ import { aName, deName, placeName } from '@/lib/format';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Página de municipio. 947 rutas.
@@ -46,7 +47,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       `El tiempo ${aName(loc.nom, lang)} · ${com?.nom ?? 'Cataluña'}`,
     ),
     description: com ? metaDescription(loc, com, lang) : undefined,
-    alternates: { canonical: loc.path },
+    alternates: alternatesFor(loc.path),
   };
 }
 

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
-import { absolute } from '@/lib/site';
+import { absolute, alternatesFor } from '@/lib/site';
 import { publishedPlaces } from '@/lib/territory';
 import { int } from '@/lib/format';
 import { getLang } from '@/lib/i18n';
@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'observació de la XEMA, predicció multimodel, qualitat de l\'aire i avisos oficials.',
       `Feed público en JSON y CSV para cualquiera de los ${PLACES} lugares de Cataluña: `
       + 'observación de la XEMA, predicción multimodelo, calidad del aire y avisos oficiales.'),
-    alternates: { canonical: '/dades' },
+    alternates: alternatesFor('/dades'),
   };
 }
 

@@ -80,7 +80,7 @@ const LIVE_PAGES = [
 ];
 
 /** Les rutes que no són pàgines i que tenen un segment dinàmic. Vegeu `rewrites()`. */
-const NOT_PAGES = '(?!api/|base/|relleu/|vent/|radar/t/|cameres/i/|mapa/geo/|avisos/feed|_next/)';
+const NOT_PAGES = '(?!api/|base/|relleu/|vent/|radar/t/|cameres/i/|mapa/geo/|avisos/feed|sitemap/|_next/)';
 
 /** El castellà: qualsevol domini que comenci per `es.` (`es.tempscat.cat`, `es.localhost`). */
 const ES_HOST = { type: 'host' as const, value: 'es\\..*' };

@@ -13,6 +13,7 @@ import { Fold } from '@/components/Fold';
 import { MAP_BOX } from '@/lib/webmap';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * El radar: on plou ara, en un mapa que es mou.
@@ -67,7 +68,7 @@ export async function generateMetadata(): Promise<Metadata> {
       'Dónde llueve ahora mismo en Cataluña: el radar de las dos últimas horas en un mapa '
       + 'que se puede mover y ampliar, con la temperatura de cada municipio, el viento '
       + 'previsto y los avisos oficiales. Cartografía del ICGC.'),
-    alternates: { canonical: '/radar' },
+    alternates: alternatesFor('/radar'),
   };
 }
 

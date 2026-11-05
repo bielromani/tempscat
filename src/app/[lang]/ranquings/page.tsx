@@ -13,6 +13,7 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { getLang } from '@/lib/i18n';
 import { tr, type Lang } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Ránquings del día.
@@ -42,7 +43,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'automàtiques de la XEMA, amplitud tèrmica, pluja acumulada i ratxes de vent.',
       'Dónde ha hecho más frío y más calor hoy en Cataluña: extremos de las estaciones '
       + 'automáticas de la XEMA, amplitud térmica, lluvia acumulada y rachas de viento.'),
-    alternates: { canonical: '/ranquings' },
+    alternates: alternatesFor('/ranquings'),
   };
 }
 

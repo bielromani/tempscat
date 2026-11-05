@@ -11,6 +11,7 @@ import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { comarcaName, hourSpoken, num } from '@/lib/format';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * El mapa de temperatures, de tot Catalunya i d'una ullada.
@@ -47,7 +48,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'estacions del Meteocat i corregida per l’altitud de cada municipi.',
       'Qué temperatura hace ahora en cada comarca de Cataluña, medida por las '
       + 'estaciones del Meteocat y corregida por la altitud de cada municipio.'),
-    alternates: { canonical: '/mapa' },
+    alternates: alternatesFor('/mapa'),
   };
 }
 

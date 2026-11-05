@@ -6,6 +6,7 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { getLang } from '@/lib/i18n';
 import { tr, type Lang } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /*
  * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
@@ -20,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: tr(lang, 'Estat de les dades', 'Estado de los datos'),
     description: tr(lang, 'Quan es va actualitzar per última vegada cada font de dades del web.',
       'Cuándo se actualizó por última vez cada fuente de datos de la web.'),
-    alternates: { canonical: '/estat' },
+    alternates: alternatesFor('/estat'),
   };
 }
 

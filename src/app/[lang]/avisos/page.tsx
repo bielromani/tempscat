@@ -15,6 +15,7 @@ import { pushAlertsAvailable } from '@/lib/push-available';
 import { AMBITS, groupByZone, zoneLabel } from '@/lib/zones';
 import { getLang } from '@/lib/i18n';
 import { tr, type Lang } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Los avisos oficiales vigentes, por comarca.
@@ -57,7 +58,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'original i l\'enllaç a la font.',
       'Los avisos oficiales de AEMET en vigor ahora mismo, por comarca, con el texto '
       + 'original y el enlace a la fuente.'),
-    alternates: { canonical: '/avisos' },
+    alternates: alternatesFor('/avisos'),
   };
 }
 

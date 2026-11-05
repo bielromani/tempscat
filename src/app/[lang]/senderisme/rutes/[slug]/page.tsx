@@ -26,6 +26,7 @@ import { tr, type Lang } from '@/lib/lang';
 import { External } from '@/components/External';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section, StatGrid, type HeroStat } from '@/components/PageHero';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Un itinerari, amb la predicció a la seva altura.
@@ -81,7 +82,7 @@ export async function generateMetadata(
       : `${route.name}: ${num(route.km, 1)} km`
         + (route.minM != null && route.maxM != null ? ` entre ${int(route.minM)} i ${int(route.maxM)} m` : '')
         + '. Amb la predicció a l’altura de l’itinerari: cota de neu, temperatura a dalt i vent.',
-    alternates: { canonical: `/senderisme/rutes/${route.slug}` },
+    alternates: alternatesFor(`/senderisme/rutes/${route.slug}`),
   };
 }
 

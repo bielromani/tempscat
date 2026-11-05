@@ -18,6 +18,7 @@ import { withObservedToday } from '@/components/LocationView';
 import { localToday } from '@/lib/weather';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
+import { alternatesFor } from '@/lib/site';
 
 /** Página de comarca: 43 rutas. */
 /*
@@ -53,14 +54,14 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       title: `El tiempo ${aComarca(c.nom, lang)} · ${c.nMunicipis} municipios`,
       description: `Temperatura actual y predicción para los ${c.nMunicipis} municipios ${deComarca(c.nom, lang)}, `
         + `con datos de las estaciones automáticas del Meteocat.`,
-      alternates: { canonical: c.path },
+      alternates: alternatesFor(c.path),
     };
   }
   return {
     title: `El temps ${aName(comarcaName(c.nom))} · ${c.nMunicipis} municipis`,
     description: `Temperatura actual i predicció per als ${c.nMunicipis} municipis ${deComarca(c.nom)}, `
       + `amb dades de les estacions automàtiques del Meteocat.`,
-    alternates: { canonical: c.path },
+    alternates: alternatesFor(c.path),
   };
 }
 

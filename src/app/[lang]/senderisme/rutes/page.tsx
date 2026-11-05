@@ -13,6 +13,7 @@ import { External } from '@/components/External';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Els itineraris de senderisme senyalitzats de Catalunya.
@@ -61,7 +62,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'les comarques que travessen. Amb la predicció a l\'altura de cada itinerari.',
       'Los GR y los PR-C de Cataluña con la distancia, las cotas por donde pasan y '
       + 'las comarcas que atraviesan. Con la predicción a la altura de cada ruta.'),
-    alternates: { canonical: '/senderisme/rutes' },
+    alternates: alternatesFor('/senderisme/rutes'),
   };
 }
 

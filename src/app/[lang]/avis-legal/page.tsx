@@ -6,6 +6,7 @@ import { External } from '@/components/External';
 import { LEGAL_UPDATED, OWNER } from '@/lib/owner';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * L'avís legal: qui és el titular, què es pot esperar del que s'hi publica i
@@ -25,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: tr(lang,
       'Titular del lloc, condicions d’ús de la informació meteorològica i llicències de les dades que s’hi publiquen.',
       'Titular del sitio, condiciones de uso de la información meteorológica y licencias de los datos que se publican.'),
-    alternates: { canonical: '/avis-legal' },
+    alternates: alternatesFor('/avis-legal'),
   };
 }
 

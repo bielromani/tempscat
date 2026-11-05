@@ -22,6 +22,7 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { getLang } from '@/lib/i18n';
 import { tr, type Lang } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Ficha de estación. 189 rutas operativas.
@@ -63,7 +64,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       `Datos de la estación automática ${deName(s.nom, lang)} (XEMA, código ${s.codi}), `
       + `a ${s.altitud != null ? `${Math.round(s.altitud)} m` : 'cota desconocida'}: `
       + 'récords, normales mensuales, rosa de los vientos y los últimos 45 días.'),
-    alternates: { canonical: `/estacions/${s.codi}` },
+    alternates: alternatesFor(`/estacions/${s.codi}`),
   };
 }
 

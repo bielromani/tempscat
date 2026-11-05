@@ -14,6 +14,7 @@ import { fold, match } from '@/lib/search-match';
 import { anchorSlug } from '@/lib/zones';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Los embalses, los ríos y la sequía.
@@ -52,7 +53,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'tendència del mes i cabal dels rius, amb dades de l\'Agència Catalana de l\'Aigua.',
       'Cómo están los embalses de las cuencas internas: porcentaje de volumen, '
       + 'tendencia del mes y caudal de los ríos, con datos de la Agència Catalana de l\'Aigua.'),
-    alternates: { canonical: '/aigua' },
+    alternates: alternatesFor('/aigua'),
   };
 }
 

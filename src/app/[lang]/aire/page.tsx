@@ -13,6 +13,7 @@ import { concentrationColor } from '@/lib/scales';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * La calidad del aire medida, estación por estación.
@@ -49,7 +50,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'Vigilància i Previsió de la Contaminació Atmosfèrica.',
       'Las medias diarias de NO₂, ozono y partículas en las estaciones de la Xarxa de '
       + 'Vigilància i Previsió de la Contaminació Atmosfèrica.'),
-    alternates: { canonical: '/aire' },
+    alternates: alternatesFor('/aire'),
   };
 }
 

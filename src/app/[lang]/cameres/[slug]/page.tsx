@@ -9,6 +9,7 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section, StatGrid } from '@/components/PageHero';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Una cámara.
@@ -65,7 +66,7 @@ export async function generateMetadata(
       + 'Ferrocarrils amb l’hora de la fotografia.',
       `Cómo está ahora mismo ${cam.name}, en ${cam.resort}. Imagen de la cámara de `
       + 'Ferrocarrils con la hora de la fotografía.'),
-    alternates: { canonical: `/cameres/${cam.slug}` },
+    alternates: alternatesFor(`/cameres/${cam.slug}`),
   };
 }
 

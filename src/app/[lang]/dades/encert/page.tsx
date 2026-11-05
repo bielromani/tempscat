@@ -14,6 +14,7 @@ import { PageHero, Section } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
 import { getLang } from '@/lib/i18n';
 import { tr, type Lang } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /*
  * Es genera a cada petició i el CDN la guarda cinc minuts: la regla és a
@@ -31,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'mesurat hora a hora contra les estacions de la XEMA.',
       'El error de la temperatura actual de esta web y el de los modelos meteorológicos, '
       + 'medido hora a hora contra las estaciones de la XEMA.'),
-    alternates: { canonical: '/dades/encert' },
+    alternates: alternatesFor('/dades/encert'),
   };
 }
 

@@ -15,6 +15,7 @@ import { CoastalWarning } from '@/components/CoastalWarning';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Condicions per sortir a navegar.
@@ -57,7 +58,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'costa catalana, tram a tram i de nord a sud.',
       'Viento medido, altura y periodo de la ola y temperatura del agua en toda la '
       + 'costa catalana, tramo a tramo y de norte a sur.'),
-    alternates: { canonical: '/nautica' },
+    alternates: alternatesFor('/nautica'),
   };
 }
 

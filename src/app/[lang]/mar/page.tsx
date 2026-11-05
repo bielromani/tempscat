@@ -17,6 +17,7 @@ import { mapOutline } from '@/lib/map';
 import { PageHero } from '@/components/PageHero';
 import { CoastalWarning } from '@/components/CoastalWarning';
 import { Fold } from '@/components/Fold';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * El mar: com està cada tros de costa, i les platges que hi ha.
@@ -68,7 +69,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'tram a tram de Portbou a Alcanar, i la previsió del mar dels pròxims dies.',
       'La temperatura del agua, el oleaje, el viento y la bandera de las playas, '
       + 'tramo a tramo de Portbou a Alcanar, y la previsión del mar de los próximos días.'),
-    alternates: { canonical: '/mar' },
+    alternates: alternatesFor('/mar'),
   };
 }
 

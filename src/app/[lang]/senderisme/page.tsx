@@ -14,6 +14,7 @@ import { tr } from '@/lib/lang';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Com està la muntanya ara mateix.
@@ -47,7 +48,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'd’alta muntanya de Catalunya, i la isoterma de zero graus.',
       'Rachas, temperatura y sensación térmica medidas ahora mismo en las estaciones '
       + 'de alta montaña de Cataluña, y la isoterma de cero grados.'),
-    alternates: { canonical: '/senderisme' },
+    alternates: alternatesFor('/senderisme'),
   };
 }
 

@@ -2,7 +2,9 @@ import type { MetadataRoute } from 'next';
 import { allPublishedPaths, buildSummary, operativeStations } from '@/lib/territory';
 import { cameraSlugs } from '@/lib/cameras';
 import { allAxes, routeSlugs } from '@/lib/routes';
-import { IS_PRODUCTION, absolute } from '@/lib/site';
+import { headers } from 'next/headers';
+import { ES_PUBLIC, IS_PRODUCTION, absolute } from '@/lib/site';
+import { langFromHost, type Lang } from '@/lib/lang';
 
 /**
  * Los sitemaps, partidos por tipo de página.
@@ -39,6 +41,19 @@ import { IS_PRODUCTION, absolute } from '@/lib/site';
 export const SITEMAP_KINDS = ['tematiques', 'comarques', 'municipis', 'nuclis', 'rutes'] as const;
 type Kind = typeof SITEMAP_KINDS[number];
 
+/**
+ * Cada domini publica les seves adreces: `es.tempscat.cat/sitemap/…` dona les
+ * del castellà. Amb el castellà publicat, cada adreça porta també la de l'altra
+ * llengua (`hreflang`), com fa la capçalera de la pàgina amb `alternatesFor`.
+ */
+function urlsFor(lang: Lang) {
+  return (path: string) => ({
+    url: absolute(path, lang),
+    ...(ES_PUBLIC ? { alternates: { languages: { ca: absolute(path, 'ca'), es: absolute(path, 'es') } } } : {}),
+  });
+}
+type At = ReturnType<typeof urlsFor>;
+
 export async function generateSitemaps() {
   return SITEMAP_KINDS.map((id) => ({ id }));
 }
@@ -51,7 +66,7 @@ export async function generateSitemaps() {
  * worker no ha corrido nunca la lista viene vacía y el sitemap sale sin ellas,
  * que es preferible a anunciar veinticuatro URL que darían 404.
  */
-async function thematic(lastModified: Date): Promise<MetadataRoute.Sitemap> {
+async function thematic(lastModified: Date, at: At): Promise<MetadataRoute.Sitemap> {
   const fixed: Array<[string, number]> = [
     ['/', 1],
     ['/cerca', 0.6],
@@ -77,13 +92,13 @@ async function thematic(lastModified: Date): Promise<MetadataRoute.Sitemap> {
 
   return [
     ...fixed.map(([path, priority]) => ({
-      url: absolute(path), lastModified, priority,
+      ...at(path), lastModified, priority,
     })),
     ...operativeStations().map((s) => ({
-      url: absolute(`/estacions/${s.codi}`), lastModified, priority: 0.5,
+      ...at(`/estacions/${s.codi}`), lastModified, priority: 0.5,
     })),
     ...(await cameraSlugs()).map((slug) => ({
-      url: absolute(`/cameres/${slug}`), lastModified, priority: 0.5,
+      ...at(`/cameres/${slug}`), lastModified, priority: 0.5,
     })),
   ];
 }
@@ -108,10 +123,15 @@ export default async function sitemap(
   // indexar 4.500 copias de un sitio que ya existe en otra URL.
   if (!IS_PRODUCTION) return [];
 
+  // El castellà, mentre no es publica, no ofereix res a indexar: vegeu `ES_PUBLIC`.
+  const lang = langFromHost((await headers()).get('host'));
+  if (lang === 'es' && !ES_PUBLIC) return [];
+  const at = urlsFor(lang);
+
   const kind = await id;
   const lastModified = new Date(String(buildSummary().builtAt));
 
-  if (kind === 'tematiques') return thematic(lastModified);
+  if (kind === 'tematiques') return thematic(lastModified, at);
 
   /*
    * Els itineraris, al seu fitxer.
@@ -132,12 +152,12 @@ export default async function sitemap(
      */
     return [
       ...allAxes().map((a) => ({
-        url: absolute(`/senderisme/rutes/eix/${a.slug}`),
+        ...at(`/senderisme/rutes/eix/${a.slug}`),
         lastModified,
         priority: 0.6,
       })),
       ...routeSlugs().map((slug) => ({
-        url: absolute(`/senderisme/rutes/${slug}`),
+        ...at(`/senderisme/rutes/${slug}`),
         lastModified,
         priority: 0.5,
       })),
@@ -157,7 +177,7 @@ export default async function sitemap(
   return allPublishedPaths()
     .filter((p) => wanted(p.level))
     .map((p) => ({
-      url: absolute(p.path),
+      ...at(p.path),
       lastModified,
       priority: byTier[p.tier] ?? 0.5,
     }));

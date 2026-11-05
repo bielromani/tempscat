@@ -12,6 +12,7 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero } from '@/components/PageHero';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Índice de estaciones, agrupado por comarca.
@@ -44,7 +45,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'per comarca, amb la seva altitud i la lectura més recent.',
       'Todas las estaciones meteorológicas automáticas de Cataluña en servicio, '
       + 'por comarca, con su altitud y la lectura más reciente.'),
-    alternates: { canonical: '/estacions' },
+    alternates: alternatesFor('/estacions'),
   };
 }
 

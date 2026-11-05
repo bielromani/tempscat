@@ -8,6 +8,7 @@ import { locationByPath } from '@/lib/territory';
 import { aName, placeName } from '@/lib/format';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Els avisos oficials taronja i vermell, al mòbil.
@@ -31,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'Sense compte, sense correu i es poden apagar quan vulgueu.',
       'Reciba en el móvil los avisos oficiales naranjas y rojos de AEMET para los lugares que elija. '
       + 'Sin cuenta, sin correo y se pueden desactivar cuando quiera.'),
-    alternates: { canonical: '/avisos/alertes' },
+    alternates: alternatesFor('/avisos/alertes'),
   };
 }
 

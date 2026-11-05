@@ -9,6 +9,7 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Les càmeres de muntanya.
@@ -53,7 +54,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'Port Ainé, Vallter i el Montsec, vist per les càmeres de Ferrocarrils.',
       'Qué tiempo hace ahora mismo en La Molina, Vall de Núria, Espot, Boí Taüll, '
       + 'Port Ainé, Vallter y el Montsec, visto por las cámaras de Ferrocarrils.'),
-    alternates: { canonical: '/cameres' },
+    alternates: alternatesFor('/cameres'),
   };
 }
 

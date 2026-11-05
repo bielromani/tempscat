@@ -10,6 +10,7 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * Un eix sencer: el GR amb totes les seves etapes, en ordre de caminar-lo.
@@ -56,7 +57,7 @@ export async function generateMetadata(
       + `de cada una, les cotes i les comarques que travessa. ${num(axis.km, 0)} km en total.`,
       `Las ${axis.legs.length} etapas del ${axis.ref} en orden, con la distancia `
       + `de cada una, las cotas y las comarcas que atraviesa. ${num(axis.km, 0)} km en total.`),
-    alternates: { canonical: `/senderisme/rutes/eix/${axis.slug}` },
+    alternates: alternatesFor(`/senderisme/rutes/eix/${axis.slug}`),
   };
 }
 

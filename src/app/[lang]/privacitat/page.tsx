@@ -6,6 +6,7 @@ import { External } from '@/components/External';
 import { LEGAL_UPDATED, OWNER } from '@/lib/owner';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * La política de privadesa i de galetes.
@@ -39,7 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: tr(lang,
       'Quines dades personals tracta tempscat.cat (gairebé cap), qui les tracta i com exercir-hi els vostres drets. El lloc no fa servir galetes.',
       'Qué datos personales trata tempscat.cat (casi ninguno), quién los trata y cómo ejercer sus derechos. El sitio no utiliza cookies.'),
-    alternates: { canonical: '/privacitat' },
+    alternates: alternatesFor('/privacitat'),
   };
 }
 

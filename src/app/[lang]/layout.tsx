@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import { Inter } from 'next/font/google';
 import { Logo } from '@/components/Logo';
-import { IS_PRODUCTION, siteUrl } from '@/lib/site';
+import { absolute, alternatesFor, ES_PUBLIC, IS_PRODUCTION, siteUrl } from '@/lib/site';
 import { primary, sections } from '@/lib/nav';
 import { getLang } from '@/lib/i18n';
 import { LOCALE, OG_LOCALE, tr } from '@/lib/lang';
@@ -10,7 +10,6 @@ import { SiteSearch } from '@/components/SiteSearch';
 import { MenuClose } from '@/components/MenuClose';
 import './globals.css';
 import { JsonLd, graph } from '@/components/JsonLd';
-import { absolute } from '@/lib/site';
 
 /*
  * Inter, i servida pel mateix web.
@@ -61,7 +60,7 @@ export async function generateMetadata(): Promise<Metadata> {
   description: tr(lang,
     'El temps a cada poble de Catalunya: l’observació de l’estació més propera, corregida per l’altitud, i la predicció hora a hora i a catorze dies.',
     'El tiempo en cada pueblo de Cataluña: la observación de la estación más cercana, corregida por la altitud, y la predicción hora a hora y a catorce días.'),
-  alternates: { canonical: '/' },
+  alternates: alternatesFor('/'),
   openGraph: { locale: OG_LOCALE[lang], type: 'website', siteName: 'tempscat' },
   // La imatge gran en compartir: la fan els `opengraph-image.tsx` (vegeu `src/lib/og.tsx`).
   twitter: { card: 'summary_large_image' },
@@ -75,13 +74,6 @@ export async function generateMetadata(): Promise<Metadata> {
     : { index: false, follow: false, nocache: true },
   };
 }
-
-/*
- * El castellà no s'indexa fins que no estigui traduït sencer: una fitxa a mig
- * traduir indexada en castellà és pitjor que cap. Es posa a `true` el dia que
- * l'última pàgina deixi de tenir text en català.
- */
-const ES_PUBLIC = false;
 
 /** D'on surt cada dada: qui, i què, en els dos idiomes. La CC-BY l'exigeix. */
 const SOURCES: Array<[string, string, string]> = [
@@ -267,8 +259,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs">
                 <Link href="/avis-legal" className="text-[var(--ink-2)] no-underline hover:underline">{t('Avís legal', 'Aviso legal')}</Link>
                 <Link href="/privacitat" className="text-[var(--ink-2)] no-underline hover:underline">{t('Privadesa i galetes', 'Privacidad y cookies')}</Link>
-                {/* L'altre idioma, a la mateixa pàgina no: a la portada. Vegeu `LangSwitch` a les pàgines que en saben el camí. */}
-                <a href={siteUrl(lang === 'ca' ? 'es' : 'ca')} hrefLang={lang === 'ca' ? 'es' : 'ca'} lang={lang === 'ca' ? 'es' : 'ca'}
+                {/*
+                  * L'altre idioma, a la mateixa pàgina: ho resol `app/idioma/route.ts` amb el `Referer`.
+                  * És un `<a>` i no un `<Link>` perquè no és una pàgina sinó una redirecció a l'altre
+                  * domini; el lint s'hi confon perquè `/idioma` encaixa amb `[lang]`.
+                  */}
+                {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+                <a href="/idioma" hrefLang={lang === 'ca' ? 'es' : 'ca'} lang={lang === 'ca' ? 'es' : 'ca'} rel="nofollow"
                   className="text-[var(--ink-2)] no-underline hover:underline">
                   {lang === 'ca' ? 'En castellano' : 'En català'}
                 </a>

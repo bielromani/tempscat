@@ -1,6 +1,8 @@
 import type { MetadataRoute } from 'next';
 import { SITEMAP_KINDS } from './sitemap';
-import { IS_PRODUCTION, absolute } from '@/lib/site';
+import { headers } from 'next/headers';
+import { ES_PUBLIC, IS_PRODUCTION, absolute } from '@/lib/site';
+import { langFromHost } from '@/lib/lang';
 
 /*
  * Los recolectores de modelos, bloqueados por nombre.
@@ -123,12 +125,22 @@ const ASSET_PATHS = ['/radar/t/', '/base/', '/relleu/', '/camp/', '/vent/', '/ca
  * entrando, y la manera de pararlo es una regla en Cloudflare, no aquí. Esto
  * corta a los que sí lo leen, que en la medición de septiembre eran la mayoría.
  */
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
   // Un preview no se rastrea. La regla vive aquí además de en la meta robots
   // porque esto corta antes: el robot ni descarga la página.
   if (!IS_PRODUCTION) {
     return { rules: { userAgent: '*', disallow: '/' } };
   }
+
+  /*
+   * Cada domini anuncia els seus sitemaps. El castellà no n'anuncia cap mentre
+   * no es publica, però **no es tanca**: les pàgines porten `noindex`, i un
+   * robot que no pot entrar no el llegeix mai (vegeu més amunt, `/api/`).
+   */
+  const lang = langFromHost((await headers()).get('host'));
+  const sitemaps = lang === 'es' && !ES_PUBLIC
+    ? []
+    : SITEMAP_KINDS.map((kind) => absolute(`/sitemap/${kind}.xml`, lang));
 
   return {
     rules: [
@@ -153,6 +165,6 @@ export default function robots(): MetadataRoute.Robots {
      * robots.txt admite tantas líneas `Sitemap:` como haga falta, así que no
      * hace falta inventarse un índice: se listan los cuatro.
      */
-    sitemap: SITEMAP_KINDS.map((kind) => absolute(`/sitemap/${kind}.xml`)),
+    sitemap: sitemaps,
   };
 }

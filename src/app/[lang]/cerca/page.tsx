@@ -9,6 +9,7 @@ import { int } from '@/lib/format';
 import { SiteSearch } from '@/components/SiteSearch';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * El cercador.
@@ -31,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
       `Búsqueda entre las ${int(publishedPlaces())} poblaciones de Cataluña, las comarcas, las playas, `
       + 'los embalses, las estaciones automáticas, las cámaras de montaña y '
       + 'las rutas señalizadas.'),
-    alternates: { canonical: '/cerca' },
+    alternates: alternatesFor('/cerca'),
   };
 }
 

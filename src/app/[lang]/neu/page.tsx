@@ -17,6 +17,7 @@ import { External } from '@/components/External';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
+import { alternatesFor } from '@/lib/site';
 
 /**
  * La nieve del Pirineo: medida, no estimada.
@@ -71,7 +72,7 @@ export async function generateMetadata(): Promise<Metadata> {
       + 'gruix mesurat, neu nova i rècords de cada estació.',
       'Cuánta nieve hay ahora mismo en las estaciones de alta montaña de la XEMA: '
       + 'espesor medido, nieve nueva y récords de cada estación.'),
-    alternates: { canonical: '/neu' },
+    alternates: alternatesFor('/neu'),
   };
 }
 
