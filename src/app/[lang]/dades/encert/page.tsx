@@ -4,9 +4,10 @@ import { temperatureCompare } from '@/lib/weather';
 import { stationByCodi } from '@/lib/territory';
 import { dateShort, int, num } from '@/lib/format';
 import {
-  COMPARE_SOURCES, OURS, OURS_A, SOURCE_LABEL,
+  COMPARE_SOURCES, OURS, OURS_A,
   compareBias, compareGt3, compareMae, sumTallies,
   type CompareScores, type CompareSource, type CompareStation, type CompareTally,
+  sourceLabel,
 } from '@/lib/temperature-compare';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
@@ -47,18 +48,6 @@ const MODELS = COMPARE_SOURCES.filter((s) => s !== OURS && s !== OURS_A);
 const GROUP_SOURCES: CompareSource[] = [OURS, OURS_A, 'best_match', 'meteofrance_arome_france_hd'];
 const GROUP_LABEL: Partial<Record<CompareSource, string>> = { [OURS]: 'Aquest web', [OURS_A]: 'Amb tres models' };
 const GROUP_ETIQUETA: Partial<Record<CompareSource, string>> = { [OURS]: 'Esta web', [OURS_A]: 'Con tres modelos' };
-
-/**
- * Les etiquetes de SOURCE_LABEL que porten text, en castellà. Els noms dels
- * models no es tradueixen. Viuen aquí mentre 	emperature-compare.ts no en
- * tingui la versió castellana.
- */
-const SOURCE_ETIQUETA: Partial<Record<CompareSource, string>> = {
-  tempscat: 'Esta web',
-  'tempscat-a': 'Esta web, en los puntos con tres modelos',
-  best_match: 'Open-Meteo (el que elige para cada punto)',
-};
-const sourceLabel = (s: CompareSource, lang: Lang) => (lang === 'es' ? SOURCE_ETIQUETA[s] ?? SOURCE_LABEL[s] : SOURCE_LABEL[s]);
 
 interface Row { codi: string; st: CompareStation; altitud: number; km: number; dAlt: number }
 
@@ -179,7 +168,7 @@ export default async function EncertPage() {
             <strong className="tnum">{num(ours, 2)} °C</strong>
             {oursA != null && <>, i <strong className="tnum">{num(oursA, 2)} °C</strong> als pobles on es parteix de tres models</>}.
             La que tria Open-Meteo per a cada punt, <strong className="tnum">{num(generic, 2)} °C</strong>, i
-            el model que més encerta, {SOURCE_LABEL[bestModel]},{' '}
+            el model que més encerta, {sourceLabel(bestModel)},{' '}
             <strong className="tnum">{num(best, 2)} °C</strong>.
           </>
         )) : undefined}

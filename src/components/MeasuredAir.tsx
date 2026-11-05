@@ -15,9 +15,6 @@ import type { Lang } from '@/lib/lang';
  * Es el mismo argumento que el sitio ya usa con la XEMA frente a la predicción, y
  * la razón por la que se publica aunque llegue con veinte horas de retraso: una
  * medida vieja y verdadera vale más que ninguna, siempre que se diga que es vieja.
- *
- * El tipo de estación (`stationKind`) sale de `air-stations.ts`, que de momento
- * solo lo escribe en catalán.
  */
 export async function MeasuredAir({ station, lang: given }: { station: NearestAirStation; lang?: Lang }) {
   const lang = given ?? await getLang();
@@ -42,7 +39,7 @@ export async function MeasuredAir({ station, lang: given }: { station: NearestAi
         </p>
         <p className="text-xs text-[var(--muted)]">
           {station.name} · a <span className="tnum">{num(station.distKm, 0)} km</span>
-          {stationKind(station) && (lang === 'es' ? ` · estación ${stationKind(station)}` : ` · estació ${stationKind(station)}`)}
+          {stationKind(station) && (lang === 'es' ? ` · estación ${stationKind(station, lang)}` : ` · estació ${stationKind(station)}`)}
         </p>
       </div>
 

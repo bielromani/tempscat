@@ -343,8 +343,8 @@ export default async function DadesPage() {
  * La misma página en castellano. Dice lo mismo, punto por punto: si se cambia
  * una, la otra el mismo día.
  *
- * `/api/lloc` todavía no recibe el idioma, así que `summary` sigue llegando en
- * catalán también desde es.tempscat.cat, y la página lo dice así.
+ * `/api/lloc` saca el idioma del dominio, así que desde es.tempscat.cat
+ * `summary` llega en castellano.
  */
 function DatosAbiertos() {
   const trail = [
@@ -440,7 +440,7 @@ function DatosAbiertos() {
           <Endpoint path="/api/lloc/{comarca}/{municipi}" example={EXAMPLE}>
             Observación, predicción horaria y diaria, franjas del día, ventanas de
             lluvia con su intensidad, calidad del aire, avisos oficiales y
-            el resumen en catalán: las mismas frases que salen en la ficha catalana.
+            el resumen del día: las mismas frases que salen en la ficha.
           </Endpoint>
 
           <Endpoint path="/api/lloc/{comarca}/{municipi}/{nucli}" example="/api/lloc/conca-de-barbera/montblanc/lilla">
@@ -536,7 +536,8 @@ function DatosAbiertos() {
           <div className="card prose">
             <h3 style={{ marginTop: 0 }}>Las frases</h3>
             <p>
-              <C>summary</C> lleva el resumen en catalán. Lo generan plantillas
+              <C>summary</C> lleva el resumen en el idioma del dominio: en castellano
+              desde es.tempscat.cat y en catalán desde tempscat.cat. Lo generan plantillas
               deterministas y no un modelo de lenguaje: con los mismos datos sale
               siempre la misma frase.
             </p>

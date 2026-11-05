@@ -2,6 +2,7 @@ import 'server-only';
 import { msToKmh } from './variables';
 import { codeLabel, weatherCode } from './weather-codes';
 import { narrativeFor } from './narrative';
+import { sourceText } from './sea';
 import {
   airQualityFor, currentFor, forecastFor, localNowHour, localToday, rainWarningsOf, warningsFor,
 } from './weather';
@@ -43,9 +44,8 @@ export interface FeedOptions {
   hours?: number;
   /**
    * L'idioma dels textos (llicència, fenomen, temps, capçaleres del CSV). Els
-   * noms de camp no canvien mai. Les frases de summary les escriu
-   * 
-arrativeFor, que encara no en rep l'idioma.
+   * noms de camp no canvien mai. Les frases de `summary` i les etiquetes de
+   * `day_parts` les escriu `narrativeFor`, amb la plantilla de cada idioma.
    */
   lang?: Lang;
 }
@@ -71,12 +71,12 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
   ]);
   const nowHour = localNowHour();
   const today = localToday();
-  const narrative = narrativeFor(forecast, current, nowHour, today, rainWarningsOf(warnings));
+  const narrative = narrativeFor(forecast, current, nowHour, today, rainWarningsOf(warnings), lang);
 
   const sources: string[] = [];
-  if (current) sources.push(current.source);
-  if (forecast) sources.push(forecast.source);
-  if (air) sources.push(air.source);
+  if (current) sources.push(sourceText(current.source, lang));
+  if (forecast) sources.push(sourceText(forecast.source, lang));
+  if (air) sources.push(sourceText(air.source, lang));
   if (warnings.length) sources.push(tr(lang, 'AEMET · avisos oficials CAP', 'AEMET · avisos oficiales CAP'));
   sources.push(tr(lang, 'Institut Cartogràfic i Geològic de Catalunya · límits i topònims',
     'Institut Cartogràfic i Geològic de Catalunya · límites y topónimos'));

@@ -341,7 +341,11 @@ export default async function EstatPage() {
                                   ? <>último fallo el {localStamp(s.lastErrorAt!)}: {errorReason(s.lastError!, lang)}</>
                                   : <>últim ensopec el {localStamp(s.lastErrorAt!)}: {errorReason(s.lastError!)}</>}
                             </summary>
-                            <span className="mt-0.5 block break-words font-mono">{clip(s.error ?? s.lastError!)}</span>
+                            {/* El missatge cru l'escriuen els workers, en català: en
+                                castellà es marca, que és el que llegeix un lector de pantalla. */}
+                            <span className="mt-0.5 block break-words font-mono" lang={lang === 'es' ? 'ca' : undefined}>
+                              {clip(s.error ?? s.lastError!)}
+                            </span>
                           </details>
                         )}
                         {/*

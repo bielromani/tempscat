@@ -12,7 +12,7 @@ import { mapOutline, warningOverlay, type WarningOverlay } from '@/lib/map';
 import { projectToMap } from '@/lib/mercator';
 import { allComarques } from '@/lib/territory';
 import { pushAlertsAvailable } from '@/lib/push-available';
-import { AMBITS, groupByZone } from '@/lib/zones';
+import { AMBITS, groupByZone, zoneLabel } from '@/lib/zones';
 import { getLang } from '@/lib/i18n';
 import { tr, type Lang } from '@/lib/lang';
 
@@ -78,16 +78,6 @@ const ICON: Partial<Record<WarningLevel, string>> = {
 /** El nivell dit en castellà; en català, el codi ja és la paraula. */
 const NIVEL: Record<WarningLevel, string> = { verd: 'verde', groc: 'amarillo', taronja: 'naranja', vermell: 'rojo' };
 const levelWord = (level: WarningLevel, lang: Lang) => (lang === 'es' ? NIVEL[level] : level);
-
-/**
- * Els noms dels àmbits en castellà. Els que són topònims —Penedès, Ponent— no
- * es tradueixen; els que són descripció, sí. La clau segueix sent la catalana.
- */
-const AMBITO: Record<string, string> = {
-  'Comarques gironines': 'Comarcas gerundenses',
-  'Comarques centrals': 'Comarcas centrales',
-  'Àmbit metropolità': 'Ámbito metropolitano',
-};
 
 /** Del més alt al més baix, que és l'ordre en què es llegeixen. */
 const LEVELS: WarningLevel[] = ['vermell', 'taronja', 'groc'];
@@ -370,7 +360,7 @@ export default async function AvisosPage() {
             {byAmbit.map(([ambit, list]) => (
               <div key={ambit} className="card card-block">
                 <h3 className="card-label">
-                  {lang === 'es' ? AMBITO[ambit] ?? ambit : ambit} <span className="tnum font-medium normal-case tracking-normal">· {list.length}</span>
+                  {zoneLabel(ambit, lang)} <span className="tnum font-medium normal-case tracking-normal">· {list.length}</span>
                 </h3>
                 <ul
                   className="rows rows-cols"

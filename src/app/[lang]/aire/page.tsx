@@ -400,7 +400,7 @@ function StationCard({ s, lang }: { s: AirStation; lang: Lang }) {
       <h3 className="tram-name">
         {s.name}
         <span className="block text-[12.5px] font-normal text-[var(--muted)]">
-          {fold(s.name).startsWith(fold(town)) ? '' : `${town} · `}{stationKind(s)}
+          {fold(s.name).startsWith(fold(town)) ? '' : `${town} · `}{stationKind(s, lang)}
         </span>
       </h3>
       <dl className="tram-now">

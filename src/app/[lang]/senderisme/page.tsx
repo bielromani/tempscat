@@ -92,7 +92,7 @@ export default async function SenderismePage() {
 
   const geo = mapOutline();
   const gusty = stations.filter((s) => s.gustKmh != null);
-  const bf = worst?.gustKmh != null ? beaufort(worst.gustKmh) : null;
+  const bf = worst?.gustKmh != null ? beaufort(worst.gustKmh, lang) : null;
 
   const trail = [
     { nom: t('Catalunya', 'Cataluña'), path: '/' },
@@ -391,7 +391,7 @@ export default async function SenderismePage() {
                     </div>
                   </dl>
                   {s.gustKmh != null && (
-                    <p className="tram-src">{beaufort(s.gustKmh).note}</p>
+                    <p className="tram-src">{beaufort(s.gustKmh, lang).note}</p>
                   )}
                 </li>
               ))}

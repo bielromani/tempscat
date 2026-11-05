@@ -40,11 +40,6 @@ import { Fold } from '@/components/Fold';
  * «No substitueix un butlletí oficial» va a la lletra petita de la capçalera, a
  * la vista, i no dins de l'explicació plegada del final: és l'única frase de la
  * pàgina que parla de seguretat.
- *
- * ## En castellà
- *
- * El nom de cada força de Beaufort i el de la mena d'onada (`beaufort().name`,
- * `periodMeaning()`) surten d'`activities.ts`, que encara només els té en català.
  */
 /*
  * Es genera a cada petició i el CDN la guarda cinc minuts, sense servir mai la
@@ -124,8 +119,8 @@ export default async function NauticaPage() {
             <>
               {maxGust != null && (
                 <>
-                  Rachas de hasta <strong>fuerza {beaufort(maxGust).force}</strong>{' '}
-                  ({beaufort(maxGust).name})
+                  Rachas de hasta <strong>fuerza {beaufort(maxGust, lang).force}</strong>{' '}
+                  ({beaufort(maxGust, lang).name})
                 </>
               )}
               {maxGust != null && maxWave != null && ' y '}
@@ -475,7 +470,7 @@ function SailCard({ tram, lang }: { tram: Tram; lang: Lang }) {
           <dt>{t('Període', 'Periodo')}</dt>
           <dd>
             {s.wavePeriod != null ? <>{num(s.wavePeriod, 0)} s</> : '—'}
-            {s.wavePeriod != null && <small>{periodMeaning(s.wavePeriod)}</small>}
+            {s.wavePeriod != null && <small>{periodMeaning(s.wavePeriod, lang)}</small>}
           </dd>
         </div>
       </dl>

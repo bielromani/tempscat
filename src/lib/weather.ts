@@ -16,7 +16,7 @@ import {
 } from './shards';
 import {
   AIR_VARIABLES, POLLENS, POLLUTANTS, SUB_INDEX_OF, SUB_INDICES,
-  pollenLevel, type AirSlug, type PollenLevel,
+  airShort, pollenLevel, type AirSlug, type PollenLevel,
 } from './air-variables';
 import type {
   CurrentConditions, DailyPoint, HourlyPoint, LocationForecast,
@@ -736,9 +736,9 @@ export async function airQualityFor(loc: Location, lang: Lang = 'ca'): Promise<A
       const def = AIR_VARIABLES[slug];
       return value == null ? null : {
         // `curt` es una fórmula (NO₂, PM10) igual en las dos lenguas, salvo «Pols»,
-        // que es palabra: en castellano, «Polvo».
+        // que es palabra y lleva su `curtEs`: ver `airShort()`.
         slug, nom: def.nom[lang],
-        curt: lang === 'es' && def.curt === 'Pols' ? 'Polvo' : def.curt ?? def.nom[lang],
+        curt: airShort(slug, lang),
         value, unit: def.unit, decimals: def.decimals,
       };
     })

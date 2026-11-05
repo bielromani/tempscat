@@ -4,6 +4,7 @@ import { rankings, type PlaceRow, type StationRow } from '@/lib/rankings';
 import { PointsMap } from '@/components/PointsMap';
 import { TemperatureLegend } from '@/components/TemperatureMap';
 import { mapOutline } from '@/lib/map';
+import { sourceText } from '@/lib/sea';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import {
   aName, ago, capFirst, comarcaName, dateLong, deName, int, num, placeName, signed, stationShort,
@@ -461,7 +462,7 @@ export default async function RanquingsPage() {
         </div>
         {es ? (
           <p className="source measure">
-            Observaciones de {r.source}. En la clasificación de municipios entran{' '}
+            Observaciones de {sourceText(r.source, lang)}. En la clasificación de municipios entran{' '}
             {int(r.places.total)} de los 947.
             {r.places.excluded > 0 && (
               <>

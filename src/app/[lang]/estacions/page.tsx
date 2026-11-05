@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { altitudeColor, temperatureColor, temperatureInk } from '@/lib/scales';
 import { capFirst, comarcaName, int, num, stationShort } from '@/lib/format';
 import { fold, match } from '@/lib/search-match';
-import { AMBITS, anchorSlug, groupByZone } from '@/lib/zones';
+import { AMBITS, anchorSlug, groupByZone, zoneLabel } from '@/lib/zones';
 import { allObservations } from '@/lib/weather';
 import { allComarques, operativeStations, publishedPlaces } from '@/lib/territory';
 import { PointsMap } from '@/components/PointsMap';
@@ -12,17 +12,6 @@ import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero } from '@/components/PageHero';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
-
-/**
- * Els noms dels àmbits en castellà. Els que són topònims —Penedès, Ponent— no
- * es tradueixen; els que són descripció, sí. La clau segueix sent la catalana,
- * que és la que fan servir les àncores.
- */
-const AMBITO: Record<string, string> = {
-  'Comarques gironines': 'Comarcas gerundenses',
-  'Comarques centrals': 'Comarcas centrales',
-  'Àmbit metropolità': 'Ámbito metropolitano',
-};
 
 /**
  * Índice de estaciones, agrupado por comarca.
@@ -69,7 +58,7 @@ export default async function EstacionsPage({ searchParams }: { searchParams: Pa
   const lang = await getLang();
   const es = lang === 'es';
   const t = (ca: string, es: string) => tr(lang, ca, es);
-  const ambitName = (name: string) => (es ? AMBITO[name] ?? name : name);
+  const ambitName = (name: string) => zoneLabel(name, lang);
   const stations = operativeStations();
   const obs = await allObservations();
   const tempOf = new Map(

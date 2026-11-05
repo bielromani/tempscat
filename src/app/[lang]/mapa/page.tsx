@@ -6,6 +6,7 @@ import { PageHero, Section, StatGrid } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
 import { temperatureMap } from '@/lib/map';
 import { allObservations } from '@/lib/weather';
+import { sourceText } from '@/lib/sea';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { comarcaName, hourSpoken, num } from '@/lib/format';
 import { getLang } from '@/lib/i18n';
@@ -208,7 +209,7 @@ export default async function MapaPage() {
               <p className="source">
                 Mediana de la temperatura de los municipios de cada comarca, cada uno con
                 el modelo corregido por las estaciones de alrededor.
-                {obs && <> {obs.source}.</>} Límites administrativos del Institut
+                {obs && <> {sourceText(obs.source, lang)}.</>} Límites administrativos del Institut
                 Cartogràfic i Geològic de Catalunya.
               </p>
             ) : (
