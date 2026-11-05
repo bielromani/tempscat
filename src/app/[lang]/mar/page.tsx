@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { windCardinal } from '@/lib/variables';
-import { articleFirst, dateShort, dayTiny, deWord, fromDirection, num } from '@/lib/format';
+import { articleFirst, dateShort, dayTiny, deWord, fromDirection, num, placeName } from '@/lib/format';
 import { fold, match, matchWithContext } from '@/lib/search-match';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { douglas, flagStyle, parseJellyfish, FLAG_SHOW_HOURS } from '@/lib/sea';
+import { douglas, flagStyle, parseJellyfish, sourceText, FLAG_SHOW_HOURS } from '@/lib/sea';
+import { getLang } from '@/lib/i18n';
+import { tr, type Lang } from '@/lib/lang';
 import { nauticalConditions, type SeaStretch } from '@/lib/activities';
 import { buildTrams, slug, tramName, tramPhrase, type Tram } from '@/lib/coast';
 import { activeWarnings } from '@/lib/weather';
@@ -57,13 +59,18 @@ import { Fold } from '@/components/Fold';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Platges i estat del mar a Catalunya',
-  description:
-    'La temperatura de l’aigua, l’onatge, el vent i la bandera de les platges, '
-    + 'tram a tram de Portbou a Alcanar, i la previsió del mar dels pròxims dies.',
-  alternates: { canonical: '/mar' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Platges i estat del mar a Catalunya', 'Playas y estado del mar en Cataluña'),
+    description: tr(lang,
+      'La temperatura de l’aigua, l’onatge, el vent i la bandera de les platges, '
+      + 'tram a tram de Portbou a Alcanar, i la previsió del mar dels pròxims dies.',
+      'La temperatura del agua, el oleaje, el viento y la bandera de las playas, '
+      + 'tramo a tramo de Portbou a Alcanar, y la previsión del mar de los próximos días.'),
+    alternates: { canonical: '/mar' },
+  };
+}
 
 /** El poble sol, perquè «calella» trobi les platges de Calella i no només les que en porten el nom. */
 function match2(fq: string, town: string): number {
@@ -74,18 +81,20 @@ function match2(fq: string, town: string): number {
 type Params = Promise<{ q?: string }>;
 
 export default async function MarPage({ searchParams }: { searchParams: Params }) {
-  const [data, warnings, params] = await Promise.all([nauticalConditions(), activeWarnings(), searchParams]);
+  const [data, warnings, params, lang] = await Promise.all([nauticalConditions(), activeWarnings(), searchParams, getLang()]);
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const stretches = data?.stretches ?? [];
+  const crumbs = [{ nom: t('Catalunya', 'Cataluña'), path: '/' }, { nom: 'El mar', path: '/mar' }];
 
   if (!data || !stretches.length) {
     return (
       <article>
         <PageHero
-          crumbs={[{ nom: 'Catalunya', path: '/' }, { nom: 'El mar', path: '/mar' }]}
-          eyebrow="Platges i mar"
+          crumbs={crumbs}
+          eyebrow={t('Platges i mar', 'Playas y mar')}
           icon="tide-high"
-          title="Com està el mar"
-          lead="Encara no hi ha dades del mar."
+          title={t('Com està el mar', 'Cómo está el mar')}
+          lead={t('Encara no hi ha dades del mar.', 'Todavía no hay datos del mar.')}
         />
       </article>
     );
@@ -123,23 +132,25 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
 
   const seaWords = calmest && roughest
     ? (douglas(calmest.waveHeight!) === douglas(roughest.waveHeight!)
-      ? douglas(roughest.waveHeight!)
-      : `${deWord(douglas(calmest.waveHeight!))} a ${douglas(roughest.waveHeight!)}`)
+      ? douglas(roughest.waveHeight!, lang)
+      : lang === 'es'
+        ? `de ${douglas(calmest.waveHeight!, lang)} a ${douglas(roughest.waveHeight!, lang)}`
+        : `${deWord(douglas(calmest.waveHeight!))} a ${douglas(roughest.waveHeight!)}`)
     : null;
 
   const geo = mapOutline();
   // Un punt per punt del model, encara que en surtin dues targetes.
-  const coastPoints: CoastPoint[] = trams.filter((t, i) => trams.findIndex((o) => o.stretch === t.stretch) === i).map((t) => {
-    const flagged = t.beaches.find((b) => b.ageHours <= FLAG_SHOW_HOURS);
+  const coastPoints: CoastPoint[] = trams.filter((x, i) => trams.findIndex((o) => o.stretch === x.stretch) === i).map((tm) => {
+    const flagged = tm.beaches.find((b) => b.ageHours <= FLAG_SHOW_HOURS);
     return {
-      id: t.stretch.near,
-      lat: t.stretch.lat,
-      lon: t.stretch.lon,
-      near: tramName(t.towns),
-      sst: t.stretch.sst,
-      wave: t.stretch.waveHeight,
+      id: tm.stretch.near,
+      lat: tm.stretch.lat,
+      lon: tm.stretch.lon,
+      near: tramName(tm.towns, lang),
+      sst: tm.stretch.sst,
+      wave: tm.stretch.waveHeight,
       flag: flagged?.flag ?? null,
-      beachCode: flagged?.code ?? t.beaches[0]?.code ?? null,
+      beachCode: flagged?.code ?? tm.beaches[0]?.code ?? null,
     };
   });
 
@@ -154,8 +165,8 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
   const fq = fold(q);
   const hits = fq
     ? trams
-      .flatMap((t) => t.beaches.map((b) => ({
-        t, b, score: Math.max(matchWithContext(fq, b.name), match2(fq, articleFirst(b.municipality))),
+      .flatMap((tm) => tm.beaches.map((b) => ({
+        tm, b, score: Math.max(matchWithContext(fq, b.name), match2(fq, articleFirst(b.municipality))),
       })))
       .filter((h) => h.score > 0)
       .sort((x, y) => y.score - x.score || y.b.lat - x.b.lat)
@@ -166,17 +177,28 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
     ...data.beaches.map((b) => b.name),
   ])].sort((x, y) => x.localeCompare(y, 'ca'));
 
-  const pill = (t: number) => ({ background: temperatureColor(t), color: temperatureInk(t) });
+  const pill = (v: number) => ({ background: temperatureColor(v), color: temperatureInk(v) });
   const windAge = stretches.find((s) => s.wind)?.wind?.ageMin ?? null;
 
   return (
     <article data-wide>
       <PageHero
-        crumbs={[{ nom: 'Catalunya', path: '/' }, { nom: 'El mar', path: '/mar' }]}
-        eyebrow="Platges i mar"
+        crumbs={crumbs}
+        eyebrow={t('Platges i mar', 'Playas y mar')}
         icon="tide-high"
-        title="Com està el mar"
-        lead={(
+        title={t('Com està el mar', 'Cómo está el mar')}
+        lead={lang === 'es' ? (
+          <>
+            {sstMin != null && sstMax != null && (
+              <>El agua está entre {num(sstMin, 0)} y {num(sstMax, 0)} °C</>
+            )}
+            {seaWords && <> y la mar, {seaWords}</>}.
+            {' '}
+            {fresh.length > 0
+              ? `${fresh.length === 1 ? 'Una playa tiene' : `${fresh.length} playas tienen`} bandera de las últimas ${FLAG_SHOW_HOURS} horas.`
+              : 'Ahora ninguna playa tiene bandera: solo las ponen los socorristas cuando están de servicio.'}
+          </>
+        ) : (
           <>
             {sstMin != null && sstMax != null && (
               <>L’aigua és entre {num(sstMin, 0)} i {num(sstMax, 0)} °C</>
@@ -190,34 +212,39 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
         )}
         stats={[
           sstMin != null && sstMax != null && {
-            label: 'Aigua', icon: 'thermometer',
+            label: t('Aigua', 'Agua'), icon: 'thermometer',
             value: `${num(sstMin, 0)}–${num(sstMax, 0)}`, unit: '°C',
             sub: withSst.length > 1
-              ? <>la més càlida, {tramPhrase(tramOf(withSst.reduce((a, s) => (s.sst! > a.sst! ? s : a)))?.towns ?? [])}</>
+              ? <>{t('la més càlida', 'la más cálida')}, {tramPhrase(tramOf(withSst.reduce((a, s) => (s.sst! > a.sst! ? s : a)))?.towns ?? [], lang)}</>
               : null,
           },
           roughest && {
-            label: 'Onada més alta', icon: 'tide-high',
+            label: t('Onada més alta', 'Ola más alta'), icon: 'tide-high',
             value: num(roughest.waveHeight!, 1), unit: 'm',
-            sub: <>{douglas(roughest.waveHeight!)}, {tramPhrase(tramOf(roughest)?.towns ?? [])}</>,
+            sub: <>{douglas(roughest.waveHeight!, lang)}, {tramPhrase(tramOf(roughest)?.towns ?? [], lang)}</>,
           },
           fresh.length > 0 && {
-            label: 'Banderes', icon: red > 0 ? 'code-red' : undefined,
+            label: t('Banderes', 'Banderas'), icon: red > 0 ? 'code-red' : undefined,
             value: String(fresh.length),
             sub: red > 0
-              ? `${red === 1 ? 'una vermella' : `${red} vermelles`}: no us hi banyeu`
-              : 'cap de vermella',
+              ? t(
+                `${red === 1 ? 'una vermella' : `${red} vermelles`}: no us hi banyeu`,
+                `${red === 1 ? 'una roja' : `${red} rojas`}: no se bañe`,
+              )
+              : t('cap de vermella', 'ninguna roja'),
           },
         ]}
         note={fresh.length === 0 && lastReport ? (
-          <>L’últim comunicat d’un socorrista és del {dateShort(lastReport)}.</>
+          lang === 'es'
+            ? <>El último parte de un socorrista es del {dateShort(lastReport, lang)}.</>
+            : <>L’últim comunicat d’un socorrista és del {dateShort(lastReport)}.</>
         ) : undefined}
         aside={(
-          <section className="card" aria-label="La costa, ara">
+          <section className="card" aria-label={t('La costa, ara', 'La costa, ahora')}>
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/tide-high.svg" width={22} height={22} alt="" />
-              L’aigua, tram a tram
+              {t('L’aigua, tram a tram', 'El agua, tramo a tramo')}
             </p>
             <CoastMap
               outline={geo.features}
@@ -225,55 +252,59 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
               width={geo.width}
               height={geo.height}
               points={coastPoints}
+              lang={lang}
             />
           </section>
         )}
       />
 
       {/* Els avisos de mar, abans que res: és el que diu si avui s'hi pot anar. */}
-      <CoastalWarning warnings={warnings} />
+      <CoastalWarning warnings={warnings} lang={lang} />
 
       <form action="/mar#cerca" method="get" role="search" id="cerca" className="mar-search">
-        <label htmlFor="mar-q" className="sr-only">Cerca una platja o un poble de costa</label>
+        <label htmlFor="mar-q" className="sr-only">{t('Cerca una platja o un poble de costa', 'Busque una playa o un pueblo de costa')}</label>
         <input
           id="mar-q"
           name="q"
           type="search"
           defaultValue={q}
           list="mar-llocs"
-          placeholder="Cerca una platja o un poble de costa"
+          placeholder={t('Cerca una platja o un poble de costa', 'Busque una playa o un pueblo de costa')}
           autoComplete="off"
         />
-        <button type="submit">Cerca</button>
+        <button type="submit">{t('Cerca', 'Buscar')}</button>
         <datalist id="mar-llocs">
           {suggestions.map((n) => <option key={n} value={n} />)}
         </datalist>
       </form>
 
       {q && (
-        <section className="card mb-6" aria-label={`Resultats per ${q}`}>
+        <section className="card mb-6" aria-label={t(`Resultats per ${q}`, `Resultados para ${q}`)}>
           <p className="card-label">
             {hits.length > 0
-              ? `${hits.length === 40 ? 'Les primeres 40' : hits.length === 1 ? 'Una platja' : `${hits.length} platges`} per «${q}»`
-              : `Cap platja ni poble de costa no es diu «${q}»`}
+              ? t(
+                `${hits.length === 40 ? 'Les primeres 40' : hits.length === 1 ? 'Una platja' : `${hits.length} platges`} per «${q}»`,
+                `${hits.length === 40 ? 'Las primeras 40' : hits.length === 1 ? 'Una playa' : `${hits.length} playas`} para «${q}»`,
+              )
+              : t(`Cap platja ni poble de costa no es diu «${q}»`, `Ninguna playa ni pueblo de costa se llama «${q}»`)}
           </p>
           {hits.length > 0 && (
             <ul className="rows">
-              {hits.map(({ t, b }) => {
+              {hits.map(({ tm, b }) => {
                 const shown = b.ageHours <= FLAG_SHOW_HOURS;
                 return (
                   <li key={b.code}>
-                    <a href={`#${t.id}`} className="row-main">
+                    <a href={`#${tm.id}`} className="row-main">
                       <span className="row-title">{b.name}</span>
                       <span className="row-sub">
-                        {articleFirst(b.municipality)}
-                        {t.stretch.waveHeight != null && <> · onada {num(t.stretch.waveHeight, 1)} m, {douglas(t.stretch.waveHeight)}</>}
+                        {placeName(articleFirst(b.municipality), lang)}
+                        {tm.stretch.waveHeight != null && <> · {t('onada', 'ola')} {num(tm.stretch.waveHeight, 1)} m, {douglas(tm.stretch.waveHeight, lang)}</>}
                       </span>
                     </a>
                     <span className="flex shrink-0 items-center gap-2">
-                      {shown && <FlagMark flag={b.flag} size={18} />}
-                      {t.stretch.sst != null && (
-                        <span className="temp-pill" style={pill(t.stretch.sst)}>{num(t.stretch.sst, 1)}°</span>
+                      {shown && <FlagMark flag={b.flag} size={18} lang={lang} />}
+                      {tm.stretch.sst != null && (
+                        <span className="temp-pill" style={pill(tm.stretch.sst)}>{num(tm.stretch.sst, 1)}°</span>
                       )}
                     </span>
                   </li>
@@ -281,12 +312,12 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
               })}
             </ul>
           )}
-          <p className="card-foot"><Link href="/mar">Totes les platges ›</Link></p>
+          <p className="card-foot"><Link href="/mar">{t('Totes les platges ›', 'Todas las playas ›')}</Link></p>
         </section>
       )}
 
       {/* Les costes, per saltar-hi. Són àncores: no cal cap script. */}
-      <nav aria-label="Costes" className="mb-2">
+      <nav aria-label={t('Costes', 'Costas')} className="mb-2">
         <ul className="chips">
           {coasts.map(([name]) => (
             <li key={name}><a href={`#costa-${slug(name)}`}>{name}</a></li>
@@ -295,8 +326,8 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
       </nav>
 
       {coasts.map(([name, list]) => {
-        const ts = list.map((t) => t.stretch.sst).filter((v): v is number => v != null);
-        const ws = list.map((t) => t.stretch.waveHeight).filter((v): v is number => v != null);
+        const ts = list.map((x) => x.stretch.sst).filter((v): v is number => v != null);
+        const ws = list.map((x) => x.stretch.waveHeight).filter((v): v is number => v != null);
         return (
           <section
             key={name}
@@ -307,48 +338,83 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
               <h2 id={`h-${name}`} className="card-title">{name}</h2>
               <p className="text-[13px] text-[var(--muted)] tnum">
-                {ts.length > 0 && <>aigua {num(Math.min(...ts), 0)}–{num(Math.max(...ts), 0)} °C</>}
-                {ws.length > 0 && <> · onades fins a {num(Math.max(...ws), 1)} m</>}
+                {ts.length > 0 && <>{t('aigua', 'agua')} {num(Math.min(...ts), 0)}–{num(Math.max(...ts), 0)} °C</>}
+                {ws.length > 0 && <> · {t('onades fins a', 'olas de hasta')} {num(Math.max(...ws), 1)} m</>}
               </p>
             </div>
             <ul className="card-grid">
-              {list.map((t) => <TramCard key={t.id} tram={t} townPath={townPath} pill={pill} />)}
+              {list.map((x) => <TramCard key={x.id} tram={x} townPath={townPath} pill={pill} lang={lang} />)}
             </ul>
           </section>
         );
       })}
 
       <p className="source mt-6">
-        L’aigua i l’onatge, d’un model de mar obert a uns cinc quilòmetres de la costa. El vent,
-        mesurat a l’estació del Meteocat més propera{windAge != null && <>, fa {windAge} min</>}.
-        Les banderes les posen els socorristes, i només surten si són de les últimes {FLAG_SHOW_HOURS} hores. {data.source}.
+        {lang === 'es' ? (
+          <>
+            El agua y el oleaje, de un modelo de mar abierto a unos cinco kilómetros de la costa. El viento,
+            medido en la estación del Meteocat más cercana{windAge != null && <>, hace {windAge} min</>}.
+            Las banderas las ponen los socorristas, y solo aparecen si son de las últimas {FLAG_SHOW_HOURS} horas. {sourceText(data.source, lang)}.
+          </>
+        ) : (
+          <>
+            L’aigua i l’onatge, d’un model de mar obert a uns cinc quilòmetres de la costa. El vent,
+            mesurat a l’estació del Meteocat més propera{windAge != null && <>, fa {windAge} min</>}.
+            Les banderes les posen els socorristes, i només surten si són de les últimes {FLAG_SHOW_HOURS} hores. {data.source}.
+          </>
+        )}
       </p>
 
       <div className="section">
         <Fold
           id="que-vol-dir"
-          title="Què vol dir cada dada, i què no"
-          summary="L'onatge és de mar obert, la bandera caduca i les meduses porten el nom científic"
+          title={t('Què vol dir cada dada, i què no', 'Qué quiere decir cada dato, y qué no')}
+          summary={t(
+            "L'onatge és de mar obert, la bandera caduca i les meduses porten el nom científic",
+            'El oleaje es de mar abierto, la bandera caduca y las medusas llevan el nombre científico',
+          )}
         >
-          <div className="card prose">
-            <p>
-              <strong>L&apos;onatge del model és de mar obert</strong>, a uns cinc quilòmetres de la
-              costa. No recull el que passa dins d&apos;una cala ni els corrents de ressaca, que són
-              la causa principal dels ofegaments: mig metre d&apos;onada pot ser una platja tranquil·la
-              o una on no s&apos;hi ha d&apos;entrar, segons el fons. L&apos;estat de la mar fa servir
-              l&apos;escala Douglas: arrissada, marejol, maror…
-            </p>
-            <p>
-              <strong>Una bandera caduca.</strong> La posa un socorrista quan és de servei, i fora
-              d&apos;horari no s&apos;actualitza. Per això cada una porta l&apos;hora del seu comunicat,
-              i les de més de {FLAG_SHOW_HOURS} hores no surten.
-            </p>
-            <p>
-              <strong>Les meduses</strong> les reporten els socorristes amb el nom científic. Al
-              costat hi va el nom corrent i què se&apos;n sap de la picada; una espècie que no
-              consti a la taula s&apos;ha de tractar com si piqués.
-            </p>
-          </div>
+          {lang === 'es' ? (
+            <div className="card prose">
+              <p>
+                <strong>El oleaje del modelo es de mar abierto</strong>, a unos cinco kilómetros de la
+                costa. No recoge lo que pasa dentro de una cala ni las corrientes de resaca, que son
+                la causa principal de los ahogamientos: medio metro de ola puede ser una playa tranquila
+                o una en la que no hay que entrar, según el fondo. El estado del mar usa la escala
+                Douglas: rizada, marejadilla, marejada…
+              </p>
+              <p>
+                <strong>Una bandera caduca.</strong> La pone un socorrista cuando está de servicio, y fuera
+                de horario no se actualiza. Por eso cada una lleva la hora de su parte, y las de más
+                de {FLAG_SHOW_HOURS} horas no aparecen.
+              </p>
+              <p>
+                <strong>Las medusas</strong> las comunican los socorristas con el nombre científico. Al
+                lado va el nombre común y lo que se sabe de su picadura; una especie que no conste en
+                la tabla hay que tratarla como si picara.
+              </p>
+            </div>
+          ) : (
+            <div className="card prose">
+              <p>
+                <strong>L&apos;onatge del model és de mar obert</strong>, a uns cinc quilòmetres de la
+                costa. No recull el que passa dins d&apos;una cala ni els corrents de ressaca, que són
+                la causa principal dels ofegaments: mig metre d&apos;onada pot ser una platja tranquil·la
+                o una on no s&apos;hi ha d&apos;entrar, segons el fons. L&apos;estat de la mar fa servir
+                l&apos;escala Douglas: arrissada, marejol, maror…
+              </p>
+              <p>
+                <strong>Una bandera caduca.</strong> La posa un socorrista quan és de servei, i fora
+                d&apos;horari no s&apos;actualitza. Per això cada una porta l&apos;hora del seu comunicat,
+                i les de més de {FLAG_SHOW_HOURS} hores no surten.
+              </p>
+              <p>
+                <strong>Les meduses</strong> les reporten els socorristes amb el nom científic. Al
+                costat hi va el nom corrent i què se&apos;n sap de la picada; una espècie que no
+                consti a la taula s&apos;ha de tractar com si piqués.
+              </p>
+            </div>
+          )}
         </Fold>
       </div>
     </article>
@@ -362,21 +428,23 @@ export default async function MarPage({ searchParams }: { searchParams: Params }
  * platges, que porten la bandera al costat quan n'hi ha una de recent.
  */
 function TramCard({
-  tram, townPath, pill,
+  tram, townPath, pill, lang,
 }: {
   tram: Tram;
   townPath: Map<string, string>;
   pill: (t: number) => React.CSSProperties;
+  lang: Lang;
 }) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const s = tram.stretch;
   const w = s.wind;
   return (
     <li className="card tram scroll-mt-4" id={tram.id}>
-      <h3 className="tram-name">{tramName(tram.towns)}</h3>
+      <h3 className="tram-name">{tramName(tram.towns, lang)}</h3>
 
       <dl className="tram-now">
         <div>
-          <dt>Aigua</dt>
+          <dt>{t('Aigua', 'Agua')}</dt>
           <dd>
             {s.sst != null
               ? <span className="temp-pill" style={pill(s.sst)}>{num(s.sst, 1)}°</span>
@@ -384,18 +452,18 @@ function TramCard({
           </dd>
         </div>
         <div>
-          <dt>Onada</dt>
+          <dt>{t('Onada', 'Ola')}</dt>
           <dd>
             {s.waveHeight != null ? <>{num(s.waveHeight, 1)} m</> : '—'}
-            {s.waveHeight != null && <small>{douglas(s.waveHeight)}</small>}
+            {s.waveHeight != null && <small>{douglas(s.waveHeight, lang)}</small>}
           </dd>
         </div>
         <div>
-          <dt>Vent</dt>
+          <dt>{t('Vent', 'Viento')}</dt>
           <dd>
             {w?.kmh != null ? <>{w.kmh} km/h</> : '—'}
             {w?.direction != null && w.kmh != null && w.kmh > 0 && (
-              <small>{fromDirection(windCardinal(w.direction))}</small>
+              <small>{fromDirection(windCardinal(w.direction), lang)}</small>
             )}
           </dd>
         </div>
@@ -403,11 +471,11 @@ function TramCard({
 
       {s.days.length > 1 && (
         <div>
-        <p className="tram-days-label">Els pròxims dies · onada més alta i aigua</p>
-        <ol className="tram-days" aria-label="Els pròxims dies">
+        <p className="tram-days-label">{t('Els pròxims dies · onada més alta i aigua', 'Los próximos días · ola más alta y agua')}</p>
+        <ol className="tram-days" aria-label={t('Els pròxims dies', 'Los próximos días')}>
           {s.days.map((d, i) => (
             <li key={d.date}>
-              <span>{i === 0 ? 'avui' : dayTiny(`${d.date}T12:00`)}</span>
+              <span>{i === 0 ? t('avui', 'hoy') : dayTiny(`${d.date}T12:00`, lang)}</span>
               <span className="tnum">{d.waveMax != null ? `${num(d.waveMax, 1)} m` : '—'}</span>
               <span className="tnum text-[var(--muted)]">{d.sst != null ? `${num(d.sst, 0)}°` : ''}</span>
             </li>
@@ -422,13 +490,14 @@ function TramCard({
         web hi porta.
       */}
       {tram.beaches.length > 0 && (
-        <ul className="tram-towns" aria-label="Platges">
+        <ul className="tram-towns" aria-label={t('Platges', 'Playas')}>
           {tram.towns.map((town) => {
             const list = tram.beaches.filter((b) => articleFirst(b.municipality) === town);
             const href = townPath.get(list[0].municipalityIne5);
+            const shownTown = placeName(town, lang);
             return (
               <li key={town}>
-                {href ? <Link href={href} className="tram-town">{town}</Link> : <span className="tram-town">{town}</span>}
+                {href ? <Link href={href} className="tram-town">{shownTown}</Link> : <span className="tram-town">{shownTown}</span>}
                 <span className="tram-beaches">
                   {list.map((b) => {
                     const shown = b.ageHours <= FLAG_SHOW_HOURS;
@@ -437,13 +506,13 @@ function TramCard({
                       <span
                         key={b.code}
                         id={`p-${b.code}`}
-                        title={shown ? `Bandera ${flagStyle(b.flag).label.toLowerCase()}` : undefined}
+                        title={shown ? `Bandera ${flagStyle(b.flag, lang).label.toLowerCase()}` : undefined}
                       >
-                        {shown && <FlagMark flag={b.flag} size={14} />}
+                        {shown && <FlagMark flag={b.flag} size={14} lang={lang} />}
                         {b.name}
                         {jellies.length > 0 && (
                           <span className="ml-1">
-                            {jellies.map((j) => <JellyfishMark key={j.species} species={j.species} amount={j.amount} />)}
+                            {jellies.map((j) => <JellyfishMark key={j.species} species={j.species} amount={j.amount} lang={lang} />)}
                           </span>
                         )}
                       </span>
@@ -457,7 +526,7 @@ function TramCard({
       )}
 
       {w?.kmh != null && (
-        <p className="tram-src">vent mesurat a {w.station}, a {w.distKm} km</p>
+        <p className="tram-src">{t('vent mesurat a', 'viento medido en')} {w.station}, a {w.distKm} km</p>
       )}
     </li>
   );

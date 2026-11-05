@@ -1,4 +1,5 @@
-import { flagStyle, speciesInfo, STING_STYLE, type StingLevel } from '@/lib/sea';
+import { beachWord, flagStyle, speciesInfo, STING_STYLE, type StingLevel } from '@/lib/sea';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * Els dos símbols del mar: la bandera i la medusa.
@@ -12,8 +13,8 @@ import { flagStyle, speciesInfo, STING_STYLE, type StingLevel } from '@/lib/sea'
  * El color per si sol no n'hi hauria prou —hi ha qui no distingeix el verd del
  * vermell—, així que el text hi va al costat i no dins.
  */
-export function FlagMark({ flag, size = 22 }: { flag: string; size?: number }) {
-  const style = flagStyle(flag);
+export function FlagMark({ flag, size = 22, lang = 'ca' }: { flag: string; size?: number; lang?: Lang }) {
+  const style = flagStyle(flag, lang);
   const unknown = flag === 'sense informacio' || flag === 'complet';
 
   return (
@@ -50,9 +51,9 @@ export function FlagMark({ flag, size = 22 }: { flag: string; size?: number }) {
  * res, i «Physalia physalis» —que és la que de debò importa— tampoc.
  */
 export function JellyfishMark({
-  species, amount, size,
-}: { species: string; amount?: string; size?: string }) {
-  const info = speciesInfo(species);
+  species, amount, size, lang = 'ca',
+}: { species: string; amount?: string; size?: string; lang?: Lang }) {
+  const info = speciesInfo(species, lang);
   const sting = STING_STYLE[info.sting];
 
   return (
@@ -68,10 +69,10 @@ export function JellyfishMark({
       <p className="text-xs leading-snug">
         <span className="italic text-[var(--ink-2)]">{species}</span>
         {info.common && <span className="text-[var(--ink-2)]">, {info.common}</span>}
-        <span className="font-medium" style={{ color: sting.color }}> · {sting.label}</span>
+        <span className="font-medium" style={{ color: sting.color }}> · {tr(lang, sting.label, sting.labelEs)}</span>
         {(amount || size) && (
           <span className="text-[var(--muted)]">
-            {' '}({[amount, size && `${size} cm`].filter(Boolean).join(', ')})
+            {' '}({[amount && beachWord(amount, lang), size && `${size} cm`].filter(Boolean).join(', ')})
           </span>
         )}
         {info.note && <span className="block text-[var(--muted)]">{info.note}</span>}
@@ -81,15 +82,15 @@ export function JellyfishMark({
 }
 
 /** La llegenda de les banderes, per a qui no se les sap. */
-export function FlagLegend({ flags }: { flags: string[] }) {
+export function FlagLegend({ flags, lang = 'ca' }: { flags: string[]; lang?: Lang }) {
   const seen = [...new Set(flags)];
   if (!seen.length) return null;
   return (
     <ul className="flex flex-wrap gap-x-5 gap-y-2">
       {seen.map((f) => (
         <li key={f} className="flex items-center gap-2 text-sm text-[var(--ink-2)]">
-          <FlagMark flag={f} size={18} />
-          {flagStyle(f).meaning}
+          <FlagMark flag={f} size={18} lang={lang} />
+          {flagStyle(f, lang).meaning}
         </li>
       ))}
     </ul>

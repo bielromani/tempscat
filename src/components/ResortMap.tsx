@@ -2,6 +2,7 @@ import { int, num } from '@/lib/format';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { projectToMap, tileWindow, type MapProjection } from '@/lib/mercator';
 import type { MapFeature } from '@/lib/map';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * On són les sis estacions de muntanya, i quina temperatura hi fa.
@@ -53,12 +54,14 @@ export interface ResortPin {
 }
 
 export function ResortMap({
-  outline, projection, pins,
+  outline, projection, pins, lang,
 }: {
   outline: MapFeature[];
   projection: MapProjection;
   pins: ResortPin[];
+  lang: Lang;
 }) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const placed = pins
     .map((p) => {
       const [x, y] = projectToMap(p.lon, p.lat, projection);
@@ -113,7 +116,10 @@ export function ResortMap({
       <svg
         viewBox={`${x0} ${y0} ${x1 - x0} ${y1 - y0}`}
         role="img"
-        aria-label={`Mapa del Pirineu amb les ${pins.length} estacions de muntanya`}
+        aria-label={t(
+          `Mapa del Pirineu amb les ${pins.length} estacions de muntanya`,
+          `Mapa del Pirineo con las ${pins.length} estaciones de montaña`,
+        )}
         className="block h-auto w-full"
       >
         {outline.map((f) => (
@@ -141,12 +147,12 @@ export function ResortMap({
         ))}
 
         {laid.map((p) => {
-          const t = p.temperature;
+          const temp = p.temperature;
           const tip = [
             p.name,
-            p.open ? 'oberta' : 'tancada',
-            t != null && `${num(t, 1)} °C`,
-            p.snowCm != null && p.snowCm > 0 && `${int(p.snowCm)} cm de neu`,
+            p.open ? t('oberta', 'abierta') : t('tancada', 'cerrada'),
+            temp != null && `${num(temp, 1)} °C`,
+            p.snowCm != null && p.snowCm > 0 && t(`${int(p.snowCm)} cm de neu`, `${int(p.snowCm)} cm de nieve`),
           ].filter(Boolean).join(' · ');
 
           const ly = p.up ? p.y - 44 : p.y + 37;
@@ -162,18 +168,18 @@ export function ResortMap({
                   cx={p.x}
                   cy={p.y}
                   r={15}
-                  fill={t != null ? temperatureColor(t) : 'var(--surface-2)'}
+                  fill={temp != null ? temperatureColor(temp) : 'var(--surface-2)'}
                   stroke="var(--surface)"
                   strokeWidth={2}
                 />
-                {t != null && (
+                {temp != null && (
                   <text
                     x={p.x} y={p.y}
                     textAnchor="middle" dominantBaseline="central"
-                    fontSize={18} fontWeight={650} fill={temperatureInk(t)}
+                    fontSize={18} fontWeight={650} fill={temperatureInk(temp)}
                     style={{ pointerEvents: 'none' }}
                   >
-                    {num(t, 0)}
+                    {num(temp, 0)}
                   </text>
                 )}
                 <text
@@ -204,10 +210,21 @@ export function ResortMap({
       </svg>
 
       <figcaption className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-        El número és la <strong className="font-medium text-[var(--ink-2)]">temperatura
-        mesurada</strong> a l&apos;estació meteorològica més alta de cada domini.
-        L&apos;anell verd vol dir oberta, i el gruix de neu hi surt quan el
-        comunicat encara val. Relleu: model d&apos;elevació de Copernicus.
+        {lang === 'es' ? (
+          <>
+            El número es la <strong className="font-medium text-[var(--ink-2)]">temperatura
+            medida</strong> en la estación meteorológica más alta de cada dominio.
+            El anillo verde quiere decir abierta, y el espesor de nieve aparece cuando el
+            parte todavía vale. Relieve: modelo de elevación de Copernicus.
+          </>
+        ) : (
+          <>
+            El número és la <strong className="font-medium text-[var(--ink-2)]">temperatura
+            mesurada</strong> a l&apos;estació meteorològica més alta de cada domini.
+            L&apos;anell verd vol dir oberta, i el gruix de neu hi surt quan el
+            comunicat encara val. Relleu: model d&apos;elevació de Copernicus.
+          </>
+        )}
       </figcaption>
     </figure>
   );

@@ -4,6 +4,8 @@
 import Link from 'next/link';
 import { aName, ago, int, num } from '@/lib/format';
 import { cameraImage, type CameraNow } from '@/lib/cameras';
+import { getLang } from '@/lib/i18n';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * La targeta d'una càmera: la miniatura a dalt, el nom, d'on és i de quan.
@@ -28,11 +30,12 @@ import { cameraImage, type CameraNow } from '@/lib/cameras';
  * Més clara només quan la imatge no és d'ara, i sense color d'avís: una hora
  * d'antiguitat en una càmera de muntanya no és cap alarma.
  */
-export function CameraCard({ camera: c, meta, loading = 'lazy' }: {
+export function CameraCard({ camera: c, meta, loading = 'lazy', lang = 'ca' }: {
   camera: CameraNow;
   /** El que va sota el nom: l'estació, la distància, l'altitud. */
   meta: Array<string | false | null | undefined>;
   loading?: 'lazy' | 'eager';
+  lang?: Lang;
 }) {
   const line = meta.filter(Boolean).join(' · ');
   return (
@@ -43,7 +46,7 @@ export function CameraCard({ camera: c, meta, loading = 'lazy' }: {
         height={225}
         loading={loading}
         decoding="async"
-        alt={`Fotograma de la càmera ${c.name}, ${aName(c.resort)}`}
+        alt={tr(lang, `Fotograma de la càmera ${c.name}, ${aName(c.resort)}`, `Fotograma de la cámara ${c.name}, ${aName(c.resort, lang)}`)}
         className="block aspect-video h-auto w-full bg-[var(--surface-2)] object-cover"
       />
       <span className="flex flex-1 flex-col px-3.5 pb-3 pt-2.5">
@@ -53,7 +56,7 @@ export function CameraCard({ camera: c, meta, loading = 'lazy' }: {
           className="mt-auto block pt-1.5 text-[12px]"
           style={{ color: c.current ? 'var(--muted)' : 'var(--ink-2)' }}
         >
-          {c.current ? ago(c.ageMin) : `última imatge ${ago(c.ageMin)}`}
+          {c.current ? ago(c.ageMin, lang) : tr(lang, `última imatge ${ago(c.ageMin)}`, `última imagen ${ago(c.ageMin, lang)}`)}
         </span>
       </span>
     </Link>
@@ -76,7 +79,11 @@ export function CameraCard({ camera: c, meta, loading = 'lazy' }: {
  * minutos y la de al lado hace cuatro horas. Una sola hora en la cabecera
  * afirmaría de las tres lo que solo es verdad de una.
  */
-export function CameraBlock({ cameras }: { cameras: Array<CameraNow & { distKm: number }> }) {
+export async function CameraBlock({ cameras, lang: given }: {
+  cameras: Array<CameraNow & { distKm: number }>;
+  lang?: Lang;
+}) {
+  const lang = given ?? await getLang();
   return (
     <>
       <ul className="card-grid">
@@ -85,15 +92,25 @@ export function CameraBlock({ cameras }: { cameras: Array<CameraNow & { distKm: 
             <CameraCard
               camera={c}
               meta={[c.resort, `${num(c.distKm, 1)} km`, c.altitudM != null && `${int(c.altitudM)} m`]}
+              lang={lang}
             />
           </li>
         ))}
       </ul>
       <p className="source">
-        Imatges de Ferrocarrils de la Generalitat de Catalunya (CC BY 4.0), desades un
-        cop per hora.{' '}
+        {lang === 'es' ? (
+          <>
+            Imágenes de Ferrocarrils de la Generalitat de Catalunya (CC BY 4.0), guardadas una
+            vez por hora.{' '}
+          </>
+        ) : (
+          <>
+            Imatges de Ferrocarrils de la Generalitat de Catalunya (CC BY 4.0), desades un
+            cop per hora.{' '}
+          </>
+        )}
         <Link href="/cameres" className="text-[var(--accent)] no-underline hover:underline">
-          Totes les càmeres
+          {tr(lang, 'Totes les càmeres', 'Todas las cámaras')}
         </Link>.
       </p>
     </>

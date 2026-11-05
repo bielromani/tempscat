@@ -2,11 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cameraBySlug, cameraImage, CAMERA_SHOW_HOURS } from '@/lib/cameras';
-import { aName, ago, dateFull, deName, hour, hourSpoken, int, num } from '@/lib/format';
+import { aName, ago, dateFull, deName, hour, hourSpoken, int, num, placeName } from '@/lib/format';
 import { CameraCard } from '@/components/CameraBlock';
 import { External } from '@/components/External';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section, StatGrid } from '@/components/PageHero';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 
 /**
  * Una cámara.
@@ -48,18 +50,21 @@ export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> },
 ): Promise<Metadata> {
   const { slug } = await params;
+  const lang = await getLang();
   const cam = await cameraBySlug(slug);
-  if (!cam) return { title: 'Càmera no trobada' };
+  if (!cam) return { title: tr(lang, 'Càmera no trobada', 'Cámara no encontrada') };
 
   // Compuesto antes y de una pieza: un `<title>` con varios hijos lo escribe
   // vacío el servidor y lo rellena el cliente, y eso vuelve a renderizar el
   // árbol entero en el navegador sin dar ningún error. Está en AGENTS.md.
   const alt = cam.altitudM != null ? `, a ${int(cam.altitudM)} m` : '';
   return {
-    title: `Càmera de ${cam.name} — ${cam.resort}${alt}`,
-    description:
+    title: tr(lang, `Càmera de ${cam.name} — ${cam.resort}${alt}`, `Cámara de ${cam.name} — ${cam.resort}${alt}`),
+    description: tr(lang,
       `Com està ara mateix ${cam.name}, a ${cam.resort}. Imatge de la càmera de `
       + 'Ferrocarrils amb l’hora de la fotografia.',
+      `Cómo está ahora mismo ${cam.name}, en ${cam.resort}. Imagen de la cámara de `
+      + 'Ferrocarrils con la hora de la fotografía.'),
     alternates: { canonical: `/cameres/${cam.slug}` },
   };
 }
@@ -68,6 +73,8 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
   const { slug } = await params;
   const cam = await cameraBySlug(slug);
   if (!cam) notFound();
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
 
   const shown = cam.ageMin <= CAMERA_SHOW_HOURS * 60;
   const siblings = cam.siblings.filter((s) => s.ageMin <= CAMERA_SHOW_HOURS * 60);
@@ -75,8 +82,8 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
   const wide = !shown || cam.panoramic;
 
   const trail = [
-    { nom: 'Catalunya', path: '/' },
-    { nom: 'Càmeres', path: '/cameres' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
+    { nom: t('Càmeres', 'Cámaras'), path: '/cameres' },
     { nom: cam.name, path: `/cameres/${cam.slug}` },
   ];
 
@@ -85,10 +92,10 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
       <StatGrid
         stats={[
           {
-            label: shown && cam.current ? 'Fotografia' : 'Última imatge',
+            label: shown && cam.current ? t('Fotografia', 'Fotografía') : t('Última imatge', 'Última imagen'),
             icon: 'clear-day',
             value: hour(cam.capturedLocal),
-            sub: `${dateFull(cam.capturedLocal)} · ${ago(cam.ageMin)}`,
+            sub: `${dateFull(cam.capturedLocal, lang)} · ${ago(cam.ageMin, lang)}`,
           },
           cam.altitudM != null && {
             label: 'Altitud',
@@ -98,11 +105,11 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
             sub: cam.resort,
           },
           cam.nearest && {
-            label: 'Poble més proper',
+            label: t('Poble més proper', 'Población más cercana'),
             icon: 'thermometer',
             value: num(cam.nearest.distKm, 1),
             unit: 'km',
-            sub: <Link href={cam.nearest.path}>{cam.nearest.nom}</Link>,
+            sub: <Link href={cam.nearest.path}>{placeName(cam.nearest.nom, lang)}</Link>,
           },
         ]}
       />
@@ -110,29 +117,59 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
       {(cam.nearest || cam.lat == null || (cam.panoramic && cam.viewer)) && (
         <div className="card text-[14px] leading-relaxed text-[var(--ink-2)]">
           {cam.nearest && (
-            <p>
-              A la fitxa {deName(cam.nearest.nom)} hi ha la predicció, el que mesura
-              l&apos;estació més propera i la cota de neu.
-            </p>
+            lang === 'es' ? (
+              <p>
+                En la ficha {deName(cam.nearest.nom, lang)} están la predicción, lo que mide
+                la estación más cercana y la cota de nieve.
+              </p>
+            ) : (
+              <p>
+                A la fitxa {deName(cam.nearest.nom)} hi ha la predicció, el que mesura
+                l&apos;estació més propera i la cota de neu.
+              </p>
+            )
           )}
           {cam.lat == null && (
             <p className={cam.nearest ? 'mt-2' : ''}>
-              El catàleg no en dona la coordenada, així que aquesta càmera no apareix a
-              la fitxa de cap municipi.
+              {lang === 'es' ? (
+                <>
+                  El catálogo no da su coordenada, así que esta cámara no aparece en
+                  la ficha de ningún municipio.
+                </>
+              ) : (
+                <>
+                  El catàleg no en dona la coordenada, així que aquesta càmera no apareix a
+                  la fitxa de cap municipi.
+                </>
+              )}
             </p>
           )}
           {cam.panoramic && cam.viewer && (
             <p className={cam.nearest || cam.lat == null ? 'mt-2' : ''}>
-              És una càmera panoràmica i aquí se&apos;n mostra la imatge plana. Al{' '}
-              <External href={cam.viewer} className="text-[var(--accent)]">
-                visor de Ferrocarrils
-              </External>{' '}
-              es pot girar.
+              {lang === 'es' ? (
+                <>
+                  Es una cámara panorámica y aquí se muestra la imagen plana. En el{' '}
+                  <External href={cam.viewer} className="text-[var(--accent)]">
+                    visor de Ferrocarrils
+                  </External>{' '}
+                  se puede girar.
+                </>
+              ) : (
+                <>
+                  És una càmera panoràmica i aquí se&apos;n mostra la imatge plana. Al{' '}
+                  <External href={cam.viewer} className="text-[var(--accent)]">
+                    visor de Ferrocarrils
+                  </External>{' '}
+                  es pot girar.
+                </>
+              )}
             </p>
           )}
           {cam.nearest && (
             <p className="card-foot">
-              <Link href={cam.nearest.path}>El temps {aName(cam.nearest.nom)} ›</Link>
+              <Link href={cam.nearest.path}>
+                {t(`El temps ${aName(cam.nearest.nom)} ›`, `El tiempo ${aName(cam.nearest.nom, lang)} ›`)}
+              </Link>
             </p>
           )}
         </div>
@@ -142,14 +179,26 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
 
   return (
     <article>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow={`Càmera · ${cam.resort}`}
+        eyebrow={`${t('Càmera', 'Cámara')} · ${cam.resort}`}
         icon="partly-cloudy-day"
         title={cam.name}
-        lead={shown ? (
+        lead={lang === 'es' ? (
+          shown ? (
+            <>
+              {cam.current ? 'Imagen de ' : 'Última imagen, de '}
+              <strong>{hourSpoken(cam.capturedLocal, lang)}</strong>, {ago(cam.ageMin, lang)}.
+            </>
+          ) : (
+            <>
+              Esta cámara está <strong>parada</strong>: sirve el mismo fotograma
+              desde {ago(cam.ageMin, lang)}.
+            </>
+          )
+        ) : shown ? (
           <>
             {cam.current ? 'Imatge de ' : 'Última imatge, de '}
             <strong>{hourSpoken(cam.capturedLocal)}</strong>, {ago(cam.ageMin)}.
@@ -179,24 +228,35 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
               src={cameraImage(cam, 'view')}
               width={cam.width ?? undefined}
               height={cam.height ?? undefined}
-              alt={`Fotograma de la càmera ${cam.name}, ${aName(cam.resort)}`}
+              alt={t(
+                `Fotograma de la càmera ${cam.name}, ${aName(cam.resort)}`,
+                `Fotograma de la cámara ${cam.name}, ${aName(cam.resort, lang)}`,
+              )}
               className="block h-auto w-full rounded-[22px] border border-[var(--glass-line)] bg-[var(--surface-2)]"
             />
             <figcaption className="source">
-              {cam.name} · {cam.resort} · {dateFull(cam.capturedLocal)}, {hour(cam.capturedLocal)}
+              {cam.name} · {cam.resort} · {dateFull(cam.capturedLocal, lang)}, {hour(cam.capturedLocal)}
             </figcaption>
           </figure>
         ) : (
           <section className="card min-w-0">
             <p className="card-label">
               <img src="/icons/w/not-available.svg" width={22} height={22} alt="" />
-              Sense imatge
+              {t('Sense imatge', 'Sin imagen')}
             </p>
-            <p className="measure text-[15px] leading-relaxed text-[var(--ink-2)]">
-              Consta com a activa al catàleg de Ferrocarrils, però el fotograma que
-              serveix no ha canviat. L&apos;últim: {dateFull(cam.capturedLocal)},{' '}
-              {hour(cam.capturedLocal)} ({ago(cam.ageMin)}).
-            </p>
+            {lang === 'es' ? (
+              <p className="measure text-[15px] leading-relaxed text-[var(--ink-2)]">
+                Consta como activa en el catálogo de Ferrocarrils, pero el fotograma que
+                sirve no ha cambiado. El último: {dateFull(cam.capturedLocal, lang)},{' '}
+                {hour(cam.capturedLocal)} ({ago(cam.ageMin, lang)}).
+              </p>
+            ) : (
+              <p className="measure text-[15px] leading-relaxed text-[var(--ink-2)]">
+                Consta com a activa al catàleg de Ferrocarrils, però el fotograma que
+                serveix no ha canviat. L&apos;últim: {dateFull(cam.capturedLocal)},{' '}
+                {hour(cam.capturedLocal)} ({ago(cam.ageMin)}).
+              </p>
+            )}
           </section>
         )}
 
@@ -206,15 +266,16 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
       {siblings.length > 0 && (
         <Section
           id="mes"
-          title={`Més càmeres ${deName(cam.resort)}`}
-          action={{ href: '/cameres', label: 'Totes' }}
+          title={t(`Més càmeres ${deName(cam.resort)}`, `Más cámaras ${deName(cam.resort, lang)}`)}
+          action={{ href: '/cameres', label: t('Totes', 'Todas') }}
         >
           <ul className="card-grid cols-4 max-sm:grid-cols-2! max-sm:gap-2.5!">
             {siblings.map((s) => (
               <li key={s.id}>
                 <CameraCard
                   camera={s}
-                  meta={[s.altitudM != null && `${int(s.altitudM)} m`, s.panoramic && 'panoràmica']}
+                  meta={[s.altitudM != null && `${int(s.altitudM)} m`, s.panoramic && t('panoràmica', 'panorámica')]}
+                  lang={lang}
                 />
               </li>
             ))}
@@ -226,10 +287,19 @@ export default async function CameraPage({ params }: { params: Promise<{ slug: s
           camera i la llicencia son les mateixes tant si el fotograma es de
           fa deu minuts com si es d'abril. */}
       <p className="source mt-8!">
-        Càmera de {cam.attribution}; les imatges es publiquen amb llicència{' '}
-        {cam.license} i es desen un cop per hora.{' '}
+        {lang === 'es' ? (
+          <>
+            Cámara de {cam.attribution}; las imágenes se publican con licencia{' '}
+            {cam.license} y se guardan una vez por hora.{' '}
+          </>
+        ) : (
+          <>
+            Càmera de {cam.attribution}; les imatges es publiquen amb llicència{' '}
+            {cam.license} i es desen un cop per hora.{' '}
+          </>
+        )}
         <Link href="/cameres" className="text-[var(--accent)] no-underline hover:underline">
-          Totes les càmeres
+          {t('Totes les càmeres', 'Todas las cámaras')}
         </Link>.
       </p>
     </article>

@@ -1,8 +1,9 @@
 import 'server-only';
 import type { SeaStretch } from './activities';
 import type { Beach } from './sea';
-import { aName, articleFirst, deName } from './format';
+import { aName, articleFirst, deName, placeName } from './format';
 import { fold } from './search-match';
+import type { Lang } from './lang';
 
 /**
  * La costa en trams: cada punt del model de mar, amb les platges que té més a
@@ -36,8 +37,13 @@ function d2(aLat: number, aLon: number, bLat: number, bLon: number): number {
  * saber quins eren els cinc. Ara el nom diu d'on a on va, i a dins de la
  * targeta hi ha tots els pobles amb les seves platges.
  */
-export function tramName(towns: string[]): string {
+export function tramName(towns: string[], lang: Lang = 'ca'): string {
   const cap = (t: string) => `${t[0].toUpperCase()}${t.slice(1)}`;
+  if (lang === 'es') {
+    if (towns.length <= 1) return placeName(towns[0] ?? '', lang);
+    if (towns.length === 2 && !towns.some((t) => / i /.test(t))) return cap(pairEs(towns[0], towns[1]));
+    return cap(`de ${placeName(towns[0], lang)} a ${placeName(towns.at(-1)!, lang)}`);
+  }
   if (towns.length <= 1) return cap(towns[0] ?? '');
   // «Vandellòs i l'Hospitalet de l'Infant i l'Ametlla de Mar» no es llegeix: amb
   // una «i» dins d'un nom, es diu d'on a on.
@@ -46,11 +52,28 @@ export function tramName(towns: string[]): string {
 }
 
 /**
+ * «Gavà y Castelldefels», i «e» davant d'una i: «Calella e Igualada». En
+ * castellà la conjunció canvia davant del so /i/, i no davant de «hie».
+ */
+function pairEs(a: string, b: string): string {
+  const pb = placeName(b, 'es');
+  return `${placeName(a, 'es')} ${/^h?i(?![aeiouáéíóú])/i.test(pb) ? 'e' : 'y'} ${pb}`;
+}
+
+/**
  * El tram dins d'una frase: «a Sitges», «entre Gavà i Castelldefels», «de
  * Tarragona a Cambrils». `tramName()` és un títol i no porta preposició:
  * escrivint-hi «a» davant sortia «a De Tarragona a Cambrils».
+ *
+ * En castellà, «en Sitges», «entre Gavà y Castelldefels» i «de Tarragona a
+ * Cambrils»: aquí la «a» és de direcció, i `aName()` en castellà dona «en».
  */
-export function tramPhrase(towns: string[]): string {
+export function tramPhrase(towns: string[], lang: Lang = 'ca'): string {
+  if (lang === 'es') {
+    if (towns.length <= 1) return aName(towns[0] ?? '', lang);
+    if (towns.length === 2 && !towns.some((t) => / i /.test(t))) return `entre ${pairEs(towns[0], towns[1])}`;
+    return `de ${placeName(towns[0], lang)} a ${placeName(towns.at(-1)!, lang)}`;
+  }
   if (towns.length <= 1) return aName(towns[0] ?? '');
   if (towns.length === 2 && !towns.some((t) => / i /.test(t))) return `entre ${towns[0]} i ${towns[1]}`;
   return `${deName(towns[0])} ${aName(towns.at(-1)!)}`;

@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
-  aName, ago, capFirst, comarcaName, dateFull, dateShort, int, num, relativeDay, stationShort,
+  aName, ago, capFirst, comarcaName, dateFull, dateShort, int, num, placeName, relativeDay, stationShort,
 } from '@/lib/format';
-import { MOUNTAIN_OTHER, MOUNTAIN_ZONES, anchorSlug, groupByZone } from '@/lib/zones';
+import { MOUNTAIN_OTHER, MOUNTAIN_ZONES, anchorSlug, groupByZone, zoneLabel } from '@/lib/zones';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 import { allHistory, localToday } from '@/lib/weather';
 import { stationByCodi } from '@/lib/territory';
 import { mountainView } from '@/lib/mountain';
@@ -60,15 +62,22 @@ import { Fold } from '@/components/Fold';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Gruix de neu al Pirineu, mesurat',
-  description:
-    'Quanta neu hi ha ara mateix a les estacions d\'alta muntanya de la XEMA: '
-    + 'gruix mesurat, neu nova i rècords de cada estació.',
-  alternates: { canonical: '/neu' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Gruix de neu al Pirineu, mesurat', 'Espesor de nieve en el Pirineo, medido'),
+    description: tr(lang,
+      'Quanta neu hi ha ara mateix a les estacions d\'alta muntanya de la XEMA: '
+      + 'gruix mesurat, neu nova i rècords de cada estació.',
+      'Cuánta nieve hay ahora mismo en las estaciones de alta montaña de la XEMA: '
+      + 'espesor medido, nieve nueva y récords de cada estación.'),
+    alternates: { canonical: '/neu' },
+  };
+}
 
 export default async function NeuPage() {
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const today = localToday();
   const mountain = await mountainView();
   /*
@@ -132,20 +141,36 @@ export default async function NeuPage() {
     .sort((a, b) => (b.snowMaxCm ?? 0) - (a.snowMaxCm ?? 0))[0];
 
   const trail = [
-    { nom: 'Catalunya', path: '/' },
-    { nom: 'Neu', path: '/neu' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
+    { nom: t('Neu', 'Nieve'), path: '/neu' },
   ];
 
   return (
     <article>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow="Neu i muntanya"
+        eyebrow={t('Neu i muntanya', 'Nieve y montaña')}
         icon="snow"
-        title="Quanta neu hi ha al Pirineu"
-        lead={rows.length === 0 ? undefined : withSnow.length > 0 ? (
+        title={t('Quanta neu hi ha al Pirineu', 'Cuánta nieve hay en el Pirineo')}
+        lead={rows.length === 0 ? undefined : lang === 'es' ? (
+          withSnow.length > 0 ? (
+            <>
+              <strong>
+                {withSnow.length} {withSnow.length === 1 ? 'estación tiene' : 'estaciones tienen'} nieve
+              </strong>{' '}
+              ahora mismo, de las {rows.length} que la miden. El espesor más alto es de{' '}
+              <strong className="tnum">{int(withSnow[0].snow.depthCm)} cm</strong>,{' '}
+              {aName(stationShort(withSnow[0].station.nom), lang)}.
+            </>
+          ) : (
+            <>
+              Ahora mismo <strong>no hay nieve</strong> en ninguna de las {rows.length} estaciones
+              que la miden. Abajo, cuánta ha llegado a haber en cada una.
+            </>
+          )
+        ) : withSnow.length > 0 ? (
           <>
             <strong>
               {withSnow.length} {withSnow.length === 1 ? 'estació té' : 'estacions tenen'} neu
@@ -162,72 +187,80 @@ export default async function NeuPage() {
         )}
         stats={[
           resorts.length > 0 && {
-            label: 'Estacions obertes',
+            label: t('Estacions obertes', 'Estaciones abiertas'),
             icon: 'snow',
             value: int(open.length),
             unit: `de ${resorts.length}`,
-            sub: open.length > 0 ? open.map((r) => r.name).join(', ') : 'Totes tancades',
+            sub: open.length > 0 ? open.map((r) => r.name).join(', ') : t('Totes tancades', 'Todas cerradas'),
           },
           reported && {
-            label: 'Neu a les pistes',
+            label: t('Neu a les pistes', 'Nieve en las pistas'),
             icon: 'extreme-snow',
             value: reported.snowMinCm != null && reported.snowMinCm !== reported.snowMaxCm
               ? `${int(reported.snowMinCm)}–${int(reported.snowMaxCm)}`
               : int(reported.snowMaxCm),
             unit: 'cm',
-            sub: <><a href={`#e-${reported.slug}`}>{reported.name}</a> · comunicat {ago(reported.ageHours * 60)}</>,
+            sub: <><a href={`#e-${reported.slug}`}>{reported.name}</a> · {t('comunicat', 'parte')} {ago(reported.ageHours * 60, lang)}</>,
           },
           withSnow.length > 0 && {
-            label: 'Gruix mesurat',
+            label: t('Gruix mesurat', 'Espesor medido'),
             icon: 'snow',
             value: int(withSnow[0].snow.depthCm),
             unit: 'cm',
-            sub: <Link href={`/estacions/${withSnow[0].station.codi}`}>{withSnow[0].station.nom}</Link>,
+            sub: <Link href={`/estacions/${withSnow[0].station.codi}`}>{placeName(withSnow[0].station.nom, lang)}</Link>,
           },
           top && {
-            label: 'Temperatura a dalt',
+            label: t('Temperatura a dalt', 'Temperatura arriba'),
             icon: 'thermometer',
             value: num(top.temperature, 1),
             unit: '°C',
             sub: [
               top.altitudM != null && `${int(top.altitudM)} m`,
               top.resort,
-              ago(top.ageMin),
+              ago(top.ageMin, lang),
             ].filter(Boolean).join(' · '),
           },
         ]}
         note={rows.length > 0 && (
-          <>
-            Gruix mesurat per un sensor, no la cota de neu estimada que surt a les fitxes:
-            la cota diu per damunt de quina altura nevarà, i això, quanta n&apos;hi ha.
-            Només {rows.length} estacions de la XEMA en servei porten sensor de neu.
-          </>
+          lang === 'es' ? (
+            <>
+              Espesor medido por un sensor, no la cota de nieve estimada que aparece en las fichas:
+              la cota dice por encima de qué altura nevará, y esto, cuánta hay.
+              Solo {rows.length} estaciones de la XEMA en servicio llevan sensor de nieve.
+            </>
+          ) : (
+            <>
+              Gruix mesurat per un sensor, no la cota de neu estimada que surt a les fitxes:
+              la cota diu per damunt de quina altura nevarà, i això, quanta n&apos;hi ha.
+              Només {rows.length} estacions de la XEMA en servei porten sensor de neu.
+            </>
+          )
         )}
         aside={pins.length > 0 && (
-          <section className="card" aria-label="Les estacions d'esquí al mapa">
+          <section className="card" aria-label={t("Les estacions d'esquí al mapa", 'Las estaciones de esquí en el mapa')}>
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
-              Les estacions, ara
+              {t('Les estacions, ara', 'Las estaciones, ahora')}
             </p>
-            <ResortMap outline={geo.features} projection={geo.projection} pins={pins} />
-            <p className="card-foot"><Link href="/cameres">Les càmeres de muntanya ›</Link></p>
+            <ResortMap outline={geo.features} projection={geo.projection} pins={pins} lang={lang} />
+            <p className="card-foot"><Link href="/cameres">{t('Les càmeres de muntanya ›', 'Las cámaras de montaña ›')}</Link></p>
           </section>
         )}
       />
 
       {/* Les seccions, per saltar-hi. Són àncores: no cal cap script. */}
-      <nav aria-label="Seccions" className="mt-6 mb-2">
+      <nav aria-label={t('Seccions', 'Secciones')} className="mt-6 mb-2">
         <ul className="chips">
-          {mountain && mountain.resorts.length > 0 && <li><a href="#estacions">Estacions d&apos;esquí</a></li>}
+          {mountain && mountain.resorts.length > 0 && <li><a href="#estacions">{t("Estacions d'esquí", 'Estaciones de esquí')}</a></li>}
           {zones.map(([name, list]) => (
-            <li key={name}><a href={`#zona-${anchorSlug(name)}`}>{name} <span>{list.length}</span></a></li>
+            <li key={name}><a href={`#zona-${anchorSlug(name)}`}>{zoneLabel(name, lang)} <span>{list.length}</span></a></li>
           ))}
         </ul>
       </nav>
 
       {mountain && mountain.resorts.length > 0 && (
-        <Section id="estacions" title="Les estacions d'esquí">
+        <Section id="estacions" title={t("Les estacions d'esquí", 'Las estaciones de esquí')}>
           <div className="card-grid">
             {mountain.resorts.map((r) => (
               <ResortBlock
@@ -235,20 +268,38 @@ export default async function NeuPage() {
                 resort={r}
                 stations={mountain.stations.filter((st) => st.bunitId === r.bunitId)}
                 cameras={camsByResort.get(r.bunitId) ?? []}
+                lang={lang}
               />
             ))}
           </div>
           <p className="source">
-            {mountain.attribution} ({mountain.license}). El comunicat el fa cada estació
-            i el gruix de neu es retira quan passa de dos dies. El risc d&apos;allaus
-            no surt d&apos;aquí: el butlletí oficial és el{' '}
-            <External
-              href="https://www.icgc.cat/ca/Ciutada/Explora-Catalunya/Allaus"
-              className="text-[var(--ink-2)]"
-            >
-              butlletí de perill d&apos;allaus
-            </External>{' '}
-            de l&apos;ICGC amb el Meteocat.
+            {lang === 'es' ? (
+              <>
+                {mountain.attribution} ({mountain.license}). El parte lo hace cada estación
+                y el espesor de nieve se retira cuando pasa de dos días. El riesgo de aludes
+                no sale de aquí: el boletín oficial es el{' '}
+                <External
+                  href="https://www.icgc.cat/ca/Ciutada/Explora-Catalunya/Allaus"
+                  className="text-[var(--ink-2)]"
+                >
+                  boletín de peligro de aludes
+                </External>{' '}
+                del ICGC con el Meteocat.
+              </>
+            ) : (
+              <>
+                {mountain.attribution} ({mountain.license}). El comunicat el fa cada estació
+                i el gruix de neu es retira quan passa de dos dies. El risc d&apos;allaus
+                no surt d&apos;aquí: el butlletí oficial és el{' '}
+                <External
+                  href="https://www.icgc.cat/ca/Ciutada/Explora-Catalunya/Allaus"
+                  className="text-[var(--ink-2)]"
+                >
+                  butlletí de perill d&apos;allaus
+                </External>{' '}
+                de l&apos;ICGC amb el Meteocat.
+              </>
+            )}
           </p>
         </Section>
       )}
@@ -261,10 +312,13 @@ export default async function NeuPage() {
         el gruix, la neu nova i el rècord de la seva sèrie.
       */}
       {rows.length === 0 ? (
-        <Section id="gruix" title="Gruix mesurat a les estacions de la XEMA">
+        <Section id="gruix" title={t('Gruix mesurat a les estacions de la XEMA', 'Espesor medido en las estaciones de la XEMA')}>
           <div className="card">
             <p className="text-[var(--ink-2)]">
-              Encara no hi ha dades de neu carregades. Torneu-hi en una estona.
+              {t(
+                'Encara no hi ha dades de neu carregades. Torneu-hi en una estona.',
+                'Todavía no hay datos de nieve cargados. Vuelva dentro de un rato.',
+              )}
             </p>
           </div>
         </Section>
@@ -280,19 +334,22 @@ export default async function NeuPage() {
                 aria-labelledby={`h-${anchorSlug(name)}`}
               >
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
-                  <h2 id={`h-${anchorSlug(name)}`} className="card-title">{name}</h2>
+                  <h2 id={`h-${anchorSlug(name)}`} className="card-title">{zoneLabel(name, lang)}</h2>
                   <p className="text-[13px] text-[var(--muted)] tnum">
-                    {list.length} {list.length === 1 ? 'sensor' : 'sensors'}
+                    {list.length} {list.length === 1 ? 'sensor' : t('sensors', 'sensores')}
                     {' · '}
                     {snowy.length === 0
-                      ? 'sense neu'
-                      : `neu a ${snowy.length === list.length ? 'tots' : snowy.length}`}
+                      ? t('sense neu', 'sin nieve')
+                      : t(
+                        `neu a ${snowy.length === list.length ? 'tots' : snowy.length}`,
+                        `nieve en ${snowy.length === list.length ? 'todos' : snowy.length}`,
+                      )}
                   </p>
                 </div>
                 <ul className="card-grid">
                   {list.map(({ h, station, snow }) => {
                     const rec = h.records.snowMax;
-                    const when = relativeDay(snow.day, today) === 'avui' ? 'avui' : dateShort(snow.day);
+                    const when = relativeDay(snow.day, today) === 'avui' ? t('avui', 'hoy') : dateShort(snow.day, lang);
                     return (
                       <li key={station.codi} className="card tram">
                         <h3 className="tram-name">
@@ -304,12 +361,12 @@ export default async function NeuPage() {
                           </Link>
                           <span className="block text-[12.5px] font-normal text-[var(--muted)]">
                             {station.altitud != null && <>{int(station.altitud)} m</>}
-                            {station.comarcaNom && <> · {comarcaName(station.comarcaNom)}</>}
+                            {station.comarcaNom && <> · {comarcaName(station.comarcaNom, lang)}</>}
                           </span>
                         </h3>
                         <dl className="tram-now">
                           <div>
-                            <dt>Gruix</dt>
+                            <dt>{t('Gruix', 'Espesor')}</dt>
                             <dd>
                               {snow.depthCm > 0 ? (
                                 <span
@@ -323,7 +380,7 @@ export default async function NeuPage() {
                             </dd>
                           </div>
                           <div>
-                            <dt>Neu nova</dt>
+                            <dt>{t('Neu nova', 'Nieve nueva')}</dt>
                             <dd>
                               {snow.newCm != null && snow.newCm > 0
                                 ? <span className="text-[var(--good)]">+{int(snow.newCm)} cm</span>
@@ -331,10 +388,10 @@ export default async function NeuPage() {
                             </dd>
                           </div>
                           <div>
-                            <dt>Rècord</dt>
+                            <dt>{t('Rècord', 'Récord')}</dt>
                             <dd>
                               {rec ? <>{int(rec.value)} cm</> : '—'}
-                              {rec && <small>{dateFull(rec.date)}</small>}
+                              {rec && <small>{dateFull(rec.date, lang)}</small>}
                             </dd>
                           </div>
                         </dl>
@@ -346,15 +403,51 @@ export default async function NeuPage() {
             );
           })}
           <p className="source mt-6">
-            Servei Meteorològic de Catalunya (XEMA), gruix màxim diari al punt del sensor.
-            El rècord és el de la sèrie de cada estació, que arrenca quan es va instal·lar el
-            sensor i no quan es va instal·lar l&apos;estació.
+            {lang === 'es' ? (
+              <>
+                Servei Meteorològic de Catalunya (XEMA), espesor máximo diario en el punto del sensor.
+                El récord es el de la serie de cada estación, que empieza cuando se instaló el
+                sensor y no cuando se instaló la estación.
+              </>
+            ) : (
+              <>
+                Servei Meteorològic de Catalunya (XEMA), gruix màxim diari al punt del sensor.
+                El rècord és el de la sèrie de cada estació, que arrenca quan es va instal·lar el
+                sensor i no quan es va instal·lar l&apos;estació.
+              </>
+            )}
           </p>
         </>
       )}
 
       <div className="mt-10">
-        <Fold title="Què vol dir i què no" summary="Un punt concret, no l'estat de les pistes">
+        <Fold
+          title={t('Què vol dir i què no', 'Qué quiere decir y qué no')}
+          summary={t("Un punt concret, no l'estat de les pistes", 'Un punto concreto, no el estado de las pistas')}
+        >
+          {lang === 'es' ? (
+            <div className="card prose">
+              <p>
+                El espesor es el <strong>máximo del día</strong> en el punto donde está el sensor,
+                normalmente llano. A cincuenta metros, en una umbría o en un nevero,
+                puede haber el doble; en una cresta barrida por el viento, nada.
+              </p>
+              <p>
+                <strong>No es el estado de las pistas.</strong> Las estaciones de esquí
+                fabrican nieve, la compactan y la acumulan: el espesor de una pista no tiene
+                mucho que ver con el de un prado a la misma cota. Para eso está el
+                parte de cada estación, arriba.
+              </p>
+              <p>
+                <strong>Hay lecturas que se descartan.</strong> El sensor es un ultrasonido
+                que mide la distancia hasta el suelo, y en verano se cuela cualquier cosa:
+                hierba que crece, un objeto, una recalibración. El registro daba 12 cm de
+                nieve en Das el 28 de agosto, a 1.100 m, con la mínima a 9,3 °C, y el portal
+                las marcaba como buenas. Se descarta el espesor que aumenta un día que no ha
+                helado; la nieve que se funde un día de sol se queda.
+              </p>
+            </div>
+          ) : (
           <div className="card prose">
             <p>
               El gruix és el <strong>màxim del dia</strong> al punt on hi ha el sensor,
@@ -376,6 +469,7 @@ export default async function NeuPage() {
               augmenta un dia que no ha glaçat; la neu que es fon un dia de sol es queda.
             </p>
           </div>
+          )}
         </Fold>
       </div>
     </article>

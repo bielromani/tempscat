@@ -7,6 +7,8 @@ import { External } from '@/components/External';
 import { CameraCard } from '@/components/CameraBlock';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 
 /**
  * Les càmeres de muntanya.
@@ -42,32 +44,42 @@ import { PageHero, Section } from '@/components/PageHero';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Càmeres de muntanya del Pirineu',
-  description:
-    'Com està el temps ara mateix a La Molina, Vall de Núria, Espot, Boí Taüll, '
-    + 'Port Ainé, Vallter i el Montsec, vist per les càmeres de Ferrocarrils.',
-  alternates: { canonical: '/cameres' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Càmeres de muntanya del Pirineu', 'Cámaras de montaña del Pirineo'),
+    description: tr(lang,
+      'Com està el temps ara mateix a La Molina, Vall de Núria, Espot, Boí Taüll, '
+      + 'Port Ainé, Vallter i el Montsec, vist per les càmeres de Ferrocarrils.',
+      'Qué tiempo hace ahora mismo en La Molina, Vall de Núria, Espot, Boí Taüll, '
+      + 'Port Ainé, Vallter y el Montsec, visto por las cámaras de Ferrocarrils.'),
+    alternates: { canonical: '/cameres' },
+  };
+}
 
 export default async function CameresPage() {
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const cams = await allCameras();
 
   const trail = [
-    { nom: 'Catalunya', path: '/' },
-    { nom: 'Càmeres', path: '/cameres' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
+    { nom: t('Càmeres', 'Cámaras'), path: '/cameres' },
   ];
 
   if (!cams) {
     return (
       <article>
-        <JsonLd data={graph(breadcrumbLd(trail))} />
+        <JsonLd data={graph(breadcrumbLd(trail, lang))} />
         <PageHero
           crumbs={trail}
-          eyebrow="Càmeres de muntanya"
+          eyebrow={t('Càmeres de muntanya', 'Cámaras de montaña')}
           icon="partly-cloudy-day"
-          title="Com està la muntanya ara mateix"
-          lead="Ara mateix no hi ha cap fotograma desat. Torneu-hi en una estona."
+          title={t('Com està la muntanya ara mateix', 'Cómo está la montaña ahora mismo')}
+          lead={t(
+            'Ara mateix no hi ha cap fotograma desat. Torneu-hi en una estona.',
+            'Ahora mismo no hay ningún fotograma guardado. Vuelva dentro de un rato.',
+          )}
         />
       </article>
     );
@@ -85,14 +97,27 @@ export default async function CameresPage() {
 
   return (
     <article>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow="Càmeres de muntanya"
+        eyebrow={t('Càmeres de muntanya', 'Cámaras de montaña')}
         icon="partly-cloudy-day"
-        title="Com està la muntanya ara mateix"
-        lead={cams.list.length === 0 ? (
+        title={t('Com està la muntanya ara mateix', 'Cómo está la montaña ahora mismo')}
+        lead={lang === 'es' ? (
+          cams.list.length === 0 ? (
+            <>
+              Ninguna de las {cams.total} cámaras del catálogo de Ferrocarrils ha enviado
+              ningún fotograma en las últimas {CAMERA_SHOW_HOURS} horas.
+            </>
+          ) : (
+            <>
+              Fotogramas de {cams.list.length}{' '}
+              {cams.list.length === 1 ? 'cámara' : 'cámaras'} de Ferrocarrils en el Pirineo
+              y en el Montsec, cada uno con la hora en que se tomó.
+            </>
+          )
+        ) : cams.list.length === 0 ? (
           <>
             Cap de les {cams.total} càmeres del catàleg de Ferrocarrils no ha enviat
             cap fotograma en les últimes {CAMERA_SHOW_HOURS} hores.
@@ -106,32 +131,38 @@ export default async function CameresPage() {
         )}
         stats={cams.list.length > 0 ? [
           {
-            label: 'Càmeres',
+            label: t('Càmeres', 'Cámaras'),
             icon: 'partly-cloudy-day',
             value: int(cams.list.length),
             unit: `de ${cams.total}`,
-            sub: 'amb fotograma de les últimes hores',
+            sub: t('amb fotograma de les últimes hores', 'con fotograma de las últimas horas'),
           },
           {
-            label: 'Estacions',
+            label: t('Estacions', 'Estaciones'),
             icon: 'snow',
             value: int(resorts),
-            sub: 'de muntanya amb imatge',
+            sub: t('de muntanya amb imatge', 'de montaña con imagen'),
           },
           cams.stale.length > 0 && {
-            label: 'Aturades',
+            label: t('Aturades', 'Paradas'),
             icon: 'not-available',
             value: int(cams.stale.length),
-            sub: <a href="#aturades">sense fotograma nou</a>,
+            sub: <a href="#aturades">{t('sense fotograma nou', 'sin fotograma nuevo')}</a>,
           },
         ] : undefined}
-        note="No són imatges en directe: es desen un cop per hora."
+        note={t(
+          'No són imatges en directe: es desen un cop per hora.',
+          'No son imágenes en directo: se guardan una vez por hora.',
+        )}
         aside={latest && (
           /* Al mòbil no: seria la mateixa imatge que la primera de la reixa, just a sota. */
-          <section className="card hidden lg:block" aria-label="La càmera amb el fotograma més recent">
+          <section
+            className="card hidden lg:block"
+            aria-label={t('La càmera amb el fotograma més recent', 'La cámara con el fotograma más reciente')}
+          >
             <p className="card-label">
               <img src="/icons/w/clear-day.svg" width={22} height={22} alt="" />
-              La més recent
+              {t('La més recent', 'La más reciente')}
             </p>
             <Link href={`/cameres/${latest.slug}`} className="block no-underline">
               <img
@@ -139,12 +170,15 @@ export default async function CameresPage() {
                 width={400}
                 height={225}
                 decoding="async"
-                alt={`Fotograma de la càmera ${latest.name}, ${aName(latest.resort)}`}
+                alt={t(
+                  `Fotograma de la càmera ${latest.name}, ${aName(latest.resort)}`,
+                  `Fotograma de la cámara ${latest.name}, ${aName(latest.resort, lang)}`,
+                )}
                 className="block aspect-video h-auto w-full rounded-[14px] bg-[var(--surface-2)] object-cover"
               />
               <span className="mt-2.5 block text-[15px] font-semibold text-[var(--ink)]">{latest.name}</span>
               <span className="block text-[13px] text-[var(--muted)]">
-                {[latest.resort, latest.altitudM != null && `${int(latest.altitudM)} m`, ago(latest.ageMin)]
+                {[latest.resort, latest.altitudM != null && `${int(latest.altitudM)} m`, ago(latest.ageMin, lang)]
                   .filter(Boolean).join(' · ')}
               </span>
             </Link>
@@ -158,7 +192,7 @@ export default async function CameresPage() {
         secció per estació.
       */}
       {byResort.length > 1 && (
-        <nav aria-label="Estacions" className="mt-6 mb-2">
+        <nav aria-label={t('Estacions', 'Estaciones')} className="mt-6 mb-2">
           <ul className="chips">
             {byResort.map(([resort, list]) => (
               <li key={resort}><a href={`#e-${anchorSlug(resort)}`}>{resort} <span>{list.length}</span></a></li>
@@ -177,7 +211,9 @@ export default async function CameresPage() {
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
             <h2 id={`h-${anchorSlug(resort)}`} className="card-title">{resort}</h2>
             <p className="text-[13px] text-[var(--muted)] tnum">
-              {list.length} {list.length === 1 ? 'càmera' : 'càmeres'} · la més recent, {ago(list[0].ageMin)}
+              {lang === 'es'
+                ? `${list.length} ${list.length === 1 ? 'cámara' : 'cámaras'} · la más reciente, ${ago(list[0].ageMin, lang)}`
+                : <>{list.length} {list.length === 1 ? 'càmera' : 'càmeres'} · la més recent, {ago(list[0].ageMin)}</>}
             </p>
           </div>
           {/* Dues columnes també al mòbil: d'una en una, dinou fotogrames eren deu pantalles. */}
@@ -188,8 +224,9 @@ export default async function CameresPage() {
                   camera={c}
                   meta={[
                     c.altitudM != null && `${int(c.altitudM)} m`,
-                    c.panoramic && 'panoràmica',
+                    c.panoramic && t('panoràmica', 'panorámica'),
                   ]}
+                  lang={lang}
                 />
               </li>
             ))}
@@ -198,28 +235,53 @@ export default async function CameresPage() {
       ))}
 
       {cams.list.length > 0 && (
-        <p className="source mt-6">
-          Imatges de {cams.attribution} ({cams.license}), del conjunt{' '}
-          <External
-            href="https://dadesobertes.fgc.cat/explore/dataset/webcams-actives-tim/"
-            className="text-[var(--ink-2)]"
-          >
-            «Webcams dels equipaments turístics»
-          </External>
-          . Es desen un cop per hora i es retiren passades {CAMERA_SHOW_HOURS} hores
-          sense fotograma nou.
-        </p>
+        lang === 'es' ? (
+          <p className="source mt-6">
+            Imágenes de {cams.attribution} ({cams.license}), del conjunto{' '}
+            <External
+              href="https://dadesobertes.fgc.cat/explore/dataset/webcams-actives-tim/"
+              className="text-[var(--ink-2)]"
+            >
+              «Webcams dels equipaments turístics»
+            </External>
+            . Se guardan una vez por hora y se retiran pasadas {CAMERA_SHOW_HOURS} horas
+            sin fotograma nuevo.
+          </p>
+        ) : (
+          <p className="source mt-6">
+            Imatges de {cams.attribution} ({cams.license}), del conjunt{' '}
+            <External
+              href="https://dadesobertes.fgc.cat/explore/dataset/webcams-actives-tim/"
+              className="text-[var(--ink-2)]"
+            >
+              «Webcams dels equipaments turístics»
+            </External>
+            . Es desen un cop per hora i es retiren passades {CAMERA_SHOW_HOURS} hores
+            sense fotograma nou.
+          </p>
+        )
       )}
 
       {cams.stale.length > 0 && (
         <Section
           id="aturades"
-          title={cams.stale.length === 1 ? 'Una càmera aturada' : `${cams.stale.length} càmeres aturades`}
+          title={lang === 'es'
+            ? (cams.stale.length === 1 ? 'Una cámara parada' : `${cams.stale.length} cámaras paradas`)
+            : (cams.stale.length === 1 ? 'Una càmera aturada' : `${cams.stale.length} càmeres aturades`)}
         >
           <div className="card">
             <p className="text-[13.5px] leading-relaxed text-[var(--muted)]">
-              Consten com a actives al catàleg de Ferrocarrils, però el fotograma que
-              serveixen no ha canviat des de la data indicada.
+              {lang === 'es' ? (
+                <>
+                  Constan como activas en el catálogo de Ferrocarrils, pero el fotograma que
+                  sirven no ha cambiado desde la fecha indicada.
+                </>
+              ) : (
+                <>
+                  Consten com a actives al catàleg de Ferrocarrils, però el fotograma que
+                  serveixen no ha canviat des de la data indicada.
+                </>
+              )}
             </p>
             <ul className="rows mt-3">
               {cams.stale.map((c) => (
@@ -229,8 +291,8 @@ export default async function CameresPage() {
                     <span className="row-sub">{c.resort}</span>
                   </Link>
                   <span className="tnum shrink-0 text-right text-[13px] text-[var(--muted)]">
-                    {dateFull(c.capturedLocal)}
-                    <span className="block text-[12px]">{ago(c.ageMin)}</span>
+                    {dateFull(c.capturedLocal, lang)}
+                    <span className="block text-[12px]">{ago(c.ageMin, lang)}</span>
                   </span>
                 </li>
               ))}
@@ -240,10 +302,17 @@ export default async function CameresPage() {
       )}
 
       {cams.list.length === 0 && (
-        <p className="source">
-          Imatges de {cams.attribution} ({cams.license}). Es desen un cop per hora i es
-          retiren passades {CAMERA_SHOW_HOURS} hores sense fotograma nou.
-        </p>
+        lang === 'es' ? (
+          <p className="source">
+            Imágenes de {cams.attribution} ({cams.license}). Se guardan una vez por hora y se
+            retiran pasadas {CAMERA_SHOW_HOURS} horas sin fotograma nuevo.
+          </p>
+        ) : (
+          <p className="source">
+            Imatges de {cams.attribution} ({cams.license}). Es desen un cop per hora i es
+            retiren passades {CAMERA_SHOW_HOURS} hores sense fotograma nou.
+          </p>
+        )
       )}
     </article>
   );
