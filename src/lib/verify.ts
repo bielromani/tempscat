@@ -162,3 +162,50 @@ export function bias(t: Tally | undefined): number | null {
  * ruta i el que separa una xifra d'una anècdota.
  */
 export const MIN_DAYS = 60;
+
+// ── Hora a hora, contra yr.no ─────────────────────────────────────────────
+
+/**
+ * El que s'ha desat d'un dia UTC, per a la comparació horària. Es parteix per
+ * dia UTC perquè és com data la XEMA, que és contra qui es puntua; i l'ara i
+ * les hores de demà van en trossos diferents perquè els escriuen dos workers
+ * que podrien coincidir, i un esborraria el que acaba d'afegir l'altre.
+ */
+export function nowShard(utcDate: string): string {
+  return `${VERIFY_DIR}/hora/${utcDate}-ara`;
+}
+export function aheadShard(utcDate: string): string {
+  return `${VERIFY_DIR}/hora/${utcDate}-dema`;
+}
+
+/** El registre acumulat de la comparació horària. */
+export function hourlyScoresShard(): string {
+  return `${VERIFY_DIR}/hora-encert`;
+}
+
+/** El que deien la fitxa i yr.no d'un instant, a una estació. */
+export interface HourPair { tempscat: number; yrno: number }
+
+/**
+ * La temperatura d'ara: el que ensenyava la fitxa del poble i el que deia
+ * yr.no **en aquell mateix instant**. Instant ISO → estació → parella.
+ */
+export type NowCapture = Record<string, Record<string, HourPair>>;
+
+/** Cada hora de demà, desada el dia abans. Hora UTC (`AAAA-MM-DDTHH`) → estació → parella. */
+export type AheadCapture = Record<string, Record<string, HourPair>>;
+
+export interface HourlyScores {
+  /** Els dies UTC ja puntuats. La llista i no un comptador: vegeu `Scores.scored`. */
+  scored: string[];
+  now: { ours: Tally; theirs: Tally };
+  ahead: { ours: Tally; theirs: Tally };
+}
+
+export function emptyHourlyScores(): HourlyScores {
+  const pair = () => ({
+    ours: { n: 0, sumError: 0, sumAbs: 0 },
+    theirs: { n: 0, sumError: 0, sumAbs: 0 },
+  });
+  return { scored: [], now: pair(), ahead: pair() };
+}

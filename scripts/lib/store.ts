@@ -920,10 +920,11 @@ export const DAILY_LIMITS: Record<string, number> = {
   'fgc': 2_500,
   /*
    * yr.no (MET Norway) no publica límit diari, només que cal identificar-se i
-   * no passar de vint peticions per segon. La comparació en fa una per
-   * municipi i dia, unes 140: el sostre és per a un bucle mal escrit.
+   * no passar de vint peticions per segon. Les comparacions en fan unes 140
+   * per volta: una al dia la diària i vint-i-quatre l'horària, unes 3.500. El
+   * sostre és per a un bucle mal escrit.
    */
-  'yrno': 1_000,
+  'yrno': 6_000,
   /*
    * El Meteocat compta per mes, i el pla gratuït en dona poques. Amb 140
    * municipis al dia, mireu-ne el límit el dia que arribi la clau.

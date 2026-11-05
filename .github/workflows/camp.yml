@@ -46,3 +46,22 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: npm run worker:field
+
+  # La temperatura de la fitxa contra la de yr.no, hora a hora: es desa el que
+  # diuen totes dues ara, i un cop al dia es puntua el dia tancat contra la
+  # XEMA. Va aquí perquè aquest workflow ja corre cada hora amb el rellotge de
+  # Cloudflare, i en una feina a part perquè una fallada de yr.no no aturi el
+  # vent del mapa. Vegeu `scripts/workers/hourly-verify.ts`.
+  encert-hora:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET || vars.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || vars.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || vars.R2_SECRET_ACCESS_KEY }}
+      DATA_BASE_URL: ${{ secrets.DATA_BASE_URL || vars.DATA_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: npm run worker:hora

@@ -197,6 +197,7 @@ npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
 npm run worker:field      # el camp de vent del mapa · cada hora, i al final de `prediccio.yml`
 npm run worker:verify     # quant encerta cada model, contra la XEMA · un cop al dia
 npm run worker:compare    # la temperatura d'ara de les fitxes contra la dels models · un cop al dia
+npm run worker:hora       # la temperatura de les fitxes contra la de yr.no, ara i cada hora de demà · cada hora
 npm run worker:push       # avisos taronja i vermells al mòbil · darrere de worker:warnings, cada 15 min
 ```
 
@@ -1608,6 +1609,12 @@ cuota para exactamente la misma información.
   alhora o a cap. yr.no demana un `User-Agent` amb contacte i és CC BY 4.0. El pla gratuït del
   Meteocat **prohibeix difondre** el que retorna: entra a la comparació, però el resultat no es
   publica sense permís seu per escrit.
+  **Hora a hora, només yr.no**, que és l'únic que la dona per a un lloc en una API oberta:
+  `worker:hora` (`hourly-verify.ts`, cada hora a `camp.yml`) desa el que ensenya ara la fitxa i
+  el que diu yr.no del mateix instant, i `worker:verify` desa les 24 hores de demà de totes
+  dues. Es puntua per dia UTC contra la XEMA, interpolant entre les dues lectures de mitja hora
+  que envolten l'instant. L'ara i les hores de demà van en **trossos diferents**
+  (`-ara`, `-dema`): els escriuen dos workers que podrien coincidir.
 
 - **Passada la mitjanit, el primer dia de la sèrie diària és ahir.** (5 de novembre de 2026.)
   La sèrie comença les zero hores del dia en què es va demanar, i fins al refresc següent la
