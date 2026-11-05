@@ -5,9 +5,11 @@ import { allAxes, axisBySlug, networkLabel, variantsOf, walkingHours } from '@/l
 import { allComarques } from '@/lib/territory';
 import { mapOutline } from '@/lib/map';
 import { PointsMap } from '@/components/PointsMap';
-import { aName, comarcaName, deComarca, deName, int, num } from '@/lib/format';
+import { aName, comarcaName, deComarca, deName, int, num, placeName } from '@/lib/format';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section } from '@/components/PageHero';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 
 /**
  * Un eix sencer: el GR amb totes les seves etapes, en ordre de caminar-lo.
@@ -43,12 +45,17 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const axis = axisBySlug((await params).ref);
   if (!axis) return {};
-  const title = `${axis.ref}: les ${axis.legs.length} etapes, ${num(axis.km, 0)} km`;
+  const lang = await getLang();
+  const title = tr(lang,
+    `${axis.ref}: les ${axis.legs.length} etapes, ${num(axis.km, 0)} km`,
+    `${axis.ref}: las ${axis.legs.length} etapas, ${num(axis.km, 0)} km`);
   return {
     title,
-    description:
+    description: tr(lang,
       `Les ${axis.legs.length} etapes del ${axis.ref} en ordre, amb la distància `
       + `de cada una, les cotes i les comarques que travessa. ${num(axis.km, 0)} km en total.`,
+      `Las ${axis.legs.length} etapas del ${axis.ref} en orden, con la distancia `
+      + `de cada una, las cotas y las comarcas que atraviesa. ${num(axis.km, 0)} km en total.`),
     alternates: { canonical: `/senderisme/rutes/eix/${axis.slug}` },
   };
 }
@@ -60,6 +67,8 @@ function capital(s: string): string {
 export default async function EixPage({ params }: { params: Promise<{ ref: string }> }) {
   const axis = axisBySlug((await params).ref);
   if (!axis) notFound();
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
 
   const comarques = new Map(allComarques().map((c) => [c.codi, c.nom]));
   const geo = mapOutline();
@@ -74,26 +83,40 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
   const first = axis.legs[0];
   const last = axis.legs[axis.legs.length - 1];
   const trail = [
-    { nom: 'Catalunya', path: '/' },
-    { nom: 'Muntanya', path: '/senderisme' },
-    { nom: 'Itineraris', path: '/senderisme/rutes' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
+    { nom: t('Muntanya', 'Montaña'), path: '/senderisme' },
+    { nom: t('Itineraris', 'Rutas'), path: '/senderisme/rutes' },
     { nom: axis.ref, path: `/senderisme/rutes/eix/${axis.slug}` },
   ];
 
   // Els topònims passen per `deName` i `aName`: «de el Cortalet» és la falta
-  // que surt escrivint la preposició a mà.
-  const ends = `${capital(deName(first.from ?? first.name))} ${aName(last.to ?? last.name)}`;
+  // que surt escrivint la preposició a mà. En castellà, `aName` dona «en X», que
+  // aquí no serveix: és «de X a Y».
+  const ends = lang === 'es'
+    ? `${capital(deName(first.from ?? first.name, lang))} a ${placeName(last.to ?? last.name, lang)}`
+    : `${capital(deName(first.from ?? first.name))} ${aName(last.to ?? last.name)}`;
+  const network = networkLabel(first.network, lang);
 
   return (
     <article>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow={`Itinerari de ${networkLabel(first.network)}`}
+        eyebrow={lang === 'es'
+          ? (first.network === 'nwn' || first.network === 'rwn' ? `Ruta de ${network}` : 'Ruta señalizada')
+          : `Itinerari de ${networkLabel(first.network)}`}
         icon="partly-cloudy-day"
         title={axis.ref}
-        lead={(
+        lead={lang === 'es' ? (
+          <>
+            {ends}
+            {axis.minM != null && axis.maxM != null && (
+              <>, de los <span className="tnum">{int(axis.minM)}</span> a los{' '}
+              <span className="tnum">{int(axis.maxM)} m</span></>
+            )}.
+          </>
+        ) : (
           <>
             {ends}
             {axis.minM != null && axis.maxM != null && (
@@ -104,12 +127,16 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
         )}
         stats={[
           {
-            label: 'Etapes', value: int(axis.legs.length),
-            sub: axis.breaks > 0
-              ? `la sèrie es trenca ${axis.breaks === 1 ? 'un cop' : `${axis.breaks} cops`}`
-              : 'totes encadenades',
+            label: t('Etapes', 'Etapas'), value: int(axis.legs.length),
+            sub: lang === 'es'
+              ? axis.breaks > 0
+                ? `la serie se rompe ${axis.breaks === 1 ? 'una vez' : `${axis.breaks} veces`}`
+                : 'todas encadenadas'
+              : axis.breaks > 0
+                ? `la sèrie es trenca ${axis.breaks === 1 ? 'un cop' : `${axis.breaks} cops`}`
+                : 'totes encadenades',
           },
-          { label: 'Distància', value: num(axis.km, 1), unit: 'km' },
+          { label: t('Distància', 'Distancia'), value: num(axis.km, 1), unit: 'km' },
           /*
             Arrodonit a l'hora, i no a set minuts.
 
@@ -118,9 +145,22 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
             precisió que la regla de Naismith no té. Qui mira un eix sencer
             vol l'ordre de magnitud.
           */
-          { label: 'A peu', value: int(Math.round(hours)), unit: 'h', sub: 'sumant les etapes, per la regla de Naismith' },
+          {
+            label: t('A peu', 'A pie'), value: int(Math.round(hours)), unit: 'h',
+            sub: t('sumant les etapes, per la regla de Naismith', 'sumando las etapas, por la regla de Naismith'),
+          },
         ]}
-        note={(
+        note={lang === 'es' ? (
+          <>
+            Distancias calculadas a partir del trazado y cotas de un modelo de elevación; el
+            detalle de cada etapa está en su ficha.
+            {axis.comarques.length > 0 && (
+              axis.comarques.length === 1
+                ? <> Todo el eje está dentro {deComarca(comarques.get(axis.comarques[0]) ?? axis.comarques[0], lang)}.</>
+                : <> Pasa por {axis.comarques.length} comarcas.</>
+            )}
+          </>
+        ) : (
           <>
             Distàncies calculades del traçat i cotes d&apos;un model d&apos;elevació; el
             detall de cada etapa és a la seva fitxa.
@@ -137,7 +177,7 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
             mapa amb la llista de sota: sense ell serien vint punts iguals.
           */
           <section className="card" aria-labelledby="h-mapa">
-            <h2 id="h-mapa" className="card-label">On comença cada etapa</h2>
+            <h2 id="h-mapa" className="card-label">{t('On comença cada etapa', 'Dónde empieza cada etapa')}</h2>
             <PointsMap
               scale={1.4}
               outline={geo.features}
@@ -147,7 +187,10 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
               labels={false}
               values
               maxHeight={440}
-              ariaLabel={`Mapa amb l'inici de les ${axis.legs.length} etapes del ${axis.ref}`}
+              ariaLabel={t(
+                `Mapa amb l'inici de les ${axis.legs.length} etapes del ${axis.ref}`,
+                `Mapa con el inicio de las ${axis.legs.length} etapas del ${axis.ref}`,
+              )}
               points={axis.legs.map((r) => ({
                 key: r.slug,
                 lat: r.start.lat,
@@ -158,7 +201,12 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
                 r: 13,
                 tip: `${r.leg}. ${r.name} · ${num(r.km, 1)} km`,
               }))}
-              footer={(
+              footer={lang === 'es' ? (
+                <>
+                  El número es la posición de la etapa dentro del eje, y el punto es
+                  donde empieza. El trazado de cada una está en su ficha.
+                </>
+              ) : (
                 <>
                   El número és la posició de l&apos;etapa dins de l&apos;eix, i el punt és
                   on comença. El traçat de cada una és a la seva fitxa.
@@ -169,7 +217,7 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
         )}
       />
 
-      <Section id="etapes" title={`Les ${axis.legs.length} etapes, en ordre`}>
+      <Section id="etapes" title={t(`Les ${axis.legs.length} etapes, en ordre`, `Las ${axis.legs.length} etapas, en orden`)}>
         <div className="card">
           {/*
             En dues columnes que es llegeixen de dalt a baix, i no fila a fila:
@@ -211,7 +259,7 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
                         r.from && r.to ? r.name : null,
                         r.minM != null && r.maxM != null ? `${int(r.minM)}–${int(r.maxM)} m` : null,
                         r.comarques.length
-                          ? r.comarques.map((c) => comarcaName(comarques.get(c) ?? c)).join(' · ')
+                          ? r.comarques.map((c) => comarcaName(comarques.get(c) ?? c, lang)).join(' · ')
                           : null,
                       ].filter(Boolean).join(' · ')}
                     </span>
@@ -219,8 +267,17 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
                   <span className="row-value">{num(r.km, 1)} km</span>
                   {breaks && (
                     <p className="w-full pl-10 text-xs text-[var(--muted)]">
-                      Aquí la sèrie d&apos;OpenStreetMap es trenca: l&apos;etapa següent no
-                      comença on acaba aquesta.
+                      {lang === 'es' ? (
+                        <>
+                          Aquí la serie de OpenStreetMap se rompe: la etapa siguiente no
+                          empieza donde acaba esta.
+                        </>
+                      ) : (
+                        <>
+                          Aquí la sèrie d&apos;OpenStreetMap es trenca: l&apos;etapa següent no
+                          comença on acaba aquesta.
+                        </>
+                      )}
                     </p>
                   )}
                 </li>
@@ -228,12 +285,26 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
             })}
           </ol>
           <p className="source measure">
-            A OpenStreetMap un itinerari llarg és una relació per etapa, totes amb el
-            mateix codi. L&apos;ordre d&apos;aquesta llista surt d&apos;encadenar el final
-            de cada etapa amb el principi de la següent, no de com estiguin numerades.
-            {axis.breaks > 0 && (
-              <> En aquest {axis.breaks === 1 ? "se'n trenca una" : `se'n trenquen ${axis.breaks}`}, i
-              queda dit a la llista.</>
+            {lang === 'es' ? (
+              <>
+                En OpenStreetMap una ruta larga es una relación por etapa, todas con el
+                mismo código. El orden de esta lista sale de encadenar el final
+                de cada etapa con el principio de la siguiente, no de cómo estén numeradas.
+                {axis.breaks > 0 && (
+                  <> En este {axis.breaks === 1 ? 'se rompe una' : `se rompen ${axis.breaks}`}, y
+                  queda indicado en la lista.</>
+                )}
+              </>
+            ) : (
+              <>
+                A OpenStreetMap un itinerari llarg és una relació per etapa, totes amb el
+                mateix codi. L&apos;ordre d&apos;aquesta llista surt d&apos;encadenar el final
+                de cada etapa amb el principi de la següent, no de com estiguin numerades.
+                {axis.breaks > 0 && (
+                  <> En aquest {axis.breaks === 1 ? "se'n trenca una" : `se'n trenquen ${axis.breaks}`}, i
+                  queda dit a la llista.</>
+                )}
+              </>
             )}
           </p>
         </div>
@@ -242,7 +313,9 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
       {variants.length > 0 && (
         <Section
           id="variants"
-          title={variants.length === 1 ? 'Una variant senyalitzada' : `${variants.length} variants senyalitzades`}
+          title={lang === 'es'
+            ? (variants.length === 1 ? 'Una variante señalizada' : `${variants.length} variantes señalizadas`)
+            : (variants.length === 1 ? 'Una variant senyalitzada' : `${variants.length} variants senyalitzades`)}
         >
           <div className="card">
             <ul className="rows">
@@ -257,8 +330,17 @@ export default async function EixPage({ params }: { params: Promise<{ ref: strin
               ))}
             </ul>
             <p className="source measure">
-              Recorreguts alternatius amb codi propi: el número de després del punt és el
-              que diu que són variants del {axis.ref}.
+              {lang === 'es' ? (
+                <>
+                  Recorridos alternativos con código propio: el número que va después del punto es el
+                  que indica que son variantes del {axis.ref}.
+                </>
+              ) : (
+                <>
+                  Recorreguts alternatius amb codi propi: el número de després del punt és el
+                  que diu que són variants del {axis.ref}.
+                </>
+              )}
             </p>
           </div>
         </Section>

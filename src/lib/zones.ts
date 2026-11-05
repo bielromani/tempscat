@@ -6,6 +6,8 @@
  * els porta el catàleg —«Val d'Aran», «Pla de l'Estany»—, sense article.
  */
 
+import type { Lang } from './lang';
+
 /**
  * Els vuit àmbits funcionals del Pla territorial general, amb les 43 comarques.
  * Són els noms que fa servir la Generalitat i que la gent ja coneix; una
@@ -52,6 +54,36 @@ export function groupByZone<T>(
   return [...zones.map(([z]) => z), other]
     .map((z) => [z, list.filter((x) => zoneOf(zones, comarcaOf(x), other) === z)] as [string, T[]])
     .filter(([, xs]) => xs.length > 0);
+}
+
+/**
+ * El nom d'una zona en castellà.
+ *
+ * Les zones es fan servir com a clau —per agrupar i per a l'àncora, que és la
+ * mateixa als dos idiomes perquè un enllaç `#zona-…` valgui als dos llocs— i
+ * només es tradueixen en escriure-les. Els noms propis es queden: Penedès, Camp
+ * de Tarragona, Terres de l'Ebre, Ponent i Alt Pirineu i Aran són topònims. El
+ * que és nom comú —comarques, àmbit, serres— passa al castellà, i el Pirineu
+ * és «Pirineo», com l'escriu l'AEMET a les seves zones.
+ */
+const ZONES_ES: Record<string, string> = {
+  'Alt Pirineu i Aran': 'Alto Pirineo y Arán',
+  'Comarques gironines': 'Comarcas gerundenses',
+  'Comarques centrals': 'Comarcas centrales',
+  'Àmbit metropolità': 'Ámbito metropolitano',
+  'Pirineu de Lleida': 'Pirineo de Lleida',
+  'Cerdanya i Prepirineu': 'Cerdanya y Prepirineo',
+  'Pirineu de Girona': 'Pirineo de Girona',
+  'Altres serres': 'Otras sierras',
+  'Altres': 'Otras zonas',
+  'Barcelona i rodalia': 'Barcelona y alrededores',
+  'Catalunya central i Penedès': 'Cataluña central y Penedès',
+  'Comarques de Girona': 'Comarcas de Girona',
+  'Ponent i Pirineu': 'Ponent y Pirineo',
+};
+
+export function zoneLabel(name: string, lang: Lang = 'ca'): string {
+  return lang === 'es' ? ZONES_ES[name] ?? name : name;
 }
 
 /** «Terres de l’Ebre» → `terres-de-l-ebre`, per a les àncores. */

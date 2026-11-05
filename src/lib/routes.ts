@@ -1,6 +1,7 @@
 import 'server-only';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Lang } from './lang';
 
 /**
  * Els itineraris de senderisme senyalitzats, del territori construït.
@@ -120,7 +121,13 @@ export const NETWORK_LABEL: Record<string, string> = {
   rwn: 'petit recorregut',
 };
 
-export function networkLabel(network: string): string {
+const NETWORK_LABEL_ES: Record<string, string> = {
+  nwn: 'gran recorrido',
+  rwn: 'pequeño recorrido',
+};
+
+export function networkLabel(network: string, lang: Lang = 'ca'): string {
+  if (lang === 'es') return NETWORK_LABEL_ES[network] ?? 'señalizada';
   return NETWORK_LABEL[network] ?? 'senyalitzat';
 }
 

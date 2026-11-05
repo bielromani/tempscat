@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { articleFirst, dateLong, num } from '@/lib/format';
+import { articleFirst, dateLong, num, placeName } from '@/lib/format';
+import { zoneLabel } from '@/lib/zones';
+import { sourceText } from '@/lib/sea';
+import { getLang } from '@/lib/i18n';
+import { tr, type Lang } from '@/lib/lang';
 import { fold, match } from '@/lib/search-match';
 import { airStations, stationKind, type AirStation } from '@/lib/air-stations';
 import { PointsMap } from '@/components/PointsMap';
@@ -36,13 +40,18 @@ import { Fold } from '@/components/Fold';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Qualitat de l’aire mesurada a Catalunya',
-  description:
-    'Les mitjanes diàries de NO₂, ozó i partícules a les estacions de la Xarxa de '
-    + 'Vigilància i Previsió de la Contaminació Atmosfèrica.',
-  alternates: { canonical: '/aire' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Qualitat de l’aire mesurada a Catalunya', 'Calidad del aire medida en Cataluña'),
+    description: tr(lang,
+      'Les mitjanes diàries de NO₂, ozó i partícules a les estacions de la Xarxa de '
+      + 'Vigilància i Previsió de la Contaminació Atmosfèrica.',
+      'Las medias diarias de NO₂, ozono y partículas en las estaciones de la Xarxa de '
+      + 'Vigilància i Previsió de la Contaminació Atmosfèrica.'),
+    alternates: { canonical: '/aire' },
+  };
+}
 
 /** Los que se muestran en columna, en el orden en que importan. */
 const COLUMNS = [
@@ -80,23 +89,27 @@ const slug = (s: string) => fold(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g
 type Params = Promise<{ q?: string }>;
 
 export default async function AirePage({ searchParams }: { searchParams: Params }) {
-  const [data, params] = await Promise.all([airStations(), searchParams]);
+  const [data, params, lang] = await Promise.all([airStations(), searchParams, getLang()]);
+  const t = (ca: string, es: string) => tr(lang, ca, es);
 
   const trail = [
-    { nom: 'Catalunya', path: '/' },
-    { nom: 'Aire mesurat', path: '/aire' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
+    { nom: t('Aire mesurat', 'Aire medido'), path: '/aire' },
   ];
 
   if (!data?.list.length) {
     return (
       <article>
-        <JsonLd data={graph(breadcrumbLd(trail))} />
+        <JsonLd data={graph(breadcrumbLd(trail, lang))} />
         <PageHero
           crumbs={trail}
-          eyebrow="Qualitat de l'aire"
+          eyebrow={t("Qualitat de l'aire", 'Calidad del aire')}
           icon="haze"
-          title="L'aire, mesurat"
-          lead="Ara mateix no hi ha mesures de la XVPCA. Torneu-hi en una estona."
+          title={t("L'aire, mesurat", 'El aire, medido')}
+          lead={t(
+            'Ara mateix no hi ha mesures de la XVPCA. Torneu-hi en una estona.',
+            'Ahora mismo no hay medidas de la XVPCA. Vuelva dentro de un rato.',
+          )}
         />
       </article>
     );
@@ -119,8 +132,8 @@ export default async function AirePage({ searchParams }: { searchParams: Params 
       .sort((x, y) => y.score - x.score)
       .map((h) => h.st)
     : [];
-  const suggestions = [...new Set(rows.flatMap((st) => [st.name, articleFirst(st.municipality)]))]
-    .sort((x, y) => x.localeCompare(y, 'ca'));
+  const suggestions = [...new Set(rows.flatMap((st) => [st.name, placeName(articleFirst(st.municipality), lang)]))]
+    .sort((x, y) => x.localeCompare(y, lang));
 
   const outline = mapOutline();
   /*
@@ -147,14 +160,20 @@ export default async function AirePage({ searchParams }: { searchParams: Params 
 
   return (
     <article>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow="Qualitat de l'aire"
+        eyebrow={t("Qualitat de l'aire", 'Calidad del aire')}
         icon="haze"
-        title="L'aire, mesurat"
-        lead={(
+        title={t("L'aire, mesurat", 'El aire, medido')}
+        lead={lang === 'es' ? (
+          <>
+            Medias de todo el día en {rows.length} estaciones de la XVPCA,{' '}
+            {data.day ? <>del <strong>{dateLong(data.day, lang)}</strong></> : 'del último día completo'}.{' '}
+            No es el aire de ahora: el registro lleva unas veinte horas de retraso.
+          </>
+        ) : (
           <>
             Mitjanes de tot el dia a {rows.length} estacions de la XVPCA,{' '}
             {data.day ? <>de <strong>{dateLong(data.day)}</strong></> : 'del darrer dia complet'}.{' '}
@@ -162,11 +181,17 @@ export default async function AirePage({ searchParams }: { searchParams: Params 
           </>
         )}
         stats={[
-          stat('NO₂ més alt', no2Max),
-          stat('NO₂ més baix', no2Min),
-          stat('PM10 més alt', pm10Max),
+          stat(t('NO₂ més alt', 'NO₂ más alto'), no2Max),
+          stat(t('NO₂ més baix', 'NO₂ más bajo'), no2Min),
+          stat(t('PM10 més alt', 'PM10 más alto'), pm10Max),
         ]}
-        note={(
+        note={lang === 'es' ? (
+          <>
+            El registro se actualiza una vez al día de madrugada. El índice de cada
+            ficha es de un modelo, cubre todo el territorio y sí va al día: son dos
+            cosas útiles y distintas.
+          </>
+        ) : (
           <>
             El registre s&apos;actualitza un cop al dia de matinada. L&apos;índex de cada
             fitxa és d&apos;un model, cobreix tot el territori i sí que va al dia: són dues
@@ -186,11 +211,11 @@ export default async function AirePage({ searchParams }: { searchParams: Params 
             peu ho diu, perquè un mapa amb els colors de l'índex i uns valors que
             no són els que l'índex classifica seria una etiqueta manllevada.
           */
-          <section className="card" aria-label="El diòxid de nitrogen mesurat, al mapa">
+          <section className="card" aria-label={t('El diòxid de nitrogen mesurat, al mapa', 'El dióxido de nitrógeno medido, en el mapa')}>
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/haze.svg" width={22} height={22} alt="" />
-              Diòxid de nitrogen
+              {t('Diòxid de nitrogen', 'Dióxido de nitrógeno')}
             </p>
             <PointsMap
               scale={2}
@@ -198,7 +223,10 @@ export default async function AirePage({ searchParams }: { searchParams: Params 
               projection={outline.projection}
               width={outline.width}
               height={outline.height}
-              ariaLabel={`Mapa de Catalunya amb el diòxid de nitrogen mesurat a ${mapped.length} estacions`}
+              ariaLabel={t(
+                `Mapa de Catalunya amb el diòxid de nitrogen mesurat a ${mapped.length} estacions`,
+                `Mapa de Cataluña con el dióxido de nitrógeno medido en ${mapped.length} estaciones`,
+              )}
               points={mapped.map((m) => ({
                 key: m.s.code,
                 lat: m.s.lat,
@@ -207,7 +235,13 @@ export default async function AirePage({ searchParams }: { searchParams: Params 
                 fill: concentrationColor(m.v, worstNo2),
                 tip: `${m.s.name}: ${num(m.v, 1)} µg/m³ de NO₂`,
               }))}
-              footer={(
+              footer={lang === 'es' ? (
+                <>
+                  Cada punto es una estación, de claro a oscuro hasta el peor valor del día.
+                  Es una media diaria y no una calificación: las bandas oficiales son
+                  de un índice horario. El NO₂ viene del tráfico, y se acumula donde lo hay.
+                </>
+              ) : (
                 <>
                   Cada punt és una estació, de clar a fosc fins al pitjor valor del dia.
                   És una mitjana diària i no una qualificació: les bandes oficials són
@@ -224,43 +258,49 @@ export default async function AirePage({ searchParams }: { searchParams: Params 
         /mar: el formulari torna aquí amb `?q=` i el servidor filtra.
       */}
       <form action="/aire#cerca" method="get" role="search" id="cerca" className="mar-search mt-6">
-        <label htmlFor="aire-q" className="sr-only">Cerca un poble o una estació</label>
+        <label htmlFor="aire-q" className="sr-only">{t('Cerca un poble o una estació', 'Busque un pueblo o una estación')}</label>
         <input
           id="aire-q"
           name="q"
           type="search"
           defaultValue={q}
           list="aire-llocs"
-          placeholder="Cerca un poble o una estació"
+          placeholder={t('Cerca un poble o una estació', 'Busque un pueblo o una estación')}
           autoComplete="off"
         />
-        <button type="submit">Cerca</button>
+        <button type="submit">{t('Cerca', 'Buscar')}</button>
         <datalist id="aire-llocs">
           {suggestions.map((n) => <option key={n} value={n} />)}
         </datalist>
       </form>
 
       {q && (
-        <section className="mb-6" aria-label={`Resultats per ${q}`}>
+        <section className="mb-6" aria-label={t(`Resultats per ${q}`, `Resultados para ${q}`)}>
           <p className="card-label">
             {hits.length > 0
-              ? `${hits.length === 1 ? 'Una estació' : `${hits.length} estacions`} per «${q}»`
-              : `Cap estació no es diu «${q}» ni és en un poble que es digui així`}
+              ? t(
+                `${hits.length === 1 ? 'Una estació' : `${hits.length} estacions`} per «${q}»`,
+                `${hits.length === 1 ? 'Una estación' : `${hits.length} estaciones`} para «${q}»`,
+              )
+              : t(
+                `Cap estació no es diu «${q}» ni és en un poble que es digui així`,
+                `Ninguna estación se llama «${q}» ni está en un pueblo que se llame así`,
+              )}
           </p>
           {hits.length > 0 && (
             <ul className="card-grid">
-              {hits.map((s) => <StationCard key={s.code} s={s} />)}
+              {hits.map((s) => <StationCard key={s.code} s={s} lang={lang} />)}
             </ul>
           )}
-          <p className="card-foot"><Link href="/aire">Totes les estacions ›</Link></p>
+          <p className="card-foot"><Link href="/aire">{t('Totes les estacions ›', 'Todas las estaciones ›')}</Link></p>
         </section>
       )}
 
       {/* Les zones, per saltar-hi. Són àncores: no cal cap script. */}
-      <nav aria-label="Zones" className="mb-2">
+      <nav aria-label={t('Zones', 'Zonas')} className="mb-2">
         <ul className="chips">
           {zones.map(([name]) => (
-            <li key={name}><a href={`#zona-${slug(name)}`}>{name}</a></li>
+            <li key={name}><a href={`#zona-${slug(name)}`}>{zoneLabel(name, lang)}</a></li>
           ))}
         </ul>
       </nav>
@@ -277,27 +317,53 @@ export default async function AirePage({ searchParams }: { searchParams: Params 
         return (
           <section key={name} id={`zona-${slug(name)}`} className="section scroll-mt-4" aria-labelledby={`h-${slug(name)}`}>
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
-              <h2 id={`h-${slug(name)}`} className="card-title">{name}</h2>
+              <h2 id={`h-${slug(name)}`} className="card-title">{zoneLabel(name, lang)}</h2>
               <p className="text-[13px] text-[var(--muted)] tnum">
-                {list.length} {list.length === 1 ? 'estació' : 'estacions'}
+                {list.length} {list.length === 1 ? t('estació', 'estación') : t('estacions', 'estaciones')}
                 {no2.length > 0 && <> · NO₂ de {num(Math.min(...no2), 0)} a {num(Math.max(...no2), 0)} µg/m³</>}
               </p>
             </div>
             <ul className="card-grid">
-              {list.map((s) => <StationCard key={s.code} s={s} />)}
+              {list.map((s) => <StationCard key={s.code} s={s} lang={lang} />)}
             </ul>
           </section>
         );
       })}
 
       <p className="source mt-6">
-        {data.source}. Mitjanes de les 24 hores, en µg/m³, i només amb el dia sencer: una
-        mitjana de mitja jornada no és una mitjana diària. Un guió vol dir que l&apos;estació
-        no mesura aquell contaminant, no un zero.
+        {lang === 'es' ? (
+          <>
+            {sourceText(data.source, lang)}. Medias de las 24 horas, en µg/m³, y solo con el día entero: una
+            media de media jornada no es una media diaria. Un guion quiere decir que la estación
+            no mide ese contaminante, no un cero.
+          </>
+        ) : (
+          <>
+            {data.source}. Mitjanes de les 24 hores, en µg/m³, i només amb el dia sencer: una
+            mitjana de mitja jornada no és una mitjana diària. Un guió vol dir que l&apos;estació
+            no mesura aquell contaminant, no un zero.
+          </>
+        )}
       </p>
 
       <div className="mt-10">
-        <Fold title="Com es llegeix" summary="El tipus d'estació i l'ozó">
+        <Fold title={t('Com es llegeix', 'Cómo se lee')} summary={t("El tipus d'estació i l'ozó", 'El tipo de estación y el ozono')}>
+          {lang === 'es' ? (
+            <div className="card prose">
+              <p>
+                <strong>El tipo de estación cambia lo que mide más que la
+                distancia.</strong> Una de tráfico junto a una vía con pendiente y una de
+                fondo en un parque, a un kilómetro la una de la otra, dan NO₂ que no se
+                parecen, y las dos están bien. Debajo del nombre de cada una dice de qué
+                tipo es.
+              </p>
+              <p>
+                <strong>El ozono hace el camino contrario que el tráfico:</strong> sube donde hay
+                menos coches y más sol, porque los óxidos de nitrógeno lo destruyen. Un ozono alto
+                en una estación rural y bajo en la ciudad es el comportamiento normal.
+              </p>
+            </div>
+          ) : (
           <div className="card prose">
             <p>
               <strong>El tipus d&apos;estació canvia el que mesura més que la
@@ -312,6 +378,7 @@ export default async function AirePage({ searchParams }: { searchParams: Params 
               en una estació rural i baix a la ciutat és el comportament normal.
             </p>
           </div>
+          )}
         </Fold>
       </div>
     </article>
@@ -322,8 +389,8 @@ export default async function AirePage({ searchParams }: { searchParams: Params 
  * Una estació: on és, de quina mena, i els tres contaminants que més es
  * miren. Els altres dos, quan en mesura, en una línia a sota.
  */
-function StationCard({ s }: { s: AirStation }) {
-  const town = articleFirst(s.municipality);
+function StationCard({ s, lang }: { s: AirStation; lang: Lang }) {
+  const town = placeName(articleFirst(s.municipality), lang);
   const extra = [
     value(s, 'pm2_5') != null && `PM2,5 ${num(value(s, 'pm2_5'), 1)}`,
     value(s, 'so2') != null && `SO₂ ${num(value(s, 'so2'), 1)}`,

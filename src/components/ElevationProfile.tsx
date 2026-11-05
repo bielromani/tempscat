@@ -1,4 +1,5 @@
 import { int, num } from '@/lib/format';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * El perfil d'alçades d'un itinerari.
@@ -25,11 +26,12 @@ import { int, num } from '@/lib/format';
  * diu el mateix per a qui no hi passi el ratolí per sobre.
  */
 export function ElevationProfile({
-  profile, km,
+  profile, km, lang,
 }: {
   /** `[metres recorreguts, cota]`. */
   profile: Array<[number, number]>;
   km: number;
+  lang: Lang;
 }) {
   const W = 1000;
   const H = 260;
@@ -69,7 +71,9 @@ export function ElevationProfile({
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={`Perfil d'alçades: de ${int(lo)} a ${int(hi)} metres al llarg de ${num(km, 1)} quilòmetres`}
+        aria-label={tr(lang,
+          `Perfil d'alçades: de ${int(lo)} a ${int(hi)} metres al llarg de ${num(km, 1)} quilòmetres`,
+          `Perfil de altitudes: de ${int(lo)} a ${int(hi)} metros a lo largo de ${num(km, 1)} kilómetros`)}
         className="block h-auto w-full"
       >
         <defs>
@@ -104,7 +108,9 @@ export function ElevationProfile({
           strokeLinejoin="round"
           strokeLinecap="round"
         >
-          <title>{`De ${int(lo)} a ${int(hi)} m al llarg de ${num(km, 1)} km`}</title>
+          <title>{tr(lang,
+            `De ${int(lo)} a ${int(hi)} m al llarg de ${num(km, 1)} km`,
+            `De ${int(lo)} a ${int(hi)} m a lo largo de ${num(km, 1)} km`)}</title>
         </path>
 
         {kmTicks.map((m) => (
@@ -122,12 +128,21 @@ export function ElevationProfile({
         <text x={PAD_L - 8} y={14} textAnchor="end" fontSize="13" fill="var(--muted)">m</text>
       </svg>
 
-      <figcaption className="source">
-        Cota cada 150 m, del model d&apos;elevació de Copernicus, que té un píxel de
-        57 m. Diu bé <strong className="font-medium text-[var(--ink-2)]">on es
-        puja</strong>; el desnivell acumulat no se&apos;n calcula, perquè a aquesta
-        resolució sortiria curt.
-      </figcaption>
+      {lang === 'es' ? (
+        <figcaption className="source">
+          Cota cada 150 m, del modelo de elevación de Copernicus, que tiene un píxel de
+          57 m. Indica bien <strong className="font-medium text-[var(--ink-2)]">dónde se
+          sube</strong>; el desnivel acumulado no se calcula, porque a esta
+          resolución saldría corto.
+        </figcaption>
+      ) : (
+        <figcaption className="source">
+          Cota cada 150 m, del model d&apos;elevació de Copernicus, que té un píxel de
+          57 m. Diu bé <strong className="font-medium text-[var(--ink-2)]">on es
+          puja</strong>; el desnivell acumulat no se&apos;n calcula, perquè a aquesta
+          resolució sortiria curt.
+        </figcaption>
+      )}
     </figure>
   );
 }

@@ -11,7 +11,10 @@
  *
  * Misma restricción que variables.ts: **no importa nada**, porque lo cargan el
  * worker (con extensión .ts explícita) y la aplicación (con el alias @/).
+ * (El `import type` de `lang.ts` se borra al ejecutarse, como en `format.ts`.)
  */
+
+import type { Lang } from './lang.ts';
 
 export type AirSlug =
   | 'aqi' | 'pm2_5' | 'pm10' | 'no2' | 'o3' | 'so2' | 'co' | 'dust'
@@ -27,6 +30,8 @@ export interface AirVariableDef {
   nom: { ca: string; es: string };
   /** Nombre corto, para etiquetas de tabla. */
   curt?: string;
+  /** El corto en castellano, solo cuando no es una fórmula que vale igual (PM10, NO₂). */
+  curtEs?: string;
   /** Los subíndices del AQI no se muestran como cifra: dicen qué contaminante manda. */
   subIndex?: boolean;
   pollen?: boolean;
@@ -67,7 +72,7 @@ export const AIR_VARIABLES: Record<AirSlug, AirVariableDef> = {
     // PM10 durante días y no tienen nada que ver con el tráfico. Separarlo evita
     // atribuir a la ciudad un episodio que viene de África.
     slug: 'dust', openMeteo: 'dust', unit: 'µg/m³', decimals: 0,
-    nom: { ca: 'Pols mineral', es: 'Polvo mineral' }, curt: 'Pols',
+    nom: { ca: 'Pols mineral', es: 'Polvo mineral' }, curt: 'Pols', curtEs: 'Polvo',
   },
 
   aqi_pm2_5: {
@@ -156,41 +161,69 @@ export interface AqiBand {
   /** Límite superior del tramo, inclusivo. */
   max: number;
   ca: string;
+  es: string;
   color: string;
   /** Tinta legible sobre ese color. Va aquí y no en el tema: el fondo lo pinta el dato. */
   ink: string;
   consell: string;
+  consejo: string;
 }
 
 export const AQI_BANDS: AqiBand[] = [
   {
-    max: 20, ca: 'Bona', color: '#50f0e6', ink: '#093c39',
+    max: 20, ca: 'Bona', es: 'Buena', color: '#50f0e6', ink: '#093c39',
     consell: 'Es pot fer activitat a l’aire lliure sense cap limitació.',
+    consejo: 'Se puede hacer actividad al aire libre sin ninguna limitación.',
   },
   {
-    max: 40, ca: 'Raonablement bona', color: '#50ccaa', ink: '#08392c',
+    max: 40, ca: 'Raonablement bona', es: 'Razonablemente buena', color: '#50ccaa', ink: '#08392c',
     consell: 'Cap precaució per a la població general.',
+    consejo: 'Ninguna precaución para la población general.',
   },
   {
-    max: 60, ca: 'Moderada', color: '#f0e641', ink: '#3a3406',
+    max: 60, ca: 'Moderada', es: 'Moderada', color: '#f0e641', ink: '#3a3406',
     consell: 'Les persones sensibles poden notar molèsties en esforços llargs a l’aire lliure.',
+    consejo: 'Las personas sensibles pueden notar molestias en esfuerzos largos al aire libre.',
   },
   {
-    max: 80, ca: 'Dolenta', color: '#ff5050', ink: '#fff4f4',
+    max: 80, ca: 'Dolenta', es: 'Mala', color: '#ff5050', ink: '#fff4f4',
     consell: 'Qui tingui asma o problemes respiratoris hauria de moderar l’esforç intens a fora.',
+    consejo: 'Quien tenga asma o problemas respiratorios debería moderar el esfuerzo intenso en el exterior.',
   },
   {
-    max: 100, ca: 'Molt dolenta', color: '#960032', ink: '#ffeff3',
+    max: 100, ca: 'Molt dolenta', es: 'Muy mala', color: '#960032', ink: '#ffeff3',
     consell: 'Convé reduir l’activitat física a l’aire lliure, sobretot infants i gent gran.',
+    consejo: 'Conviene reducir la actividad física al aire libre, sobre todo niños y personas mayores.',
   },
   {
-    max: Infinity, ca: 'Extremadament dolenta', color: '#7d2181', ink: '#fdf2fd',
+    max: Infinity, ca: 'Extremadament dolenta', es: 'Extremadamente mala', color: '#7d2181', ink: '#fdf2fd',
     consell: 'S’aconsella evitar l’activitat física a l’aire lliure.',
+    consejo: 'Se aconseja evitar la actividad física al aire libre.',
   },
 ];
 
 export function aqiBand(aqi: number): AqiBand {
   return AQI_BANDS.find((b) => aqi <= b.max) ?? AQI_BANDS[AQI_BANDS.length - 1];
+}
+
+/** El nombre de la banda en el idioma de la página. */
+export function aqiLabel(band: AqiBand, lang: Lang = 'ca'): string {
+  return lang === 'es' ? band.es : band.ca;
+}
+
+/** El consejo de la banda en el idioma de la página. */
+export function aqiAdvice(band: AqiBand, lang: Lang = 'ca'): string {
+  return lang === 'es' ? band.consejo : band.consell;
+}
+
+/** El nombre de una variable, y el corto de las etiquetas, en el idioma de la página. */
+export function airName(slug: AirSlug, lang: Lang = 'ca'): string {
+  return AIR_VARIABLES[slug].nom[lang];
+}
+
+export function airShort(slug: AirSlug, lang: Lang = 'ca'): string {
+  const v = AIR_VARIABLES[slug];
+  return lang === 'es' ? v.curtEs ?? v.curt ?? v.nom.es : v.curt ?? v.nom.ca;
 }
 
 // ── Polen ───────────────────────────────────────────────────────────────────
@@ -223,6 +256,23 @@ export function pollenLevel(slug: AirSlug, value: number): PollenLevel | null {
   if (value < th[1]) return 'baix';
   if (value < th[2]) return 'moderat';
   return value < th[2] * 4 ? 'alt' : 'molt alt';
+}
+
+const POLLEN_LEVEL_ES: Record<PollenLevel, string> = {
+  baix: 'bajo',
+  moderat: 'moderado',
+  alt: 'alto',
+  'molt alt': 'muy alto',
+};
+
+/** El nivel de polen en palabras: en catalán, la propia clave. */
+export function pollenLevelName(level: PollenLevel, lang: Lang = 'ca'): string {
+  return lang === 'es' ? POLLEN_LEVEL_ES[level] : level;
+}
+
+/** «grans/m³», la unidad del polen, en el idioma de la página. */
+export function pollenUnit(lang: Lang = 'ca'): string {
+  return lang === 'es' ? 'granos/m³' : 'grans/m³';
 }
 
 export const POLLEN_COLORS: Record<PollenLevel, string> = {

@@ -2,9 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { allAxes, allRoutes, refApart, type Route } from '@/lib/routes';
 import { allComarques } from '@/lib/territory';
-import { comarcaName, deName, int, num } from '@/lib/format';
+import { comarcaName, deName, int, num, placeName } from '@/lib/format';
 import { fold, match } from '@/lib/search-match';
-import { AMBITS, anchorSlug, groupByZone } from '@/lib/zones';
+import { AMBITS, anchorSlug, groupByZone, zoneLabel } from '@/lib/zones';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 import { mapOutline } from '@/lib/map';
 import { PointsMap } from '@/components/PointsMap';
 import { External } from '@/components/External';
@@ -50,13 +52,18 @@ import { Fold } from '@/components/Fold';
  * viatja amb el desplegament.
  */
 
-export const metadata: Metadata = {
-  title: 'Itineraris de senderisme senyalitzats de Catalunya',
-  description:
-    'Els GR i els PR-C de Catalunya amb la distància, les cotes per on passen i '
-    + 'les comarques que travessen. Amb la predicció a l\'altura de cada itinerari.',
-  alternates: { canonical: '/senderisme/rutes' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Itineraris de senderisme senyalitzats de Catalunya', 'Rutas de senderismo señalizadas de Cataluña'),
+    description: tr(lang,
+      'Els GR i els PR-C de Catalunya amb la distància, les cotes per on passen i '
+      + 'les comarques que travessen. Amb la predicció a l\'altura de cada itinerari.',
+      'Los GR y los PR-C de Cataluña con la distancia, las cotas por donde pasan y '
+      + 'las comarcas que atraviesan. Con la predicción a la altura de cada ruta.'),
+    alternates: { canonical: '/senderisme/rutes' },
+  };
+}
 
 /*
  * L'estil de les files, escrit un cop a la llista i no 683 vegades a cada fila.
@@ -98,6 +105,8 @@ type Params = Promise<{ q?: string }>;
 
 export default async function RutesPage({ searchParams }: { searchParams: Params }) {
   const params = await searchParams;
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const { routes, source, license, demZoom } = allRoutes();
   const axes = allAxes();
   const comarques = new Map(allComarques().map((c) => [c.codi, c.nom]));
@@ -107,7 +116,7 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
   const stages = axes.reduce((n, a) => n + a.legs.length, 0);
 
   // La zona és la de la comarca on comença, que és la primera de la llista.
-  const byName = (a: Route, b: Route) => a.name.localeCompare(b.name, 'ca');
+  const byName = (a: Route, b: Route) => a.name.localeCompare(b.name, lang);
   const zones = groupByZone(
     AMBITS,
     [...routes].sort(byName),
@@ -120,13 +129,13 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
   const hits = fq
     ? routes
       .map((r) => {
-        const ends = [r.from, r.to].filter((t): t is string => Boolean(t));
+        const ends = [r.from, r.to].filter((x): x is string => Boolean(x));
         const names = r.comarques.map((c) => comarques.get(c)).filter((n): n is string => Boolean(n));
         const score = Math.max(
           match(fq, r.name),
           r.ref ? match(fq, r.ref) : 0,
-          ...ends.map((t) => Math.round(match(fq, t) * 0.8)),
-          ...names.map((n) => Math.round(match(fq, comarcaName(n)) * 0.6)),
+          ...ends.map((x) => Math.round(match(fq, x) * 0.8)),
+          ...names.map((n) => Math.round(match(fq, comarcaName(n, lang)) * 0.6)),
         );
         return { r, score };
       })
@@ -136,10 +145,10 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
     : [];
   const suggestions = [...new Set([
     ...axes.map((a) => a.ref),
-    ...[...comarques.values()].map((c) => comarcaName(c)),
+    ...[...comarques.values()].map((c) => comarcaName(c, lang)),
     // Sense l'etapa: «Senda Pirenaica - E07» una vegada i no quaranta-cinc.
     ...routes.map((r) => r.name.replace(STAGE, '')),
-  ])].sort((x, y) => x.localeCompare(y, 'ca'));
+  ])].sort((x, y) => x.localeCompare(y, lang));
 
   const outline = mapOutline();
   const starts = new Map<string, number>();
@@ -149,16 +158,17 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
     .filter(({ n }) => n > 0);
 
   const trail = [
-    { nom: 'Catalunya', path: '/' },
-    { nom: 'Muntanya', path: '/senderisme' },
-    { nom: 'Itineraris', path: '/senderisme/rutes' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
+    { nom: t('Muntanya', 'Montaña'), path: '/senderisme' },
+    { nom: t('Itineraris', 'Rutas'), path: '/senderisme/rutes' },
   ];
 
   const places = (r: Route) => {
     const names = r.comarques
-      .map((c) => { const n = comarques.get(c); return n ? comarcaName(n) : null; })
+      .map((c) => { const n = comarques.get(c); return n ? comarcaName(n, lang) : null; })
       .filter(Boolean);
-    return names.slice(0, 3).join(', ') + (names.length > 3 ? ` i ${names.length - 3} més` : '');
+    return names.slice(0, 3).join(', ')
+      + (names.length > 3 ? t(` i ${names.length - 3} més`, ` y ${names.length - 3} más`) : '');
   };
 
   const row = (r: Route) => (
@@ -183,28 +193,39 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
 
   return (
     <article>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow="Senderisme"
+        eyebrow={t('Senderisme', 'Senderismo')}
         icon="partly-cloudy-day"
-        title="Itineraris senyalitzats"
-        lead={(
+        title={t('Itineraris senyalitzats', 'Rutas señalizadas')}
+        lead={lang === 'es' ? (
+          <>
+            Los GR y los PR-C de Cataluña, cada uno con la <strong>predicción a su
+            altura</strong>: es la que decide si arriba habrá nieve o lluvia.
+          </>
+        ) : (
           <>
             Els GR i els PR-C de Catalunya, cadascun amb la <strong>predicció a la seva
             altura</strong>: és la que decideix si a dalt hi haurà neu o pluja.
           </>
         )}
         stats={[
-          { label: 'Itineraris', value: int(routes.length) },
-          { label: 'Gran recorregut', value: int(long.length) },
-          { label: 'Petit recorregut', value: int(short.length) },
+          { label: t('Itineraris', 'Rutas'), value: int(routes.length) },
+          { label: t('Gran recorregut', 'Gran recorrido'), value: int(long.length) },
+          { label: t('Petit recorregut', 'Pequeño recorrido'), value: int(short.length) },
           axes.length > 0 && {
-            label: 'Eixos', value: int(axes.length), sub: `${int(stages)} etapes, en ordre`,
+            label: t('Eixos', 'Ejes'), value: int(axes.length),
+            sub: t(`${int(stages)} etapes, en ordre`, `${int(stages)} etapas, en orden`),
           },
         ]}
-        note={(
+        note={lang === 'es' ? (
+          <>
+            La distancia se calcula a partir del trazado, y las cotas, del modelo de elevación de
+            Copernicus. Trazados de OpenStreetMap, con licencia {license}.
+          </>
+        ) : (
           <>
             La distància es calcula del traçat i les cotes, del model d&apos;elevació de
             Copernicus. Traçats d&apos;OpenStreetMap, amb llicència {license}.
@@ -218,16 +239,24 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
             width={outline.width}
             height={outline.height}
             values={false}
-            ariaLabel={`Mapa de Catalunya amb l'inici dels ${routes.length} itineraris`}
+            ariaLabel={t(
+              `Mapa de Catalunya amb l'inici dels ${routes.length} itineraris`,
+              `Mapa de Cataluña con el inicio de las ${routes.length} rutas`,
+            )}
             points={perComarca.map(({ c, n }) => ({
               key: c.codi,
               lat: c.lat,
               lon: c.lon,
               r: 2 + Math.sqrt(n) * 1.3,
               fill: DOT_FILL,
-              tip: `${comarcaName(c.nom)}: ${n} ${n === 1 ? 'itinerari hi comença' : 'itineraris hi comencen'}`,
+              tip: lang === 'es'
+                ? `${comarcaName(c.nom, lang)}: ${n} ${n === 1 ? 'ruta empieza aquí' : 'rutas empiezan aquí'}`
+                : `${comarcaName(c.nom)}: ${n} ${n === 1 ? 'itinerari hi comença' : 'itineraris hi comencen'}`,
             }))}
-            footer="Cada cercle, els itineraris que comencen a la comarca: com més gran, més n'hi ha."
+            footer={t(
+              "Cada cercle, els itineraris que comencen a la comarca: com més gran, més n'hi ha.",
+              'Cada círculo, las rutas que empiezan en la comarca: cuanto más grande, más hay.',
+            )}
           />
         )}
       />
@@ -237,28 +266,34 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
         torna aquí amb `?q=` i el servidor filtra.
       */}
       <form action="/senderisme/rutes#cerca" method="get" role="search" id="cerca" className="mar-search mt-6">
-        <label htmlFor="rutes-q" className="sr-only">Cerca un itinerari, un codi o una comarca</label>
+        <label htmlFor="rutes-q" className="sr-only">
+          {t('Cerca un itinerari, un codi o una comarca', 'Busque una ruta, un código o una comarca')}
+        </label>
         <input
           id="rutes-q"
           name="q"
           type="search"
           defaultValue={q}
           list="rutes-noms"
-          placeholder="Cerca un itinerari, un codi (GR 11) o una comarca"
+          placeholder={t('Cerca un itinerari, un codi (GR 11) o una comarca', 'Busque una ruta, un código (GR 11) o una comarca')}
           autoComplete="off"
         />
-        <button type="submit">Cerca</button>
+        <button type="submit">{t('Cerca', 'Buscar')}</button>
         <datalist id="rutes-noms">
           {suggestions.map((n) => <option key={n} value={n} />)}
         </datalist>
       </form>
 
       {q && (
-        <section className="mb-6" aria-label={`Resultats per ${q}`}>
+        <section className="mb-6" aria-label={t(`Resultats per ${q}`, `Resultados para ${q}`)}>
           <p className="card-label">
-            {hits.length > 0
-              ? `${hits.length === 1 ? 'Un itinerari' : `${int(hits.length)} itineraris`} per «${q}»`
-              : `Cap itinerari no es diu «${q}» ni passa per una comarca que es digui així`}
+            {lang === 'es'
+              ? hits.length > 0
+                ? `${hits.length === 1 ? 'Una ruta' : `${int(hits.length)} rutas`} para «${q}»`
+                : `Ninguna ruta se llama «${q}» ni pasa por una comarca que se llame así`
+              : hits.length > 0
+                ? `${hits.length === 1 ? 'Un itinerari' : `${int(hits.length)} itineraris`} per «${q}»`
+                : `Cap itinerari no es diu «${q}» ni passa per una comarca que es digui així`}
           </p>
           {hits.length > 0 && (
             <div className="card">
@@ -267,13 +302,22 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
               </ul>
               {hits.length > MAX_HITS && (
                 <p className="source">
-                  N&apos;hi ha {int(hits.length - MAX_HITS)} més. Afineu la cerca: el nom o el
-                  codi sencer troben l&apos;itinerari de seguida.
+                  {lang === 'es' ? (
+                    <>
+                      Hay {int(hits.length - MAX_HITS)} más. Afine la búsqueda: el nombre o el
+                      código completo encuentran la ruta enseguida.
+                    </>
+                  ) : (
+                    <>
+                      N&apos;hi ha {int(hits.length - MAX_HITS)} més. Afineu la cerca: el nom o el
+                      codi sencer troben l&apos;itinerari de seguida.
+                    </>
+                  )}
                 </p>
               )}
             </div>
           )}
-          <p className="card-foot"><Link href="/senderisme/rutes">Tots els itineraris ›</Link></p>
+          <p className="card-foot"><Link href="/senderisme/rutes">{t('Tots els itineraris ›', 'Todas las rutas ›')}</Link></p>
         </section>
       )}
 
@@ -286,7 +330,7 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
         l'etapa 17.
       */}
       {axes.length > 0 && (
-        <Section id="eixos" title="Per codi, de punta a punta">
+        <Section id="eixos" title={t('Per codi, de punta a punta', 'Por código, de punta a punta')}>
           <ul className="card-grid cols-4">
             {axes.map((a) => (
               <li key={a.slug}>
@@ -298,25 +342,36 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
                     </span>
                   </span>
                   <span className="mt-1 block text-[13px] leading-snug text-[var(--muted)]">
-                    {a.legs.length} etapes
-                    {a.legs[0].from && ` · des ${deName(a.legs[0].from)}`}
+                    {a.legs.length} {t('etapes', 'etapas')}
+                    {a.legs[0].from && (lang === 'es'
+                      ? ` · desde ${placeName(a.legs[0].from, lang)}`
+                      : ` · des ${deName(a.legs[0].from)}`)}
                   </span>
                 </Link>
               </li>
             ))}
           </ul>
           <p className="source measure">
-            {int(stages)} dels itineraris són etapes d&apos;un recorregut més llarg. A la
-            pàgina de cada eix van seguides i en ordre de caminar-les.
+            {lang === 'es' ? (
+              <>
+                {int(stages)} de las rutas son etapas de un recorrido más largo. En la
+                página de cada eje van seguidas y en el orden en que se caminan.
+              </>
+            ) : (
+              <>
+                {int(stages)} dels itineraris són etapes d&apos;un recorregut més llarg. A la
+                pàgina de cada eix van seguides i en ordre de caminar-les.
+              </>
+            )}
           </p>
         </Section>
       )}
 
       {/* Les zones, per saltar-hi. Són àncores: no cal cap script. */}
-      <nav aria-label="Zones" className="mb-2 mt-8">
+      <nav aria-label={t('Zones', 'Zonas')} className="mb-2 mt-8">
         <ul className="chips">
           {zones.map(([name, list]) => (
-            <li key={name}><a href={`#zona-${slug(name)}`}>{name} <span>{list.length}</span></a></li>
+            <li key={name}><a href={`#zona-${slug(name)}`}>{zoneLabel(name, lang)} <span>{list.length}</span></a></li>
           ))}
         </ul>
       </nav>
@@ -331,10 +386,12 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
         return (
           <section key={name} id={`zona-${slug(name)}`} className="section scroll-mt-4" aria-labelledby={`h-${slug(name)}`}>
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
-              <h2 id={`h-${slug(name)}`} className="card-title">{name}</h2>
+              <h2 id={`h-${slug(name)}`} className="card-title">{zoneLabel(name, lang)}</h2>
               <p className="text-[13px] text-[var(--muted)] tnum">
-                {int(list.length)} {list.length === 1 ? 'itinerari' : 'itineraris'}
-                {gr > 0 && <> · {int(gr)} de gran recorregut</>}
+                {int(list.length)} {lang === 'es'
+                  ? (list.length === 1 ? 'ruta' : 'rutas')
+                  : (list.length === 1 ? 'itinerari' : 'itineraris')}
+                {gr > 0 && <> · {int(gr)} {t('de gran recorregut', 'de gran recorrido')}</>}
               </p>
             </div>
             <div className="card">
@@ -346,18 +403,52 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
         );
       })}
 
-      <p className="source mt-6">
-        A la dreta de cada fila, la distància del traçat i, quan OpenStreetMap el porta, el
-        desnivell acumulat. Traçats de{' '}
-        <External href="https://www.openstreetmap.org/copyright" className="text-[var(--ink-2)]">
-          {source} i els seus col·laboradors
-        </External>
-        , amb llicència {license}. Les cotes es calculen del model d&apos;elevació de
-        Copernicus al zoom {demZoom}.
-      </p>
+      {lang === 'es' ? (
+        <p className="source mt-6">
+          A la derecha de cada fila, la distancia del trazado y, cuando OpenStreetMap lo indica, el
+          desnivel acumulado. Trazados de{' '}
+          <External href="https://www.openstreetmap.org/copyright" className="text-[var(--ink-2)]">
+            {source} y sus colaboradores
+          </External>
+          , con licencia {license}. Las cotas se calculan a partir del modelo de elevación de
+          Copernicus en el zoom {demZoom}.
+        </p>
+      ) : (
+        <p className="source mt-6">
+          A la dreta de cada fila, la distància del traçat i, quan OpenStreetMap el porta, el
+          desnivell acumulat. Traçats de{' '}
+          <External href="https://www.openstreetmap.org/copyright" className="text-[var(--ink-2)]">
+            {source} i els seus col·laboradors
+          </External>
+          , amb llicència {license}. Les cotes es calculen del model d&apos;elevació de
+          Copernicus al zoom {demZoom}.
+        </p>
+      )}
 
       <div className="folds">
-        <Fold title="Com es llegeix això" summary="La distància, les cotes i el desnivell">
+        <Fold
+          title={t('Com es llegeix això', 'Cómo se lee esto')}
+          summary={t('La distància, les cotes i el desnivell', 'La distancia, las cotas y el desnivel')}
+        >
+          {lang === 'es' ? (
+            <div className="card prose">
+              <p>
+                La distancia se calcula a partir del trazado, no de la etiqueta de OpenStreetMap,
+                que la teclea quien mapea y a menudo es un número redondo. Las cotas salen de un modelo
+                de elevación con un píxel de 57 m: un collado estrecho puede quedar unos metros por
+                debajo de lo que es.
+              </p>
+              <p>
+                El desnivel acumulado solo sale cuando OpenStreetMap lo indica: calculado con un
+                modelo de 57 m saldría corto.
+              </p>
+              <p>
+                Las marcas de pintura y el mantenimiento son de las entidades excursionistas, y
+                el trazado puede cambiar. Antes de salir, consulte la ficha oficial de
+                la ruta cuando la hay.
+              </p>
+            </div>
+          ) : (
           <div className="card prose">
             <p>
               La distància es calcula del traçat, no de l&apos;etiqueta d&apos;OpenStreetMap,
@@ -375,6 +466,7 @@ export default async function RutesPage({ searchParams }: { searchParams: Params
               l&apos;itinerari quan n&apos;hi ha.
             </p>
           </div>
+          )}
         </Fold>
       </div>
     </article>

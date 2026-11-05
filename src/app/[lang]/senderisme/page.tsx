@@ -5,9 +5,12 @@ import { windCardinal } from '@/lib/variables';
 import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
 import { gustColor, temperatureColor, temperatureInk } from '@/lib/scales';
-import { MOUNTAIN_OTHER, MOUNTAIN_ZONES, anchorSlug, groupByZone } from '@/lib/zones';
+import { MOUNTAIN_OTHER, MOUNTAIN_ZONES, anchorSlug, groupByZone, zoneLabel } from '@/lib/zones';
 import { ago, capFirst, fromDirection, int, num, stationShort } from '@/lib/format';
 import { allRoutes } from '@/lib/routes';
+import { sourceText } from '@/lib/sea';
+import { getLang } from '@/lib/i18n';
+import { tr } from '@/lib/lang';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero } from '@/components/PageHero';
 import { Fold } from '@/components/Fold';
@@ -35,13 +38,18 @@ import { Fold } from '@/components/Fold';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Com està la muntanya: vent, fred i isoterma',
-  description:
-    'Ratxes, temperatura i sensació tèrmica mesurades ara mateix a les estacions '
-    + 'd’alta muntanya de Catalunya, i la isoterma de zero graus.',
-  alternates: { canonical: '/senderisme' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  return {
+    title: tr(lang, 'Com està la muntanya: vent, fred i isoterma', 'Cómo está la montaña: viento, frío e isoterma'),
+    description: tr(lang,
+      'Ratxes, temperatura i sensació tèrmica mesurades ara mateix a les estacions '
+      + 'd’alta muntanya de Catalunya, i la isoterma de zero graus.',
+      'Rachas, temperatura y sensación térmica medidas ahora mismo en las estaciones '
+      + 'de alta montaña de Cataluña, y la isoterma de cero grados.'),
+    alternates: { canonical: '/senderisme' },
+  };
+}
 
 /** A partir d'aquí costa caminar dret en una carena: força 8 de Beaufort. */
 const HARD_KMH = 61;
@@ -64,6 +72,8 @@ const OTHER = MOUNTAIN_OTHER;
 const slug = anchorSlug;
 
 export default async function SenderismePage() {
+  const lang = await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const routeCount = allRoutes().routes.length;
   const data = await hikingConditions();
   const stations = data?.stations ?? [];
@@ -85,52 +95,67 @@ export default async function SenderismePage() {
   const bf = worst?.gustKmh != null ? beaufort(worst.gustKmh) : null;
 
   const trail = [
-    { nom: 'Catalunya', path: '/' },
-    { nom: 'Muntanya', path: '/senderisme' },
+    { nom: t('Catalunya', 'Cataluña'), path: '/' },
+    { nom: t('Muntanya', 'Montaña'), path: '/senderisme' },
   ];
   const station = (s: { codi: string; nom: string }) => <Link href={`/estacions/${s.codi}`}>{s.nom}</Link>;
 
   return (
     <article>
-      <JsonLd data={graph(breadcrumbLd(trail))} />
+      <JsonLd data={graph(breadcrumbLd(trail, lang))} />
 
       <PageHero
         crumbs={trail}
-        eyebrow="Muntanya"
+        eyebrow={t('Muntanya', 'Montaña')}
         icon="wind"
-        title="Com està la muntanya"
+        title={t('Com està la muntanya', 'Cómo está la montaña')}
         lead={stations.length === 0
-          ? 'Encara no hi ha observació de les estacions d’alçada.'
+          ? t('Encara no hi ha observació de les estacions d’alçada.', 'Todavía no hay observación de las estaciones de altura.')
           : bf && (
             /*
               L'entradilla diu què vol dir la ratxa, i les xifres de sota, quant
               i on. Els llindars són els de l'escala de Beaufort, no nostres.
             */
-            <>
-              La ratxa més forta és de <strong>força {bf.force}</strong>, {bf.name}
-              {bf.note && <>: {bf.note}</>}.
-            </>
+            lang === 'es' ? (
+              <>
+                La racha más fuerte es de <strong>fuerza {bf.force}</strong>, {bf.name}
+                {bf.note && <>: {bf.note}</>}.
+              </>
+            ) : (
+              <>
+                La ratxa més forta és de <strong>força {bf.force}</strong>, {bf.name}
+                {bf.note && <>: {bf.note}</>}.
+              </>
+            )
           )}
         stats={stations.length ? [
           worst?.gustKmh != null && {
-            label: 'Ratxa més forta', icon: 'wind', value: int(worst.gustKmh), unit: 'km/h',
-            sub: <>{station(worst)}{worst.windDir != null && <> · vent {fromDirection(windCardinal(worst.windDir))}</>}</>,
+            label: t('Ratxa més forta', 'Racha más fuerte'), icon: 'wind', value: int(worst.gustKmh), unit: 'km/h',
+            sub: <>{station(worst)}{worst.windDir != null && <> · {t('vent', 'viento')} {fromDirection(windCardinal(worst.windDir), lang)}</>}</>,
           },
           coldest?.temperature != null && {
-            label: 'Punt més fred', icon: 'thermometer', value: num(coldest.temperature, 1), unit: '°C',
-            sub: <>{station(coldest)}{coldest.windChill != null && <> · es nota com {num(coldest.windChill, 0)} °C</>}</>,
+            label: t('Punt més fred', 'Punto más frío'), icon: 'thermometer', value: num(coldest.temperature, 1), unit: '°C',
+            sub: <>{station(coldest)}{coldest.windChill != null && <> · {t('es nota com', 'se nota como')} {num(coldest.windChill, 0)} °C</>}</>,
           },
           snowiest?.snowCm != null && {
-            label: 'Més neu', icon: 'snow', value: int(snowiest.snowCm), unit: 'cm',
+            label: t('Més neu', 'Más nieve'), icon: 'snow', value: int(snowiest.snowCm), unit: 'cm',
             sub: station(snowiest),
           },
         ] : undefined}
         note={stations[0] && (
-          <>
-            Mesurat a {stations.length} estacions per damunt dels {int(MOUNTAIN_M)} m,{' '}
-            {ago(stations[0].ageMin)}. No és predicció: la dels pròxims dies és a la fitxa de
-            cada població.
-          </>
+          lang === 'es' ? (
+            <>
+              Medido en {stations.length} estaciones por encima de los {int(MOUNTAIN_M)} m,{' '}
+              {ago(stations[0].ageMin, lang)}. No es predicción: la de los próximos días está en la ficha de
+              cada población.
+            </>
+          ) : (
+            <>
+              Mesurat a {stations.length} estacions per damunt dels {int(MOUNTAIN_M)} m,{' '}
+              {ago(stations[0].ageMin)}. No és predicció: la dels pròxims dies és a la fitxa de
+              cada població.
+            </>
+          )
         )}
         aside={gusty.length > 0 && (
           /*
@@ -142,11 +167,11 @@ export default async function SenderismePage() {
             ratxa, no la temperatura: a dos mil metres el que fa girar cua és el
             vent. Els noms només quan n'hi ha pocs.
           */
-          <section className="card" aria-label="Ratxa de vent a les estacions de muntanya">
+          <section className="card" aria-label={t('Ratxa de vent a les estacions de muntanya', 'Racha de viento en las estaciones de montaña')}>
             <p className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/wind.svg" width={22} height={22} alt="" />
-              Ratxa ara, en km/h
+              {t('Ratxa ara, en km/h', 'Racha ahora, en km/h')}
             </p>
             <PointsMap
               scale={1.7}
@@ -157,7 +182,10 @@ export default async function SenderismePage() {
               values
               labels={gusty.length <= 10}
               maxHeight={440}
-              ariaLabel={`Mapa amb la ratxa de vent a ${gusty.length} estacions de muntanya`}
+              ariaLabel={t(
+                `Mapa amb la ratxa de vent a ${gusty.length} estacions de muntanya`,
+                `Mapa con la racha de viento en ${gusty.length} estaciones de montaña`,
+              )}
               points={gusty.map((s) => ({
                 key: s.codi,
                 lat: s.lat,
@@ -166,10 +194,16 @@ export default async function SenderismePage() {
                 ink: gustInk(s.gustKmh as number),
                 value: String(Math.round(s.gustKmh as number)),
                 label: stationShort(s.nom),
-                tip: `${s.nom}: ratxa de ${Math.round(s.gustKmh as number)} km/h${
+                tip: `${s.nom}: ${t('ratxa de', 'racha de')} ${Math.round(s.gustKmh as number)} km/h${
                   s.temperature != null ? ` · ${num(s.temperature, 1)} °C` : ''}`,
               }))}
-              footer={(
+              footer={lang === 'es' ? (
+                <>
+                  Racha máxima en las estaciones por encima de los {int(MOUNTAIN_M)} m. A
+                  partir de <strong className="font-medium text-[var(--ink-2)]">{HARD_KMH} km/h</strong>{' '}
+                  cuesta caminar erguido en una cresta, y el color cambia.
+                </>
+              ) : (
                 <>
                   Ratxa màxima a les estacions per damunt dels {int(MOUNTAIN_M)} m. A
                   partir de <strong className="font-medium text-[var(--ink-2)]">{HARD_KMH} km/h</strong>{' '}
@@ -194,32 +228,54 @@ export default async function SenderismePage() {
             <h2 id="h-isoterma" className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/thermometer.svg" width={22} height={22} alt="" />
-              La isoterma de zero graus, mesurada
+              {t('La isoterma de zero graus, mesurada', 'La isoterma de cero grados, medida')}
             </h2>
             <p className="text-2xl font-semibold leading-tight tracking-tight text-[var(--ink)] sm:text-3xl">
               {fz.metres != null ? (
-                <>Cap als <span className="tnum">{int(fz.metres)} m</span></>
+                <>{t('Cap als', 'Hacia los')} <span className="tnum">{int(fz.metres)} m</span></>
               ) : fz.beyond === 'amunt' ? (
-                <>Per damunt de qualsevol cim de Catalunya</>
+                <>{t('Per damunt de qualsevol cim de Catalunya', 'Por encima de cualquier cima de Cataluña')}</>
               ) : (
-                <>Per sota de l&apos;estació més baixa: fa zero graus arreu</>
+                <>{t("Per sota de l'estació més baixa: fa zero graus arreu", 'Por debajo de la estación más baja: hace cero grados en todas partes')}</>
               )}
             </p>
-            <p className="mt-3 measure text-sm leading-relaxed text-[var(--ink-2)]">
-              No és la cota de neu: la neu es fon mentre baixa i arriba blanca uns
-              dos-cents o tres-cents metres per sota.
-            </p>
-            <p className="source measure">
-              Regressió de la temperatura contra l&apos;altitud a les{' '}
-              <span className="tnum">{fz.stations}</span> estacions que ara donen les dues
-              coses, de {int(fz.lowest)} a {int(fz.highest)} m: el gradient és de{' '}
-              <span className="tnum">{num(fz.lapse, 1)} °C</span> per cada 1.000 m —el de
-              manual és −6,5— i l&apos;ajust val <span className="tnum">{num(fz.r2, 2)}</span> sobre 1.
-              {fz.metres == null && fz.beyond === 'amunt' && (
-                <> No se&apos;n dona la xifra: la recta creua el zero molt per damunt de
-                l&apos;estació més alta, i seria una extrapolació.</>
-              )}
-            </p>
+            {lang === 'es' ? (
+              <>
+                <p className="mt-3 measure text-sm leading-relaxed text-[var(--ink-2)]">
+                  No es la cota de nieve: la nieve se funde mientras cae y llega blanca unos
+                  doscientos o trescientos metros más abajo.
+                </p>
+                <p className="source measure">
+                  Regresión de la temperatura contra la altitud en las{' '}
+                  <span className="tnum">{fz.stations}</span> estaciones que ahora dan las dos
+                  cosas, de {int(fz.lowest)} a {int(fz.highest)} m: el gradiente es de{' '}
+                  <span className="tnum">{num(fz.lapse, 1)} °C</span> por cada 1.000 m —el de
+                  manual es −6,5— y el ajuste vale <span className="tnum">{num(fz.r2, 2)}</span> sobre 1.
+                  {fz.metres == null && fz.beyond === 'amunt' && (
+                    <> No se da la cifra: la recta cruza el cero muy por encima de
+                    la estación más alta, y sería una extrapolación.</>
+                  )}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 measure text-sm leading-relaxed text-[var(--ink-2)]">
+                  No és la cota de neu: la neu es fon mentre baixa i arriba blanca uns
+                  dos-cents o tres-cents metres per sota.
+                </p>
+                <p className="source measure">
+                  Regressió de la temperatura contra l&apos;altitud a les{' '}
+                  <span className="tnum">{fz.stations}</span> estacions que ara donen les dues
+                  coses, de {int(fz.lowest)} a {int(fz.highest)} m: el gradient és de{' '}
+                  <span className="tnum">{num(fz.lapse, 1)} °C</span> per cada 1.000 m —el de
+                  manual és −6,5— i l&apos;ajust val <span className="tnum">{num(fz.r2, 2)}</span> sobre 1.
+                  {fz.metres == null && fz.beyond === 'amunt' && (
+                    <> No se&apos;n dona la xifra: la recta creua el zero molt per damunt de
+                    l&apos;estació més alta, i seria una extrapolació.</>
+                  )}
+                </p>
+              </>
+            )}
           </section>
         )}
 
@@ -229,17 +285,26 @@ export default async function SenderismePage() {
             <span className="card-label">
               {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
               <img src="/icons/w/partly-cloudy-day.svg" width={22} height={22} alt="" />
-              Itineraris
+              {t('Itineraris', 'Rutas')}
             </span>
             <span className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              <span className="tnum">{int(routeCount)}</span> senyalitzats
+              <span className="tnum">{int(routeCount)}</span> {t('senyalitzats', 'señalizadas')}
             </span>
             <span className="mt-3 text-sm leading-relaxed text-[var(--ink-2)]">
-              Els GR i els PR-C, amb la distància del traçat, les cotes per on passen i la
-              predicció a la seva altura.
+              {lang === 'es' ? (
+                <>
+                  Los GR y los PR-C, con la distancia del trazado, las cotas por donde pasan y la
+                  predicción a su altura.
+                </>
+              ) : (
+                <>
+                  Els GR i els PR-C, amb la distància del traçat, les cotes per on passen i la
+                  predicció a la seva altura.
+                </>
+              )}
             </span>
             <span className="mt-auto pt-3 text-sm font-medium text-[var(--accent)]">
-              Tots els itineraris ›
+              {t('Tots els itineraris ›', 'Todas las rutas ›')}
             </span>
           </span>
         </Link>
@@ -247,10 +312,10 @@ export default async function SenderismePage() {
 
       {/* Les zones, per saltar-hi. Són àncores: no cal cap script. */}
       {zones.length > 1 && (
-        <nav aria-label="Zones" className="mt-6 mb-2">
+        <nav aria-label={t('Zones', 'Zonas')} className="mt-6 mb-2">
           <ul className="chips">
             {zones.map(([name]) => (
-              <li key={name}><a href={`#zona-${slug(name)}`}>{name}</a></li>
+              <li key={name}><a href={`#zona-${slug(name)}`}>{zoneLabel(name, lang)}</a></li>
             ))}
           </ul>
         </nav>
@@ -270,11 +335,11 @@ export default async function SenderismePage() {
         return (
           <section key={name} id={`zona-${slug(name)}`} className="section scroll-mt-4" aria-labelledby={`h-${slug(name)}`}>
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4">
-              <h2 id={`h-${slug(name)}`} className="card-title">{name}</h2>
+              <h2 id={`h-${slug(name)}`} className="card-title">{zoneLabel(name, lang)}</h2>
               <p className="text-[13px] text-[var(--muted)] tnum">
                 {temps.length > 0 && <>de {num(Math.min(...temps), 0)} a {num(Math.max(...temps), 0)} °C</>}
                 {temps.length > 0 && gusts.length > 0 && ' · '}
-                {gusts.length > 0 && <>ratxes fins a {Math.max(...gusts)} km/h</>}
+                {gusts.length > 0 && <>{t('ratxes fins a', 'rachas de hasta')} {Math.max(...gusts)} km/h</>}
               </p>
             </div>
             <ul className="card-grid">
@@ -296,12 +361,12 @@ export default async function SenderismePage() {
                           </span>
                         ) : '—'}
                         {s.windChill != null && Math.round(s.windChill) !== Math.round(s.temperature ?? NaN) && (
-                          <small>es nota com {num(s.windChill, 0)}°</small>
+                          <small>{t('es nota com', 'se nota como')} {num(s.windChill, 0)}°</small>
                         )}
                       </dd>
                     </div>
                     <div>
-                      <dt>Ratxa</dt>
+                      <dt>{t('Ratxa', 'Racha')}</dt>
                       <dd>
                         {s.gustKmh != null ? (
                           <span className="temp-pill" style={{ background: gustColor(s.gustKmh), color: gustInk(s.gustKmh) }}>
@@ -310,14 +375,14 @@ export default async function SenderismePage() {
                         ) : '—'}
                         {s.gustKmh != null && (
                           <small>
-                            força {beaufort(s.gustKmh).force}
-                            {s.windDir != null && ` ${fromDirection(windCardinal(s.windDir))}`}
+                            {t('força', 'fuerza')} {beaufort(s.gustKmh).force}
+                            {s.windDir != null && ` ${fromDirection(windCardinal(s.windDir), lang)}`}
                           </small>
                         )}
                       </dd>
                     </div>
                     <div>
-                      <dt>{s.snowCm != null && s.snowCm > 0 ? 'Neu' : 'Humitat'}</dt>
+                      <dt>{s.snowCm != null && s.snowCm > 0 ? t('Neu', 'Nieve') : t('Humitat', 'Humedad')}</dt>
                       <dd>
                         {s.snowCm != null && s.snowCm > 0
                           ? <>{int(s.snowCm)} cm</>
@@ -337,13 +402,40 @@ export default async function SenderismePage() {
 
       {stations[0] && (
         <p className="source mt-6">
-          Ratxa en km/h, amb la força de Beaufort i d&apos;on ve el vent. Lectures{' '}
-          {ago(stations[0].ageMin)}. {data?.source}
+          {lang === 'es' ? (
+            <>
+              Racha en km/h, con la fuerza de Beaufort y de dónde viene el viento. Lecturas{' '}
+              {ago(stations[0].ageMin, lang)}. {data?.source && sourceText(data.source, lang)}
+            </>
+          ) : (
+            <>
+              Ratxa en km/h, amb la força de Beaufort i d&apos;on ve el vent. Lectures{' '}
+              {ago(stations[0].ageMin)}. {data?.source}
+            </>
+          )}
         </p>
       )}
 
       <div className="folds">
-        <Fold title="Els llindars, i d’on surten" summary="Força 6, força 8 i la sensació pel vent">
+        <Fold
+          title={t('Els llindars, i d’on surten', 'Los umbrales, y de dónde salen')}
+          summary={t('Força 6, força 8 i la sensació pel vent', 'Fuerza 6, fuerza 8 y la sensación por viento')}
+        >
+          {lang === 'es' ? (
+            <div className="card prose">
+              <p>
+                <strong>Fuerza 6 (39 km/h)</strong> es donde caminar de cara al viento deja de ser
+                cómodo. <strong>Fuerza 8 (62 km/h)</strong> es donde cuesta mantenerse en pie: en la
+                cresta, con una pendiente al lado, ya no es cuestión de comodidad. Son los
+                umbrales de la escala de Beaufort.
+              </p>
+              <p>
+                <strong>La sensación por viento</strong> sale del índice estadounidense y
+                canadiense, que solo vale por debajo de 10 °C y con más de 5 km/h. Fuera
+                de ese rango la casilla queda vacía.
+              </p>
+            </div>
+          ) : (
           <div className="card prose">
             <p>
               <strong>Força 6 (39 km/h)</strong> és on caminar de cara al vent deixa de ser
@@ -357,6 +449,7 @@ export default async function SenderismePage() {
               d&apos;aquest rang la casella queda buida.
             </p>
           </div>
+          )}
         </Fold>
       </div>
     </article>

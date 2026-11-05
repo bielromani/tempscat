@@ -3,6 +3,7 @@ import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { projectToMap, type MapProjection } from '@/lib/mercator';
 import type { MapFeature } from '@/lib/map';
 import { flagStyle } from '@/lib/sea';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * La costa, amb la temperatura de l'aigua a cada tram.
@@ -62,14 +63,16 @@ export interface CoastPoint {
 }
 
 export function CoastMap({
-  outline, projection, width, height, points,
+  outline, projection, width, height, points, lang,
 }: {
   outline: MapFeature[];
   projection: MapProjection;
   width: number;
   height: number;
   points: CoastPoint[];
+  lang: Lang;
 }) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const temps = points.map((p) => p.sst).filter((v): v is number => v != null);
 
   /*
@@ -160,7 +163,10 @@ export function CoastMap({
         role="img"
         aria-label={
           temps.length
-            ? `Mapa de la costa catalana: l'aigua va de ${num(Math.min(...temps), 1)} a ${num(Math.max(...temps), 1)} graus`
+            ? t(
+              `Mapa de la costa catalana: l'aigua va de ${num(Math.min(...temps), 1)} a ${num(Math.max(...temps), 1)} graus`,
+              `Mapa de la costa catalana: el agua va de ${num(Math.min(...temps), 1)} a ${num(Math.max(...temps), 1)} grados`,
+            )
             : 'Mapa de la costa catalana'
         }
         className="geomap block h-auto w-full"
@@ -182,11 +188,11 @@ export function CoastMap({
 
         {placed.map((p) => {
           const t = p.sst;
-          const style = p.flag ? flagStyle(p.flag) : null;
+          const style = p.flag ? flagStyle(p.flag, lang) : null;
           const tip = [
             p.near,
             t != null && `${num(t, 1)} °C`,
-            p.wave != null && `onada de ${num(p.wave, 2)} m`,
+            p.wave != null && (lang === 'es' ? `ola de ${num(p.wave, 2)} m` : `onada de ${num(p.wave, 2)} m`),
             style && `bandera ${style.label.toLowerCase()}`,
           ].filter(Boolean).join(' · ');
 
@@ -229,11 +235,23 @@ export function CoastMap({
       </svg>
 
       <figcaption className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-        Cada cercle és un <strong className="font-medium text-[var(--ink-2)]">punt del
-        model</strong> a uns cinc quilòmetres de la costa, amb la temperatura de
-        l&apos;aigua en graus. Hi són tots els dies i totes les hores. L&apos;anell de
-        color, quan hi és, és la bandera vigent de la platja d&apos;aquell tram —i
-        aquesta la posa un socorrista, així que fora d&apos;horari no n&apos;hi ha cap.
+        {lang === 'es' ? (
+          <>
+            Cada círculo es un <strong className="font-medium text-[var(--ink-2)]">punto del
+            modelo</strong> a unos cinco kilómetros de la costa, con la temperatura del
+            agua en grados. Están todos los días y a todas las horas. El anillo de
+            color, cuando aparece, es la bandera vigente de la playa de ese tramo —y
+            esa la pone un socorrista, así que fuera de horario no hay ninguna.
+          </>
+        ) : (
+          <>
+            Cada cercle és un <strong className="font-medium text-[var(--ink-2)]">punt del
+            model</strong> a uns cinc quilòmetres de la costa, amb la temperatura de
+            l&apos;aigua en graus. Hi són tots els dies i totes les hores. L&apos;anell de
+            color, quan hi és, és la bandera vigent de la platja d&apos;aquell tram —i
+            aquesta la posa un socorrista, així que fora d&apos;horari no n&apos;hi ha cap.
+          </>
+        )}
       </figcaption>
     </figure>
   );

@@ -1,5 +1,6 @@
 import { External } from './External';
 import { fitBox, projectToMap, tileWindow, type MapProjection } from '@/lib/mercator';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * El traçat d'un itinerari damunt del mapa base de l'ICGC.
@@ -52,13 +53,14 @@ const ZOOMS = [9, 10, 11, 12, 13, 14];
 const MAX_TILES = 12;
 
 export function RouteMap({
-  projection, trace, start, name,
+  projection, trace, start, name, lang,
 }: {
   projection: MapProjection;
   /** Cada via, en `[lat, lon]`. */
   trace: Array<Array<[number, number]>>;
   start: { lat: number; lon: number };
   name: string;
+  lang: Lang;
 }) {
   const pts = trace.flat().map(([lat, lon]) => projectToMap(lon, lat, projection));
   if (!pts.length) return null;
@@ -104,7 +106,7 @@ export function RouteMap({
       <svg
         viewBox={`${view.x.toFixed(1)} ${view.y.toFixed(1)} ${view.w.toFixed(1)} ${view.h.toFixed(1)}`}
         role="img"
-        aria-label={`Traçat de ${name} sobre el mapa topogràfic`}
+        aria-label={tr(lang, `Traçat de ${name} sobre el mapa topogràfic`, `Trazado de ${name} sobre el mapa topográfico`)}
         className="routemap block h-auto w-full rounded-2xl border border-[var(--line-soft)]"
         style={{ background: 'var(--surface-2)' }}
       >
@@ -149,17 +151,28 @@ export function RouteMap({
           cx={sx} cy={sy} r={unit * 1.7}
           fill="var(--good)" stroke="#fff" strokeWidth={unit * 0.6}
         />
-        <title>{`Traçat de ${name}`}</title>
+        <title>{tr(lang, `Traçat de ${name}`, `Trazado de ${name}`)}</title>
       </svg>
 
-      <figcaption className="source">
-        Mapa base de l&apos;
-        <External href="https://www.icgc.cat/" className="text-[var(--ink-2)]" plain>
-          Institut Cartogràfic i Geològic de Catalunya
-        </External>{' '}
-        (CC BY); fora de Catalunya, ©OpenMapTiles i ©OpenStreetMap (ODbL). El traçat és
-        d&apos;OpenStreetMap, i el punt verd és l&apos;inici, d&apos;on surt la predicció.
-      </figcaption>
+      {lang === 'es' ? (
+        <figcaption className="source">
+          Mapa base del{' '}
+          <External href="https://www.icgc.cat/" className="text-[var(--ink-2)]" plain>
+            Institut Cartogràfic i Geològic de Catalunya
+          </External>{' '}
+          (CC BY); fuera de Cataluña, ©OpenMapTiles y ©OpenStreetMap (ODbL). El trazado es
+          de OpenStreetMap, y el punto verde es el inicio, de donde sale la predicción.
+        </figcaption>
+      ) : (
+        <figcaption className="source">
+          Mapa base de l&apos;
+          <External href="https://www.icgc.cat/" className="text-[var(--ink-2)]" plain>
+            Institut Cartogràfic i Geològic de Catalunya
+          </External>{' '}
+          (CC BY); fora de Catalunya, ©OpenMapTiles i ©OpenStreetMap (ODbL). El traçat és
+          d&apos;OpenStreetMap, i el punt verd és l&apos;inici, d&apos;on surt la predicció.
+        </figcaption>
+      )}
     </figure>
   );
 }
