@@ -1601,6 +1601,14 @@ cuota para exactamente la misma información.
   `diari.yml`, i desa cada dia la predicció municipal de l'AEMET al costat de la de la fitxa per
   a 140 estacions que representen el seu poble: és la comparació amb algú que publica.
 
+- **Contra qui es compara la fitxa: l'AEMET, yr.no i, quan hi hagi clau, el Meteocat.** (5 de
+  novembre de 2026.) Cada rival es demana pel seu compte i pot fallar pel seu compte, així que
+  la comparació no surt de `models.tempscat` contra `models.aemet` —serien mitjanes sobre
+  pobles i dies diferents— sinó de `Scores.duels`, on cada comparació entra a les dues bandes
+  alhora o a cap. yr.no demana un `User-Agent` amb contacte i és CC BY 4.0. El pla gratuït del
+  Meteocat **prohibeix difondre** el que retorna: entra a la comparació, però el resultat no es
+  publica sense permís seu per escrit.
+
 - **Passada la mitjanit, el primer dia de la sèrie diària és ahir.** (5 de novembre de 2026.)
   La sèrie comença les zero hores del dia en què es va demanar, i fins al refresc següent la
   frase d'avui llegia `daily[0]`: deia la màxima d'ahir com a d'avui, i la pluja d'avui com a de

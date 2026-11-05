@@ -72,6 +72,9 @@ jobs:
   # al costat de la de la fitxa, per comparar-les amb les mateixes estacions.
   # L'AEMET deixa fer set municipis per minut, i són 138: uns 23 minuts, que és
   # el motiu de la feina a part. Sense la clau, ho salta i puntua els models.
+  # Hi ha també yr.no, sense clau, en un minut, i el Meteocat, que només corre
+  # si hi ha METEOCAT_API_KEY: el workflow l'ha de passar o per al worker no
+  # existeix.
   encert:
     runs-on: ubuntu-24.04
     timeout-minutes: 50
@@ -82,6 +85,7 @@ jobs:
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || vars.R2_SECRET_ACCESS_KEY }}
       DATA_BASE_URL: ${{ secrets.DATA_BASE_URL || vars.DATA_BASE_URL }}
       AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
+      METEOCAT_API_KEY: ${{ secrets.METEOCAT_API_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
