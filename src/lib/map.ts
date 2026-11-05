@@ -7,6 +7,7 @@ import { LEVEL_RANK, type Warning, type WarningLevel } from './warning-stack';
 import { phenomenonName, zoneName } from './warning-labels';
 import { CAP_OKLCH, oklchToHex, temperatureColor } from './scales';
 import type { MapProjection } from './mercator';
+import { tr, type Lang } from './lang';
 
 /**
  * El mapa de comarques: geometria i temperatura.
@@ -287,7 +288,11 @@ const LEVEL_NAME: Record<WarningLevel, string> = {
   verd: 'verd', groc: 'groc', taronja: 'taronja', vermell: 'vermell',
 };
 
-export async function warningOverlay(): Promise<WarningOverlay | null> {
+const NIVEL: Record<WarningLevel, string> = {
+  verd: 'verde', groc: 'amarillo', taronja: 'naranja', vermell: 'rojo',
+};
+
+export async function warningOverlay(lang: Lang = 'ca'): Promise<WarningOverlay | null> {
   const [warnings, zones] = await Promise.all([activeWarnings(), warningZones()]);
   if (!zones?.zones.length) return null;
 
@@ -322,7 +327,7 @@ export async function warningOverlay(): Promise<WarningOverlay | null> {
     for (const w of sorted) {
       if (seen.has(w.phenomenon)) continue;
       seen.add(w.phenomenon);
-      noms.push(phenomenonName(w.phenomenon).toLowerCase());
+      noms.push(phenomenonName(w.phenomenon, lang).toLowerCase());
     }
 
     const color = oklchToHex(CAP_OKLCH[level]);
@@ -331,10 +336,10 @@ export async function warningOverlay(): Promise<WarningOverlay | null> {
         type: 'Feature',
         properties: {
           code: zone.code,
-          nom: zoneName(zone.desc),
+          nom: zoneName(zone.desc, lang),
           level,
           color,
-          text: `Avís ${LEVEL_NAME[level]} per ${noms.join(', ')}`,
+          text: tr(lang, `Avís ${LEVEL_NAME[level]} per ${noms.join(', ')}`, `Aviso ${NIVEL[level]} por ${noms.join(', ')}`),
         },
         // Els anells d'AEMET són un contorn exterior cadascun: no hi ha forats.
         // Per això cada anell va al seu propi polígon i no com a segon anell

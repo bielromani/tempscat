@@ -2,6 +2,7 @@ import 'server-only';
 import { snapshot } from './cache-store';
 import { localNowHour } from './weather';
 import type { Location } from './territory';
+import type { Lang } from './lang';
 
 /**
  * El mar: banderas de playa y modelo de oleaje.
@@ -65,42 +66,54 @@ export const FLAG_CURRENT_HOURS = 3;
 /** Se enseña como último parte, con la hora delante. Más allá, no se enseña. */
 export const FLAG_SHOW_HOURS = 12;
 
-interface FlagStyle {
+interface FlagWords {
   label: string;
   /** El plural no se forma con una regla: verda→verdes, groga→**grogues**. */
   plural: string;
+  meaning: string;
+}
+
+interface FlagStyle extends FlagWords {
   color: string;
   ink: string;
-  meaning: string;
+  /** Las mismas tres palabras en castellano. El color no cambia de idioma. */
+  es: FlagWords;
 }
 
 export const FLAG_STYLE: Record<string, FlagStyle> = {
   verda: {
     label: 'Verda', plural: 'verdes', color: 'var(--cap-green)', ink: 'oklch(20% 0.03 150)',
     meaning: 'Bany lliure',
+    es: { label: 'Verde', plural: 'verdes', meaning: 'Baño libre' },
   },
   groga: {
     label: 'Groga', plural: 'grogues', color: 'var(--cap-yellow)', ink: 'oklch(22% 0.04 95)',
     meaning: 'Bany amb precaució',
+    es: { label: 'Amarilla', plural: 'amarillas', meaning: 'Baño con precaución' },
   },
   vermella: {
     label: 'Vermella', plural: 'vermelles', color: 'var(--cap-red)', ink: 'oklch(98% 0.01 27)',
     meaning: 'Bany prohibit',
+    es: { label: 'Roja', plural: 'rojas', meaning: 'Baño prohibido' },
   },
   complet: {
     label: 'Aforament complet', plural: 'amb aforament complet',
     color: 'var(--muted)', ink: 'var(--paper)',
     meaning: 'La platja ha arribat al límit d’ocupació',
+    es: { label: 'Aforo completo', plural: 'con aforo completo', meaning: 'La playa ha llegado al límite de ocupación' },
   },
   'sense informacio': {
     label: 'Sense informació', plural: 'sense informació',
     color: 'var(--line)', ink: 'var(--ink-2)',
     meaning: 'La platja no ha comunicat estat',
+    es: { label: 'Sin información', plural: 'sin información', meaning: 'La playa no ha comunicado su estado' },
   },
 };
 
-export function flagStyle(flag: string) {
-  return FLAG_STYLE[flag] ?? FLAG_STYLE['sense informacio'];
+/** El estilo de la bandera, con las palabras en el idioma de la página. */
+export function flagStyle(flag: string, lang: Lang = 'ca'): FlagStyle {
+  const s = FLAG_STYLE[flag] ?? FLAG_STYLE['sense informacio'];
+  return lang === 'es' ? { ...s, ...s.es } : s;
 }
 
 /**
@@ -122,37 +135,49 @@ export function flagStyle(flag: string) {
  */
 export type StingLevel = 'inofensiva' | 'lleu' | 'dolorosa' | 'perillosa' | 'desconeguda';
 
-interface Species { common: string; sting: StingLevel; note?: string }
+interface Species {
+  common: string;
+  sting: StingLevel;
+  note?: string;
+  /** El nom corrent i la nota en castellà. La picada és la mateixa. */
+  es?: { common: string; note?: string };
+}
 
 const JELLYFISH: Record<string, Species> = {
   'pelagia noctiluca': {
     common: 'medusa clavell', sting: 'dolorosa',
     note: 'La més freqüent a la costa catalana.',
+    es: { common: 'medusa luminiscente', note: 'La más frecuente en la costa catalana.' },
   },
-  'rhizostoma pulmo': { common: 'bot blau', sting: 'lleu' },
-  'cotylorhiza tuberculata': { common: 'ou ferrat', sting: 'inofensiva' },
-  'aurelia aurita': { common: 'medusa vera', sting: 'lleu' },
-  'velella velella': { common: 'barqueta de Sant Pere', sting: 'inofensiva' },
-  'chrysaora hysoscella': { common: 'medusa de compàs', sting: 'dolorosa' },
-  'carybdea marsupialis': { common: 'medusa cub', sting: 'dolorosa' },
+  'rhizostoma pulmo': { common: 'bot blau', sting: 'lleu', es: { common: 'aguamala' } },
+  'cotylorhiza tuberculata': { common: 'ou ferrat', sting: 'inofensiva', es: { common: 'huevo frito' } },
+  'aurelia aurita': { common: 'medusa vera', sting: 'lleu', es: { common: 'medusa común' } },
+  'velella velella': { common: 'barqueta de Sant Pere', sting: 'inofensiva', es: { common: 'velero' } },
+  'chrysaora hysoscella': { common: 'medusa de compàs', sting: 'dolorosa', es: { common: 'medusa de compás' } },
+  'carybdea marsupialis': { common: 'medusa cub', sting: 'dolorosa', es: { common: 'avispa de mar' } },
   'physalia physalis': {
     common: 'vaixell portuguès', sting: 'perillosa',
     note: 'No és una medusa. Els tentacles piquen també fora de l’aigua i hores després.',
+    es: {
+      common: 'carabela portuguesa',
+      note: 'No es una medusa. Los tentáculos pican también fuera del agua y horas después.',
+    },
   },
 };
 
-export const STING_STYLE: Record<StingLevel, { label: string; color: string }> = {
-  inofensiva: { label: 'no pica', color: 'var(--cap-green)' },
-  lleu: { label: 'picada lleu', color: 'var(--cap-yellow)' },
-  dolorosa: { label: 'pica, i fa mal', color: 'var(--warn)' },
-  perillosa: { label: 'perillosa', color: 'var(--cap-red)' },
-  desconeguda: { label: 'tracteu-la com si piqués', color: 'var(--muted)' },
+export const STING_STYLE: Record<StingLevel, { label: string; labelEs: string; color: string }> = {
+  inofensiva: { label: 'no pica', labelEs: 'no pica', color: 'var(--cap-green)' },
+  lleu: { label: 'picada lleu', labelEs: 'picadura leve', color: 'var(--cap-yellow)' },
+  dolorosa: { label: 'pica, i fa mal', labelEs: 'pica, y duele', color: 'var(--warn)' },
+  perillosa: { label: 'perillosa', labelEs: 'peligrosa', color: 'var(--cap-red)' },
+  desconeguda: { label: 'tracteu-la com si piqués', labelEs: 'trátela como si picara', color: 'var(--muted)' },
 };
 
 /** Què se sap d'una espècie. Mai diu «inofensiva» d'una que no consti. */
-export function speciesInfo(scientific: string): Species {
-  return JELLYFISH[scientific.trim().toLowerCase()]
+export function speciesInfo(scientific: string, lang: Lang = 'ca'): Species {
+  const s = JELLYFISH[scientific.trim().toLowerCase()]
     ?? { common: '', sting: 'desconeguda' };
+  return lang === 'es' && s.es ? { ...s, common: s.es.common, note: s.es.note } : s;
 }
 
 /**
@@ -337,13 +362,45 @@ const FLAG_REASONS: Record<string, string> = {
   altres: 'altres motius',
 };
 
-export function flagReasonText(raw: string | null | undefined): string | null {
+/**
+ * Y en castellano. La misma lista cerrada, y además «Estat mar», que es como lo
+ * escriben dieciséis partes del registro: en catalán sale tal cual, pero en una
+ * página en castellano sería la única palabra en catalán de la línea.
+ */
+const FLAG_REASONS_ES: Record<string, string> = {
+  medusas: 'medusas',
+  meduses: 'medusas',
+  vent: 'viento',
+  'estat del mar': 'estado del mar',
+  'estat mar': 'estado del mar',
+  'qualitat de l’aigua': 'calidad del agua',
+  "qualitat de l'aigua": 'calidad del agua',
+  altres: 'otros motivos',
+};
+
+export function flagReasonText(raw: string | null | undefined, lang: Lang = 'ca'): string | null {
   if (!raw) return null;
   const key = raw.trim().toLowerCase();
-  return FLAG_REASONS[key] ?? key;
+  return (lang === 'es' ? FLAG_REASONS_ES : FLAG_REASONS)[key] ?? key;
 }
 
-export function douglas(heightM: number): string {
+/**
+ * La escala Douglas en castellano es la de AEMET, y las palabras se emparejan
+ * con las catalanas por el nombre y no por el umbral: plana es calma, arrissada
+ * es rizada, marejol es marejadilla. Así el modelo y el socorrista siguen
+ * hablando igual también en castellano.
+ */
+export function douglas(heightM: number, lang: Lang = 'ca'): string {
+  if (lang === 'es') {
+    if (heightM < 0.1) return 'calma';
+    if (heightM < 0.5) return 'rizada';
+    if (heightM < 1.25) return 'marejadilla';
+    if (heightM < 2.5) return 'marejada';
+    if (heightM < 4) return 'fuerte marejada';
+    if (heightM < 6) return 'gruesa';
+    if (heightM < 9) return 'muy gruesa';
+    return 'arbolada';
+  }
   if (heightM < 0.1) return 'mar plana';
   if (heightM < 0.5) return 'arrissada';
   if (heightM < 1.25) return 'marejol';
@@ -352,6 +409,64 @@ export function douglas(heightM: number): string {
   if (heightM < 6) return 'maregassa';
   if (heightM < 9) return 'mar brava';
   return 'mar desfeta';
+}
+
+/**
+ * Las palabras del parte del socorrista, en castellano.
+ *
+ * El registro las escribe en catalán y de una lista corta: el estado del mar
+ * (con las mismas palabras que `douglas()`), la transparencia del agua, el cielo
+ * y la cantidad de medusas. En catalán se enseñan tal cual; en castellano, por
+ * esta tabla, y lo que no conste sale como viene, que es mejor que esconderlo.
+ */
+const BEACH_WORDS_ES: Record<string, string> = {
+  plana: 'calma',
+  'mar plana': 'calma',
+  arrissada: 'rizada',
+  marejol: 'marejadilla',
+  maror: 'marejada',
+  'forta maror': 'fuerte marejada',
+  maregassa: 'gruesa',
+  transparent: 'transparente',
+  terbola: 'turbia',
+  bruta: 'sucia',
+  sol: 'sol',
+  'sol/nuvols': 'sol y nubes',
+  nuvols: 'nubes',
+  cobert: 'cubierto',
+  pluja: 'lluvia',
+  poques: 'pocas',
+  algunes: 'algunas',
+  moltes: 'muchas',
+  abundants: 'abundantes',
+};
+
+export function beachWord(raw: string, lang: Lang = 'ca'): string {
+  if (lang !== 'es') return raw;
+  return BEACH_WORDS_ES[raw.trim().toLowerCase()] ?? raw;
+}
+
+/**
+ * La línea de procedencia de un worker, en castellano.
+ *
+ * Los workers la escriben en catalán («Protecció Civil i socorristes · dades
+ * obertes · onatge d’Open-Meteo») y viaja con la instantánea, así que no se
+ * puede elegir idioma al escribirla. Los nombres propios —Protecció Civil,
+ * Agència Catalana de l’Aigua, XVPCA, CAMS, Generalitat— no se traducen; solo
+ * las palabras comunes que los acompañan. Vive aquí porque el mar fue el
+ * primero, y la usan también el agua y el aire.
+ */
+const SOURCE_WORDS_ES: Array<[RegExp, string]> = [
+  [/dades obertes/g, 'datos abiertos'],
+  [/ i socorristes/g, ' y socorristas'],
+  [/onatge d[’']Open-Meteo/g, 'oleaje de Open-Meteo'],
+  [/zones de Meteoalerta/g, 'zonas de Meteoalerta'],
+  [/avisos oficials/g, 'avisos oficiales'],
+];
+
+export function sourceText(source: string, lang: Lang = 'ca'): string {
+  if (lang !== 'es') return source;
+  return SOURCE_WORDS_ES.reduce((s, [re, to]) => s.replace(re, to), source);
 }
 
 /** Puntos de mar, para la página de conjunto. */

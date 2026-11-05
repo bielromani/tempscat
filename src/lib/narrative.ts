@@ -1,8 +1,9 @@
 import { msToKmh } from './variables.ts';
-import { dailySummaryCode, weatherCode } from './weather-codes.ts';
-import { num, relativeDay, theHour } from './format.ts';
+import { codeLabel, codeLong, dailySummaryCode, weatherCode } from './weather-codes.ts';
+import { dayName, num, relativeDay, theHour } from './format.ts';
 import { LEVEL_RANK } from './warning-stack.ts';
 import type { CurrentConditions, HourlyPoint, LocationForecast } from './forecast-types.ts';
+import type { Lang } from './lang.ts';
 
 /**
  * Del dato a la frase.
@@ -31,6 +32,16 @@ import type { CurrentConditions, HourlyPoint, LocationForecast } from './forecas
  * carga también `scripts/test-narrative.ts` con Node, y Node la exige. Sus cinco
  * dependencias son ficheros que no importan nada, así que la cadena se corta ahí
  * y no arrastra `node:fs`. Ver `src/lib/forecast-types.ts`.
+ *
+ * ## En castellano
+ *
+ * Cada función que escribe acepta un `lang` al final, `'ca'` por defecto. La
+ * plantilla castellana es **otra plantilla**, no una traducción de la catalana:
+ * misma información y mismas reglas de honestidad (sin adjetivo de intensidad
+ * bajo un aviso, «no llega a mojar el suelo» solo por debajo de 1 mm), con la
+ * gramática y el vocabulario de AEMET —«chubasco», «llovizna», «aviso naranja
+ * por lluvias»— y el orden de la frase que pide el castellano. La rama catalana
+ * no se toca: las pruebas comparan sus frases byte a byte.
  */
 
 // ── Avisos oficiales ────────────────────────────────────────────────────────
@@ -69,7 +80,12 @@ function strongest(warnings: RainWarning[]): RainWarning {
   });
 }
 
-function warningPhrase(w: RainWarning): string {
+/** El nivel en castellano, como lo dice AEMET: «aviso naranja». */
+const NIVEL: Record<RainWarning['level'], string> = { groc: 'amarillo', taronja: 'naranja', vermell: 'rojo' };
+
+function warningPhrase(w: RainWarning, lang: Lang = 'ca'): string {
+  // AEMET escribe el fenómeno en plural: «aviso naranja por lluvias», «por tormentas».
+  if (lang === 'es') return `aviso ${NIVEL[w.level]} por ${w.phenomenon === 'PR' ? 'lluvias' : 'tormentas'}`;
   return `avís ${w.level} per ${w.phenomenon === 'PR' ? 'pluja' : 'tempesta'}`;
 }
 
@@ -88,11 +104,12 @@ function warningPhrase(w: RainWarning): string {
  * llevan una intensidad que el aviso contradiga— y cuando ya es lluvia fuerte
  * (65, 82): «Pluja forta» debajo de un aviso dice lo mismo que el aviso.
  */
-export function unratedRainLabel(code: number | null): string | null {
+export function unratedRainLabel(code: number | null, lang: Lang = 'ca'): string | null {
   if (code == null || code === 65 || code === 82) return null;
   const { group } = weatherCode(code);
-  if (group === 'showers') return 'Ruixats';
-  if (group === 'rain' || group === 'drizzle') return 'Pluja';
+  const es = lang === 'es';
+  if (group === 'showers') return es ? 'Chubascos' : 'Ruixats';
+  if (group === 'rain' || group === 'drizzle') return es ? 'Lluvia' : 'Pluja';
   return null;
 }
 
@@ -114,8 +131,8 @@ export function rainWarnedOn(warnings: RainWarning[], date: string): boolean {
  * El texto de la tabla ya lo hacía; el `alt` del icono no, y un lector de
  * pantalla seguía leyendo «Pluja feble» debajo de un aviso naranja.
  */
-export function warnedIconLabel(code: number | null, warned: boolean): string | null {
-  return warned ? unratedRainLabel(code) : null;
+export function warnedIconLabel(code: number | null, warned: boolean, lang: Lang = 'ca'): string | null {
+  return warned ? unratedRainLabel(code, lang) : null;
 }
 
 // ── Franjas del día ─────────────────────────────────────────────────────────
@@ -132,11 +149,21 @@ export function warnedIconLabel(code: number | null, warned: boolean): string | 
  * pondría las 19 h en «nit», que no es lo que nadie entiende.
  */
 export const DAY_PARTS = [
-  { key: 'matinada', nom: 'Matinada', from: 0, to: 5 },
-  { key: 'mati', nom: 'Matí', from: 6, to: 12 },
-  { key: 'tarda', nom: 'Tarda', from: 13, to: 19 },
-  { key: 'nit', nom: 'Nit', from: 20, to: 23 },
+  { key: 'matinada', nom: 'Matinada', nomEs: 'Madrugada', from: 0, to: 5 },
+  { key: 'mati', nom: 'Matí', nomEs: 'Mañana', from: 6, to: 12 },
+  { key: 'tarda', nom: 'Tarda', nomEs: 'Tarde', from: 13, to: 19 },
+  { key: 'nit', nom: 'Nit', nomEs: 'Noche', from: 20, to: 23 },
 ] as const;
+
+/** «de madrugada», «por la mañana»: la preposición de cada franja en castellano. */
+const PARTE_ES: Record<string, string> = {
+  matinada: 'de madrugada', mati: 'por la mañana', tarda: 'por la tarde', nit: 'por la noche',
+};
+
+/** Si `relativeDay` ha devuelto un nombre de día y no «hoy», «mañana»… */
+function isWeekdayEs(r: string): boolean {
+  return !['hoy', 'mañana', 'pasado mañana', 'ayer'].includes(r);
+}
 
 export type DayPartKey = typeof DAY_PARTS[number]['key'];
 
@@ -145,7 +172,7 @@ export interface DayPart {
   nom: string;
   /** Día natural al que pertenece, para poder rotular «demà a la tarda». */
   day: string;
-  /** Etiqueta ya montada: «Avui a la tarda», «Demà al matí». */
+  /** Etiqueta ya montada: «Avui a la tarda», «Demà al matí»; «Hoy por la tarde». */
   label: string;
   first: string;
   last: string;
@@ -161,7 +188,13 @@ export interface DayPart {
 }
 
 /** «Avui a la tarda» / «Demà al matí» — con la preposición que le toca. */
-function partLabel(key: DayPartKey, nom: string, day: string, today: string): string {
+function partLabel(key: DayPartKey, nom: string, day: string, today: string, lang: Lang = 'ca'): string {
+  if (lang === 'es') {
+    // «Hoy por la tarde», «Mañana de madrugada», «El jueves por la noche».
+    const r = relativeDay(day, today, 'es');
+    const when = isWeekdayEs(r) ? `el ${r}` : r;
+    return `${when.charAt(0).toUpperCase()}${when.slice(1)} ${PARTE_ES[key]}`;
+  }
   const when = relativeDay(day, today);
   const prep = key === 'mati' ? 'al matí' : `a la ${nom.toLowerCase()}`;
   // Cuando el día no es hoy ni mañana, relativeDay devuelve el nombre del día
@@ -181,6 +214,7 @@ export function dayParts(
   nowHour: string,
   today: string,
   maxParts = 5,
+  lang: Lang = 'ca',
 ): DayPart[] {
   const from = Math.max(0, hourly.findIndex((h) => h.time.slice(0, 13) === nowHour));
 
@@ -212,9 +246,9 @@ export function dayParts(
 
     out.push({
       key: partKey,
-      nom: def.nom,
+      nom: lang === 'es' ? def.nomEs : def.nom,
       day,
-      label: partLabel(partKey, def.nom, day, today),
+      label: partLabel(partKey, def.nom, day, today, lang),
       first: hs[0].time,
       last: hs[hs.length - 1].time,
       tMin: temps.length ? Math.min(...temps) : null,
@@ -264,6 +298,19 @@ const INTENSITY: Array<{ max: number; nom: RainIntensity }> = [
 
 export function rainIntensity(mmPerHour: number): RainIntensity {
   return (INTENSITY.find((i) => mmPerHour <= i.max) ?? INTENSITY[INTENSITY.length - 1]).nom;
+}
+
+/** Los mismos cortes con los nombres de AEMET en castellano. */
+const INTENSIDAD: Record<RainIntensity, string> = {
+  feble: 'débil', moderada: 'moderada', forta: 'fuerte', 'molt forta': 'muy fuerte', torrencial: 'torrencial',
+};
+
+/**
+ * El nombre de la intensidad para enseñarlo. `RainIntensity` es la clave —en
+ * catalán, porque es la que viaja en el feed— y esto es la palabra de la página.
+ */
+export function intensityName(i: RainIntensity, lang: Lang = 'ca'): string {
+  return lang === 'es' ? INTENSIDAD[i] : i;
 }
 
 export interface RainWindow {
@@ -363,26 +410,47 @@ const THUNDER_CODES = new Set([95, 96, 99]);
  * Nunca con minutos: la predicción horaria no distingue el minuto y escribir
  * «a les 17.00» sería fingir que sí.
  */
-function dayPrefix(iso: string, today: string): string {
+function dayPrefix(iso: string, today: string, lang: Lang = 'ca'): string {
   const day = iso.slice(0, 10);
   if (day === today) return '';
+  if (lang === 'es') {
+    // En castellano el día de la semana lleva artículo: «el jueves hacia las 8 h».
+    const r = relativeDay(day, today, 'es');
+    if (r === 'hoy') return '';
+    return isWeekdayEs(r) ? `el ${r} ` : `${r} `;
+  }
   const r = relativeDay(day, today);
   return r === 'avui' ? '' : `${r} `;
 }
 
 /** «cap a les 8 h» / «demà cap a les 8 h». El desplazamiento sirve para el final de un tramo. */
-function atPhrase(iso: string, today: string, plus = 0): string {
+function atPhrase(iso: string, today: string, plus = 0, lang: Lang = 'ca'): string {
   const h = Number(iso.slice(11, 13)) + plus;
   // 23 h + 1 no son las 24: se dice medianoche, y sin prefijo de día porque
   // «demà a mitjanit» apuntaría a la noche siguiente.
+  if (lang === 'es') {
+    if (h >= 24) return 'hacia medianoche';
+    return `${dayPrefix(iso, today, lang)}hacia ${theHour(h, true, lang)}`;
+  }
   if (h >= 24) return 'cap a mitjanit';
   return `${dayPrefix(iso, today)}cap a ${theHour(h)}`;
 }
 
 /** «de les 15 a les 18 h» / «demà de les 10 a les 14 h». */
-function rangePhrase(from: string, to: string, today: string): string {
+function rangePhrase(from: string, to: string, today: string, lang: Lang = 'ca'): string {
   const h0 = Number(from.slice(11, 13));
   const h1 = Number(to.slice(11, 13));
+  if (lang === 'es') {
+    // «de las 15 a las 18 h», «de la 1 a las 3 h», «mañana de las 10 a las 14 h».
+    const p0 = dayPrefix(from, today, lang);
+    const end = h1 + 1 >= 24 ? 'medianoche' : theHour(h1 + 1, true, lang);
+    if (from.slice(0, 10) === to.slice(0, 10)) {
+      return h0 === h1
+        ? `${p0}hacia ${theHour(h0, true, lang)}`
+        : `${p0}de ${theHour(h0, false, lang)} a ${end}`;
+    }
+    return `${p0}desde ${theHour(h0, true, lang)} hasta ${dayPrefix(to, today, lang)}a ${end}`;
+  }
   const p0 = dayPrefix(from, today);
   // Un tram que acaba a les 23 h s'acaba a mitjanit, no «a les 24 h».
   const end = h1 + 1 >= 24 ? 'mitjanit' : theHour(h1 + 1);
@@ -411,7 +479,14 @@ function rangePhrase(from: string, to: string, today: string): string {
  *  4. **Intermitente.** Varios tramos: se listan y se nombra el peor.
  */
 /** Quan plou, sense dir com: «Pluja de les 16 a les 18 h», «Un ruixat cap a les 9 h». */
-function rainWhen(windows: RainWindow[], today: string): string {
+function rainWhen(windows: RainWindow[], today: string, lang: Lang = 'ca'): string {
+  if (lang === 'es') {
+    return windows.length === 1
+      ? (windows[0].hours === 1
+        ? `Un chubasco ${atPhrase(windows[0].from, today, 0, lang)}`
+        : `Lluvia ${rangePhrase(windows[0].from, windows[0].to, today, lang)}`)
+      : `Chubascos intermitentes, ${windows.map((w) => rangePhrase(w.from, w.to, today, lang)).join(' y ')}`;
+  }
   return windows.length === 1
     ? (windows[0].hours === 1
       ? `Un ruixat ${atPhrase(windows[0].from, today)}`
@@ -423,11 +498,77 @@ function rainTotal(windows: RainWindow[]): number {
   return Math.round(windows.reduce((s, w) => s + w.mm, 0) * 10) / 10;
 }
 
+/**
+ * La frase de la lluvia en castellano. Los mismos cuatro casos y las mismas
+ * reglas que la catalana de abajo —el adjetivo calla bajo un aviso, «no llega a
+ * mojar el suelo» solo por debajo de 1 mm en total, la punta y no el total
+ * decide si es llovizna—, escritos como los escribiría AEMET.
+ */
+function rainSentenceEs(
+  windows: RainWindow[],
+  today: string,
+  warnings: RainWarning[],
+): string | null {
+  if (!windows.length) return null;
+  const at = (iso: string, plus = 0) => atPhrase(iso, today, plus, 'es');
+  const range = (w: RainWindow) => rangePhrase(w.from, w.to, today, 'es');
+  const int = (w: RainWindow) => intensityName(w.intensity, 'es');
+  const storm = (w: RainWindow) => (w.thunder ? ', con tormenta' : '');
+
+  const over = windows.flatMap((w) => warningsOver(warnings, w.from, w.to));
+  if (over.length) {
+    const lead = strongest(over);
+    const worst = windows.reduce((a, b) => (b.peak.mm > a.peak.mm ? b : a));
+    const weak = worst.intensity === 'feble' || worst.intensity === 'moderada';
+    const tail = `Hay ${warningPhrase(lead, 'es')} en la zona`;
+    if (weak) {
+      return `${rainWhen(windows, today, 'es')}${storm(worst)}: aquí el modelo prevé ${num(rainTotal(windows), 1)} mm. `
+        + `${tail}, y en algunos puntos puede caer bastante más.`;
+    }
+    const plain = rainSentenceEs(windows, today, []);
+    return plain ? `${plain} ${tail}.` : null;
+  }
+
+  if (windows.length === 1) {
+    const w = windows[0];
+    if (w.peak.mm < 0.5) {
+      const what = w.thunder ? 'Llovizna y tormenta' : 'Llovizna';
+      return w.mm < 1
+        ? `${what} ${range(w)}, con un ${w.prob} % de probabilidad y ${num(w.mm, 1)} mm `
+          + 'en total: no llega a mojar el suelo.'
+        : `${what} ${range(w)}, con un ${w.prob} % de probabilidad: poca intensidad, `
+          + `pero ${num(w.mm, 1)} mm en total, suficiente para mojar el suelo.`;
+    }
+
+    if (w.concentrated) {
+      return `La lluvia empieza ${at(w.from)} y para ${at(w.to, 1)}, `
+        + `pero lo más intenso llega ${at(w.peak.time)}: ${num(w.peak.mm, 1)} mm en una hora, `
+        + `lluvia ${int(w)}${storm(w)}. En total, ${num(w.mm, 1)} mm.`;
+    }
+
+    if (w.hours === 1) {
+      return `Un chubasco breve ${at(w.from)}, con ${num(w.mm, 1)} mm `
+        + `de lluvia ${int(w)}${w.thunder ? ' y tormenta' : ''}.`;
+    }
+
+    return `Lluvia continua ${range(w)}: ${num(w.mm, 1)} mm `
+      + `en ${w.hours} h, siempre ${int(w)}${storm(w)}.`;
+  }
+
+  const worst = windows.reduce((a, b) => (b.peak.mm > a.peak.mm ? b : a));
+  const ranges = windows.map(range).join(' y ');
+  return `Chubascos intermitentes, ${ranges}. El más fuerte, ${at(worst.peak.time)}: `
+    + `${num(worst.peak.mm, 1)} mm en una hora, lluvia ${int(worst)}${storm(worst)}. `
+    + `En total, ${num(rainTotal(windows), 1)} mm.`;
+}
+
 function rainSentence(
   windows: RainWindow[],
   today: string,
   warnings: RainWarning[] = [],
+  lang: Lang = 'ca',
 ): string | null {
+  if (lang === 'es') return rainSentenceEs(windows, today, warnings);
   if (!windows.length) return null;
 
   const storm = (w: RainWindow) => (w.thunder ? ', amb tempesta' : '');
@@ -537,12 +678,14 @@ function rainSentence(
  * que es el idioma del resto del sitio. Casi todos los días esta lista está vacía
  * o tiene un elemento, y eso es lo correcto.
  */
-export function dayNotes(hourly: HourlyPoint[], nowHour: string, today: string): string[] {
+export function dayNotes(hourly: HourlyPoint[], nowHour: string, today: string, lang: Lang = 'ca'): string[] {
   const from = Math.max(0, hourly.findIndex((h) => h.time.slice(0, 13) === nowHour));
   const next24 = hourly.slice(from, from + 24);
   if (next24.length < 6) return [];
 
   const notes: string[] = [];
+  const es = lang === 'es';
+  const atL = (iso: string) => atPhrase(iso, today, 0, lang);
 
   // ── Helada ── 0 °C es un umbral físico, no una opinión.
   const night = next24.filter((h) => {
@@ -553,8 +696,15 @@ export function dayNotes(hourly: HourlyPoint[], nowHour: string, today: string):
   if (nightTemps.length >= 4) {
     const min = Math.min(...nightTemps);
     const at = night.find((h) => h.temperature === min);
-    const when = at ? ` ${atPhrase(at.time, today)}` : '';
-    if (min <= 0) {
+    const when = at ? ` ${atPhrase(at.time, today, 0, lang)}` : '';
+    if (es) {
+      if (min <= 0) {
+        notes.push(`Habrá helada: la mínima bajará a ${num(min, 0)} °C${when}.`);
+      } else if (min <= 3) {
+        notes.push(`Noche fría, ${num(min, 0)} °C${when}; en las hondonadas y las zonas `
+          + 'resguardadas puede helar.');
+      }
+    } else if (min <= 0) {
       notes.push(`Glaçarà: la mínima baixa a ${num(min, 0)} °C${when}.`);
     } else if (min <= 3) {
       notes.push(`Nit freda, ${num(min, 0)} °C${when}; als fondals i les zones `
@@ -566,7 +716,10 @@ export function dayNotes(hourly: HourlyPoint[], nowHour: string, today: string):
   const uvRun = longestRun(next24, (h) => (h.uvIndex ?? 0) >= 6);
   if (uvRun.length) {
     const uvMax = Math.max(...uvRun.map((h) => h.uvIndex ?? 0));
-    notes.push(`L'índex UV arriba a ${uvMax} ${rangePhrase(uvRun[0].time, uvRun[uvRun.length - 1].time, today)}, `
+    if (es) {
+      notes.push(`El índice UV llega a ${uvMax} ${rangePhrase(uvRun[0].time, uvRun[uvRun.length - 1].time, today, lang)}, `
+        + `nivel ${uvMax >= 8 ? 'muy alto' : 'alto'} según la escala de la OMS.`);
+    } else notes.push(`L'índex UV arriba a ${uvMax} ${rangePhrase(uvRun[0].time, uvRun[uvRun.length - 1].time, today)}, `
       + `dins la banda ${uvMax >= 8 ? 'molt alta' : 'alta'} de l’OMS.`);
   }
 
@@ -576,7 +729,10 @@ export function dayNotes(hourly: HourlyPoint[], nowHour: string, today: string):
   );
   if (gustHour?.windGust != null && msToKmh(gustHour.windGust) >= 62) {
     const kmh = msToKmh(gustHour.windGust);
-    notes.push(`Ratxes de fins a ${kmh.toFixed(0)} km/h ${atPhrase(gustHour.time, today)}, `
+    if (es) {
+      notes.push(`Rachas de hasta ${kmh.toFixed(0)} km/h ${atL(gustHour.time)}, `
+        + `${kmh >= 89 ? 'fuerza 10 de Beaufort' : 'fuerza 8 de Beaufort'}.`);
+    } else notes.push(`Ratxes de fins a ${kmh.toFixed(0)} km/h ${atPhrase(gustHour.time, today)}, `
       + `${kmh >= 89 ? 'força 10 de Beaufort' : 'força 8 de Beaufort'}.`);
   }
 
@@ -604,7 +760,11 @@ export function dayNotes(hourly: HourlyPoint[], nowHour: string, today: string):
 
   if (gaps.length) {
     const worst = gaps.reduce((a, b) => (Math.abs(b.gap) > Math.abs(a.gap) ? b : a));
-    if (Math.abs(worst.gap) >= 3) {
+    if (Math.abs(worst.gap) >= 3 && es) {
+      // «Por la humedad» y no «la humedad hace que»: es la causa, dicha delante.
+      notes.push(`${worst.gap > 0 ? 'Por la humedad' : 'Por el viento'}, los ${num(worst.t, 0)} °C `
+        + `previstos ${atL(worst.h.time)} se notarán como ${num(worst.h.apparent, 0)} °C.`);
+    } else if (Math.abs(worst.gap) >= 3) {
       const cause = worst.gap > 0 ? 'La humitat' : 'El vent';
       notes.push(`${cause} fa que els ${num(worst.t, 0)} °C `
         + `${atPhrase(worst.h.time, today)} es notin com ${num(worst.h.apparent, 0)} °C.`);
@@ -671,6 +831,7 @@ export interface Narrative {
 function uncertaintyPhrase(
   forecast: LocationForecast,
   today: string,
+  lang: Lang = 'ca',
 ): string | null {
   if (forecast.nModels < 2) return null;
 
@@ -688,6 +849,20 @@ function uncertaintyPhrase(
   if (days.length < 2) return null;
 
   const firstNoisy = days.find((d) => d.mean >= 2);
+  if (lang === 'es') {
+    const n = forecast.nModels;
+    if (!firstNoisy) {
+      return `Los ${n} modelos coinciden en todo el horizonte: la diferencia entre ellos se queda por debajo de 2 °C.`;
+    }
+    if (firstNoisy.day === days[0].day) {
+      return `Los ${n} modelos ya no coinciden hoy: difieren ${num(firstNoisy.mean, 1)} °C de media. Conviene volver a consultarlo más tarde.`;
+    }
+    // Con catorce días de horizonte, «hasta el jueves» puede ser cualquiera de
+    // dos jueves: lleva el número del día.
+    const r = relativeDay(firstNoisy.day, today, 'es');
+    const when = isWeekdayEs(r) ? `el ${dayName(firstNoisy.day, 'es')} ${Number(firstNoisy.day.slice(8, 10))}` : r;
+    return `Los ${n} modelos coinciden hasta ${when}; a partir de ahí la diferencia sube a ${num(firstNoisy.mean, 1)} °C y la predicción debe leerse como una tendencia.`;
+  }
   if (!firstNoisy) {
     return `Els ${forecast.nModels} models coincideixen en tot l'horitzó: el marge de desacord es queda per sota dels 2 °C.`;
   }
@@ -735,10 +910,26 @@ function expectedMax(
 function yesterdayPhrase(
   current: CurrentConditions | null,
   todayMax: number | null,
+  lang: Lang = 'ca',
 ): string | null {
   if (!current) return null;
 
   const parts: string[] = [];
+
+  if (lang === 'es') {
+    if (todayMax != null && current.yesterdayMax != null) {
+      const diff = Math.round((todayMax - current.yesterdayMax) * 10) / 10;
+      const n = Math.abs(Math.round(diff));
+      parts.push(Math.abs(diff) < 1
+        ? `Una máxima prácticamente igual a la de ayer (${num(current.yesterdayMax, 1)} °C).`
+        : `Una máxima ${n} ${n === 1 ? 'grado' : 'grados'} ${diff > 0 ? 'más alta' : 'más baja'} `
+          + `que la de ayer, que llegó a ${num(current.yesterdayMax, 1)} °C.`);
+    }
+    if (current.todayMin != null) {
+      parts.push(`Esta madrugada, la mínima ha sido de ${num(current.todayMin, 1)} °C.`);
+    }
+    return parts.length ? parts.join(' ') : null;
+  }
 
   if (todayMax != null && current.yesterdayMax != null) {
     const diff = Math.round((todayMax - current.yesterdayMax) * 10) / 10;
@@ -775,13 +966,24 @@ export function narrativeFor(
   nowHour: string,
   today: string,
   warnings: RainWarning[] = [],
+  lang: Lang = 'ca',
 ): Narrative | null {
   if (!forecast || !forecast.daily.length) return null;
 
-  const d0 = forecast.daily[0];
-  const d1 = forecast.daily[1] ?? null;
+  /*
+   * Avui es busca per la data, no per la posició. La sèrie comença les zero
+   * hores del dia en què es va demanar, i entre la mitjanit i el refresc
+   * següent el primer dia és ahir: llegint `daily[0]`, la frase d'avui deia la
+   * màxima d'ahir i la de demà, la pluja d'avui. Si avui no hi és, no hi ha
+   * frase.
+   */
+  const i0 = forecast.daily.findIndex((d) => d.date === today);
+  if (i0 < 0) return null;
+  const d0 = forecast.daily[i0];
+  const d1 = forecast.daily[i0 + 1] ?? null;
   const windows = rainWindows(forecast.hourly, nowHour);
-  const parts = dayParts(forecast.hourly, nowHour, today);
+  const parts = dayParts(forecast.hourly, nowHour, today, undefined, lang);
+  const es = lang === 'es';
 
   // Las 24 horas que miran las ventanas de lluvia, para los avisos que caen dentro.
   const from = Math.max(0, forecast.hourly.findIndex((h) => h.time.slice(0, 13) === nowHour));
@@ -791,7 +993,7 @@ export function narrativeFor(
 
   // ── Frase 1: el día ──
   const sky = weatherCode(d0.weatherCode);
-  const skyName = (warnedToday.length && unratedRainLabel(d0.weatherCode)) || sky.caLong;
+  const skyName = (warnedToday.length && unratedRainLabel(d0.weatherCode, lang)) || codeLong(sky, lang);
   const max = expectedMax(d0.tMax, current?.todayMax ?? null);
   // La mínima del día ya ha pasado casi siempre, así que si la medida es más
   // baja que la prevista, manda la medida.
@@ -801,7 +1003,15 @@ export function narrativeFor(
 
   const bits: string[] = [];
   if (sky.code >= 0) bits.push(skyName.toLowerCase());
-  if (max.value != null) {
+  if (es) {
+    // «Hoy, cielo cubierto, máxima de 17 °C y mínima de 9 °C.»
+    if (max.value != null) {
+      bits.push(max.alreadyReached
+        ? `ya se han alcanzado ${num(max.value, 1)} °C`
+        : `máxima de ${num(max.value, 0)} °C`);
+    }
+    if (minValue != null && current?.todayMin == null) bits.push(`mínima de ${num(minValue, 0)} °C`);
+  } else if (max.value != null) {
     bits.push(max.alreadyReached
       ? `ja s'han fet ${num(max.value, 1)} °C`
       : `${num(max.value, 0)} °C de màxima`);
@@ -809,13 +1019,17 @@ export function narrativeFor(
   // La mínima solo va aquí cuando no hay observación que la diga después: si la
   // frase siguiente ya la da medida y con un decimal, repetirla redondeada es
   // hacer dudar al lector de cuál de las dos es la buena.
-  if (minValue != null && current?.todayMin == null) bits.push(`${num(minValue, 0)} de mínima`);
-  const todaySentence = bits.length
-    ? `Avui, ${bits.join(', ')}.`
-    : 'Avui no hi ha prou dades per resumir el dia.';
+  if (!es && minValue != null && current?.todayMin == null) bits.push(`${num(minValue, 0)} de mínima`);
+  const todaySentence = es
+    ? (bits.length
+      ? `Hoy, ${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} y ${bits[bits.length - 1]}` : bits[0]}.`
+      : 'Hoy no hay datos suficientes para resumir el día.')
+    : bits.length
+      ? `Avui, ${bits.join(', ')}.`
+      : 'Avui no hi ha prou dades per resumir el dia.';
 
   // ── Frase 2: lo que condiciona el día ──
-  let change: string | null = rainSentence(windows, today, warnings);
+  let change: string | null = rainSentence(windows, today, warnings, lang);
   /*
    * Un aviso que el modelo no ve aquí también se dice.
    *
@@ -824,7 +1038,20 @@ export function narrativeFor(
    * es de la zona y la tormenta puede caer en el pueblo de al lado. Eso es lo
    * que hay que decir.
    */
-  if (!change && warned24.length) {
+  if (es) {
+    // Los mismos dos casos que el catalán de abajo, con la misma explicación.
+    if (!change && warned24.length) {
+      const lead = strongest(warned24);
+      change = `Hay ${warningPhrase(lead, lang)} en la zona ${rangePhrase(lead.from, lead.to, today, lang)}, `
+        + 'aunque aquí el modelo no prevé lluvia.';
+    } else if (change && warned24.length
+      && !windows.some((w) => warningsOver(warned24, w.from, w.to).length)) {
+      const lead = strongest(warned24);
+      change = `Hay ${warningPhrase(lead, lang)} en la zona ${rangePhrase(lead.from, lead.to, today, lang)}, `
+        + 'aunque aquí el modelo no prevé lluvia en esas horas. '
+        + `${rainWhen(windows, today, lang)}: el modelo prevé ${num(rainTotal(windows), 1)} mm.`;
+    }
+  } else if (!change && warned24.length) {
     const lead = strongest(warned24);
     change = `Hi ha ${warningPhrase(lead)} a la zona ${rangePhrase(lead.from, lead.to, today)}, `
       + 'tot i que aquí el model no hi preveu pluja.';
@@ -845,14 +1072,36 @@ export function narrativeFor(
       + `${rainWhen(windows, today)}: el model en preveu ${num(rainTotal(windows), 1)} mm.`;
   }
   if (!change && d0.snowLevel != null) {
-    change = `Nevarà per damunt dels ${d0.snowLevel} m.`;
+    change = es
+      ? `Nevará por encima de los ${d0.snowLevel} m.`
+      : `Nevarà per damunt dels ${d0.snowLevel} m.`;
   } else if (!change && d0.gustMax != null && msToKmh(d0.gustMax) >= 62) {
-    change = `El que marca el dia és el vent: ratxes de fins a ${msToKmh(d0.gustMax).toFixed(0)} km/h.`;
+    change = es
+      ? `El viento marca el día: rachas de hasta ${msToKmh(d0.gustMax).toFixed(0)} km/h.`
+      : `El que marca el dia és el vent: ratxes de fins a ${msToKmh(d0.gustMax).toFixed(0)} km/h.`;
   }
 
   // ── Frase 3: mañana ──
   let tomorrow: string | null = null;
-  if (d1 && d0.tMax != null && d1.tMax != null) {
+  if (es && d1 && d0.tMax != null && d1.tMax != null) {
+    // «Mañana, nuboso, con una máxima 3 grados más baja y 4,2 mm de lluvia.»
+    // Las mismas dos salvedades que en catalán: con nieve no se dice «lluvia», y
+    // un día despejado con probabilidad de lluvia no se llama despejado.
+    const diff = Math.round(d1.tMax - d0.tMax);
+    const n = Math.abs(diff);
+    const skyT = weatherCode(d1.weatherCode);
+    const grados = `${n} ${n === 1 ? 'grado' : 'grados'}`;
+    const trend = diff <= -2
+      ? `con una máxima ${grados} más baja`
+      : diff >= 2 ? `con una máxima ${grados} más alta` : 'con una máxima parecida';
+    const what = d1.snowfall > 0 || skyT.group === 'snow' ? 'precipitación' : 'lluvia';
+    const rainT = d1.precipitation >= 1
+      ? ` y ${num(d1.precipitation, 1)} mm de ${what}`
+      : d1.precipProbability >= 40 ? ` y un ${d1.precipProbability} % de probabilidad de ${what}` : '';
+    const clearButWet = skyT.group === 'clear' && d1.precipProbability >= 30;
+    const skyBit = skyT.code >= 0 && !clearButWet ? `, ${codeLabel(skyT, lang).toLowerCase()}` : '';
+    tomorrow = `Mañana${skyBit}, ${trend}${rainT}.`;
+  } else if (d1 && d0.tMax != null && d1.tMax != null) {
     const diff = Math.round(d1.tMax - d0.tMax);
     const skyT = weatherCode(d1.weatherCode);
     const trend = diff <= -2
@@ -873,10 +1122,10 @@ export function narrativeFor(
     today: todaySentence,
     change,
     tomorrow,
-    vsYesterday: yesterdayPhrase(current, max.value),
-    uncertainty: uncertaintyPhrase(forecast, today),
+    vsYesterday: yesterdayPhrase(current, max.value, lang),
+    uncertainty: uncertaintyPhrase(forecast, today, lang),
     parts,
-    notes: dayNotes(forecast.hourly, nowHour, today),
+    notes: dayNotes(forecast.hourly, nowHour, today, lang),
     windows,
     rainWarnedNow: rainWarnedAt(warnings, nowHour),
     rainWarnings: warnings,

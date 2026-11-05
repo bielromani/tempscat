@@ -1,5 +1,6 @@
 import { moonEmoji } from '@/lib/astronomy';
 import type { Astronomy } from '@/lib/weather';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * Sol y luna del día.
@@ -19,7 +20,7 @@ function duration(minutes: number | null): string {
 }
 
 /** Arco solar: un dibujo diminuto que sitúa el momento del día de un vistazo. */
-function SunArc({ astro }: { astro: Astronomy }) {
+function SunArc({ astro, lang }: { astro: Astronomy; lang: Lang }) {
   if (!astro.sunrise || !astro.sunset) return null;
 
   /*
@@ -50,7 +51,11 @@ function SunArc({ astro }: { astro: Astronomy }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W }} role="img"
-      aria-label={`El sol surt a les ${fmt(astro.sunrise)} i es pon a les ${fmt(astro.sunset)}`}>
+      aria-label={tr(
+        lang,
+        `El sol surt a les ${fmt(astro.sunrise)} i es pon a les ${fmt(astro.sunset)}`,
+        `El sol sale a las ${fmt(astro.sunrise)} y se pone a las ${fmt(astro.sunset)}`,
+      )}>
       <line x1={0} y1={H - 8} x2={W} y2={H - 8} stroke="var(--line)" strokeWidth={1} />
       <path d={arc} fill="none" stroke="var(--line)" strokeWidth={1.5} strokeDasharray="3 3" />
       {isUp && (
@@ -70,7 +75,7 @@ function SunArc({ astro }: { astro: Astronomy }) {
 }
 
 /** Disco lunar con la fracción iluminada real, no un emoji escalado. */
-function MoonDisc({ illumination, waxing, size = 44 }: { illumination: number; waxing: boolean; size?: number }) {
+function MoonDisc({ illumination, waxing, size = 44, lang }: { illumination: number; waxing: boolean; size?: number; lang: Lang }) {
   const r = size / 2 - 2;
   const c = size / 2;
   // El terminador es una elipse cuyo semieje horizontal depende de la fase.
@@ -80,7 +85,11 @@ function MoonDisc({ illumination, waxing, size = 44 }: { illumination: number; w
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img"
-      aria-label={`Lluna il·luminada al ${(illumination * 100).toFixed(0)} %`}>
+      aria-label={tr(
+        lang,
+        `Lluna il·luminada al ${(illumination * 100).toFixed(0)} %`,
+        `Luna iluminada al ${(illumination * 100).toFixed(0)} %`,
+      )}>
       <circle cx={c} cy={c} r={r} fill="var(--surface-2)" stroke="var(--line)" strokeWidth={1} />
       {illumination > 0.01 && (
         <path
@@ -92,54 +101,56 @@ function MoonDisc({ illumination, waxing, size = 44 }: { illumination: number; w
   );
 }
 
-export function SunMoon({ astro }: { astro: Astronomy }) {
+export function SunMoon({ astro, lang = 'ca' }: { astro: Astronomy; lang?: Lang }) {
   const delta = astro.daylightDeltaMinutes;
+  const t = (ca: string, es: string) => tr(lang, ca, es);
+  const locale = lang === 'es' ? 'es-ES' : 'ca-ES';
 
   return (
     <section className="grid gap-4 card sm:grid-cols-2">
       <div>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">Sol</h3>
-        <SunArc astro={astro} />
+        <SunArc astro={astro} lang={lang} />
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-          <dt className="text-[var(--muted)]">Alba civil</dt>
+          <dt className="text-[var(--muted)]">{t('Alba civil', 'Alba civil')}</dt>
           <dd className="tnum text-right text-[var(--ink)]">{fmt(astro.dawn)}</dd>
-          <dt className="text-[var(--muted)]">Migdia solar</dt>
+          <dt className="text-[var(--muted)]">{t('Migdia solar', 'Mediodía solar')}</dt>
           <dd className="tnum text-right text-[var(--ink)]">{fmt(astro.solarNoon)}</dd>
-          <dt className="text-[var(--muted)]">Crepuscle civil</dt>
+          <dt className="text-[var(--muted)]">{t('Crepuscle civil', 'Crepúsculo civil')}</dt>
           <dd className="tnum text-right text-[var(--ink)]">{fmt(astro.dusk)}</dd>
-          <dt className="text-[var(--muted)]">Durada del dia</dt>
+          <dt className="text-[var(--muted)]">{t('Durada del dia', 'Duración del día')}</dt>
           <dd className="tnum text-right text-[var(--ink)]">{duration(astro.daylightMinutes)}</dd>
         </dl>
         {delta != null && delta !== 0 && (
           <p className="mt-2 text-xs text-[var(--muted)]">
-            {delta > 0 ? 'Avui el dia allarga' : 'Avui el dia escurça'}{' '}
+            {delta > 0 ? t('Avui el dia allarga', 'Hoy el día se alarga') : t('Avui el dia escurça', 'Hoy el día se acorta')}{' '}
             <strong className="font-medium text-[var(--ink-2)]">
-              {Math.abs(delta)} {Math.abs(delta) === 1 ? 'minut' : 'minuts'}
+              {Math.abs(delta)} {Math.abs(delta) === 1 ? t('minut', 'minuto') : t('minuts', 'minutos')}
             </strong>{' '}
-            respecte d&apos;ahir.
+            {t("respecte d'ahir.", 'respecto a ayer.')}
           </p>
         )}
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">Lluna</h3>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">{t('Lluna', 'Luna')}</h3>
         <div className="flex items-center gap-3">
-          <MoonDisc illumination={astro.moon.illumination} waxing={astro.moon.phase < 0.5} />
+          <MoonDisc illumination={astro.moon.illumination} waxing={astro.moon.phase < 0.5} lang={lang} />
           <div>
             <p className="font-medium text-[var(--ink)]">{astro.moon.name}</p>
             <p className="tnum text-sm text-[var(--muted)]">
-              {(astro.moon.illumination * 100).toFixed(0)} % il·luminada · {astro.moon.age.toFixed(0)} dies
+              {(astro.moon.illumination * 100).toFixed(0)} % {t('il·luminada', 'iluminada')} · {astro.moon.age.toFixed(0)} {t('dies', 'días')}
             </p>
           </div>
         </div>
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-          <dt className="text-[var(--muted)]">{moonEmoji(0)} Propera nova</dt>
+          <dt className="text-[var(--muted)]">{moonEmoji(0)} {t('Propera nova', 'Próxima luna nueva')}</dt>
           <dd className="tnum text-right text-[var(--ink)]">
-            {astro.nextNewMoon.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })}
+            {astro.nextNewMoon.toLocaleDateString(locale, { day: 'numeric', month: 'short' })}
           </dd>
-          <dt className="text-[var(--muted)]">{moonEmoji(0.5)} Propera plena</dt>
+          <dt className="text-[var(--muted)]">{moonEmoji(0.5)} {t('Propera plena', 'Próxima luna llena')}</dt>
           <dd className="tnum text-right text-[var(--ink)]">
-            {astro.nextFullMoon.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })}
+            {astro.nextFullMoon.toLocaleDateString(locale, { day: 'numeric', month: 'short' })}
           </dd>
         </dl>
       </div>

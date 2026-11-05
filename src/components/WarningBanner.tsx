@@ -2,6 +2,7 @@ import { phenomenonName, probabilityText, thresholdValue, zoneName } from '@/lib
 import { stackWarnings, type WarningGroup, type WarningLevel } from '@/lib/weather';
 import { dayShort, whenLine } from '@/lib/warning-when';
 import { External } from './External';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * Franja de avisos meteorológicos oficiales.
@@ -42,12 +43,14 @@ import { External } from './External';
  * solo decía algo que otro ya dijera.
  */
 
-const LEVEL_STYLE: Record<WarningLevel, { bg: string; ink: string; label: string }> = {
-  verd: { bg: 'var(--cap-green)', ink: 'oklch(20% 0.02 150)', label: 'Verd' },
-  groc: { bg: 'var(--cap-yellow)', ink: 'oklch(22% 0.04 95)', label: 'Groc' },
-  taronja: { bg: 'var(--cap-orange)', ink: 'oklch(20% 0.04 55)', label: 'Taronja' },
-  vermell: { bg: 'var(--cap-red)', ink: 'oklch(98% 0.01 27)', label: 'Vermell' },
+const LEVEL_STYLE: Record<WarningLevel, { bg: string; ink: string; label: string; etiqueta: string }> = {
+  verd: { bg: 'var(--cap-green)', ink: 'oklch(20% 0.02 150)', label: 'Verd', etiqueta: 'Verde' },
+  groc: { bg: 'var(--cap-yellow)', ink: 'oklch(22% 0.04 95)', label: 'Groc', etiqueta: 'Amarillo' },
+  taronja: { bg: 'var(--cap-orange)', ink: 'oklch(20% 0.04 55)', label: 'Taronja', etiqueta: 'Naranja' },
+  vermell: { bg: 'var(--cap-red)', ink: 'oklch(98% 0.01 27)', label: 'Vermell', etiqueta: 'Rojo' },
 };
+
+const levelLabel = (level: WarningLevel, lang: Lang) => tr(lang, LEVEL_STYLE[level].label, LEVEL_STYLE[level].etiqueta);
 
 /** El peor de los días del grupo: si el viernes son 36 °C y el miércoles 35, el titular dice 36. */
 function worstThreshold(g: WarningGroup): { worst: string | null; perDay: boolean } {
@@ -66,7 +69,7 @@ function worstThreshold(g: WarningGroup): { worst: string | null; perDay: boolea
  * Sobre el color del nivel la pastilla va invertida; sobre el cristal de la
  * lista, con el color del nivel de fondo, que es el que se reconoce.
  */
-function Head({ g, onGlass = false }: { g: WarningGroup; onGlass?: boolean }) {
+function Head({ g, onGlass = false, lang }: { g: WarningGroup; onGlass?: boolean; lang: Lang }) {
   const style = LEVEL_STYLE[g.level];
   const { worst, perDay } = worstThreshold(g);
 
@@ -76,11 +79,11 @@ function Head({ g, onGlass = false }: { g: WarningGroup; onGlass?: boolean }) {
         className="rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
         style={onGlass ? { background: style.bg, color: style.ink } : { background: style.ink, color: style.bg }}
       >
-        Avís {style.label}
+        {tr(lang, 'Avís ', 'Aviso ')}{levelLabel(g.level, lang)}
       </span>
-      <strong className="text-[15px] font-semibold">{phenomenonName(g.phenomenon)}</strong>
+      <strong className="text-[15px] font-semibold">{phenomenonName(g.phenomenon, lang)}</strong>
       {worst && (
-        <span className="text-sm opacity-90">{perDay ? `fins a ${worst}` : worst}</span>
+        <span className="text-sm opacity-90">{perDay ? tr(lang, `fins a ${worst}`, `hasta ${worst}`) : worst}</span>
       )}
     </div>
   );
@@ -93,22 +96,22 @@ function Head({ g, onGlass = false }: { g: WarningGroup; onGlass?: boolean }) {
  * es cuánto hay que hacer para verlo, no qué se ve. Un aviso que solo estuviera
  * entero en la tarjeta grande sería un aviso a medias en las otras.
  */
-function Body({ g, showWhen = true }: { g: WarningGroup; showWhen?: boolean }) {
+function Body({ g, showWhen = true, lang }: { g: WarningGroup; showWhen?: boolean; lang: Lang }) {
   const { perDay } = worstThreshold(g);
   const probability = probabilityText(g.probability);
 
   return (
     <>
       <p className="mt-1.5 text-sm leading-snug opacity-95">
-        {g.zones.map(zoneName).join(', ')}
+        {g.zones.map((z) => zoneName(z, lang)).join(', ')}
       </p>
 
       {/* Els que acompanyen ja porten la data a la línia que es veu plegada:
           repetir-la en obrir-los fa dubtar de si són dues coses. */}
       {(showWhen || probability) && (
         <p className="tnum mt-1 text-xs opacity-80">
-          {showWhen && whenLine(g)}
-          {probability && `${showWhen ? ' · ' : ''}probabilitat ${probability}`}
+          {showWhen && whenLine(g, lang)}
+          {probability && `${showWhen ? ' · ' : ''}${tr(lang, 'probabilitat', 'probabilidad')} ${probability}`}
         </p>
       )}
 
@@ -118,7 +121,7 @@ function Body({ g, showWhen = true }: { g: WarningGroup; showWhen?: boolean }) {
         <ul className="tnum mt-1.5 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-xs opacity-90">
           {g.spans.map((s) => (
             <li key={s.id}>
-              {dayShort(s.onset)} · {thresholdValue(s.threshold) ?? '—'}
+              {dayShort(s.onset, lang)} · {thresholdValue(s.threshold) ?? '—'}
             </li>
           ))}
         </ul>
@@ -132,7 +135,7 @@ function Body({ g, showWhen = true }: { g: WarningGroup; showWhen?: boolean }) {
       {(g.official.descriptions.length > 0 || g.official.instructions.length > 0) && (
         <details className="mt-2">
           <summary className="cursor-pointer text-xs font-medium opacity-90">
-            Text oficial de l&apos;AEMET
+            {tr(lang, "Text oficial de l'AEMET", 'Texto oficial de AEMET')}
           </summary>
           <div className="mt-1 space-y-1 text-xs leading-snug opacity-90" lang="es">
             <p className="font-medium">{g.official.event}</p>
@@ -142,12 +145,21 @@ function Body({ g, showWhen = true }: { g: WarningGroup; showWhen?: boolean }) {
         </details>
       )}
 
-      <p className="mt-2 text-[11px] opacity-75">
-        Avís de l&apos;<strong className="font-semibold">Agència Estatal de Meteorologia</strong>.{' '}
-        <External href={g.web} className="text-inherit underline underline-offset-2">
-          Consulteu-lo a AEMET
-        </External>
-      </p>
+      {lang === 'es' ? (
+        <p className="mt-2 text-[11px] opacity-75">
+          Aviso de la <strong className="font-semibold">Agencia Estatal de Meteorología</strong>.{' '}
+          <External href={g.web} className="text-inherit underline underline-offset-2">
+            Consúltelo en AEMET
+          </External>
+        </p>
+      ) : (
+        <p className="mt-2 text-[11px] opacity-75">
+          Avís de l&apos;<strong className="font-semibold">Agència Estatal de Meteorologia</strong>.{' '}
+          <External href={g.web} className="text-inherit underline underline-offset-2">
+            Consulteu-lo a AEMET
+          </External>
+        </p>
+      )}
     </>
   );
 }
@@ -165,8 +177,9 @@ function Body({ g, showWhen = true }: { g: WarningGroup; showWhen?: boolean }) {
  * quina zona són.
  */
 export function WarningBanner({
-  warnings, variant = 'lloc',
-}: { warnings: WarningGroup[]; variant?: 'lloc' | 'llista' }) {
+  warnings, variant = 'lloc', lang = 'ca',
+}: { warnings: WarningGroup[]; variant?: 'lloc' | 'llista'; lang?: Lang }) {
+  const label = tr(lang, 'Avisos meteorològics oficials', 'Avisos meteorológicos oficiales');
   if (variant === 'llista') {
     /*
      * A la llista, el color va al marge i a la pastilla, no al fons.
@@ -182,7 +195,7 @@ export function WarningBanner({
      */
     return (
       <section
-        aria-label="Avisos meteorològics oficials"
+        aria-label={label}
         className="mb-5 grid grid-cols-1 items-start gap-2.5 lg:grid-cols-2"
       >
         {warnings.map((g) => {
@@ -193,8 +206,8 @@ export function WarningBanner({
               className="rounded-2xl border border-[var(--glass-line)] border-l-[6px] bg-[var(--glass)] px-4 py-3 text-[var(--ink)]"
               style={{ borderLeftColor: style.bg }}
             >
-              <Head g={g} onGlass />
-              <Body g={g} />
+              <Head g={g} onGlass lang={lang} />
+              <Body g={g} lang={lang} />
             </div>
           );
         })}
@@ -208,14 +221,14 @@ export function WarningBanner({
   const leadStyle = LEVEL_STYLE[stack.lead.level];
 
   return (
-    <section aria-label="Avisos meteorològics oficials" className="mb-5 flex flex-col gap-2">
+    <section aria-label={label} className="mb-5 flex flex-col gap-2">
       {/* El que mana, sencer i sense haver de tocar res. */}
       <div
         className="rounded-lg px-4 py-3"
         style={{ background: leadStyle.bg, color: leadStyle.ink }}
       >
-        <Head g={stack.lead} />
-        <Body g={stack.lead} />
+        <Head g={stack.lead} lang={lang} />
+        <Body g={stack.lead} lang={lang} />
       </div>
 
       {/*
@@ -251,20 +264,20 @@ export function WarningBanner({
                       className="mr-2 rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
                       style={{ background: style.bg, color: style.ink }}
                     >
-                      {style.label}
+                      {levelLabel(g.level, lang)}
                     </span>
                     <strong className="mr-2 text-sm font-semibold">
-                      {phenomenonName(g.phenomenon)}
+                      {phenomenonName(g.phenomenon, lang)}
                     </strong>
                     {worst && (
                       <span className="mr-2 text-[13px] text-[var(--ink-2)]">
-                        {perDay ? `fins a ${worst}` : worst}
+                        {perDay ? tr(lang, `fins a ${worst}`, `hasta ${worst}`) : worst}
                       </span>
                     )}
-                    <span className="tnum text-xs text-[var(--muted)]">{whenLine(g)}</span>
+                    <span className="tnum text-xs text-[var(--muted)]">{whenLine(g, lang)}</span>
                   </summary>
                   <div className="text-[var(--ink-2)]">
-                    <Body g={g} showWhen={false} />
+                    <Body g={g} showWhen={false} lang={lang} />
                   </div>
                 </details>
               </li>

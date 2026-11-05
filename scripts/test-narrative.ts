@@ -16,6 +16,8 @@ import {
   warnedIconLabel, type RainWarning,
 } from '../src/lib/narrative.ts';
 import type { HourlyPoint } from '../src/lib/forecast-types.ts';
+import { describeLocation, describeMunicipi, metaDescription } from '../src/lib/describe.ts';
+import type { Comarca, Location } from '../src/lib/territory.ts';
 
 const DAY = '2026-11-14';
 const NEXT = '2026-11-15';
@@ -281,6 +283,171 @@ const taronja: RainWarning = { level: 'taronja', phenomenon: 'PR', from: `${DAY}
   const n = narrativeFor(fc(series({ 22: rain(1.2, 80), 23: rain(1.1, 80), 24: rain(1.0, 80) })), null, NOW, DAY, []);
   const c = n?.change ?? '';
   expect('«a la 1 h», no «a les 1 h»', /a la 1 h/.test(c) && !/les 1 h/.test(c), c);
+}
+
+// ── En castellà ────────────────────────────────────────────────────────────
+/*
+ * La plantilla castellana és una altra plantilla, no una traducció, i per això
+ * es prova a part: les mateixes regles d'honestedat que el català —cap adjectiu
+ * sota un avís, «no llega a mojar el suelo» només per sota d'1 mm— i cap paraula
+ * catalana que se n'hagi escapat. Els topònims de les proves no porten apòstrof
+ * perquè la comprovació de « d'» i « l'» no s'hi confongui.
+ */
+console.log('\n── En castellà ──');
+const CATALAN = [
+  ' amb ', ' dels ', ' les ', ' els ', 'avui', 'demà', 'plou', 'pluja', 'ruixat', 'plugim',
+  ' fins ', ' cap a ', 'mitjanit', " d'", " l'", 'l’',
+];
+function noCatalan(what: string, text: string | null | undefined) {
+  const t = ` ${(text ?? '').toLowerCase()} `;
+  const hit = CATALAN.find((w) => t.includes(w));
+  expect(`${what}: cap rastre de català`, !hit, hit ? `«${hit.trim()}» dins de: ${text}` : text);
+}
+
+for (const cas of CASOS) {
+  const n = narrativeFor(fc(cas.hours), null, NOW, DAY, [], 'es');
+  console.log(`  ${cas.nom}\n      → ${n?.today} ${n?.change ?? ''}`);
+  noCatalan(cas.nom, `${n?.today} ${n?.change ?? ''} ${n?.tomorrow ?? ''}`);
+}
+for (const cas of AVISOS) {
+  for (const note of dayNotes(cas.hours, NOW, DAY, 'es')) noCatalan(cas.nom, note);
+}
+{
+  const notes = dayNotes(AVISOS[0].hours, NOW, DAY, 'es');
+  expect('la glaçada, en castellà', /^Habrá helada: la mínima bajará a −4 °C mañana hacia las 7 h\.$/.test(notes[0] ?? ''), notes[0]);
+  const uv = dayNotes(AVISOS[1].hours, NOW, DAY, 'es');
+  expect('l\'UV, en castellà', /^El índice UV llega a 9 de las 12 a las 15 h, nivel muy alto/.test(uv[0] ?? ''), uv[0]);
+}
+
+{
+  const parts = dayParts(series({}), NOW, DAY, 5, 'es');
+  expect('franges: «Hoy por la tarde», «Mañana de madrugada»',
+    parts[0]?.label === 'Hoy por la tarde' && parts.some((p) => p.label === 'Mañana de madrugada')
+      && parts[0]?.nom === 'Tarde',
+    parts.map((p) => `${p.label} (${p.nom})`).join(' · '));
+}
+
+{
+  const n = narrativeFor(fc(weakRain), null, NOW, DAY, [taronja], 'es');
+  const text = `${n?.today} ${n?.change}`;
+  expect('es: sense «débil» sota un avís taronja', !/débil|moderada/.test(text), text);
+  expect('es: diu que hi ha avís', /aviso naranja por lluvias/.test(n?.change ?? ''), n?.change);
+  expect('es: i els mil·límetres del model', /aquí el modelo prevé 6,9 mm/.test(n?.change ?? ''), n?.change);
+  expect('es: «Hoy, lluvia», no «lluvia débil»', /^Hoy, lluvia, máxima de 17 °C y mínima de 9 °C\.$/.test(n?.today ?? ''), n?.today);
+  expect('es: «Lluvia» i «Chubascos»', unratedRainLabel(61, 'es') === 'Lluvia' && unratedRainLabel(80, 'es') === 'Chubascos',
+    `${unratedRainLabel(61, 'es')} · ${unratedRainLabel(80, 'es')}`);
+  expect('es: icona amb avís', warnedIconLabel(61, rainWarnedAt([taronja], `${DAY}T12`), 'es') === 'Lluvia', 'Lluvia');
+}
+
+{
+  const early: RainWarning = { ...taronja, from: `${DAY}T06`, to: `${DAY}T11` };
+  const n = narrativeFor(fc(weakRain), null, NOW, DAY, [early], 'es');
+  expect('es: sense avís al tram, la frase de sempre',
+    n?.change === 'Lluvia continua de las 14 a las 20 h: 6,9 mm en 6 h, siempre débil.', n?.change);
+}
+
+{
+  const strong = series({ 16: rain(4, 80), 17: rain(24, 95), 18: rain(6, 80) });
+  const n = narrativeFor(fc(strong), null, NOW, DAY, [taronja], 'es');
+  expect('es: amb pluja forta, «fuerte» i l\'avís', /lluvia fuerte/.test(n?.change ?? '') && /Hay aviso naranja por lluvias en la zona\.$/.test(n?.change ?? ''), n?.change);
+}
+
+{
+  const n = narrativeFor(fc(series({}), 3), null, NOW, DAY, [taronja], 'es');
+  expect('es: avís sense pluja al model',
+    n?.change === 'Hay aviso naranja por lluvias en la zona de las 7 a las 18 h, aunque aquí el modelo no prevé lluvia.', n?.change);
+  expect('es: el cel del titular sense pluja', /^Hoy, cielo cubierto, /.test(n?.today ?? ''), n?.today);
+}
+
+{
+  const later = series({ 21: rain(0.1, 15), 22: rain(0.1, 15) });
+  const c = narrativeFor(fc(later, 3), null, NOW, DAY, [taronja], 'es')?.change ?? '';
+  expect('es: pluja fora de l\'avís, primer l\'avís', /^Hay aviso naranja por lluvias en la zona/.test(c), c);
+  expect('es: i la pluja del model, sense adjectiu', /el modelo prevé 0,2 mm/.test(c) && !/débil|mojar/.test(c), c);
+  noCatalan('pluja fora de l\'avís', c);
+}
+
+{
+  const c = narrativeFor(fc(series({ 22: rain(1.2, 80), 23: rain(1.1, 80), 24: rain(1.0, 80) })), null, NOW, DAY, [], 'es')?.change ?? '';
+  expect('es: «a la 1 h», no «a las 1 h»', /hasta mañana a la 1 h/.test(c) && !/las 1 h/.test(c), c);
+}
+
+{
+  // Plugim: per sota d'1 mm no mulla; vuit hores i 2,7 mm, sí.
+  const short = narrativeFor(fc(CASOS[5].hours), null, NOW, DAY, [], 'es')?.change ?? '';
+  expect('es: plugim curt, «no llega a mojar el suelo»', /^Llovizna de las 15 a las 18 h, .*no llega a mojar el suelo\.$/.test(short), short);
+  const long = narrativeFor(fc(CASOS[6].hours), null, NOW, DAY, [], 'es')?.change ?? '';
+  expect('es: plugim de 2,7 mm, sí que mulla', !/no llega a mojar/.test(long) && /2,7 mm en total, suficiente para mojar el suelo/.test(long), long);
+  const conc = narrativeFor(fc(CASOS[1].hours), null, NOW, DAY, [], 'es')?.change ?? '';
+  expect('es: concentrada', /^La lluvia empieza hacia las 16 h y para hacia las 20 h, pero lo más intenso llega hacia las 18 h: 21,0 mm en una hora, lluvia fuerte, con tormenta\. En total, 24,6 mm\.$/.test(conc), conc);
+  const inter = narrativeFor(fc(CASOS[3].hours), null, NOW, DAY, [], 'es')?.change ?? '';
+  expect('es: intermitent', /^Chubascos intermitentes, de las 13 a las 15 h y de las 19 a las 22 h\. El más fuerte, hacia las 20 h/.test(inter), inter);
+}
+
+{
+  // Demà, ahir i el desacord entre models, que només surten amb més dades.
+  const two = {
+    ...fc(series({}), 3),
+    daily: [
+      { ...fc(series({})).daily[0], weatherCode: 3, spread: 0.8 },
+      { ...fc(series({})).daily[0], date: NEXT, tMax: 13, weatherCode: 61, precipitation: 4.2, spread: 2.6 },
+    ],
+    nModels: 3,
+  };
+  const current = { todayMax: null, todayMin: 8.4, yesterdayMax: 18.2 } as unknown as Parameters<typeof narrativeFor>[1];
+  const n = narrativeFor(two, current, NOW, DAY, [], 'es');
+  expect('es: demà', n?.tomorrow === 'Mañana, lluvia débil, con una máxima 4 grados más baja y 4,2 mm de lluvia.', n?.tomorrow);
+  expect('es: ahir', n?.vsYesterday === 'Una máxima 1 grado más baja que la de ayer, que llegó a 18,2 °C. Esta madrugada, la mínima ha sido de 8,4 °C.', n?.vsYesterday);
+  expect('es: models', n?.uncertainty === 'Los 3 modelos coinciden hasta mañana; a partir de ahí la diferencia sube a 2,6 °C y la predicción debe leerse como una tendencia.', n?.uncertainty);
+  expect('es: sense mínima repetida', n?.today === 'Hoy, cielo cubierto y máxima de 17 °C.', n?.today);
+  noCatalan('demà, ahir i models', `${n?.tomorrow} ${n?.vsYesterday} ${n?.uncertainty}`);
+}
+
+{
+  // Passada la mitjanit, la sèrie pot començar ahir: avui i demà es busquen per la data.
+  const base = fc(series({})).daily[0];
+  const prev = new Date(Date.parse(`${DAY}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  const shifted = {
+    ...fc(series({}), 3),
+    daily: [
+      { ...base, date: prev, tMax: 25, weatherCode: 61, precipitation: 9.9 },
+      { ...base, weatherCode: 3 },
+      { ...base, date: NEXT, tMax: 13, weatherCode: 61, precipitation: 4.2 },
+    ],
+  };
+  const n = narrativeFor(shifted, null, NOW, DAY);
+  expect('ahir al davant: avui és avui', n?.today?.includes('17 °C') === true, n?.today);
+  expect('ahir al davant: demà és demà', n?.tomorrow?.includes('4,2 mm') === true, n?.tomorrow);
+  const stale = { ...shifted, daily: shifted.daily.slice(0, 1) };
+  expect('sense avui, sense frase', narrativeFor(stale, null, NOW, DAY) === null, 'hi ha frase');
+}
+
+// ── Les frases de la fitxa (describe.ts) ───────────────────────────────────
+{
+  const base = {
+    parentId: null, comarcaCodi: '07', nomIndexat: '', slug: '', path: '', lat: 41.7, lon: 1.8,
+    geocodeSource: 'icgc', geocodeConfidence: 1, poblacio: 100, tier: 'B', published: true,
+  } as const;
+  const mun = { ...base, id: 'm', level: 'municipi', nom: 'el Pont de Vilomara', altitud: 220, areaKm2: 23.4 } as Location;
+  const nucli = {
+    ...base, id: 'n', level: 'nucli', nom: 'Rocafort', altitud: 548, parentId: 'm',
+    stationRef: { codi: 'X', nom: 'Artés', distKm: 9.4, dAltM: 261, nearest: { nom: 'el Pont de Vilomara', distKm: 3.1, dAltM: 300 }, ridgeM: 700 },
+  } as Location;
+  const other = { ...base, id: 'o', level: 'nucli', nom: 'Vilomara', altitud: 300 } as Location;
+  const comarca = { codi: '07', nom: 'Bages', altitudMin: 150, altitudMax: 1200 } as Comarca;
+
+  const ca = describeLocation(nucli, comarca, mun, [other, mun]);
+  expect('describe: el català no canvia', ca.startsWith('Rocafort és a 548 m, 328 m per sobre del nucli del Pont de Vilomara.'), ca);
+  const es = describeLocation(nucli, comarca, mun, [other, mun], 'es');
+  expect('describe: el desnivell, en castellà', es.startsWith('Rocafort está a 548 m, 328 m por encima del núcleo de El Pont de Vilomara.'), es);
+  expect('describe: la comarca contrau', /Dentro del Bages, que va de los 150 a los 1\.200 m, queda en la franja media de la comarca\./.test(es), es);
+  expect('describe: l\'estació, amb «más abajo»', /la de El Pont de Vilomara, a 3,1 km, que está 300 m más abajo/.test(es) && /está 261 m más abajo/.test(es), es);
+  noCatalan('describe', es);
+  const m = describeMunicipi(mun, comarca, [nucli, other], 'es');
+  expect('describeMunicipi', m.startsWith('El núcleo de El Pont de Vilomara está a 220 m de altitud, en un término municipal de 23,4 km².'), m);
+  noCatalan('describeMunicipi', m);
+  const meta = metaDescription(mun, comarca, 'es');
+  expect('metaDescription', meta === 'El tiempo en El Pont de Vilomara, Bages (220 m): predicción hora a hora, 14 días y observación real de la estación más cercana.', meta);
 }
 
 if (bad) {

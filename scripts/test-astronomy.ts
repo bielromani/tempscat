@@ -33,6 +33,26 @@ for (let i = 0; i < 30; i += 5) {
   console.log(`  ${d.toISOString().slice(0, 10)}  ${moonEmoji(m.phase)} ${m.name.padEnd(18)} il·luminació ${(m.illumination * 100).toFixed(0)} %  edat ${m.age.toFixed(1)} d`);
 }
 
+// El nom de la fase en castellà ha de ser la mateixa fase, dita en castellà.
+{
+  const PARELLS: Record<string, string> = {
+    'Lluna nova': 'Luna nueva', 'Lluna plena': 'Luna llena',
+    'Lluna creixent': 'Luna creciente', 'Lluna minvant': 'Luna menguante',
+    'Quart creixent': 'Cuarto creciente', 'Quart minvant': 'Cuarto menguante',
+    'Gibosa creixent': 'Gibosa creciente', 'Gibosa minvant': 'Gibosa menguante',
+  };
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(Date.parse('2026-11-01T12:00:00Z') + i * 86400000);
+    const ca = moonPhase(d).name;
+    const es = moonPhase(d, 'es').name;
+    if (PARELLS[ca] !== es) {
+      console.error(`✗ ${d.toISOString().slice(0, 10)}: «${ca}» en català i «${es}» en castellà`);
+      process.exit(1);
+    }
+  }
+  console.log('  ✓ els noms en castellà corresponen a la mateixa fase');
+}
+
 console.log('\n── Contrast: dia més llarg vs més curt ──');
 const jun = sunTimes(new Date('2026-06-21T12:00:00Z'), BCN.lat, BCN.lon).daylightMinutes!;
 const dec = sunTimes(new Date('2026-12-21T12:00:00Z'), BCN.lat, BCN.lon).daylightMinutes!;

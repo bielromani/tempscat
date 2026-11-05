@@ -1,6 +1,8 @@
 import 'server-only';
 import { snapshot } from './cache-store';
 import type { Location } from './territory';
+import type { Lang } from './lang';
+import { deName, placeName } from './format';
 
 /**
  * Embalses, aforos de río y estado de sequía.
@@ -140,19 +142,56 @@ export async function waterNear(loc: Location): Promise<WaterNearby | null> {
 }
 
 /** Colores del semáforo oficial de sequía de la Generalitat. */
-export const DROUGHT_LEVELS: Record<string, { label: string; color: string; ink: string }> = {
-  NORMALITAT: { label: 'Normalitat', color: 'var(--good)', ink: 'oklch(98% 0.01 155)' },
-  PREALERTA: { label: 'Prealerta', color: 'var(--cap-yellow)', ink: 'oklch(22% 0.04 95)' },
-  ALERTA: { label: 'Alerta', color: 'var(--cap-orange)', ink: 'oklch(20% 0.04 55)' },
-  EXCEPCIONALITAT: { label: 'Excepcionalitat', color: 'var(--cap-red)', ink: 'oklch(98% 0.01 27)' },
-  'PREEMERGÈNCIA': { label: 'Preemergència', color: 'oklch(45% 0.18 20)', ink: 'oklch(98% 0.01 20)' },
-  'EMERGÈNCIA': { label: 'Emergència', color: 'oklch(38% 0.16 15)', ink: 'oklch(98% 0.01 15)' },
-  'EMERGÈNCIA I': { label: 'Emergència I', color: 'oklch(38% 0.16 15)', ink: 'oklch(98% 0.01 15)' },
-  'EMERGÈNCIA II': { label: 'Emergència II', color: 'oklch(32% 0.15 12)', ink: 'oklch(98% 0.01 12)' },
+export const DROUGHT_LEVELS: Record<string, { label: string; labelEs: string; color: string; ink: string }> = {
+  NORMALITAT: { label: 'Normalitat', labelEs: 'Normalidad', color: 'var(--good)', ink: 'oklch(98% 0.01 155)' },
+  PREALERTA: { label: 'Prealerta', labelEs: 'Prealerta', color: 'var(--cap-yellow)', ink: 'oklch(22% 0.04 95)' },
+  ALERTA: { label: 'Alerta', labelEs: 'Alerta', color: 'var(--cap-orange)', ink: 'oklch(20% 0.04 55)' },
+  EXCEPCIONALITAT: { label: 'Excepcionalitat', labelEs: 'Excepcionalidad', color: 'var(--cap-red)', ink: 'oklch(98% 0.01 27)' },
+  'PREEMERGÈNCIA': { label: 'Preemergència', labelEs: 'Preemergencia', color: 'oklch(45% 0.18 20)', ink: 'oklch(98% 0.01 20)' },
+  'EMERGÈNCIA': { label: 'Emergència', labelEs: 'Emergencia', color: 'oklch(38% 0.16 15)', ink: 'oklch(98% 0.01 15)' },
+  'EMERGÈNCIA I': { label: 'Emergència I', labelEs: 'Emergencia I', color: 'oklch(38% 0.16 15)', ink: 'oklch(98% 0.01 15)' },
+  'EMERGÈNCIA II': { label: 'Emergència II', labelEs: 'Emergencia II', color: 'oklch(32% 0.15 12)', ink: 'oklch(98% 0.01 12)' },
 };
 
-export function droughtLevel(state: string) {
-  return DROUGHT_LEVELS[state] ?? { label: state, color: 'var(--muted)', ink: 'var(--paper)' };
+/** El nivel de sequía, con el nombre en el idioma de la página. */
+export function droughtLevel(state: string, lang: Lang = 'ca'): { label: string; color: string; ink: string } {
+  const lv = DROUGHT_LEVELS[state];
+  if (!lv) return { label: state, color: 'var(--muted)', ink: 'var(--paper)' };
+  return lang === 'es' ? { ...lv, label: lv.labelEs } : lv;
+}
+
+/**
+ * El nombre entero de un embalse en castellano: «Embalse de Sau (Vilanova de
+ * Sau)». Solo cambia la palabra común del principio; el topónimo es el oficial.
+ */
+export function reservoirTitle(raw: string, lang: Lang = 'ca'): string {
+  return lang === 'es' ? raw.replace(/^Embassament\b/, 'Embalse') : raw;
+}
+
+/**
+ * El río de una cuenca, para escribir «cuenca del Ter».
+ *
+ * El registro trae el nombre con artículo y en catalán: «El Ter», «La Muga»,
+ * «L'Ebre». En castellano el artículo del río no forma parte del nombre —se
+ * escribe «la cuenca del Ter»— y el Ebro es el único que tiene nombre propio en
+ * castellano. Lo que no lleva artículo («Riera de Riudecanyes») se queda igual.
+ */
+const RIVERS_ES: Record<string, string> = { "L'Ebre": 'el Ebro', 'L’Ebre': 'el Ebro' };
+
+export function basinName(basin: string, lang: Lang = 'ca'): string {
+  if (lang !== 'es') return basin;
+  if (RIVERS_ES[basin]) return RIVERS_ES[basin];
+  const m = /^(El|La|Els|Les) (.+)$/.exec(basin);
+  if (!m) return basin;
+  const art = { El: 'el', La: 'la', Els: 'los', Les: 'las' }[m[1] as 'El' | 'La' | 'Els' | 'Les'];
+  return `${art} ${m[2]}`;
+}
+
+/** «de la Muga», «del Ter», «de l'Ebre»; en castellano, «del Ebro». */
+export function deBasin(basin: string, lang: Lang = 'ca'): string {
+  if (lang !== 'es') return deName(basin);
+  const n = basinName(basin, lang);
+  return n.startsWith('el ') ? `del ${n.slice(3)}` : `de ${n}`;
 }
 
 /**
@@ -201,12 +240,14 @@ export function gaugeName(raw: string): string {
  * L'article es conserva: és «la Baells» i «la Llosa del Cavall», i qui hagi de
  * compondre la frase té `deName()`.
  */
-export function reservoirName(raw: string): string {
-  return raw
+export function reservoirName(raw: string, lang: Lang = 'ca'): string {
+  const short = raw
     .trim()
     .replace(/^Embassament\s+(de\s+l'|de\s+|d')/i, '')
     .replace(/\s*\([^)]*\)\s*$/, '')
     .trim();
+  // En castellano, con el artículo del nombre en mayúscula: «La Baells».
+  return placeName(short, lang);
 }
 
 export function reservoirColor(pct: number): string {

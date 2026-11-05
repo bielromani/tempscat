@@ -12,6 +12,7 @@ import { resortNear } from './mountain';
 import { routesNear } from './routes';
 import { narrativeFor } from './narrative';
 import type { Location } from './territory';
+import type { Lang } from './lang';
 
 /**
  * Tot el que llegeix una fitxa de lloc, en una sola tanda i alhora.
@@ -39,7 +40,7 @@ import type { Location } from './territory';
  * guanyés una lectura i l'altra no, la fitxa d'un nucli i la del seu municipi
  * ensenyarien blocs diferents sense que res fallés.
  */
-export async function fichaData(loc: Location) {
+export async function fichaData(loc: Location, lang: Lang = 'ca') {
   const [
     current, forecast, history, warnings, air, comparison,
     water, airStation, sea, cameras, resort,
@@ -48,7 +49,7 @@ export async function fichaData(loc: Location) {
     forecastFor(loc),
     historyFor(loc),
     warningsFor(loc),
-    airQualityFor(loc),
+    airQualityFor(loc, lang),
     comarcaComparison(loc),
     waterNear(loc),
     nearestAirStation(loc),
@@ -62,10 +63,10 @@ export async function fichaData(loc: Location) {
     forecast,
     history,
     warnings: groupWarnings(warnings),
-    astro: astronomyFor(loc),
+    astro: astronomyFor(loc, undefined, lang),
     air,
     comparison,
-    narrative: narrativeFor(forecast, current, localNowHour(), localToday(), rainWarningsOf(warnings)),
+    narrative: narrativeFor(forecast, current, localNowHour(), localToday(), rainWarningsOf(warnings), lang),
     water,
     airStation,
     sea,

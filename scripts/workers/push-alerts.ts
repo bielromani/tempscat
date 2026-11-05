@@ -82,7 +82,7 @@ async function main() {
   let gone = 0;
   let failed = 0;
 
-  for (const { subscription, message } of plan.deliveries) {
+  for (const { subscription, message, urgent } of plan.deliveries) {
     const expires = Math.min(
       ...groups.filter((g) => plan.fresh.includes(g.key)).map((g) => Date.parse(g.expires)),
     );
@@ -91,7 +91,8 @@ async function main() {
       await webpush.sendNotification(
         { endpoint: subscription.endpoint, keys: subscription.keys },
         JSON.stringify(message),
-        { TTL: ttl, urgency: message.title.startsWith('Avís vermell') ? 'high' : 'normal' },
+        // Del pla i no del títol: el títol pot ser «Avís vermell» o «Aviso rojo».
+        { TTL: ttl, urgency: urgent ? 'high' : 'normal' },
       );
       sent++;
     } catch (err) {

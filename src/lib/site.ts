@@ -1,4 +1,5 @@
 import 'server-only';
+import type { Lang } from './lang';
 
 /**
  * De dónde se cuelga el sitio.
@@ -72,7 +73,50 @@ export const SITE_URL = resolved.url;
  */
 export const IS_PRODUCTION = resolved.production;
 
-/** URL absoluta de una ruta interna. */
-export function absolute(path: string): string {
-  return `${SITE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+/**
+ * L'origen de cada idioma: el castellà és el mateix domini amb `es.` davant
+ * (vegeu `src/lib/lang.ts`). En local, `es.localhost:3000`, que el navegador
+ * ja resol a la mateixa màquina.
+ */
+export function siteUrl(lang: Lang = 'ca'): string {
+  if (lang === 'ca') return SITE_URL;
+  const u = new URL(SITE_URL);
+  u.hostname = `es.${u.hostname.replace(/^www\./, '')}`;
+  return u.origin;
+}
+
+/** URL absoluta de una ruta interna, en l'idioma que es demani. */
+export function absolute(path: string, lang: Lang = 'ca'): string {
+  return `${siteUrl(lang)}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+/*
+ * El castellà no s'indexa fins que no estigui traduït sencer: una fitxa a mig
+ * traduir indexada en castellà és pitjor que cap. Es posa a `true` el dia que
+ * l'última pàgina deixi de tenir text en català (`npm run check:castella`).
+ *
+ * Mana sobre tres coses alhora, i per això viu aquí: la meta robots del
+ * castellà, l'`hreflang` de les dues llengües i el sitemap del castellà.
+ */
+export const ES_PUBLIC = false;
+
+/**
+ * La canònica i l'`hreflang` d'una pàgina, per a `metadata.alternates`.
+ *
+ * La canònica va relativa i la resol el `metadataBase` de cada domini, així que
+ * cada llengua és canònica de si mateixa. Les alternatives van absolutes perquè
+ * apunten a l'altre domini.
+ *
+ * Mentre el castellà no es publica no hi ha `hreflang`: assenyalar una pàgina
+ * `noindex` com a versió en una altra llengua és una contradicció que el
+ * cercador resol com vol.
+ */
+export function alternatesFor(path: string): {
+  canonical: string; languages?: Record<string, string>;
+} {
+  if (!ES_PUBLIC) return { canonical: path };
+  return {
+    canonical: path,
+    languages: { ca: absolute(path, 'ca'), es: absolute(path, 'es'), 'x-default': absolute(path, 'ca') },
+  };
 }

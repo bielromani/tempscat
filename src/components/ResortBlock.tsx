@@ -2,11 +2,13 @@
    ha desat cada fotograma en les dues mides que el web ensenya, i `next/image` només hi
    afegiria una quota de plataforma per repetir una feina feta. */
 import Link from 'next/link';
-import { ago, dateFull, deWord, int, num } from '@/lib/format';
+import { ago, dateFull, deWord, int, num, placeName } from '@/lib/format';
 import { cameraImage, type CameraNow } from '@/lib/cameras';
 import { windCardinal } from '@/lib/variables';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { REPORT_SHOW_HOURS, type ResortNow, type StationNow } from '@/lib/mountain';
+import { fgcText, REPORT_SHOW_HOURS, type ResortNow, type StationNow } from '@/lib/mountain';
+import { getLang } from '@/lib/i18n';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * Una estació de muntanya: què hi ha obert, quanta neu i quina temperatura.
@@ -42,9 +44,15 @@ import { REPORT_SHOW_HOURS, type ResortNow, type StationNow } from '@/lib/mounta
  * «L'últim comunicat és del {data}» fa «del 1 d'octubre» un dia de cada quinze:
  * davant de l'1 i de l'11 va «de l'». No hi ha cap funció que ho resolgui per a
  * les dates, així que la frase es construeix amb dos punts i la data sola.
+ *
+ * ## L'idioma
+ *
+ * El rep per `lang` quan el qui el crida ja el sap, i si no el demana amb
+ * `getLang()`. Les paraules del comunicat d'FGC —obert, el cel, la
+ * visibilitat— vénen en català i passen per `fgcText()`.
  */
-export function ResortBlock({
-  resort, stations, cameras = [], snowShare, distKm,
+export async function ResortBlock({
+  resort, stations, cameras = [], snowShare, distKm, lang: given,
 }: {
   resort: ResortNow;
   stations: StationNow[];
@@ -53,7 +61,10 @@ export function ResortBlock({
   /** Part del desnivell per damunt de la cota de neu prevista. Només a les fitxes. */
   snowShare?: number | null;
   distKm?: number;
+  lang?: Lang;
 }) {
+  const lang = given ?? await getLang();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const { slopes, lifts } = resort;
   const hasSnow = resort.reportUsable && resort.snowMaxCm != null && resort.snowMaxCm > 0;
 
@@ -68,9 +79,9 @@ export function ResortBlock({
             <p className="mt-0.5 text-[13px] leading-snug text-[var(--muted)]">
               {[
                 slopes?.minM != null && slopes.maxM != null && `${int(slopes.minM)}–${int(slopes.maxM)} m`,
-                slopes && `${int(slopes.count)} ${slopes.count === 1 ? 'pista' : 'pistes'}`,
+                slopes && `${int(slopes.count)} ${slopes.count === 1 ? 'pista' : t('pistes', 'pistas')}`,
                 slopes?.km != null && `${num(slopes.km, 1)} km`,
-                lifts && `${int(lifts.count)} ${lifts.count === 1 ? 'remuntador' : 'remuntadors'}`,
+                lifts && `${int(lifts.count)} ${lifts.count === 1 ? t('remuntador', 'remonte') : t('remuntadors', 'remontes')}`,
                 distKm != null && `a ${num(distKm, 0)} km`,
               ].filter(Boolean).join(' · ')}
             </p>
@@ -82,13 +93,15 @@ export function ResortBlock({
             ? { background: 'var(--good)', borderColor: 'var(--good)', color: 'var(--paper)' }
             : { borderColor: 'var(--line)', color: 'var(--muted)' }}
         >
-          {resort.openLabel}
+          {fgcText(resort.openLabel, lang)}
         </span>
       </div>
 
       {resort.circuits.length > 0 && (
         <p className="mt-1 text-[13px] leading-snug text-[var(--muted)]">
-          Itineraris: {resort.circuits.map((c) => `${int(c.count)} ${deWord(c.kind)}`).join(' · ')}
+          {lang === 'es'
+            ? `Rutas: ${resort.circuits.map((c) => `${int(c.count)} de ${fgcText(c.kind, lang)}`).join(' · ')}`
+            : <>Itineraris: {resort.circuits.map((c) => `${int(c.count)} ${deWord(c.kind)}`).join(' · ')}</>}
         </p>
       )}
 
@@ -102,37 +115,58 @@ export function ResortBlock({
                   ? `${int(resort.snowMinCm)}–${int(resort.snowMaxCm)}`
                   : int(resort.snowMaxCm)}
               </span>
-              <span className="text-[var(--muted)]">cm de neu</span>
+              <span className="text-[var(--muted)]">{t('cm de neu', 'cm de nieve')}</span>
               {resort.snowQuality && (
-                <span className="text-[var(--ink-2)]">· {resort.snowQuality.toLowerCase()}</span>
+                <span className="text-[var(--ink-2)]">· {fgcText(resort.snowQuality, lang).toLowerCase()}</span>
               )}
             </p>
           )}
 
           {resort.lastSnowfall && (
             <p className="mt-1.5 text-[13px] text-[var(--muted)]">
-              Última nevada: {resort.lastSnowfall}
+              {/*
+                FGC no en declara el format i fora de temporada ve buit. Si és
+                una data ISO, en castellà s'escriu com les altres dates; si és
+                text, passa per la mateixa taula que la resta de camps d'FGC.
+                El català el segueix ensenyant tal com arriba.
+              */}
+              Última nevada: {lang === 'es'
+                ? (/^\d{4}-\d{2}-\d{2}/.test(resort.lastSnowfall)
+                  ? dateFull(resort.lastSnowfall.slice(0, 10), lang)
+                  : fgcText(resort.lastSnowfall, lang))
+                : resort.lastSnowfall}
               {resort.lastSnowfallCm != null && `, ${int(resort.lastSnowfallCm)} cm`}
             </p>
           )}
 
           <p className="mt-1.5 text-[13.5px] text-[var(--ink-2)]">
             {[
-              resort.slopesOpenPct != null && `pistes obertes ${int(resort.slopesOpenPct)} %`,
-              resort.liftsOpenPct != null && `remuntadors ${int(resort.liftsOpenPct)} %`,
-              resort.sky && resort.sky.toLowerCase(),
-              resort.visibility && `visibilitat ${resort.visibility.toLowerCase()}`,
+              resort.slopesOpenPct != null && t(`pistes obertes ${int(resort.slopesOpenPct)} %`, `pistas abiertas ${int(resort.slopesOpenPct)} %`),
+              resort.liftsOpenPct != null && t(`remuntadors ${int(resort.liftsOpenPct)} %`, `remontes ${int(resort.liftsOpenPct)} %`),
+              resort.sky && fgcText(resort.sky, lang).toLowerCase(),
+              resort.visibility && t(`visibilitat ${resort.visibility.toLowerCase()}`, `visibilidad ${fgcText(resort.visibility, lang).toLowerCase()}`),
             ].filter(Boolean).join(' · ')}
           </p>
 
           <p className="source mt-1!">
-            Comunicat de l&apos;estació · {ago(resort.ageHours * 60)}
+            {lang === 'es'
+              ? `Parte de la estación · ${ago(resort.ageHours * 60, lang)}`
+              : <>Comunicat de l&apos;estació · {ago(resort.ageHours * 60)}</>}
           </p>
         </div>
       ) : (
         <p className="mt-3 text-[13px] leading-relaxed text-[var(--muted)]">
-          Últim comunicat de l&apos;estació: {dateFull(resort.reportAt)}. Passades{' '}
-          {REPORT_SHOW_HOURS} hores no se n&apos;ensenya el gruix de neu ni les pistes obertes.
+          {lang === 'es' ? (
+            <>
+              Último parte de la estación: {dateFull(resort.reportAt, lang)}. Pasadas{' '}
+              {REPORT_SHOW_HOURS} horas no se muestra el espesor de nieve ni las pistas abiertas.
+            </>
+          ) : (
+            <>
+              Últim comunicat de l&apos;estació: {dateFull(resort.reportAt)}. Passades{' '}
+              {REPORT_SHOW_HOURS} hores no se n&apos;ensenya el gruix de neu ni les pistes obertes.
+            </>
+          )}
         </p>
       )}
 
@@ -166,8 +200,10 @@ export function ResortBlock({
             ))}
           </dl>
           <p className="source mt-1.5!">
-            {stations.length === 1 ? 'Estació meteorològica de l’estació' : `${stations.length} estacions meteorològiques de l’estació`}
-            {' · '}{ago(Math.min(...stations.map((s) => s.ageMin)))}
+            {stations.length === 1
+              ? t('Estació meteorològica de l’estació', 'Estación meteorológica de la estación de esquí')
+              : t(`${stations.length} estacions meteorològiques de l’estació`, `${stations.length} estaciones meteorológicas de la estación de esquí`)}
+            {' · '}{ago(Math.min(...stations.map((s) => s.ageMin)), lang)}
           </p>
         </div>
       )}
@@ -185,7 +221,7 @@ export function ResortBlock({
                     height={225}
                     loading="lazy"
                     decoding="async"
-                    alt={`Fotograma de la càmera ${c.name}, a ${resort.name}`}
+                    alt={t(`Fotograma de la càmera ${c.name}, a ${resort.name}`, `Fotograma de la cámara ${c.name}, en ${resort.name}`)}
                     className="block aspect-video h-auto w-full rounded-[12px] bg-[var(--surface-2)] object-cover"
                   />
                   <span className="mt-1 block truncate text-[12px] text-[var(--ink-2)]">
@@ -198,12 +234,15 @@ export function ResortBlock({
           </ul>
           <p className="source mt-1!">
             {cameras.length === 1
-              ? `Càmera de l’estació · ${ago(cameras[0].ageMin)}`
-              : `${cameras.length} càmeres de l’estació · la més recent, ${ago(Math.min(...cameras.map((c) => c.ageMin)))}`}
+              ? t(`Càmera de l’estació · ${ago(cameras[0].ageMin)}`, `Cámara de la estación · ${ago(cameras[0].ageMin, lang)}`)
+              : t(
+                `${cameras.length} càmeres de l’estació · la més recent, ${ago(Math.min(...cameras.map((c) => c.ageMin)))}`,
+                `${cameras.length} cámaras de la estación · la más reciente, ${ago(Math.min(...cameras.map((c) => c.ageMin)), lang)}`,
+              )}
             {cameras.length > 2 && (
               <>
                 {' · '}
-                <Link href="/cameres" className="text-[var(--accent)] no-underline hover:underline">totes</Link>
+                <Link href="/cameres" className="text-[var(--accent)] no-underline hover:underline">{t('totes', 'todas')}</Link>
               </>
             )}
           </p>
@@ -219,8 +258,8 @@ export function ResortBlock({
         <details className="mt-4 border-t border-[var(--line-soft)] pt-3">
           <summary className="cursor-pointer text-[13px] font-medium text-[var(--ink-2)]">
             {resort.skiTouring.length === 1
-              ? 'Un itinerari d’esquí de muntanya'
-              : `${int(resort.skiTouring.length)} itineraris d’esquí de muntanya`}
+              ? t('Un itinerari d’esquí de muntanya', 'Una ruta de esquí de montaña')
+              : t(`${int(resort.skiTouring.length)} itineraris d’esquí de muntanya`, `${int(resort.skiTouring.length)} rutas de esquí de montaña`)}
           </summary>
           <ul className="rows mt-2 text-[13px]">
             {resort.skiTouring.map((r) => (
@@ -228,7 +267,7 @@ export function ResortBlock({
                 <span className="text-[var(--ink)]">
                   {r.name}
                   {r.difficulty && (
-                    <span className="ml-1.5 text-[var(--muted)]">{r.difficulty.toLowerCase()}</span>
+                    <span className="ml-1.5 text-[var(--muted)]">{fgcText(r.difficulty, lang).toLowerCase()}</span>
                   )}
                 </span>
                 <span className="tnum text-[12px] text-[var(--muted)]">
@@ -249,18 +288,27 @@ export function ResortBlock({
       {snowShare != null && (
         <p className="mt-4 border-t border-[var(--line-soft)] pt-3 text-[13.5px] leading-relaxed text-[var(--ink-2)]">
           {snowShare === 0
-            ? 'Amb la cota de neu prevista, la precipitació arribaria en forma de pluja a tot el desnivell esquiable.'
+            ? t(
+              'Amb la cota de neu prevista, la precipitació arribaria en forma de pluja a tot el desnivell esquiable.',
+              'Con la cota de nieve prevista, la precipitación llegaría en forma de lluvia a todo el desnivel esquiable.',
+            )
             : snowShare === 100
-              ? 'Amb la cota de neu prevista, la precipitació arribaria en forma de neu a tot el desnivell esquiable.'
-              : `Amb la cota de neu prevista, nevaria al ${snowShare} % de dalt del desnivell esquiable i plouria a la resta.`}
+              ? t(
+                'Amb la cota de neu prevista, la precipitació arribaria en forma de neu a tot el desnivell esquiable.',
+                'Con la cota de nieve prevista, la precipitación llegaría en forma de nieve a todo el desnivel esquiable.',
+              )
+              : t(
+                `Amb la cota de neu prevista, nevaria al ${snowShare} % de dalt del desnivell esquiable i plouria a la resta.`,
+                `Con la cota de nieve prevista, nevaría en el ${snowShare} % superior del desnivel esquiable y llovería en el resto.`,
+              )}
         </p>
       )}
 
       {resort.nearest && distKm == null && (
         <p className="mt-auto pt-3 text-[13px] text-[var(--muted)]">
-          El poble més proper amb fitxa és{' '}
+          {t('El poble més proper amb fitxa és', 'El pueblo más cercano con ficha es')}{' '}
           <Link href={resort.nearest.path} className="text-[var(--accent)] no-underline hover:underline">
-            {resort.nearest.nom}
+            {placeName(resort.nearest.nom, lang)}
           </Link>
           , a {num(resort.nearest.distKm, 0)} km.
         </p>

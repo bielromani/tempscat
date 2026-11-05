@@ -6,8 +6,9 @@ import { mountainView } from './mountain';
 import { allCameras } from './cameras';
 import { allRoutes } from './routes';
 import { fold, match, matchWithContext } from './search-match';
-import { deName } from './format';
-import { SECTIONS } from './nav';
+import { deName, placeName } from './format';
+import { sections } from './nav';
+import { tr, type Lang } from './lang';
 import type { SearchKind } from './search-kinds';
 
 export type { SearchKind } from './search-kinds';
@@ -84,9 +85,11 @@ const WEIGHT: Record<SearchKind, number> = {
   aforament: -8,
 };
 
-export async function search(raw: string): Promise<SearchResults> {
+export async function search(raw: string, lang: Lang = 'ca'): Promise<SearchResults> {
   const q = fold(raw);
   if (q.length < MIN_QUERY) return { query: raw, hits: [], total: 0 };
+  // Els topònims no es tradueixen; en castellà, l'article del nom va en majúscula.
+  const place = (nom: string) => placeName(nom, lang);
 
   const hits: SearchHit[] = [];
   const add = (
@@ -109,12 +112,12 @@ export async function search(raw: string): Promise<SearchResults> {
        * Ferriol, de 200 habitants.
        */
       add(
-        'poblacio', matchWithContext(q, m.nom, comarca), m.nom, m.path, comarca,
+        'poblacio', matchWithContext(q, m.nom, comarca), place(m.nom), m.path, comarca,
         6 + Math.min(5, Math.log10((m.poblacio ?? 1) + 1)),
       );
       for (const e of entitatsOfMunicipi(m.municipiCodi ?? '')) {
-        const ctx = `${m.nom} · ${comarcaNom.get(e.comarcaCodi ?? '') ?? ''}`.replace(/ · $/, '');
-        add('poblacio', matchWithContext(q, e.nom, m.nom), e.nom, e.path, ctx);
+        const ctx = `${place(m.nom)} · ${comarcaNom.get(e.comarcaCodi ?? '') ?? ''}`.replace(/ · $/, '');
+        add('poblacio', matchWithContext(q, e.nom, m.nom), place(e.nom), e.path, ctx);
       }
     }
   }
@@ -125,7 +128,10 @@ export async function search(raw: string): Promise<SearchResults> {
    */
   for (const b of allBarris()) {
     if (b.page) continue;
-    add('poblacio', match(q, b.nom), b.nom, b.path, `barri ${deName(b.ciutat)}${b.districte ? ` · ${b.districte}` : ''}`);
+    add(
+      'poblacio', match(q, b.nom), place(b.nom), b.path,
+      `${tr(lang, 'barri', 'barrio')} ${deName(b.ciutat, lang)}${b.districte ? ` · ${b.districte}` : ''}`,
+    );
   }
 
   // ── Estacions de la XEMA ──────────────────────────────────────────────────
@@ -138,7 +144,7 @@ export async function search(raw: string): Promise<SearchResults> {
   const beaches = await allBeaches();
   for (const b of beaches?.list ?? []) {
     add('platja', matchWithContext(q, b.name, b.municipality),
-      b.name, `/mar#p-${b.code}`, b.municipality);
+      b.name, `/mar#p-${b.code}`, place(b.municipality));
   }
 
   // ── Embassaments i aforaments ─────────────────────────────────────────────
@@ -152,7 +158,7 @@ export async function search(raw: string): Promise<SearchResults> {
      */
     const nom = reservoirName(r.name);
     atReservoir.add(fold(r.name));
-    add('embassament', match(q, nom), `Embassament ${deName(nom)}`, `/aigua#e-${r.code}`, r.basin);
+    add('embassament', match(q, nom), `${tr(lang, 'Embassament', 'Embalse')} ${deName(nom, lang)}`, `/aigua#e-${r.code}`, r.basin);
   }
   for (const g of await riverGauges()) {
     const nom = gaugeName(g.name);
@@ -163,13 +169,13 @@ export async function search(raw: string): Promise<SearchResults> {
      * ja hi és i el seu enllaç va a la mateixa pàgina.
      */
     if (atReservoir.has(fold(nom))) continue;
-    add('aforament', match(q, nom), `Aforament ${deName(nom)}`, `/aigua#a-${g.code}`, g.basin);
+    add('aforament', match(q, nom), `${tr(lang, 'Aforament', 'Aforo')} ${deName(nom, lang)}`, `/aigua#a-${g.code}`, g.basin);
   }
 
   // ── Estacions d'esquí i càmeres ───────────────────────────────────────────
   const mountain = await mountainView();
   for (const r of mountain?.resorts ?? []) {
-    add('esqui', match(q, r.name), r.name, `/neu#e-${r.slug}`, 'Estació de muntanya');
+    add('esqui', match(q, r.name), r.name, `/neu#e-${r.slug}`, tr(lang, 'Estació de muntanya', 'Estación de montaña'));
   }
   const cams = await allCameras();
   for (const c of cams?.list ?? []) {
@@ -184,7 +190,7 @@ export async function search(raw: string): Promise<SearchResults> {
   }
 
   // ── Pàgines del lloc ──────────────────────────────────────────────────────
-  for (const g of SECTIONS) {
+  for (const g of sections(lang)) {
     for (const l of g.links) add('pagina', match(q, l.label), l.label, l.href, g.title);
   }
 

@@ -16,7 +16,7 @@ import {
 } from './shards';
 import {
   AIR_VARIABLES, POLLENS, POLLUTANTS, SUB_INDEX_OF, SUB_INDICES,
-  pollenLevel, type AirSlug, type PollenLevel,
+  airShort, pollenLevel, type AirSlug, type PollenLevel,
 } from './air-variables';
 import type {
   CurrentConditions, DailyPoint, HourlyPoint, LocationForecast,
@@ -24,6 +24,7 @@ import type {
 import { instantOf } from './format';
 import type { TileGrid } from './mercator';
 import type { Location } from './territory';
+import type { Lang } from './lang';
 import { LEVEL_RANK, type Warning } from './warning-stack';
 import type { RainWarning } from './narrative';
 import type { MeasuredRain } from './recent-rain';
@@ -372,9 +373,17 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
    * antes de este cambio, y con el disco local mientras no se refresca.
    */
   const stored = snap.data.daily?.[loc.forecastPointId];
-  const daily: DailyPoint[] = stored
+  /*
+   * Sense els dies que ja han passat. La sèrie comença les zero hores del dia
+   * en què es va demanar, així que entre la mitjanit i el refresc següent el
+   * primer dia és ahir, i la llista de catorze dies obria amb un dia que ja
+   * s'ha acabat, amb la predicció que se'n feia i no el que va passar.
+   */
+  const today = localToday();
+  const daily: DailyPoint[] = (stored
     ? fromStored(stored, tempCorrection, loc, hourly)
-    : aggregateDaily(hourly, { lat: loc.lat ?? null, lon: loc.lon ?? null });
+    : aggregateDaily(hourly, { lat: loc.lat ?? null, lon: loc.lon ?? null })
+  ).filter((d) => d.date >= today);
 
   return {
     hourly,
@@ -631,7 +640,7 @@ export interface Astronomy {
  * Sol y luna del día para esta ubicación. Se calcula, no se pide: es exacto,
  * gratis y da fase lunar y crepúsculos, que ninguna API meteorológica ofrece.
  */
-export function astronomyFor(loc: Location, date = new Date()): Astronomy | null {
+export function astronomyFor(loc: Location, date = new Date(), lang: Lang = 'ca'): Astronomy | null {
   if (loc.lat == null || loc.lon == null) return null;
   const t = sunTimes(date, loc.lat, loc.lon);
   const events = nextMoonEvents(date);
@@ -644,7 +653,7 @@ export function astronomyFor(loc: Location, date = new Date()): Astronomy | null
 
   return {
     ...t,
-    moon: moonPhase(date),
+    moon: moonPhase(date, lang),
     nextNewMoon: events.newMoon,
     nextFullMoon: events.fullMoon,
     dayFraction,
@@ -699,7 +708,7 @@ export interface AirQuality {
  * fingir una precisión de barrio que el modelo no tiene, y aquí eso se dice en
  * la propia página en vez de esconderse.
  */
-export async function airQualityFor(loc: Location): Promise<AirQuality | null> {
+export async function airQualityFor(loc: Location, lang: Lang = 'ca'): Promise<AirQuality | null> {
   if (loc.lat == null || loc.lon == null) return null;
   // Solo su celda. El fichero con las 372 pesa un mega y medio, y una ficha
   // usa una: ver `src/lib/shards.ts`.
@@ -725,7 +734,7 @@ export async function airQualityFor(loc: Location): Promise<AirQuality | null> {
     const target = SUB_INDEX_OF[sub];
     if (v == null || !target) continue;
     if (!driver || v > driver.value) {
-      driver = { slug: target, nom: AIR_VARIABLES[target].nom.ca, value: v };
+      driver = { slug: target, nom: AIR_VARIABLES[target].nom[lang], value: v };
     }
   }
 
@@ -734,7 +743,10 @@ export async function airQualityFor(loc: Location): Promise<AirQuality | null> {
       const value = at(slug);
       const def = AIR_VARIABLES[slug];
       return value == null ? null : {
-        slug, nom: def.nom.ca, curt: def.curt ?? def.nom.ca,
+        // `curt` es una fórmula (NO₂, PM10) igual en las dos lenguas, salvo «Pols»,
+        // que es palabra y lleva su `curtEs`: ver `airShort()`.
+        slug, nom: def.nom[lang],
+        curt: airShort(slug, lang),
         value, unit: def.unit, decimals: def.decimals,
       };
     })
@@ -750,7 +762,7 @@ export async function airQualityFor(loc: Location): Promise<AirQuality | null> {
       const value = at(slug);
       if (value == null) return null;
       const level = pollenLevel(slug, value);
-      return level ? { slug, nom: AIR_VARIABLES[slug].nom.ca, value, level } : null;
+      return level ? { slug, nom: AIR_VARIABLES[slug].nom[lang], value, level } : null;
     })
     .filter((p): p is PollenReading => p != null)
     .sort((a, b) => b.value - a.value);

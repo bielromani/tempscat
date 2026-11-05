@@ -1,6 +1,7 @@
 import { snapshot } from './cache-store';
 import type { MountainData, MountainStation, Resort } from './mountain-types';
 import type { Location } from './territory';
+import type { Lang } from './lang';
 
 /**
  * Les estacions de muntanya, amb el rellotge posat.
@@ -161,6 +162,56 @@ export async function resortNear(loc: Location): Promise<ResortNearby | null> {
       .filter((s) => s.ageMin <= limit)
       .sort((a, b) => (b.altitudM ?? 0) - (a.altitudM ?? 0)),
   };
+}
+
+/**
+ * Les paraules del comunicat d'FGC, en castellà.
+ *
+ * El catàleg i el comunicat les porten **només en català** (`*_literals_ca`) i
+ * d'unes llistes curtes: obert o tancat, el cel, la visibilitat, la qualitat de
+ * la neu, la dificultat d'un itinerari i les quatre menes de circuit. En català
+ * s'ensenyen tal com vénen; en castellà passen per aquesta taula, i el que no
+ * hi consti surt com ve, que és millor que amagar-lo.
+ */
+const FGC_ES: Record<string, string> = {
+  obert: 'Abierta',
+  tancat: 'Cerrada',
+  'sense confirmar': 'Sin confirmar',
+  'cel serè': 'Cielo despejado',
+  serè: 'Despejado',
+  ennuvolat: 'Nuboso',
+  'parcialment ennuvolat': 'Parcialmente nuboso',
+  'mig ennuvolat': 'Parcialmente nuboso',
+  cobert: 'Cubierto',
+  boira: 'Niebla',
+  nevant: 'Nevando',
+  plovent: 'Lloviendo',
+  'bona: entre 10 i 50 km': 'Buena: entre 10 y 50 km',
+  'excel·lent: superior a 50 km': 'Excelente: más de 50 km',
+  'regular: entre 1 i 10 km': 'Regular: entre 1 y 10 km',
+  'dolenta: inferior a 1 km': 'Mala: menos de 1 km',
+  pols: 'Polvo',
+  primavera: 'Primavera',
+  dura: 'Dura',
+  humida: 'Húmeda',
+  húmida: 'Húmeda',
+  crosta: 'Costra',
+  pesant: 'Pesada',
+  transformada: 'Transformada',
+  granulada: 'Granulada',
+  ventada: 'Venteada',
+  fàcil: 'Fácil',
+  mitjana: 'Media',
+  difícil: 'Difícil',
+  'esquí de muntanya': 'esquí de montaña',
+  'fora de pista': 'fuera pista',
+  raquetes: 'raquetas',
+  senderisme: 'senderismo',
+};
+
+export function fgcText(raw: string, lang: Lang = 'ca'): string {
+  if (lang !== 'es') return raw;
+  return FGC_ES[raw.trim().toLowerCase()] ?? raw;
 }
 
 /**

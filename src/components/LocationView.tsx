@@ -20,11 +20,12 @@ import { SeaBlock } from './SeaBlock';
 import { CameraBlock } from './CameraBlock';
 import { ResortBlock } from './ResortBlock';
 import { networkLabel, refApart, type Route } from '@/lib/routes';
-import { aqiBand } from '@/lib/air-variables';
+import { aqiBand, aqiLabel } from '@/lib/air-variables';
+import { tr, type Lang } from '@/lib/lang';
 import { pushAlertsAvailable } from '@/lib/push-available';
 import { gaugeName } from '@/lib/water';
 import {
-  aName, comarcaName, deComarca, deName, int, monthName, num, signed,
+  aName, comarcaName, deComarca, deName, int, monthName, num, placeName, signed,
 } from '@/lib/format';
 import { localClockHour, localNowHour, localToday } from '@/lib/weather';
 import type {
@@ -146,6 +147,8 @@ interface Props {
    * distància» a un poble, hi passa o no hi passa.
    */
   routes: Route[];
+  /** L'idioma de la pàgina. Els blocs fills el reben per props. */
+  lang?: Lang;
 }
 
 /**
@@ -179,8 +182,9 @@ export function withObservedToday(daily: DailyPoint[], today: string, current: C
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
-  air, comparison, narrative, water, airStation, sea, cameras, resort, routes,
+  air, comparison, narrative, water, airStation, sea, cameras, resort, routes, lang = 'ca',
 }: Props) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   /*
    * La hora en curso dentro de la serie, para completar lo que la estación no
    * mide: UV, nubosidad, punto de rocío. El cálculo de la hora local vive en la
@@ -200,7 +204,7 @@ export function LocationView({
     })
     : null;
   // La comarca se nombra con su artículo: és «l'Alt Camp», no «Alt Camp».
-  const comarcaLabel = comarcaName(comarca.nom);
+  const comarcaLabel = comarcaName(comarca.nom, lang);
   const nowHour = forecast?.hourly.find((h) => h.time.slice(0, 13) === nowIso) ?? forecast?.hourly[0] ?? null;
   const daily = forecast ? withObservedToday(forecast.daily, today, current) : [];
   const todayPoint = daily.find((d) => d.date === today) ?? null;
@@ -241,29 +245,31 @@ export function LocationView({
         sunsetH={decimalHour(astro?.sunset)}
         moonPhase={astro?.moon.phase ?? 0}
         rainWarned={narrative?.rainWarnedNow ?? false}
+        lang={lang}
       />
 
-      <WarningBanner warnings={warnings} />
+      <WarningBanner warnings={warnings} lang={lang} />
 
       <div className="ficha-grid">
         <div className="ficha-col">
-          {narrative && <Headline narrative={narrative} />}
+          {narrative && <Headline narrative={narrative} lang={lang} />}
 
           {forecast && forecast.hourly.length > 0 && (
             <section className="card" aria-labelledby="h-hores">
-              <CardLabel id="h-hores" icon="clear-day">Pròximes 24 hores</CardLabel>
+              <CardLabel id="h-hores" icon="clear-day">{t('Pròximes 24 hores', 'Próximas 24 horas')}</CardLabel>
               <HourStrip
                 hourly={forecast.hourly}
                 daily={forecast.daily}
                 nowHour={nowIso}
                 nowTemperature={current?.temperatureAdjusted ?? null}
                 rainWarnings={narrative?.rainWarnings}
+                lang={lang}
               />
               {/* El radar obre centrat aquí, amb el lloc marcat: d'on ve la pluja i cap on va. */}
               {loc.lat != null && loc.lon != null && (
                 <p className="card-foot">
                   <Link href={`/radar?lloc=${loc.path}`}>
-                    El radar al voltant {deName(loc.nom)} ›
+                    {t('El radar al voltant', 'El radar alrededor')} {deName(loc.nom, lang)} ›
                   </Link>
                 </p>
               )}
@@ -272,13 +278,15 @@ export function LocationView({
 
           {forecast && forecast.daily.length > 0 && (
             <section className="card" aria-labelledby="h-dies">
-              <CardLabel id="h-dies" icon="partly-cloudy-day">Els pròxims {forecast.daily.length} dies</CardLabel>
-              <DailyList daily={daily} today={today} rainWarnings={narrative?.rainWarnings} />
+              <CardLabel id="h-dies" icon="partly-cloudy-day">
+                {tr(lang, `Els pròxims ${forecast.daily.length} dies`, `Los próximos ${forecast.daily.length} días`)}
+              </CardLabel>
+              <DailyList daily={daily} today={today} rainWarnings={narrative?.rainWarnings} lang={lang} />
               {/* Un enllaç i prou: el codi que subscriu viu a la seva pàgina, no a la fitxa. */}
               {pushAlertsAvailable() && (
                 <p className="card-foot">
                   <Link href={`/avisos/alertes?lloc=${loc.path}`}>
-                    Avisos taronja i vermells al mòbil ›
+                    {t('Avisos taronja i vermells al mòbil ›', 'Avisos naranjas y rojos en el móvil ›')}
                   </Link>
                 </p>
               )}
@@ -297,13 +305,14 @@ export function LocationView({
             sea={sea}
             rain={rain}
             stationAltitude={current ? stationByCodi(current.station.codi)?.altitud ?? null : null}
+            lang={lang}
           />
 
           {/* El lloc: l'altitud, el relleu i on queda dins la comarca, que és el
               que fa que aquí faci un temps diferent del poble del costat. */}
           {description && (
             <section className="card thesis" aria-labelledby="h-lloc">
-              <CardLabel id="h-lloc" icon="thermometer">El lloc</CardLabel>
+              <CardLabel id="h-lloc" icon="thermometer">{t('El lloc', 'El lugar')}</CardLabel>
               <p>{description}</p>
               {loc.lat != null && loc.lon != null && (
                 <p className="thesis-coords tnum">
@@ -320,7 +329,7 @@ export function LocationView({
       {resort && (
         <section className="mt-8">
           <h2 className="mb-3 card-title">
-            {resort.resort.name}, l&apos;estació d&apos;esquí més propera
+            {resort.resort.name}{t(", l'estació d'esquí més propera", ', la estación de esquí más cercana')}
           </h2>
           <ResortBlock
             resort={resort.resort}
@@ -336,6 +345,7 @@ export function LocationView({
               forecast?.daily.find((d) => d.snowLevel != null)?.snowLevel ?? null,
               resort.resort.slopes,
             )}
+            lang={lang}
           />
         </section>
       )}
@@ -343,14 +353,14 @@ export function LocationView({
       {cameras.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 card-title">
-            {cameras.length === 1 ? 'Una càmera a prop' : 'Càmeres a prop'}
+            {cameras.length === 1 ? t('Una càmera a prop', 'Una cámara cerca') : t('Càmeres a prop', 'Cámaras cerca')}
           </h2>
-          <CameraBlock cameras={cameras} />
+          <CameraBlock cameras={cameras} lang={lang} />
         </section>
       )}
 
       <div className="folds">
-        <h2 className="card-title">Més dades {aName(loc.nom)}</h2>
+        <h2 className="card-title">{lang === 'es' ? `Más datos ${deName(loc.nom, lang)}` : `Més dades ${aName(loc.nom)}`}</h2>
 
         {/*
           * Les mateixes 48 hores, com a dibuix o com a xifres.
@@ -364,10 +374,16 @@ export function LocationView({
         {forecast && forecast.hourly.length > 0 && (
           <Fold
             id="48h"
-            title="Gràfic i taula de 48 hores"
+            title={t('Gràfic i taula de 48 hores', 'Gráfico y tabla de 48 horas')}
             summary={joinBits([
-              forecast.nModels > 1 ? `Consens de ${forecast.nModels} models de predicció` : 'Un sol model de predicció',
-              forecast.altitudeCorrectionM != null && `corregit ${signed(forecast.altitudeCorrectionM, 0, 'm')} d'altitud`,
+              forecast.nModels > 1
+                ? tr(lang, `Consens de ${forecast.nModels} models de predicció`, `Consenso de ${forecast.nModels} modelos de predicción`)
+                : t('Un sol model de predicció', 'Un solo modelo de predicción'),
+              forecast.altitudeCorrectionM != null && tr(
+                lang,
+                `corregit ${signed(forecast.altitudeCorrectionM, 0, 'm')} d'altitud`,
+                `corregido ${signed(forecast.altitudeCorrectionM, 0, 'm')} de altitud`,
+              ),
             ])}
           >
             <div className="card">
@@ -376,8 +392,8 @@ export function LocationView({
                 <input type="radio" name={`h-${loc.id}`} id={`h-${loc.id}-2`} />
 
                 <div className="tablist mb-3 flex gap-5 border-b border-[var(--line-soft)] text-sm">
-                  <label htmlFor={`h-${loc.id}-1`} className="pb-2">Gràfic</label>
-                  <label htmlFor={`h-${loc.id}-2`} className="pb-2">Hora per hora</label>
+                  <label htmlFor={`h-${loc.id}-1`} className="pb-2">{t('Gràfic', 'Gráfico')}</label>
+                  <label htmlFor={`h-${loc.id}-2`} className="pb-2">{t('Hora per hora', 'Hora a hora')}</label>
                 </div>
 
                 <section className="panel">
@@ -387,6 +403,7 @@ export function LocationView({
                     showSpread={forecast.nModels > 1}
                     nowHour={nowIso}
                     tableFor={`h-${loc.id}-2`}
+                    lang={lang}
                   />
                   {narrative?.uncertainty && (
                     <p className="mt-2 measure text-xs leading-relaxed text-[var(--muted)]">
@@ -401,6 +418,7 @@ export function LocationView({
                     hours={48}
                     today={today}
                     rainWarnings={narrative?.rainWarnings}
+                    lang={lang}
                   />
                 </section>
               </div>
@@ -411,58 +429,63 @@ export function LocationView({
         {(air || airStation) && (
           <Fold
             id="aire"
-            title="Qualitat de l'aire"
+            title={t("Qualitat de l'aire", 'Calidad del aire')}
             summary={air?.aqi != null
-              ? `Índex europeu ${air.aqi} · ${aqiBand(air.aqi).ca}`
-              : "Mesurada a l'estació més propera"}
+              ? `${t('Índex europeu', 'Índice europeo')} ${air.aqi} · ${aqiLabel(aqiBand(air.aqi), lang)}`
+              : t("Mesurada a l'estació més propera", 'Medida en la estación más cercana')}
           >
             {air && (
-              <p className="mb-2 text-xs text-[var(--muted)]">Model CAMS · cel·la de {air.cellKm} km</p>
+              <p className="mb-2 text-xs text-[var(--muted)]">{t('Model CAMS · cel·la de', 'Modelo CAMS · celda de')} {air.cellKm} km</p>
             )}
-            {air && <AirQuality air={air} today={today} />}
+            {air && <AirQuality air={air} today={today} lang={lang} />}
             {/* La medida real debajo del modelo, y diciendo que es de ayer. */}
-            {airStation && <MeasuredAir station={airStation} />}
+            {airStation && <MeasuredAir station={airStation} lang={lang} />}
           </Fold>
         )}
 
         {sea && (
           <Fold
             id="mar"
-            title="El mar i les platges"
+            title={t('El mar i les platges', 'El mar y las playas')}
             summary={joinBits([
-              sea.now?.sst != null && `Aigua a ${num(sea.now.sst, 1)} °C`,
-              sea.now?.waveHeight != null && `onada de ${num(sea.now.waveHeight, 1)} m`,
+              sea.now?.sst != null && `${t('Aigua a', 'Agua a')} ${num(sea.now.sst, 1)} °C`,
+              sea.now?.waveHeight != null && `${t('onada de', 'olas de')} ${num(sea.now.waveHeight, 1)} m`,
             ]) || undefined}
           >
-            <SeaBlock sea={sea} nom={loc.nom} />
+            <SeaBlock sea={sea} nom={loc.nom} lang={lang} />
           </Fold>
         )}
 
         {water && (
           <Fold
             id="aigua"
-            title="Embassaments i rius"
+            title={t('Embassaments i rius', 'Embalses y ríos')}
             summary={water.reservoir?.pct != null
               ? `${water.reservoir.name}, al ${num(water.reservoir.pct, 1)} %`
               : water.river?.flow != null
                 ? `${gaugeName(water.river.name)}, ${num(water.river.flow, 2)} m³/s`
                 : undefined}
           >
-            <WaterBlock water={water} nom={loc.nom} />
+            <WaterBlock water={water} nom={loc.nom} lang={lang} />
           </Fold>
         )}
 
         {rain && current && (
           <Fold
             id="pluja"
-            title="La pluja que ha caigut"
-            summary={`${num(rain.rain15, 1)} mm en 15 dies · últim dia de més de 5 mm: ${lastWetDay(rain)}`}
+            title={t('La pluja que ha caigut', 'La lluvia caída')}
+            summary={tr(
+              lang,
+              `${num(rain.rain15, 1)} mm en 15 dies · últim dia de més de 5 mm: ${lastWetDay(rain)}`,
+              `${num(rain.rain15, 1)} mm en 15 días · último día de más de 5 mm: ${lastWetDay(rain, lang)}`,
+            )}
           >
             <RainBlock
               conditions={rain}
               station={current.station}
               stationHref={`/estacions/${current.station.codi}`}
               ytd={history?.rainProgress}
+              lang={lang}
             />
           </Fold>
         )}
@@ -470,12 +493,22 @@ export function LocationView({
         {history && current && (
           <Fold
             id="clima"
-            title="Clima i rècords"
+            title={t('Clima i rècords', 'Clima y récords')}
             summary={history.monthProgress
-              ? `Aquest ${monthName(Number(today.slice(5, 7)))}, ${signed(
-                Math.round((history.monthProgress.tMean - history.monthProgress.normal) * 10) / 10, 1, '°C',
-              )} respecte dels mateixos dies d'altres anys`
-              : `Rècords i normals de l'estació ${deName(current.station.nom)}`}
+              ? tr(
+                lang,
+                `Aquest ${monthName(Number(today.slice(5, 7)))}, ${signed(
+                  Math.round((history.monthProgress.tMean - history.monthProgress.normal) * 10) / 10, 1, '°C',
+                )} respecte dels mateixos dies d'altres anys`,
+                `Este ${monthName(Number(today.slice(5, 7)), lang)}, ${signed(
+                  Math.round((history.monthProgress.tMean - history.monthProgress.normal) * 10) / 10, 1, '°C',
+                )} respecto a los mismos días de otros años`,
+              )
+              : tr(
+                lang,
+                `Rècords i normals de l'estació ${deName(current.station.nom)}`,
+                `Récords y normales de la estación ${deName(current.station.nom, lang)}`,
+              )}
           >
             <ClimateBlock
               history={history}
@@ -484,6 +517,7 @@ export function LocationView({
               today={today}
               stationHref={`/estacions/${current.station.codi}`}
               dryStreak={rain?.dryStreak}
+              lang={lang}
             />
           </Fold>
         )}
@@ -491,36 +525,44 @@ export function LocationView({
         {comparison && (
           <Fold
             id="comarca"
-            title={`Com queda dins ${deComarca(comparison.comarca.nom)}`}
+            title={tr(lang, `Com queda dins ${deComarca(comparison.comarca.nom)}`, `Cómo queda dentro ${deComarca(comparison.comarca.nom, lang)}`)}
             summary={comparison.now
               ? (Math.abs(comparison.now.vsMedian) < 0.3
-                ? 'Ara, pràcticament igual que la mediana de la comarca'
-                : `Ara, ${signed(comparison.now.vsMedian, 1, '°C')} respecte de la mediana de la comarca`)
+                ? t('Ara, pràcticament igual que la mediana de la comarca', 'Ahora, prácticamente igual que la mediana de la comarca')
+                : tr(
+                  lang,
+                  `Ara, ${signed(comparison.now.vsMedian, 1, '°C')} respecte de la mediana de la comarca`,
+                  `Ahora, ${signed(comparison.now.vsMedian, 1, '°C')} respecto a la mediana de la comarca`,
+                ))
               : undefined}
           >
-            <ComarcaCompare cmp={comparison} nom={loc.nom} />
+            <ComarcaCompare cmp={comparison} nom={loc.nom} lang={lang} />
           </Fold>
         )}
 
         {astro && (
           <Fold
             id="sol"
-            title="Sol i lluna"
+            title={t('Sol i lluna', 'Sol y luna')}
             summary={joinBits([
-              clock(astro.sunrise) && `Surt a les ${clock(astro.sunrise)}`,
-              clock(astro.sunset) && `es pon a les ${clock(astro.sunset)}`,
+              clock(astro.sunrise) && `${t('Surt a les', 'Sale a las')} ${clock(astro.sunrise)}`,
+              clock(astro.sunset) && `${t('es pon a les', 'se pone a las')} ${clock(astro.sunset)}`,
               astro.moon.name.toLowerCase(),
             ])}
           >
-            <SunMoon astro={astro} />
+            <SunMoon astro={astro} lang={lang} />
           </Fold>
         )}
 
         {routes.length > 0 && (
           <Fold
             id="itineraris"
-            title={`Itineraris senyalitzats ${deComarca(comarca.nom)}`}
-            summary={`${routes.length} ${routes.length === 1 ? 'itinerari passa' : 'itineraris passen'} per la comarca`}
+            title={tr(lang, `Itineraris senyalitzats ${deComarca(comarca.nom)}`, `Rutas señalizadas ${deComarca(comarca.nom, lang)}`)}
+            summary={tr(
+              lang,
+              `${routes.length} ${routes.length === 1 ? 'itinerari passa' : 'itineraris passen'} per la comarca`,
+              `${routes.length} ${routes.length === 1 ? 'ruta pasa' : 'rutas pasan'} por la comarca`,
+            )}
           >
             <ul className="grid list-none gap-2 p-0 sm:grid-cols-2">
               {routes.map((r) => (
@@ -530,7 +572,7 @@ export function LocationView({
                     <span className="block text-xs text-[var(--muted)]">
                       {[
                         refApart(r),
-                        networkLabel(r.network),
+                        networkLabel(r.network, lang),
                         `${num(r.km, 1)} km`,
                         r.minM != null && r.maxM != null && `${int(r.minM)}–${int(r.maxM)} m`,
                       ].filter(Boolean).join(' · ')}
@@ -540,8 +582,8 @@ export function LocationView({
               ))}
             </ul>
             <p className="mt-2 text-xs text-[var(--muted)]">
-              Traçats d&apos;OpenStreetMap (ODbL).{' '}
-              <Link href="/senderisme/rutes" className="text-[var(--ink-2)]">Tots els itineraris</Link>.
+              {t("Traçats d'OpenStreetMap (ODbL).", 'Trazados de OpenStreetMap (ODbL).')}{' '}
+              <Link href="/senderisme/rutes" className="text-[var(--ink-2)]">{t('Tots els itineraris', 'Todas las rutas')}</Link>.
             </p>
           </Fold>
         )}
@@ -551,7 +593,7 @@ export function LocationView({
         <section className="mt-10">
           <h2 className="mb-3 card-title">{siblingsLabel}</h2>
           <LinkChips items={siblings.map((s) => ({
-            href: s.path, label: s.nom, note: s.altitud != null ? `${int(s.altitud)} m` : undefined,
+            href: s.path, label: placeName(s.nom, lang), note: s.altitud != null ? `${int(s.altitud)} m` : undefined,
           }))} />
         </section>
       )}
@@ -560,7 +602,7 @@ export function LocationView({
         <section className="mt-8">
           <h2 className="mb-3 card-title">{neighboursLabel}</h2>
           <LinkChips items={neighbours.map((n) => ({
-            href: n.location.path, label: n.location.nom, note: `${n.distKm.toFixed(0)} km`,
+            href: n.location.path, label: placeName(n.location.nom, lang), note: `${n.distKm.toFixed(0)} km`,
           }))} />
         </section>
       )}
@@ -573,8 +615,10 @@ export function LocationView({
       */}
       {forecast && !forecast.skillWeighted && forecast.nModels > 1 && (
         <p className="mt-10 text-xs leading-relaxed text-[var(--muted)]">
-          Els models pesen igual en aquest consens: cap no compta més que un
-          altre pel que hagi encertat abans.
+          {t(
+            'Els models pesen igual en aquest consens: cap no compta més que un altre pel que hagi encertat abans.',
+            'Los modelos pesan igual en este consenso: ninguno cuenta más que otro por lo que haya acertado antes.',
+          )}
         </p>
       )}
     </article>

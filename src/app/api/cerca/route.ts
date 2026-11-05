@@ -1,4 +1,5 @@
 import { MIN_QUERY, search } from '@/lib/search';
+import { langFromHost } from '@/lib/lang';
 
 /**
  * Els suggeriments del cercador, mentre s'escriu.
@@ -52,7 +53,8 @@ export async function GET(req: Request) {
     return new Response(JSON.stringify({ hits: [], total: 0 }), { headers: HEADERS });
   }
 
-  const { hits, total } = await search(q);
+  // L'idioma, pel domini: els noms de les pàgines del lloc surten en el de qui escriu.
+  const { hits, total } = await search(q, langFromHost(req.headers.get('host')));
 
   return new Response(
     JSON.stringify({

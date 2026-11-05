@@ -1,4 +1,5 @@
 import type { WarningGroup } from './warning-stack.ts';
+import type { Lang } from './lang.ts';
 
 /**
  * Quan val un avís, dit en una línia.
@@ -16,6 +17,11 @@ const DIES = ['dg.', 'dl.', 'dt.', 'dc.', 'dj.', 'dv.', 'ds.'];
 const MESOS = [
   'de gener', 'de febrer', 'de març', 'd’abril', 'de maig', 'de juny',
   'de juliol', 'd’agost', 'de setembre', 'd’octubre', 'de novembre', 'de desembre',
+];
+const DIAS = ['dom.', 'lun.', 'mar.', 'mié.', 'jue.', 'vie.', 'sáb.'];
+const MESES = [
+  'de enero', 'de febrero', 'de marzo', 'de abril', 'de mayo', 'de junio',
+  'de julio', 'de agosto', 'de septiembre', 'de octubre', 'de noviembre', 'de diciembre',
 ];
 
 /**
@@ -52,16 +58,16 @@ function endParts(iso: string) {
   return { ...p, hhmm: `${String(h).padStart(2, '0')}:00` };
 }
 
-/** «dc. 2 de setembre» */
-function dayLabel(iso: string): string {
+/** «dc. 2 de setembre» · «mié. 2 de septiembre» */
+function dayLabel(iso: string, lang: Lang): string {
   const p = parts(iso);
-  return `${DIES[p.weekday]} ${p.d} ${MESOS[p.m - 1]}`;
+  return lang === 'es' ? `${DIAS[p.weekday]} ${p.d} ${MESES[p.m - 1]}` : `${DIES[p.weekday]} ${p.d} ${MESOS[p.m - 1]}`;
 }
 
 /** «dc. 2» — para la lista de días de un grupo, donde el mes ya se ha dicho. */
-export function dayShort(iso: string): string {
+export function dayShort(iso: string, lang: Lang = 'ca'): string {
   const p = parts(iso);
-  return `${DIES[p.weekday]} ${p.d}`;
+  return `${(lang === 'es' ? DIAS : DIES)[p.weekday]} ${p.d}`;
 }
 
 /**
@@ -76,7 +82,7 @@ export function dayShort(iso: string): string {
  *  · varios tramos con franjas distintas → solo el rango de días; las horas van
  *    en la lista de cada día, porque una franja única sería falsa
  */
-export function whenLine(g: WarningGroup): string {
+export function whenLine(g: WarningGroup, lang: Lang = 'ca'): string {
   const expires = g.expires;
   const first = parts(g.onset);
   const last = endParts(expires);
@@ -85,13 +91,13 @@ export function whenLine(g: WarningGroup): string {
   );
 
   if (first.day === last.day) {
-    return `${dayLabel(g.onset)}, de ${first.hhmm} a ${last.hhmm}`;
+    return `${dayLabel(g.onset, lang)}, de ${first.hhmm} a ${last.hhmm}`;
   }
   if (g.spans.length === 1) {
-    return `de ${dayShort(g.onset)}, ${first.hhmm}, a ${dayLabel(expires)}, ${last.hhmm}`;
+    return `de ${dayShort(g.onset, lang)}, ${first.hhmm}, a ${dayLabel(expires, lang)}, ${last.hhmm}`;
   }
   if (sameWindow) {
-    return `de ${dayShort(g.onset)} a ${dayLabel(expires)}, de ${first.hhmm} a ${last.hhmm}`;
+    return `de ${dayShort(g.onset, lang)} a ${dayLabel(expires, lang)}, de ${first.hhmm} a ${last.hhmm}`;
   }
-  return `de ${dayShort(g.onset)} a ${dayLabel(expires)}`;
+  return `de ${dayShort(g.onset, lang)} a ${dayLabel(expires, lang)}`;
 }

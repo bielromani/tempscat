@@ -1,12 +1,14 @@
 import 'server-only';
 import { msToKmh } from './variables';
-import { weatherCode } from './weather-codes';
+import { codeLabel, weatherCode } from './weather-codes';
 import { narrativeFor } from './narrative';
+import { sourceText } from './sea';
 import {
   airQualityFor, currentFor, forecastFor, localNowHour, localToday, rainWarningsOf, warningsFor,
 } from './weather';
 import { comarcaOf, locationById, type Location } from './territory';
 import { phenomenonName } from './warning-labels';
+import { tr, type Lang } from './lang';
 
 /**
  * Feed público por ubicación.
@@ -32,12 +34,20 @@ import { phenomenonName } from './warning-labels';
  *    un consumidor que solo ve el JSON no tiene otra forma de saber a quién citar.
  */
 
-const LICENSE =
-  'Dades sota CC-BY 4.0. Cal citar la font de cada bloc, indicada a "sources".';
+const LICENSE: Record<Lang, string> = {
+  ca: 'Dades sota CC-BY 4.0. Cal citar la font de cada bloc, indicada a "sources".',
+  es: 'Datos bajo CC-BY 4.0. Hay que citar la fuente de cada bloque, indicada en "sources".',
+};
 
 export interface FeedOptions {
   /** Horas de serie horaria. Por defecto 48; el techo es el horizonte del modelo. */
   hours?: number;
+  /**
+   * L'idioma dels textos (llicència, fenomen, temps, capçaleres del CSV). Els
+   * noms de camp no canvien mai. Les frases de `summary` i les etiquetes de
+   * `day_parts` les escriu `narrativeFor`, amb la plantilla de cada idioma.
+   */
+  lang?: Lang;
 }
 
 /** Redondeo estable: evita que el JSON lleve 12.300000000000001. */
@@ -48,6 +58,7 @@ const r0 = (v: number | null | undefined) =>
 
 export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
   const hours = Math.max(1, Math.min(168, opts.hours ?? 48));
+  const lang = opts.lang ?? 'ca';
 
   const comarca = comarcaOf(loc);
   const municipi = loc.level === 'municipi'
@@ -60,19 +71,20 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
   ]);
   const nowHour = localNowHour();
   const today = localToday();
-  const narrative = narrativeFor(forecast, current, nowHour, today, rainWarningsOf(warnings));
+  const narrative = narrativeFor(forecast, current, nowHour, today, rainWarningsOf(warnings), lang);
 
   const sources: string[] = [];
-  if (current) sources.push(current.source);
-  if (forecast) sources.push(forecast.source);
-  if (air) sources.push(air.source);
-  if (warnings.length) sources.push('AEMET · avisos oficials CAP');
-  sources.push('Institut Cartogràfic i Geològic de Catalunya · límits i topònims');
+  if (current) sources.push(sourceText(current.source, lang));
+  if (forecast) sources.push(sourceText(forecast.source, lang));
+  if (air) sources.push(sourceText(air.source, lang));
+  if (warnings.length) sources.push(tr(lang, 'AEMET · avisos oficials CAP', 'AEMET · avisos oficiales CAP'));
+  sources.push(tr(lang, 'Institut Cartogràfic i Geològic de Catalunya · límits i topònims',
+    'Institut Cartogràfic i Geològic de Catalunya · límites y topónimos'));
 
   return {
     version: 1,
     generated_at: new Date().toISOString(),
-    license: LICENSE,
+    license: LICENSE[lang],
     sources: [...new Set(sources)],
 
     location: {
@@ -150,7 +162,7 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
       temperature_min: p.tMin,
       temperature_max: p.tMax,
       weather_code: p.weatherCode,
-      weather: weatherCode(p.weatherCode).ca,
+      weather: codeLabel(weatherCode(p.weatherCode), lang),
       precipitation: p.precip,
       precipitation_probability: p.precipProb,
       wind_max: p.windMax,
@@ -248,7 +260,7 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
       event: w.event,
       phenomenon: w.phenomenon,
       /** El mateix fenomen dit en catala, que es el que ensenya el web. */
-      phenomenon_name: phenomenonName(w.phenomenon),
+      phenomenon_name: phenomenonName(w.phenomenon, lang),
       level: w.level,
       onset: w.onset,
       expires: w.expires,
@@ -278,8 +290,9 @@ const CSV_COLUMNS = [
  */
 export async function locationCsv(loc: Location, opts: FeedOptions = {}): Promise<string> {
   const hours = Math.max(1, Math.min(168, opts.hours ?? 48));
+  const lang = opts.lang ?? 'ca';
   const forecast = await forecastFor(loc);
-  if (!forecast) return `# Sense predicció per a ${loc.nom}\n`;
+  if (!forecast) return tr(lang, `# Sense predicció per a ${loc.nom}\n`, `# Sin predicción para ${loc.nom}\n`);
 
   const rows = forecast.hourly.slice(0, hours).map((h) => [
     h.time,
@@ -300,8 +313,10 @@ export async function locationCsv(loc: Location, opts: FeedOptions = {}): Promis
   // importadores de hojas de cálculo cuando se les dice que las salte.
   return [
     `# ${loc.nom} (${loc.path}) · ${loc.altitud ?? '?'} m`,
-    `# ${forecast.source} · ${LICENSE}`,
-    `# Predicció emesa ${forecast.issuedAt} · consens de ${forecast.nModels} model(s)`,
+    `# ${forecast.source} · ${LICENSE[lang]}`,
+    tr(lang,
+      `# Predicció emesa ${forecast.issuedAt} · consens de ${forecast.nModels} model(s)`,
+      `# Predicción emitida ${forecast.issuedAt} · consenso de ${forecast.nModels} modelo(s)`),
     CSV_COLUMNS.join(','),
     ...rows,
   ].join('\n') + '\n';

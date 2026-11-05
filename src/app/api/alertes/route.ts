@@ -1,4 +1,5 @@
 import { locationByPath } from '@/lib/territory';
+import { langFromHost, type Lang } from '@/lib/lang';
 import {
   MAX_PLACES, deleteKey, getJson, pushStoreConfig, putJson, subscriptionKey,
   validKeys, validPushEndpoint, type PushSubscriptionRecord,
@@ -56,7 +57,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    return await apply(store, action as Action, subscription.endpoint, subscription.keys, path);
+    // L'idioma surt del domini: una subscripció feta des d'es.tempscat.cat rep els avisos en castellà.
+    const lang = langFromHost(req.headers.get('host'));
+    return await apply(store, action as Action, subscription.endpoint, subscription.keys, path, lang);
   } catch (err) {
     // El magatzem no respon: es diu, i el navegador ensenya «torneu-ho a provar».
     console.error('alertes:', (err as Error).message);
@@ -66,7 +69,7 @@ export async function POST(req: Request) {
 
 async function apply(
   store: NonNullable<ReturnType<typeof pushStoreConfig>>,
-  action: Action, endpoint: string, keys: unknown, path: unknown,
+  action: Action, endpoint: string, keys: unknown, path: unknown, lang: Lang,
 ): Promise<Response> {
   const key = subscriptionKey(endpoint);
   const stored = await getJson<PushSubscriptionRecord>(store, key);
@@ -106,6 +109,9 @@ async function apply(
         // Les claus poden canviar si el navegador renova la subscripció: es desen les d'ara.
         keys,
         places,
+        // El de l'última vegada que s'hi ha afegit un lloc. Cada domini té el seu
+        // service worker, i per tant les seves subscripcions: a la pràctica no canvia.
+        lang,
         createdAt: stored?.createdAt ?? now,
         updatedAt: now,
       };

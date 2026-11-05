@@ -2,6 +2,7 @@ import { WeatherIcon } from './WeatherIcon';
 import { rainWarnedAt, warnedIconLabel, type RainWarning } from '@/lib/narrative';
 import type { DailyPoint, HourlyPoint } from '@/lib/forecast-types';
 import { num } from '@/lib/format';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * Les pròximes 24 hores, en una tira: l'hora, la icona, la temperatura i la
@@ -30,7 +31,7 @@ type Item =
   | { kind: 'sunrise' | 'sunset'; hm: string };
 
 export function HourStrip({
-  hourly, daily, nowHour, nowTemperature = null, hours = 24, rainWarnings = [],
+  hourly, daily, nowHour, nowTemperature = null, hours = 24, rainWarnings = [], lang = 'ca',
 }: {
   hourly: HourlyPoint[];
   daily: DailyPoint[];
@@ -44,6 +45,7 @@ export function HourStrip({
   hours?: number;
   /** Amb avís, la icona no diu «feble»: vegeu `warnedIconLabel()`. */
   rainWarnings?: RainWarning[];
+  lang?: Lang;
 }) {
   const from = Math.max(0, hourly.findIndex((h) => h.time.slice(0, 13) === nowHour));
   const slice = hourly.slice(from, from + hours);
@@ -61,7 +63,7 @@ export function HourStrip({
   });
 
   return (
-    <ol className="hour-strip scroll-x" aria-label="Pròximes hores">
+    <ol className="hour-strip scroll-x" aria-label={tr(lang, 'Pròximes hores', 'Próximas horas')}>
       {items.map((it) => {
         if (it.kind === 'hour') {
           const { h } = it;
@@ -69,12 +71,13 @@ export function HourStrip({
           const temp = it.first && nowTemperature != null ? nowTemperature : h.temperature;
           return (
             <li key={h.time}>
-              <span className="hs-time tnum">{it.first ? 'Ara' : h.time.slice(11, 13)}</span>
+              <span className="hs-time tnum">{it.first ? tr(lang, 'Ara', 'Ahora') : h.time.slice(11, 13)}</span>
               <WeatherIcon
                 code={h.weatherCode}
                 isDay={h.isDay}
                 size={36}
-                label={warnedIconLabel(h.weatherCode, rainWarnedAt(rainWarnings, h.time))}
+                label={warnedIconLabel(h.weatherCode, rainWarnedAt(rainWarnings, h.time), lang)}
+                lang={lang}
               />
               <span className="hs-temp tnum">{temp != null ? `${num(temp)}°` : '—'}</span>
               <span className="hs-prob tnum">{p >= 20 ? `${p} %` : ''}</span>
@@ -86,7 +89,7 @@ export function HourStrip({
             <span className="hs-time tnum">{it.hm}</span>
             {/* eslint-disable-next-line @next/next/no-img-element -- icona SVG de 2 kB */}
             <img src={`/icons/w/${it.kind}.svg`} width={36} height={36} alt="" />
-            <span className="hs-temp">{it.kind === 'sunrise' ? 'Surt' : 'Es pon'}</span>
+            <span className="hs-temp">{it.kind === 'sunrise' ? tr(lang, 'Surt', 'Sale') : tr(lang, 'Es pon', 'Se pone')}</span>
             <span className="hs-prob" />
           </li>
         );

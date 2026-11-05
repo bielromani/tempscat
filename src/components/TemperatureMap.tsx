@@ -1,4 +1,5 @@
 import { num } from '@/lib/format';
+import { tr, type Lang } from '@/lib/lang';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import type { TemperatureMap as MapData } from '@/lib/map';
 
@@ -41,8 +42,8 @@ import type { TemperatureMap as MapData } from '@/lib/map';
  * marcada, perquè el nom a aquella mida no es llegiria.
  */
 export function TemperatureMap({
-  data, highlight, variant = 'full',
-}: { data: MapData; highlight?: string; variant?: 'full' | 'compact' }) {
+  data, highlight, variant = 'full', lang = 'ca',
+}: { data: MapData; highlight?: string; variant?: 'full' | 'compact'; lang?: Lang }) {
   const { width, height, comarques } = data;
   const compact = variant === 'compact';
 
@@ -62,8 +63,10 @@ export function TemperatureMap({
         role="img"
         aria-label={
           data.min != null && data.max != null
-            ? `Mapa de Catalunya per comarques: de ${num(data.min, 1)} a ${num(data.max, 1)} graus`
-            : 'Mapa de Catalunya per comarques, sense dades'
+            ? tr(lang,
+              `Mapa de Catalunya per comarques: de ${num(data.min, 1)} a ${num(data.max, 1)} graus`,
+              `Mapa de Cataluña por comarcas: de ${num(data.min, 1)} a ${num(data.max, 1)} grados`)
+            : tr(lang, 'Mapa de Catalunya per comarques, sense dades', 'Mapa de Cataluña por comarcas, sin datos')
         }
         className="block h-auto w-full"
       >
@@ -78,9 +81,13 @@ export function TemperatureMap({
         {comarques.map((c) => {
           const t = c.temperature;
           const on = highlight === c.code;
-          const tip = t != null
-            ? `${c.name}: ${num(t, 1)} °C · mediana de ${c.observed} municipis`
-            : `${c.name}: sense observació suficient`;
+          const tip = lang === 'es'
+            ? (t != null
+              ? `${c.name}: ${num(t, 1)} °C · mediana de ${c.observed} municipios`
+              : `${c.name}: sin observación suficiente`)
+            : t != null
+              ? `${c.name}: ${num(t, 1)} °C · mediana de ${c.observed} municipis`
+              : `${c.name}: sense observació suficient`;
 
           return (
             <a key={c.code} href={c.path}>
@@ -181,7 +188,15 @@ export function TemperatureMap({
         })}
       </svg>
 
-      {!compact && (
+      {!compact && lang === 'es' && (
+      <figcaption className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
+        Cada comarca lleva la <strong className="font-medium text-[var(--ink-2)]">mediana
+        de sus municipios</strong>, con la observación de cada uno corregida por el
+        desnivel hasta su estación. {data.withData} de {comarques.length} tienen
+        suficiente; las rayadas, no.
+      </figcaption>
+      )}
+      {!compact && lang !== 'es' && (
       <figcaption className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
         Cada comarca porta la <strong className="font-medium text-[var(--ink-2)]">mediana
         dels seus municipis</strong>, amb l&apos;observació de cadascun corregida pel
@@ -209,8 +224,8 @@ export function TemperatureMap({
  * cop que tot el país cap en cinc graus.
  */
 export function TemperatureLegend({
-  from = -5, to = 40, span,
-}: { from?: number; to?: number; span?: { min: number; max: number } }) {
+  from = -5, to = 40, span, lang = 'ca',
+}: { from?: number; to?: number; span?: { min: number; max: number }; lang?: Lang }) {
   const steps = Array.from({ length: to - from + 1 }, (_, i) => from + i);
   const pct = (t: number) => ((Math.max(from, Math.min(to, t)) - from) / (to - from)) * 100;
 
@@ -229,7 +244,7 @@ export function TemperatureLegend({
             className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] leading-none text-[var(--ink-2)]"
             style={{ left: `${(pct(span.min) + pct(span.max)) / 2}%` }}
           >
-            avui, tot Catalunya
+            {tr(lang, 'avui, tot Catalunya', 'hoy, toda Cataluña')}
           </span>
         </div>
       )}

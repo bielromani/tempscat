@@ -1,6 +1,7 @@
 import 'server-only';
 import { historyOfStation, localToday, type StationHistory } from './weather';
 import { addDays, dryStreakOf, withMeasuredRain, type MeasuredRain, type RainDay } from './recent-rain';
+import type { Lang } from './lang';
 
 /**
  * L'aigua acumulada d'una estació, per al bloc de pluja d'una fitxa.
@@ -166,10 +167,34 @@ export async function rainConditionsFor(stationCodi: string): Promise<RainCondit
  * Devuelve frases sueltas: la página decide cuántas usa. Ninguna de ellas
  * pronostica setas — dicen lo que ha pasado y dejan la conclusión al lector.
  */
-export function rainSentences(c: RainConditions): string[] {
+export function rainSentences(c: RainConditions, lang: Lang = 'ca'): string[] {
   const out: string[] = [];
 
   const n = (v: number, d = 0) => v.toFixed(d).replace('.', ',');
+
+  if (lang === 'es') {
+    if (c.days15 < 10) {
+      out.push(`La estación solo tiene datos de ${c.days15} de los últimos 15 días, `
+        + 'así que el acumulado se queda corto.');
+    }
+    out.push(`Han caído ${n(c.rain15, 1)} mm en los últimos quince días `
+      + `y ${n(c.rain30, 1)} mm en los últimos treinta.`);
+    if (c.daysSinceRain == null) {
+      out.push(`No consta ningún día de más de ${WET_DAY_MM} mm en toda la serie reciente.`);
+    } else if (c.daysSinceRain === 0) {
+      // «De valent» es coloquial; el dato es que hoy ya pasa del umbral.
+      out.push(`Hoy ya han caído más de ${WET_DAY_MM} mm.`);
+    } else {
+      out.push(`El último día de más de ${WET_DAY_MM} mm fue hace ${c.daysSinceRain} `
+        + `${c.daysSinceRain === 1 ? 'día' : 'días'}.`);
+    }
+    if (c.tMinAvg10 != null && c.tMaxAvg10 != null) {
+      out.push(`En los últimos diez días, la mínima media ha sido de ${n(c.tMinAvg10, 1)} °C `
+        + `y la máxima media, de ${n(c.tMaxAvg10, 1)} °C.`);
+    }
+    if (c.frostRecently) out.push('Ha helado en los últimos diez días.');
+    return out;
+  }
 
   if (c.days15 < 10) {
     out.push(`L'estació només té dada de ${c.days15} dels últims 15 dies, `

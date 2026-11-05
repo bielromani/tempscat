@@ -2,6 +2,7 @@ import 'server-only';
 import { dateTimeLong } from './format';
 import { phenomenonName, thresholdValue, zoneName } from './warning-labels';
 import type { Warning } from './weather';
+import { tr, type Lang } from './lang';
 
 /**
  * Avisos como feed: Atom e iCalendar.
@@ -30,6 +31,13 @@ import type { Warning } from './weather';
  * de correo, que es más fácil de escribir mal.
  */
 
+/**
+ * El nivell en majúscules per al títol de l'entrada, en l'idioma del feed. En
+ * català és el mateix codi (GROC), que és com sempre havia sortit.
+ */
+const NIVEL: Record<string, string> = { groc: 'amarillo', taronja: 'naranja', vermell: 'rojo' };
+const levelWord = (level: string, lang: Lang) => (lang === 'es' ? NIVEL[level] ?? level : level);
+
 /** Escapa texto para XML. Los avisos oficiales llevan comillas y ampersands. */
 function xml(text: string): string {
   return text
@@ -48,7 +56,7 @@ export interface FeedOptions {
   subtitle: string;
 }
 
-export function atomFeed(warnings: Warning[], opts: FeedOptions): string {
+export function atomFeed(warnings: Warning[], opts: FeedOptions, lang: Lang = 'ca'): string {
   // La fecha del feed es la del aviso más reciente, no la de ahora: si no cambia
   // nada, el feed no cambia, y los lectores no lo marcan como actualizado cada
   // vez que alguien lo pide.
@@ -61,7 +69,7 @@ export function atomFeed(warnings: Warning[], opts: FeedOptions): string {
     // manteniendo el identificador, tiene que aparecer como entrada nueva, porque
     // para el lector es información nueva.
     const id = `${opts.site}/avisos#${w.id}-${w.level}`;
-    const zones = w.zones.length ? `\n      Zones: ${w.zones.map(zoneName).join(', ')}` : '';
+    const zones = w.zones.length ? `\n      ${tr(lang, 'Zones', 'Zonas')}: ${w.zones.map((z) => zoneName(z, lang)).join(', ')}` : '';
     /*
      * El titular es nostre i en catala, no el d'AEMET.
      *
@@ -73,8 +81,8 @@ export function atomFeed(warnings: Warning[], opts: FeedOptions): string {
      */
     const threshold = thresholdValue(w.threshold);
     const title = [
-      w.level.toUpperCase(),
-      phenomenonName(w.phenomenon),
+      levelWord(w.level, lang).toUpperCase(),
+      phenomenonName(w.phenomenon, lang),
       threshold,
     ].filter(Boolean).join(' · ');
     return `  <entry>
@@ -84,9 +92,9 @@ export function atomFeed(warnings: Warning[], opts: FeedOptions): string {
     <link rel="alternate" href="${xml(w.web || `${opts.site}/avisos`)}"/>
     <author><name>AEMET</name></author>
     <category term="${xml(w.phenomenon)}"/>
-    <summary type="text">${xml(`Vigent ${dateTimeLong(local(w.onset))} → ${dateTimeLong(local(w.expires))}${zones}
+    <summary type="text">${xml(`${tr(lang, 'Vigent', 'Vigente')} ${dateTimeLong(local(w.onset), lang)} → ${dateTimeLong(local(w.expires), lang)}${zones}
 
-      Text oficial de l'AEMET:
+      ${tr(lang, "Text oficial de l'AEMET", 'Texto oficial de AEMET')}:
       ${w.headline}
       ${w.description}
       ${w.instruction}`.replace(/\s+\n/g, '\n').trim())}</summary>
@@ -94,14 +102,14 @@ export function atomFeed(warnings: Warning[], opts: FeedOptions): string {
   }).join('\n');
 
   return `<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="ca">
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="${lang}">
   <id>${xml(opts.self)}</id>
   <title>${xml(opts.title)}</title>
   <subtitle>${xml(opts.subtitle)}</subtitle>
   <updated>${xml(updated)}</updated>
   <link rel="self" href="${xml(opts.self)}"/>
   <link rel="alternate" href="${xml(`${opts.site}/avisos`)}"/>
-  <rights>Avisos de l'Agència Estatal de Meteorologia, reproduïts sense modificar.</rights>
+  <rights>${tr(lang, "Avisos de l'Agència Estatal de Meteorologia, reproduïts sense modificar.", 'Avisos de la Agencia Estatal de Meteorología, reproducidos sin modificar.')}</rights>
 ${entries}
 </feed>
 `;
@@ -170,11 +178,11 @@ function escapeIcs(text: string): string {
  * reuniones, con su ventana de vigencia dibujada a escala. Ningún lector de RSS
  * enseña eso.
  */
-export function icsFeed(warnings: Warning[], name: string): string {
+export function icsFeed(warnings: Warning[], name: string, lang: Lang = 'ca'): string {
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//El temps a Catalunya//Avisos AEMET//CA',
+    tr(lang, 'PRODID:-//El temps a Catalunya//Avisos AEMET//CA', 'PRODID:-//El temps a Catalunya//Avisos AEMET//ES'),
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     fold(`X-WR-CALNAME:${escapeIcs(name)}`),
@@ -191,14 +199,14 @@ export function icsFeed(warnings: Warning[], name: string): string {
       // Igual que al feed: el resum es nostre i en catala; el text d'AEMET va
       // sencer a la descripcio, etiquetat.
       fold(`SUMMARY:${escapeIcs([
-        `Avís ${w.level}`,
-        phenomenonName(w.phenomenon),
+        tr(lang, `Avís ${w.level}`, `Aviso ${levelWord(w.level, lang)}`),
+        phenomenonName(w.phenomenon, lang),
         thresholdValue(w.threshold),
-        w.zones.map(zoneName).join(', ') || null,
+        w.zones.map((z) => zoneName(z, lang)).join(', ') || null,
       ].filter(Boolean).join(' · '))}`),
       fold(`DESCRIPTION:${escapeIcs([
-        `Vigent ${dateTimeLong(local(w.onset))} → ${dateTimeLong(local(w.expires))}`,
-        'Text oficial de l\'AEMET:',
+        `${tr(lang, 'Vigent', 'Vigente')} ${dateTimeLong(local(w.onset), lang)} → ${dateTimeLong(local(w.expires), lang)}`,
+        tr(lang, 'Text oficial de l\'AEMET:', 'Texto oficial de AEMET:'),
         [w.headline, w.description, w.instruction].filter(Boolean).join('\n\n'),
       ].join('\n\n'))}`),
       fold(`URL:${escapeIcs(w.web)}`),
@@ -206,7 +214,7 @@ export function icsFeed(warnings: Warning[], name: string): string {
       ...(w.level === 'taronja' || w.level === 'vermell'
         ? ['BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT2H',
           fold(`DESCRIPTION:${escapeIcs(
-            [phenomenonName(w.phenomenon), thresholdValue(w.threshold)].filter(Boolean).join(' · '),
+            [phenomenonName(w.phenomenon, lang), thresholdValue(w.threshold)].filter(Boolean).join(' · '),
           )}`), 'END:VALARM']
         : []),
       'END:VEVENT',

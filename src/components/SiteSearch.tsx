@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
-import { KIND_LABEL, type SearchSuggestion } from '@/lib/search-kinds';
+import { kindLabel, type SearchSuggestion } from '@/lib/search-kinds';
+import { tr, type Lang } from '@/lib/lang';
 
 /**
  * El quadre de cerca, amb suggeriments mentre s'escriu.
@@ -74,13 +75,16 @@ const noGeolocation = () => false;
 /** Dos decimals: uns 1.100 m de latitud. Prou per saber el poble, i no més. */
 const round2 = (x: number) => Math.round(x * 100) / 100;
 export function SiteSearch({
-  variant = 'header', defaultValue = '', autoFocus = false,
+  lang, variant = 'header', defaultValue = '', autoFocus = false,
 }: {
+  /** Arriba per props: un component de client no pot llegir `getLang()`. */
+  lang: Lang;
   variant?: 'header' | 'page';
   defaultValue?: string;
   autoFocus?: boolean;
 }) {
   const router = useRouter();
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const id = useId();
   const listId = `${id}-list`;
 
@@ -126,18 +130,22 @@ export function SiteSearch({
             return;
           }
           setLocMsg(data.error === 'outside'
-            ? 'Sou fora de Catalunya, i aquí només hi ha el temps dels llocs de Catalunya.'
-            : 'No s’ha trobat cap lloc a prop. Cerqueu-lo pel nom.');
+            ? t('Sou fora de Catalunya, i aquí només hi ha el temps dels llocs de Catalunya.',
+              'Está fuera de Cataluña, y aquí solo está el tiempo de los lugares de Cataluña.')
+            : t('No s’ha trobat cap lloc a prop. Cerqueu-lo pel nom.', 'No se ha encontrado ningún lugar cerca. Búsquelo por el nombre.'));
         } catch {
-          setLocMsg('No s’ha pogut connectar. Torneu-ho a provar d’aquí a una estona.');
+          setLocMsg(t('No s’ha pogut connectar. Torneu-ho a provar d’aquí a una estona.',
+            'No se ha podido conectar. Vuelva a intentarlo dentro de un rato.'));
         }
         setLocating(false);
       },
       (err) => {
         setLocating(false);
         setLocMsg(err.code === err.PERMISSION_DENIED
-          ? 'El navegador no ha donat permís per saber on sou. Es pot canviar a la configuració del lloc web.'
-          : 'No s’ha pogut saber on sou. Torneu-ho a provar o cerqueu el lloc pel nom.');
+          ? t('El navegador no ha donat permís per saber on sou. Es pot canviar a la configuració del lloc web.',
+            'El navegador no ha dado permiso para saber dónde está. Se puede cambiar en la configuración del sitio web.')
+          : t('No s’ha pogut saber on sou. Torneu-ho a provar o cerqueu el lloc pel nom.',
+            'No se ha podido saber dónde está. Vuelva a intentarlo o busque el lugar por el nombre.'));
       },
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 600_000 },
     );
@@ -243,7 +251,7 @@ export function SiteSearch({
           <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
         <label htmlFor={id} className="sr-only">
-          Cercar un poble, una platja, un pantà o una estació
+          {t('Cercar un poble, una platja, un pantà o una estació', 'Buscar un pueblo, una playa, un embalse o una estación')}
         </label>
         <input
           id={id}
@@ -260,7 +268,7 @@ export function SiteSearch({
           onChange={(e) => { setValue(e.target.value); setActive(-1); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder={header ? 'Cercar…' : 'Un poble, una platja…'}
+          placeholder={header ? t('Cercar…', 'Buscar…') : t('Un poble, una platja…', 'Un pueblo, una playa…')}
           className={header
             ? `h-10 w-full min-w-0 rounded-full border border-[var(--glass-line)] bg-[var(--glass)] ps-9 ${canLocate ? 'pe-10' : 'pe-3'} text-sm text-[var(--ink)] outline-none backdrop-blur-md placeholder:text-[var(--muted)] focus:border-[var(--accent)]`
             : 'min-w-0 flex-1 bg-transparent py-2.5 text-[17px] outline-none placeholder:text-slate-500'}
@@ -270,8 +278,8 @@ export function SiteSearch({
             type="button"
             onClick={locate}
             disabled={locating}
-            aria-label="Anar al lloc on sóc"
-            title="Anar al lloc on sóc"
+            aria-label={t('Anar al lloc on sóc', 'Ir al lugar donde estoy')}
+            title={t('Anar al lloc on sóc', 'Ir al lugar donde estoy')}
             className={header
               ? 'absolute end-1 z-10 grid h-8 w-8 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--glass)] hover:text-[var(--ink)] disabled:opacity-60'
               : 'grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-60'}
@@ -287,7 +295,7 @@ export function SiteSearch({
             type="submit"
             className="shrink-0 rounded-xl bg-[var(--brand)] px-5 py-2.5 text-[15px] font-semibold text-white hover:brightness-110"
           >
-            Cercar
+            {t('Cercar', 'Buscar')}
           </button>
         )}
       </form>
@@ -307,7 +315,7 @@ export function SiteSearch({
         <ul
           id={listId}
           role="listbox"
-          aria-label="Suggeriments"
+          aria-label={t('Suggeriments', 'Sugerencias')}
           className={`absolute end-0 top-full z-50 mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-2.5rem))] list-none overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow)]${header ? ' max-sm:inset-x-4 max-sm:mt-0 max-sm:w-auto' : ''}`}
         >
           {hits.map((h, i) => (
@@ -327,7 +335,7 @@ export function SiteSearch({
                   <span className="block truncate text-xs text-[var(--muted)]">{h.context}</span>
                 )}
               </span>
-              <span className="shrink-0 text-[11px] text-[var(--muted)]">{KIND_LABEL[h.kind]}</span>
+              <span className="shrink-0 text-[11px] text-[var(--muted)]">{kindLabel(lang, h.kind)}</span>
             </li>
           ))}
         </ul>

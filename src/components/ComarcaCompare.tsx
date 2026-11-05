@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
-import { aName, deName, monthOf, num, ordinal, signed, temp } from '@/lib/format';
+import { aName, deName, monthOf, num, ordinal, placeName, signed, temp } from '@/lib/format';
+import { tr, type Lang } from '@/lib/lang';
 import type { ComarcaComparison, Ranking } from '@/lib/comparison';
 
 /**
@@ -15,7 +16,16 @@ import type { ComarcaComparison, Ranking } from '@/lib/comparison';
  * lista completa obliga a buscar dónde estás. Con siete, se ve de un vistazo.
  */
 
-function positionSentence(r: Ranking, nom: string, when: string): string {
+function positionSentence(r: Ranking, nom: string, when: string, lang: Lang = 'ca'): string {
+  if (lang === 'es') {
+    const n = placeName(nom, lang);
+    if (r.rank === 1) return `${when}, ${n} es el punto más fresco de los ${r.total} de la comarca.`;
+    if (r.rank === r.total) return `${when}, ${n} es el punto más cálido de los ${r.total} de la comarca.`;
+    const top = r.total - r.rank + 1;
+    return top < r.rank
+      ? `${when}, ${n} es el ${ordinal(top, lang)} punto más cálido de los ${r.total} de la comarca.`
+      : `${when}, ${n} es el ${ordinal(r.rank, lang)} punto más fresco de los ${r.total} de la comarca.`;
+  }
   if (r.rank === 1) return `${when}, ${nom} és el punt més fresc dels ${r.total} de la comarca.`;
   if (r.rank === r.total) return `${when}, ${nom} és el punt més càlid dels ${r.total} de la comarca.`;
   const fromTop = r.total - r.rank + 1;
@@ -34,7 +44,15 @@ function positionSentence(r: Ranking, nom: string, when: string): string {
  * punts amb lectura —29 a Malgrat— i aquesta tots —30—, i dos «dels N»
  * diferents en el mateix bloc semblaven un error.
  */
-function altitudeSentence(a: { rank: number; total: number }): string {
+function altitudeSentence(a: { rank: number; total: number }, lang: Lang = 'ca'): string {
+  if (lang === 'es') {
+    if (a.rank === 1) return 'Es el punto más alto de la comarca.';
+    if (a.rank === a.total) return 'Es el punto más bajo de la comarca.';
+    const bottom = a.total - a.rank + 1;
+    return bottom < a.rank
+      ? `Por altitud, es el ${ordinal(bottom, lang)} punto más bajo de la comarca.`
+      : `Por altitud, es el ${ordinal(a.rank, lang)} punto más alto de la comarca.`;
+  }
   if (a.rank === 1) return 'És el punt més enlairat de la comarca.';
   if (a.rank === a.total) return 'És el punt més baix de la comarca.';
   const fromBottom = a.total - a.rank + 1;
@@ -43,7 +61,7 @@ function altitudeSentence(a: { rank: number; total: number }): string {
     : `Per altitud, és el ${ordinal(a.rank)} punt més enlairat de la comarca.`;
 }
 
-function Strip({ r, unit }: { r: Ranking; unit: string }) {
+function Strip({ r, unit, lang }: { r: Ranking; unit: string; lang: Lang }) {
   return (
     <ol className="mt-3 flex gap-1.5 overflow-x-auto">
       {r.around.map((p) => (
@@ -69,28 +87,30 @@ function Strip({ r, unit }: { r: Ranking; unit: string }) {
           </Link>
         </li>
       ))}
-      <li className="sr-only">Valors en {unit}</li>
+      <li className="sr-only">{tr(lang, 'Valors en', 'Valores en')} {unit}</li>
     </ol>
   );
 }
 
-function Extremes({ r }: { r: Ranking }) {
+function Extremes({ r, lang }: { r: Ranking; lang: Lang }) {
   return (
     <p className="mt-2 text-xs text-[var(--muted)]">
-      A la comarca, {' '}
+      {tr(lang, 'A la comarca, ', 'En la comarca, ')}{' '}
       <Link href={r.coldest.path} className="text-[var(--ink-2)] no-underline hover:underline">
-        {deName(r.coldest.nom)}
+        {deName(r.coldest.nom, lang)}
       </Link>{' '}
       <span className="tnum">({temp(r.coldest.value)})</span>{' '}
       <Link href={r.warmest.path} className="text-[var(--ink-2)] no-underline hover:underline">
-        {aName(r.warmest.nom)}
+        {/* «a» de hasta dónde, no el «en» de `aName()` en castellano. */}
+        {lang === 'es' ? `a ${placeName(r.warmest.nom, lang)}` : aName(r.warmest.nom)}
       </Link>{' '}
       <span className="tnum">({temp(r.warmest.value)})</span>.
     </p>
   );
 }
 
-export function ComarcaCompare({ cmp, nom }: { cmp: ComarcaComparison; nom: string }) {
+export function ComarcaCompare({ cmp, nom, lang = 'ca' }: { cmp: ComarcaComparison; nom: string; lang?: Lang }) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const { now, month } = cmp;
   if (!now && !month) return null;
 
@@ -103,51 +123,48 @@ export function ComarcaCompare({ cmp, nom }: { cmp: ComarcaComparison; nom: stri
     <section>
       {now && (
         <div className="card">
-          <p className="text-[var(--ink)]">{positionSentence(now, nom, 'Ara mateix')}</p>
+          <p className="text-[var(--ink)]">{positionSentence(now, nom, t('Ara mateix', 'Ahora mismo'), lang)}</p>
           <p className="mt-1 text-sm text-[var(--muted)]">
             {Math.abs(now.vsMedian) < 0.3
-              ? 'Pràcticament igual que la mitjana comarcal.'
-              : `${signed(now.vsMedian, 1, '°C')} respecte de la mediana de la comarca.`}
+              ? t('Pràcticament igual que la mitjana comarcal.', 'Prácticamente igual que la media comarcal.')
+              : `${signed(now.vsMedian, 1, '°C')} ${t('respecte de la mediana de la comarca.', 'respecto a la mediana de la comarca.')}`}
           </p>
-          <Strip r={now} unit="graus Celsius" />
-          <Extremes r={now} />
+          <Strip r={now} unit={t('graus Celsius', 'grados Celsius')} lang={lang} />
+          <Extremes r={now} lang={lang} />
         </div>
       )}
 
       {month && (
         <div className="mt-3 card">
           <p className="text-[var(--ink)]">
-            {positionSentence(month, nom, `Al llarg ${monthOf(cmp.monthNumber)}`)}
+            {positionSentence(month, nom, tr(lang, `Al llarg ${monthOf(cmp.monthNumber)}`, `A lo largo ${monthOf(cmp.monthNumber, lang)}`), lang)}
           </p>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Mitjana de les temperatures mitjanes diàries del mes, {temp(month.value)}.
+            {t('Mitjana de les temperatures mitjanes diàries del mes,', 'Media de las temperaturas medias diarias del mes,')} {temp(month.value)}.
           </p>
-          <Strip r={month} unit="graus Celsius" />
-          <Extremes r={month} />
+          <Strip r={month} unit={t('graus Celsius', 'grados Celsius')} lang={lang} />
+          <Extremes r={month} lang={lang} />
         </div>
       )}
 
       {cmp.altitude && (
         <p className="mt-3 text-xs text-[var(--muted)]">
-          {altitudeSentence(cmp.altitude)}
+          {altitudeSentence(cmp.altitude, lang)}
         </p>
       )}
 
       <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
         {singleStation ? (
-          <>
-            Atenció: tota la comarca penja d&apos;una sola estació automàtica, així
-            que aquesta classificació ordena desnivells sobre una mateixa lectura,
-            no mesures independents. És útil per situar-se, però no és el mateix
-            que tenir un termòmetre a cada poble.
-          </>
+          t(
+            "Atenció: tota la comarca penja d'una sola estació automàtica, així que aquesta classificació ordena desnivells sobre una mateixa lectura, no mesures independents. És útil per situar-se, però no és el mateix que tenir un termòmetre a cada poble.",
+            'Atención: toda la comarca depende de una sola estación automática, así que esta clasificación ordena desniveles sobre una misma lectura, no medidas independientes. Sirve para situarse, pero no es lo mismo que tener un termómetro en cada pueblo.',
+          )
         ) : (
-          <>
-            Cada valor surt de l&apos;estació de referència del punt, corregida pel
-            desnivell; hi intervenen {(now ?? month)!.nStations} estacions
-            diferents. No és un termòmetre a cada poble, i les nits d&apos;inversió
-            tèrmica la correcció pot quedar-se curta o passar-se.
-          </>
+          tr(
+            lang,
+            `Cada valor surt de l'estació de referència del punt, corregida pel desnivell; hi intervenen ${(now ?? month)!.nStations} estacions diferents. No és un termòmetre a cada poble, i les nits d'inversió tèrmica la correcció pot quedar-se curta o passar-se.`,
+            `Cada valor sale de la estación de referencia del punto, corregida por el desnivel; intervienen ${(now ?? month)!.nStations} estaciones distintas. No es un termómetro en cada pueblo, y en las noches de inversión térmica la corrección puede quedarse corta o pasarse.`,
+          )
         )}
       </p>
     </section>

@@ -1,4 +1,5 @@
 import { locationCsv, locationFeed } from '@/lib/feed';
+import { langFromHost, tr } from '@/lib/lang';
 import { locationByPath } from '@/lib/territory';
 
 /**
@@ -36,17 +37,27 @@ export async function GET(
   { params }: { params: Promise<{ slug: string[] }> },
 ) {
   const { slug } = await params;
+  // No passa per `[lang]`: l'idioma surt del domini, com als feeds d'avisos.
+  const lang = langFromHost(req.headers.get('host'));
 
   // Una ubicación son dos o tres segmentos: comarca/municipi[/entitat]. Más allá
   // no existe, y validarlo aquí evita que la resolución de rutas dependa de lo
   // que devuelva un mapa con una clave inventada.
   if (!slug?.length || slug.length > 3) {
-    return json({ error: 'Ruta no vàlida. Format: /api/lloc/{comarca}/{municipi}[/{entitat}]' }, 400);
+    return json({ error: tr(
+      lang,
+      'Ruta no vàlida. Format: /api/lloc/{comarca}/{municipi}[/{entitat}]',
+      'Ruta no válida. Formato: /api/lloc/{comarca}/{municipi}[/{entitat}]',
+    ) }, 400);
   }
 
   const loc = locationByPath(`/${slug.join('/')}`);
   if (!loc) {
-    return json({ error: `No hi ha cap ubicació publicada a /${slug.join('/')}` }, 404);
+    return json({ error: tr(
+      lang,
+      `No hi ha cap ubicació publicada a /${slug.join('/')}`,
+      `No hay ninguna ubicación publicada en /${slug.join('/')}`,
+    ) }, 404);
   }
   /*
    * Els barris que surten d'OpenStreetMap són ODbL, i aquesta API promet CC BY:
@@ -54,14 +65,18 @@ export async function GET(
    * itineraris. La fitxa sí que els ensenya, dient d'on surten.
    */
   if (loc.geocodeSource === 'osm') {
-    return json({ error: `/${slug.join('/')} és un barri amb el contorn d'OpenStreetMap (ODbL), que no entra a l'API de dades (CC BY)` }, 404);
+    return json({ error: tr(
+      lang,
+      `/${slug.join('/')} és un barri amb el contorn d'OpenStreetMap (ODbL), que no entra a l'API de dades (CC BY)`,
+      `/${slug.join('/')} es un barrio con el contorno de OpenStreetMap (ODbL), que no entra en la API de datos (CC BY)`,
+    ) }, 404);
   }
 
   const url = new URL(req.url);
   const hours = Number(url.searchParams.get('hours')) || undefined;
 
   if (url.searchParams.get('format') === 'csv') {
-    return new Response(await locationCsv(loc, { hours }), {
+    return new Response(await locationCsv(loc, { hours, lang }), {
       headers: {
         ...HEADERS,
         'Content-Type': 'text/csv; charset=utf-8',
@@ -70,7 +85,7 @@ export async function GET(
     });
   }
 
-  return json(await locationFeed(loc, { hours }), 200);
+  return json(await locationFeed(loc, { hours, lang }), 200);
 }
 
 function json(body: unknown, status: number) {

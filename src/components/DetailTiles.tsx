@@ -1,5 +1,6 @@
 import { feelsCause, msToKmh, seaLevelPressure, windCardinal } from '@/lib/variables';
-import { aqiBand } from '@/lib/air-variables';
+import { aqiBand, aqiLabel } from '@/lib/air-variables';
+import { tr, type Lang } from '@/lib/lang';
 import { douglas } from '@/lib/sea';
 import { fromDirection, int, num } from '@/lib/format';
 import { lastWetDay } from './RainBlock';
@@ -39,7 +40,7 @@ const clock = (d: Date | string | null | undefined) =>
   d ? new Date(d).toLocaleTimeString('ca-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }) : null;
 
 export function DetailTiles({
-  current, nowHour, today, tomorrow, astro, air, sea, rain, stationAltitude,
+  current, nowHour, today, tomorrow, astro, air, sea, rain, stationAltitude, lang = 'ca',
 }: {
   current: CurrentConditions | null;
   nowHour: HourlyPoint | null;
@@ -51,7 +52,9 @@ export function DetailTiles({
   rain: RainConditions | null;
   /** Per reduir la pressió al nivell del mar. Ver `seaLevelPressure()`. */
   stationAltitude: number | null;
+  lang?: Lang;
 }) {
+  const t = (ca: string, es: string) => tr(lang, ca, es);
   const tiles: React.ReactNode[] = [];
 
   // ── Sensació ── només quan diu un número diferent del de la temperatura, i
@@ -62,14 +65,18 @@ export function DetailTiles({
     const gap = ap - tNow;
     const cause = feelsCause(tNow, ap, current.windSpeed ?? null);
     tiles.push(
-      <Tile key="sensacio" icon="thermometer" label="Sensació">
+      <Tile key="sensacio" icon="thermometer" label={t('Sensació', 'Sensación')}>
         <p className="tile-value tnum">{ap.toFixed(0)}<small>°C</small></p>
         <p className="tile-note">
           {cause === 'xafogor'
-            ? 'La humitat la fa més alta que la temperatura real.'
+            ? t('La humitat la fa més alta que la temperatura real.', 'La humedad la hace más alta que la temperatura real.')
             : cause === 'vent'
-              ? 'El vent la fa més baixa que la temperatura real.'
-              : `${num(Math.abs(gap), 1)} graus ${gap > 0 ? 'més' : 'menys'} que la temperatura real.`}
+              ? t('El vent la fa més baixa que la temperatura real.', 'El viento la hace más baja que la temperatura real.')
+              : tr(
+                lang,
+                `${num(Math.abs(gap), 1)} graus ${gap > 0 ? 'més' : 'menys'} que la temperatura real.`,
+                `${num(Math.abs(gap), 1)} grados ${gap > 0 ? 'más' : 'menos'} que la temperatura real.`,
+              )}
         </p>
       </Tile>,
     );
@@ -81,7 +88,7 @@ export function DetailTiles({
     const card = dir != null ? windCardinal(dir) : null;
     const gust = current.windGust != null ? msToKmh(current.windGust) : null;
     tiles.push(
-      <Tile key="vent" icon="wind" label="Vent">
+      <Tile key="vent" icon="wind" label={t('Vent', 'Viento')}>
         <div className="tile-row">
           <p className="tile-value tnum">{msToKmh(current.windSpeed).toFixed(0)}<small>km/h</small></p>
           {dir != null && (
@@ -96,8 +103,8 @@ export function DetailTiles({
           )}
         </div>
         <p className="tile-note">
-          {card ? `Ve ${fromDirection(card)}` : 'Direcció variable'}
-          {gust != null && gust > msToKmh(current.windSpeed) * 1.3 && ` · ratxes de ${gust.toFixed(0)} km/h`}
+          {card ? `${t('Ve', 'Viene')} ${fromDirection(card, lang)}` : t('Direcció variable', 'Dirección variable')}
+          {gust != null && gust > msToKmh(current.windSpeed) * 1.3 && t(` · ratxes de ${gust.toFixed(0)} km/h`, ` · rachas de ${gust.toFixed(0)} km/h`)}
         </p>
       </Tile>,
     );
@@ -107,12 +114,12 @@ export function DetailTiles({
   if (current?.humidity != null) {
     const dew = nowHour?.dewPoint ?? null;
     tiles.push(
-      <Tile key="humitat" icon="humidity" label="Humitat">
+      <Tile key="humitat" icon="humidity" label={t('Humitat', 'Humedad')}>
         <p className="tile-value tnum">{Math.round(current.humidity)}<small>%</small></p>
         <p className="tile-note">
-          {dew != null && `Punt de rosada de ${dew.toFixed(0)}°`}
-          {dew != null && dew >= 20 && '. Xafogós'}
-          {dew != null && dew < 5 && '. Aire sec'}
+          {dew != null && t(`Punt de rosada de ${dew.toFixed(0)}°`, `Punto de rocío de ${dew.toFixed(0)}°`)}
+          {dew != null && dew >= 20 && t('. Xafogós', '. Bochornoso')}
+          {dew != null && dew < 5 && t('. Aire sec', '. Aire seco')}
         </p>
       </Tile>,
     );
@@ -121,9 +128,9 @@ export function DetailTiles({
   // ── Pluja ── la de les últimes 24 h, i quan va ser l'últim dia de debò.
   if (current?.precip24h != null) {
     tiles.push(
-      <Tile key="pluja" icon="raindrop" label="Pluja · 24 h">
+      <Tile key="pluja" icon="raindrop" label={t('Pluja · 24 h', 'Lluvia · 24 h')}>
         <p className="tile-value tnum">{num(current.precip24h, 1)}<small>mm</small></p>
-        {rain && <p className="tile-note">Últim dia de més de 5 mm: {lastWetDay(rain)}</p>}
+        {rain && <p className="tile-note">{t('Últim dia de més de 5 mm', 'Último día de más de 5 mm')}: {lastWetDay(rain, lang)}</p>}
       </Tile>,
     );
   }
@@ -131,11 +138,12 @@ export function DetailTiles({
   // ── UV ── l'índex d'ara i el màxim del dia, amb el nom de la banda de l'OMS.
   if (nowHour?.uvIndex != null) {
     const uv = nowHour.uvIndex;
-    const band = uv >= 11 ? 'extrem' : uv >= 8 ? 'molt alt' : uv >= 6 ? 'alt' : uv >= 3 ? 'moderat' : 'baix';
+    const band = uv >= 11 ? t('extrem', 'extremo') : uv >= 8 ? t('molt alt', 'muy alto') : uv >= 6 ? t('alt', 'alto')
+      : uv >= 3 ? t('moderat', 'moderado') : t('baix', 'bajo');
     tiles.push(
-      <Tile key="uv" icon="uv-index" label="Índex UV">
+      <Tile key="uv" icon="uv-index" label={t('Índex UV', 'Índice UV')}>
         <p className="tile-value tnum">{uv}<small>{band}</small></p>
-        {today?.uvMax != null && <p className="tile-note">El màxim d’avui és {today.uvMax}.</p>}
+        {today?.uvMax != null && <p className="tile-note">{t('El màxim d’avui és', 'El máximo de hoy es')} {today.uvMax}.</p>}
       </Tile>,
     );
   }
@@ -153,7 +161,7 @@ export function DetailTiles({
     const cx = 8 + f * 104;
     const cy = 36 - Math.sin(f * Math.PI) * 30;
     tiles.push(
-      <Tile key="sol" icon={up ? 'sunset' : 'sunrise'} label={up ? 'Posta del sol' : 'Sortida del sol'}>
+      <Tile key="sol" icon={up ? 'sunset' : 'sunrise'} label={up ? t('Posta del sol', 'Puesta del sol') : t('Sortida del sol', 'Salida del sol')}>
         <p className="tile-value tnum">
           {up ? clock(astro.sunset) : clock(after ? tomorrow?.sunrise ?? astro.sunrise : astro.sunrise)}
         </p>
@@ -164,10 +172,10 @@ export function DetailTiles({
         </svg>
         <p className="tile-note">
           {up
-            ? `Ha sortit a les ${clock(astro.sunrise)}`
+            ? t(`Ha sortit a les ${clock(astro.sunrise)}`, `Ha salido a las ${clock(astro.sunrise)}`)
             : after
-              ? `Es va pondre a les ${clock(astro.sunset)}`
-              : `Es pondrà a les ${clock(astro.sunset)}`}
+              ? t(`Es va pondre a les ${clock(astro.sunset)}`, `Se puso a las ${clock(astro.sunset)}`)
+              : t(`Es pondrà a les ${clock(astro.sunset)}`, `Se pondrá a las ${clock(astro.sunset)}`)}
         </p>
       </Tile>,
     );
@@ -179,9 +187,9 @@ export function DetailTiles({
       ? seaLevelPressure(current.pressure, stationAltitude, current.temperature)
       : null;
     tiles.push(
-      <Tile key="pressio" icon="barometer" label="Pressió">
+      <Tile key="pressio" icon="barometer" label={t('Pressió', 'Presión')}>
         <p className="tile-value tnum">{int(reduced ?? current.pressure)}<small>hPa</small></p>
-        <p className="tile-note">{reduced != null ? 'Al nivell del mar' : 'A l’altura de l’estació'}</p>
+        <p className="tile-note">{reduced != null ? t('Al nivell del mar', 'Al nivel del mar') : t('A l’altura de l’estació', 'A la altura de la estación')}</p>
       </Tile>,
     );
   }
@@ -192,11 +200,20 @@ export function DetailTiles({
     tiles.push(
       <Tile key="aire" icon="haze" label="Aire">
         <p className="tile-value tnum">{air.aqi}</p>
-        <p className="tile-band">{band.ca}</p>
+        <p className="tile-band">{aqiLabel(band, lang)}</p>
         <div className="tile-aqi" aria-hidden="true">
           <i style={{ left: `${Math.min(97, (air.aqi / 100) * 100)}%` }} />
         </div>
-        {air.driver && <p className="tile-note">Ho marca {air.driver.nom.toLowerCase()}.</p>}
+        {air.driver && (
+          <p className="tile-note">
+            {/* En castellano el contaminante lleva artículo, y las partículas son
+                femeninas y plurales. La fórmula no se pasa a minúscula: es «PM2,5». */}
+            {t('Ho marca', air.driver.slug.startsWith('pm') ? 'Lo marcan las' : 'Lo marca el')}{' '}
+            {lang === 'es'
+              ? `${air.driver.nom[0].toLowerCase()}${air.driver.nom.slice(1)}`
+              : air.driver.nom.toLowerCase()}.
+          </p>
+        )}
       </Tile>,
     );
   }
@@ -209,8 +226,9 @@ export function DetailTiles({
         <p className="tile-value tnum">{num(sea.now.sst, 1)}<small>°C</small></p>
         <p className="tile-note">
           {sea.now.waveHeight != null
-            ? `Onada de ${num(sea.now.waveHeight, 1)} m, ${douglas(sea.now.waveHeight)}`
-            : 'Temperatura de l’aigua'}
+            ? t(`Onada de ${num(sea.now.waveHeight, 1)} m, ${douglas(sea.now.waveHeight)}`,
+              `Olas de ${num(sea.now.waveHeight, 1)} m, ${douglas(sea.now.waveHeight, lang)}`)
+            : t('Temperatura de l’aigua', 'Temperatura del agua')}
         </p>
       </Tile>,
     );
@@ -220,9 +238,9 @@ export function DetailTiles({
   //    l'última fila. Si encara en queda una, el CSS la fa ocupar tota la fila.
   if (nowHour?.cloudCover != null && (sea?.now?.sst == null || tiles.length % 2 === 1)) {
     tiles.push(
-      <Tile key="nuvols" icon="overcast" label="Nuvolositat">
+      <Tile key="nuvols" icon="overcast" label={t('Nuvolositat', 'Nubosidad')}>
         <p className="tile-value tnum">{nowHour.cloudCover}<small>%</small></p>
-        <p className="tile-note">Del cel cobert, segons el model.</p>
+        <p className="tile-note">{t('Del cel cobert, segons el model.', 'Parte del cielo cubierta, según el modelo.')}</p>
       </Tile>,
     );
   }
