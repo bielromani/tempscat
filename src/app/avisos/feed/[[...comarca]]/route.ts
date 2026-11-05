@@ -85,7 +85,8 @@ export async function GET(
       subtitle: lang === 'es'
         ? `Avisos oficiales de AEMET vigentes ${c ? aComarca(c.nom, lang) : 'en Cataluña'}`
         : c
-          ? `Avisos oficials de l'AEMET vigents ${comarcaName(c.nom)}`
+          // «vigents al Bages», amb la preposició: sense, deia «vigents el Bages».
+          ? `Avisos oficials de l'AEMET vigents ${aComarca(c.nom)}`
           : "Avisos oficials de l'AEMET vigents a Catalunya",
     }, lang),
     { headers: { ...headers, 'Content-Type': 'application/atom+xml; charset=utf-8' } },
