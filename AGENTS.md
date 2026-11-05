@@ -212,6 +212,7 @@ npm run check:jsonld      # que cada tipus de pàgina segueixi portant el seu ma
 npm run check:coherence   # que una fitxa no es contradigui · contra l'HTML servit, com l'anterior
                           # els dos els corre `web.yml` després de cada desplegament i cada dia
 npm run check:workflows   # claus repetides, `npm run` inexistents i workflows sense feines
+npm run check:castella    # que al castellà no hi quedi català · contra el servidor en marxa (docs/14)
 npm run test:colors       # que el color que rep el mapa sigui el que pinta el navegador
 npm run test:wind         # que el vent vagi cap on ha d'anar · amb `-- --api`, contra la marinada
 npm run test:warnings     # que la pila d'avisos d'un lloc no perdi mai cap avís
@@ -1583,6 +1584,29 @@ cuota para exactamente la misma información.
   secció «Els avisos al mòbil» l'ha de dir el mateix dia.
   Al panell del navegador d'aquest entorn les notificacions estan **bloquejades**: la pàgina
   hi surt amb el missatge de «bloquejades», i no s'hi pot provar una subscripció de debò.
+
+- **El web en castellà és `es.tempscat.cat`, amb les mateixes rutes.** (5 de novembre de 2026.)
+  Les pàgines viuen a `src/app/[lang]/…` i `next.config.ts` hi posa l'idioma segons el domini.
+  Les regles —`tr(lang, ca, es)`, el català no canvia ni un byte, `lang` com a últim paràmetre,
+  mai `.map(deName)`— i el glossari són a `docs/14-castella.md`. Dues coses que passen sense cap
+  error: **una ruta de dades amb un segment dinàmic s'ha d'afegir a `NOT_PAGES`**, o es reescriu
+  a `/ca/…` i dona 404 (va passar amb els sitemaps), i **`ES_PUBLIC` a `site.ts` mana sobre tres
+  coses alhora**: la meta robots del castellà, l'`hreflang` i el seu sitemap. Una pàgina nova
+  va amb `generateMetadata`, `alternatesFor(path)` i `breadcrumbLd(trail, lang)`.
+
+- **L'AEMET deixa fer unes catorze peticions per minut per clau, i la del contingut també
+  compta.** (5 de novembre de 2026.) Set municipis per minut. Anant més de pressa, cada 429 és un
+  minut sencer d'espera i, com que la clau és la dels avisos, el worker d'avisos es troba el
+  minut gastat. `forecast-verify.ts` va a una petició cada cinc segons, en una feina pròpia de
+  `diari.yml`, i desa cada dia la predicció municipal de l'AEMET al costat de la de la fitxa per
+  a 140 estacions que representen el seu poble: és la comparació amb algú que publica.
+
+- **Passada la mitjanit, el primer dia de la sèrie diària és ahir.** (5 de novembre de 2026.)
+  La sèrie comença les zero hores del dia en què es va demanar, i fins al refresc següent la
+  frase d'avui llegia `daily[0]`: deia la màxima d'ahir com a d'avui, i la pluja d'avui com a de
+  demà, a les 4.293 fitxes, cada nit. `forecastFor()` deixa fora els dies passats i
+  `narrativeFor()` busca avui per la data. Qualsevol cosa que vulgui «avui» de la sèrie diària
+  l'ha de buscar per la data, mai per la posició.
 
 - **La 404 de les rutes dinàmiques arriba amb el cos buit, i és de Next.** (4 de novembre de
   2026.) `notFound()` dins d'una pàgina dinàmica fa que Next 16 enviï la closca d'error

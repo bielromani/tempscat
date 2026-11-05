@@ -119,15 +119,53 @@ Lo que tiene que salir igual en todo el sitio. Ante la duda, la palabra de AEMET
 | predicció, observació | predicción, observación |
 | encert (dels models) | acierto |
 
+## Comprobar que no queda catalán
+
+`npm run check:castella` (con el servidor en marcha; por defecto contra `http://es.localhost:3000`,
+o la dirección que se le pase) lee 33 páginas en castellano —portada, cuatro fichas, dos comarcas,
+todas las de sección, la 404 y los dos feeds— y busca palabras que solo existen en catalán en el
+texto visible, los `alt`, `aria-label`, `title`, `placeholder` y la descripción. Antes quita los
+nombres propios que el sitio conoce (territorio, playas, embalses, estaciones, cámaras), por eso
+el script de npm carga `.env.local`: lee los datos vivos del almacén.
+
+**Solo conoce las palabras de su lista.** Un bloque nuevo que escriba catalán con palabras que no
+están en ella pasa en verde. Al añadir texto, añadid las palabras: es la misma trampa que
+`check:coherence`, una regla que deja de casar no falla, calla.
+
+Empezó en 2.727 coincidencias y está en cero.
+
+## Tres trampas de la traducción
+
+- **`label={…}` no basta en `WeatherIcon`**: sin aviso la etiqueta es nula y el icono vuelve a su
+  nombre por defecto, en catalán. Necesita `lang`. Era el `alt` de todos los iconos por hora.
+- **Las rutas de datos con un segmento dinámico se comprueban después de las reescrituras.**
+  `/sitemap/municipis.xml` se reescribía a `/ca/sitemap/…` y daba 404, sin ningún error: los
+  sitemaps se habrían perdido con la fusión. Toda ruta así va a `NOT_PAGES` en `next.config.ts`.
+- **El pie no sabe en qué página está**, porque vive en el `layout`. «En castellano» apunta a
+  `/idioma`, que lee el camino del `Referer` y gira el dominio (`src/app/idioma/route.ts`). Sin
+  `Referer`, a la portada.
+
+## `hreflang` y sitemap
+
+`alternatesFor(path)` (`src/lib/site.ts`) da la canónica de cada página y, cuando `ES_PUBLIC` sea
+`true`, las alternativas `ca`, `es` y `x-default`. Mientras no lo sea no hay `hreflang`: señalar
+una página `noindex` como versión en otro idioma es una contradicción. `robots.txt` y los sitemaps
+dan las direcciones del dominio que los pide; el castellano no anuncia ninguno mientras no se
+publica, pero **no se cierra**: un robot que no puede entrar no lee el `noindex`.
+
 ## Lo que falta
 
 Por orden. Cada punto, en su rama, con su comprobación.
 
 1. ✅ La base: dominio, `[lang]`, `format.ts`, cabecera, pie, buscador, 404.
 2. ✅ Los nombres compartidos: avisos, códigos de tiempo, cuándo vale un aviso.
-3. Las frases: `narrative.ts`, `describe.ts` y los textos de `src/lib` que acaban en la ficha.
-4. La ficha de lugar y sus bloques, que son las 4.293 páginas.
-5. Las páginas de sección.
-6. Lo legal, los feeds, las imágenes para compartir, el sitemap y `hreflang`.
-7. `es.tempscat.cat` en Vercel y en Cloudflare, comprobar que no queda catalán y quitar el
-   `noindex`.
+3. ✅ Las frases: `narrative.ts`, `describe.ts` y los textos de `src/lib` que acaban en la ficha.
+4. ✅ La ficha de lugar y sus bloques, que son las 4.293 páginas.
+5. ✅ Las páginas de sección.
+6. ✅ Lo legal, los feeds, las imágenes para compartir, el sitemap y `hreflang`.
+7. `es.tempscat.cat` en Vercel y en Cloudflare, `check:castella` contra el dominio de verdad y
+   `ES_PUBLIC = true`.
+
+Queda en catalán, a propósito: el `og:image:alt` de las imágenes para compartir, que Next solo deja
+fijo por fichero (variarlo cambiaría la dirección de la imagen), y los nombres propios de rutas,
+playas y estaciones.
