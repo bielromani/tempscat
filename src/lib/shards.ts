@@ -232,6 +232,7 @@ export const FRESHNESS_SOURCES = [
   'forecast-field',
   'forecast-verify',
   'temperature-compare',
+  'hourly-verify',
   'cameras',
   'fgc-mountain',
 ] as const;
