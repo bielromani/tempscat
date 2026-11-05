@@ -373,9 +373,17 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
    * antes de este cambio, y con el disco local mientras no se refresca.
    */
   const stored = snap.data.daily?.[loc.forecastPointId];
-  const daily: DailyPoint[] = stored
+  /*
+   * Sense els dies que ja han passat. La sèrie comença les zero hores del dia
+   * en què es va demanar, així que entre la mitjanit i el refresc següent el
+   * primer dia és ahir, i la llista de catorze dies obria amb un dia que ja
+   * s'ha acabat, amb la predicció que se'n feia i no el que va passar.
+   */
+  const today = localToday();
+  const daily: DailyPoint[] = (stored
     ? fromStored(stored, tempCorrection, loc, hourly)
-    : aggregateDaily(hourly, { lat: loc.lat ?? null, lon: loc.lon ?? null });
+    : aggregateDaily(hourly, { lat: loc.lat ?? null, lon: loc.lon ?? null })
+  ).filter((d) => d.date >= today);
 
   return {
     hourly,

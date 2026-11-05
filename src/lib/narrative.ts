@@ -970,8 +970,17 @@ export function narrativeFor(
 ): Narrative | null {
   if (!forecast || !forecast.daily.length) return null;
 
-  const d0 = forecast.daily[0];
-  const d1 = forecast.daily[1] ?? null;
+  /*
+   * Avui es busca per la data, no per la posició. La sèrie comença les zero
+   * hores del dia en què es va demanar, i entre la mitjanit i el refresc
+   * següent el primer dia és ahir: llegint `daily[0]`, la frase d'avui deia la
+   * màxima d'ahir i la de demà, la pluja d'avui. Si avui no hi és, no hi ha
+   * frase.
+   */
+  const i0 = forecast.daily.findIndex((d) => d.date === today);
+  if (i0 < 0) return null;
+  const d0 = forecast.daily[i0];
+  const d1 = forecast.daily[i0 + 1] ?? null;
   const windows = rainWindows(forecast.hourly, nowHour);
   const parts = dayParts(forecast.hourly, nowHour, today, undefined, lang);
   const es = lang === 'es';
