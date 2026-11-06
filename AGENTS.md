@@ -197,6 +197,7 @@ npm run worker:muntanya   # neu, obertura d'estacions i meteo d'FGC, cada hora
 npm run worker:field      # el camp de vent del mapa · cada hora, i al final de `prediccio.yml`
 npm run worker:verify     # quant encerta cada model, contra la XEMA · un cop al dia
 npm run worker:compare    # la temperatura d'ara de les fitxes contra la dels models · un cop al dia
+npm run worker:hora       # la temperatura de les fitxes contra la de yr.no, ara i cada hora de demà · cada hora
 npm run worker:push       # avisos taronja i vermells al mòbil · darrere de worker:warnings, cada 15 min
 ```
 
@@ -1608,6 +1609,12 @@ cuota para exactamente la misma información.
   alhora o a cap. yr.no demana un `User-Agent` amb contacte i és CC BY 4.0. El pla gratuït del
   Meteocat **prohibeix difondre** el que retorna: entra a la comparació, però el resultat no es
   publica sense permís seu per escrit.
+  **Hora a hora, només yr.no**, que és l'únic que la dona per a un lloc en una API oberta:
+  `worker:hora` (`hourly-verify.ts`, cada hora a `camp.yml`) desa el que ensenya ara la fitxa i
+  el que diu yr.no del mateix instant, i `worker:verify` desa les 24 hores de demà de totes
+  dues. Es puntua per dia UTC contra la XEMA, interpolant entre les dues lectures de mitja hora
+  que envolten l'instant. L'ara i les hores de demà van en **trossos diferents**
+  (`-ara`, `-dema`): els escriuen dos workers que podrien coincidir.
 
 - **Passada la mitjanit, el primer dia de la sèrie diària és ahir.** (5 de novembre de 2026.)
   La sèrie comença les zero hores del dia en què es va demanar, i fins al refresc següent la
@@ -1615,6 +1622,18 @@ cuota para exactamente la misma información.
   demà, a les 4.293 fitxes, cada nit. `forecastFor()` deixa fora els dies passats i
   `narrativeFor()` busca avui per la data. Qualsevol cosa que vulgui «avui» de la sèrie diària
   l'ha de buscar per la data, mai per la posició.
+
+- **Qui gasta Vercel és un robot, no la gent.** (6 de novembre de 2026.) Arribat l'avís del
+  75 % del pla Pro, de les 45.600 peticions que en dotze hores van haver de generar una pàgina,
+  **40.010 eren d'OAI-SearchBot** (el cercador de ChatGPT) i unes 5.000 de persones. I 14.624
+  d'aquelles eren a `tempscat.vercel.app`, una segona còpia del web: la canònica no l'atura.
+  Ara redirigeix a `tempscat.cat` des de `next.config.ts`. El robot, a més, torna a demanar
+  `/radar`, `/mapa` o `/mar` cada vint segons i **no li serveix la memòria cau de cinc minuts**
+  (tot `MISS` a `iad1`, mentre que des d'aquí la segona petició ja és `HIT`). No el bloqueja
+  `robots.txt` perquè és el que fa sortir el web a les respostes de ChatGPT; si torna a
+  disparar el consum, la palanca és una regla de límit de peticions al Firewall de Vercel per
+  a aquest `User-Agent`, no tocar el codi de les pàgines. Per mirar-ho: Observability,
+  `vercel.request.count` per `bot_name` i `cache_result`.
 
 - **La 404 de les rutes dinàmiques arriba amb el cos buit, i és de Next.** (4 de novembre de
   2026.) `notFound()` dins d'una pàgina dinàmica fa que Next 16 enviï la closca d'error
