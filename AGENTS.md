@@ -1630,9 +1630,14 @@ cuota para exactamente la misma información.
   Ara redirigeix a `tempscat.cat` des de `next.config.ts`. El robot, a més, torna a demanar
   `/radar`, `/mapa` o `/mar` cada vint segons i **no li serveix la memòria cau de cinc minuts**
   (tot `MISS` a `iad1`, mentre que des d'aquí la segona petició ja és `HIT`). No el bloqueja
-  `robots.txt` perquè és el que fa sortir el web a les respostes de ChatGPT; si torna a
-  disparar el consum, la palanca és una regla de límit de peticions al Firewall de Vercel per
-  a aquest `User-Agent`, no tocar el codi de les pàgines. Per mirar-ho: Observability,
+  `robots.txt`, a posta: el web ha de sortir a ChatGPT, Gemini, Claude i companyia. El que hi
+  ha és una regla al Firewall de Vercel (panell del projecte → Firewall → Rules, **no és al
+  repositori**): `User-Agent` que contingui `OAI-SearchBot`, 30 peticions per minut comptades
+  per **JA4** —l'empremta TLS, que la flota comparteix; per IP cada màquina tindria el seu
+  comptador— i un 429 a partir d'aquí. 30 per minut són 43.000 al dia: n'hi ha de sobres per
+  recórrer les ~9.000 pàgines. Si un altre robot de cerca fa el mateix, la regla es copia, no
+  es toca el codi de les pàgines. L'API del Firewall contesta 404 per a aquest projecte: es
+  configura des del panell. Per mirar-ho: Observability,
   `vercel.request.count` per `bot_name` i `cache_result`.
 
 - **La 404 de les rutes dinàmiques arriba amb el cos buit, i és de Next.** (4 de novembre de
