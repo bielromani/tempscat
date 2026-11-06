@@ -144,6 +144,23 @@ const nextConfig: NextConfig = {
    */
   async redirects() {
     return [
+      /*
+       * `tempscat.vercel.app` és el web sencer una segona vegada, i el rastrejava
+       * un robot. Les pàgines ja hi portaven la canònica a `tempscat.cat`, però
+       * OAI-SearchBot no se'n fa res: el 6 de novembre de 2026 hi va fer 14.624
+       * de les 45.600 peticions que van haver de generar una pàgina en dotze
+       * hores —el 32 %—, totes duplicades de les de `tempscat.cat`. Amb la
+       * redirecció no es genera res: la contesta l'encaminador de Vercel, abans
+       * de cap funció. `www.` i `tempcat.cat` ja redirigeixen des del panell de
+       * dominis; aquest va aquí perquè quedi escrit al repositori i no depengui
+       * d'un ajust que cap prova no veu.
+       */
+      {
+        source: '/:path*',
+        has: [{ type: 'host' as const, value: 'tempscat\\.vercel\\.app' }],
+        destination: 'https://tempscat.cat/:path*',
+        permanent: true,
+      },
       { source: '/bolets', destination: '/ranquings', permanent: true },
       // El mapa que es mou i el radar es van fer una sola pàgina el 6 d'octubre de 2026.
       { source: '/mapa/interactiu', destination: '/radar', permanent: true },

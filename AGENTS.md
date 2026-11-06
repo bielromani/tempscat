@@ -1623,6 +1623,18 @@ cuota para exactamente la misma información.
   `narrativeFor()` busca avui per la data. Qualsevol cosa que vulgui «avui» de la sèrie diària
   l'ha de buscar per la data, mai per la posició.
 
+- **Qui gasta Vercel és un robot, no la gent.** (6 de novembre de 2026.) Arribat l'avís del
+  75 % del pla Pro, de les 45.600 peticions que en dotze hores van haver de generar una pàgina,
+  **40.010 eren d'OAI-SearchBot** (el cercador de ChatGPT) i unes 5.000 de persones. I 14.624
+  d'aquelles eren a `tempscat.vercel.app`, una segona còpia del web: la canònica no l'atura.
+  Ara redirigeix a `tempscat.cat` des de `next.config.ts`. El robot, a més, torna a demanar
+  `/radar`, `/mapa` o `/mar` cada vint segons i **no li serveix la memòria cau de cinc minuts**
+  (tot `MISS` a `iad1`, mentre que des d'aquí la segona petició ja és `HIT`). No el bloqueja
+  `robots.txt` perquè és el que fa sortir el web a les respostes de ChatGPT; si torna a
+  disparar el consum, la palanca és una regla de límit de peticions al Firewall de Vercel per
+  a aquest `User-Agent`, no tocar el codi de les pàgines. Per mirar-ho: Observability,
+  `vercel.request.count` per `bot_name` i `cache_result`.
+
 - **La 404 de les rutes dinàmiques arriba amb el cos buit, i és de Next.** (4 de novembre de
   2026.) `notFound()` dins d'una pàgina dinàmica fa que Next 16 enviï la closca d'error
   (`<html id="__next_error__">`): estat 404 i `<head>` bons, cos buit, i la pàgina la pinta
