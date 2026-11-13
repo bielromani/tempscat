@@ -50,7 +50,7 @@ export default async function WidgetPage({ searchParams }: {
   const picked = chosen && chosen.published && chosen.level !== 'comarca' ? chosen : undefined;
   const loc = picked ?? locationByPath(EXAMPLE)!;
   const hits = sp.q ? (await search(sp.q, lang)).hits.filter((h) => h.kind === 'poblacio').slice(0, 12) : [];
-  const available = piecesFor(await widgetData(loc, lang));
+  const available = piecesFor(loc, await widgetData(loc, lang));
 
   const trail = [
     { nom: t('Inici', 'Inicio'), path: '/' },

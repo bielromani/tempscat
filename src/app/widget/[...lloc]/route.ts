@@ -2,14 +2,17 @@ import { locationByPath } from '@/lib/territory';
 import { langFromHost } from '@/lib/lang';
 import { absolute } from '@/lib/site';
 import {
-  renderWidget, widgetData, DEFAULT_DAYS, DEFAULT_PIECES, WIDGET_DAYS, WIDGET_PIECES, WIDGET_THEMES,
-  type WidgetPiece, type WidgetTheme,
+  renderWidget, widgetData, DEFAULT_DAYS, DEFAULT_PIECES, WIDGET_DAYS, WIDGET_FORMATS, WIDGET_PIECES, WIDGET_THEMES,
+  type WidgetFormat, type WidgetPiece, type WidgetTheme,
 } from '@/lib/widget';
 
 /**
  * El widget d'un lloc:
  *
- *     /widget/<comarca>/<municipi>[/<entitat>]?mostra=avisos,vent,aire&dies=5&tema=clar
+ *     /widget/<comarca>/<municipi>[/<entitat>]?format=apaisat&mostra=avisos,vent,aire&dies=5&tema=clar&icones=0
+ *
+ * I `prova=1`, que només fa servir el configurador: vegeu «El mode de prova» a
+ * `src/lib/widget.ts`.
  *
  * Una route handler i no una pàgina: no passa pel layout del web ni porta el
  * runtime de React. Vegeu `src/lib/widget.ts`.
@@ -29,7 +32,7 @@ import {
  */
 export const dynamic = 'force-dynamic';
 
-const ALLOWED = new Set(['mostra', 'dies', 'tema']);
+const ALLOWED = new Set(['format', 'mostra', 'dies', 'tema', 'icones', 'prova']);
 
 export async function GET(req: Request, { params }: { params: Promise<{ lloc: string[] }> }) {
   const { lloc } = await params;
@@ -48,6 +51,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ lloc: st
   const theme = (q.get('tema') ?? 'fosc') as WidgetTheme;
   if (!WIDGET_THEMES.includes(theme)) return notFound();
 
+  const format = (q.get('format') ?? 'targeta') as WidgetFormat;
+  if (!WIDGET_FORMATS.includes(format)) return notFound();
+  const icons = q.get('icones');
+  if (icons != null && icons !== '0') return notFound();
+  const demo = q.get('prova');
+  if (demo != null && demo !== '1') return notFound();
+
   if (lloc.length < 2 || lloc.length > 3) return notFound();
   const loc = locationByPath(`/${lloc.join('/')}`);
   if (!loc || !loc.published || loc.level === 'comarca') return notFound();
@@ -55,7 +65,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ lloc: st
   const lang = langFromHost(req.headers.get('host'));
   const data = await widgetData(loc, lang);
   const html = renderWidget(loc, data, {
-    pieces: pieces as WidgetPiece[], days, theme, lang, href: absolute(loc.path, lang),
+    format, pieces: pieces as WidgetPiece[], days, theme, icons: icons == null, demo: demo === '1',
+    lang, href: absolute(loc.path, lang),
   });
 
   return new Response(html, {
