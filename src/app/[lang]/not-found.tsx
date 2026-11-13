@@ -82,7 +82,7 @@ export default async function NotFound() {
       </ul>
 
       <p className="mt-8 text-sm text-[var(--muted)]">
-        {t('O torneu a la ', 'O vuelva a la ')}<Link href="/">{t('portada', 'portada')}</Link>.
+        {t('O torneu a la ', 'O vuelva a la ')}<Link href="/" prefetch={false}>{t('portada', 'portada')}</Link>.
       </p>
     </article>
   );

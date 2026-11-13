@@ -79,7 +79,7 @@ export async function Crumbs({ trail }: { trail: Crumb[] }) {
         <span key={c.path}>
           {i > 0 && <span aria-hidden className="crumbs-sep">›</span>}
           {i < trail.length - 1
-            ? <Link href={c.path}>{c.nom}</Link>
+            ? <Link href={c.path} prefetch={c.path === '/' ? false : undefined}>{c.nom}</Link>
             : <span className="text-[var(--ink-2)]">{c.nom}</span>}
         </span>
       ))}

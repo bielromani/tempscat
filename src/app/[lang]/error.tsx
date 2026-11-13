@@ -51,7 +51,7 @@ export default function ErrorPage({
         >
           {t('Torneu-ho a provar', 'Vuelva a intentarlo')}
         </button>
-        <Link href="/">{t('Anar a la portada', 'Ir a la portada')}</Link>
+        <Link href="/" prefetch={false}>{t('Anar a la portada', 'Ir a la portada')}</Link>
       </div>
       {error.digest && (
         <p className="mt-8 text-xs text-[var(--muted)]">{t("Codi de l'error: ", 'Código del error: ')}{error.digest}</p>
