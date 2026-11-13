@@ -118,8 +118,11 @@ export function WidgetBuilder({ path, title, fitxa, origin, available, lang }: {
     return () => removeEventListener('message', onMessage);
   }, []);
 
-  const code = `<iframe src="${origin}${src}" width="${width}" height="${realHeight}" style="border:0;max-width:100%" loading="lazy" title="${title}"></iframe>
-<p style="margin:4px 0 0;font:13px sans-serif"><a href="${fitxa}">${title}</a> · TempsCat</p>
+  // L'enllaç que compta és aquest `<a>`: HTML pla, fora de l'iframe i fora de
+  // l'script, perquè un cercador el llegeixi sense executar res.
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const code = `<iframe src="${origin}${esc(src)}" width="${width}" height="${realHeight}" style="border:0;max-width:100%" loading="lazy" title="${esc(title)}"></iframe>
+<p style="margin:4px 0 0;font:13px sans-serif"><a href="${esc(fitxa)}">${esc(title)}</a> · TempsCat</p>
 <script>addEventListener("message",function(e){if(e.origin!=="${origin}"||!e.data||!e.data.tempscat)return;document.querySelectorAll("iframe").forEach(function(f){if(f.contentWindow===e.source)f.style.height=e.data.h+"px"})})</script>`;
 
   const toggle = (p: Piece) => setPieces((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));

@@ -105,6 +105,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     // I la lletra de les imatges per compartir, que `src/lib/og.tsx` llegeix igual: en temps d'execució.
     '/**': ['./data/build/**', './assets/fonts/**'],
+    // Les icones del widget, que van incrustades a l'HTML: vegeu `iconUri()` a `src/lib/widget.ts`.
+    '/widget/[...lloc]': ['./public/icons/w/**'],
   },
 
   /*

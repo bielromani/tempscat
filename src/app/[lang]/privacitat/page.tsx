@@ -266,6 +266,30 @@ export default async function Privacitat() {
         </div>
       </Section>
 
+      <Section id="widget" title={t('El widget en altres webs', 'El widget en otras webs')}>
+        <div className="card prose">
+          {es ? (
+            <p>
+              El <Link href="/widget">widget</Link> que otras webs ponen en sus páginas se
+              carga desde este dominio dentro de un <em>iframe</em>. Tampoco instala cookies ni
+              guarda nada en el navegador, y no sabe en qué web está. Lleva un solo script de
+              una línea, que comunica su altura a la página que lo contiene para que no quede
+              cortado. Como cualquier página, la petición queda en los registros técnicos del
+              proveedor que se describen arriba.
+            </p>
+          ) : (
+            <p>
+              El <Link href="/widget">widget</Link> que altres webs posen a les seves pàgines es
+              carrega des d’aquest domini dins d’un <em>iframe</em>. Tampoc no instal·la
+              galetes ni desa res al navegador, i no sap a quina web és. Porta un sol script
+              d’una línia, que diu la seva alçada a la pàgina que el conté perquè no quedi
+              tallat. Com qualsevol pàgina, la petició queda als registres tècnics del
+              proveïdor que es descriuen més amunt.
+            </p>
+          )}
+        </div>
+      </Section>
+
       <Section id="proveidors" title={t('Proveïdors', 'Proveedores')}>
         <div className="card prose">
           {es ? (

@@ -76,7 +76,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ lloc: st
       'Cache-Control': 'public, max-age=0, must-revalidate',
       'X-Robots-Tag': 'noindex',
       // Es pot posar a qualsevol web: és el que és. L'únic script és el de l'alçada.
-      'Content-Security-Policy': "frame-ancestors *; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'",
+      'Content-Security-Policy': "frame-ancestors *; default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'",
     },
   });
 }

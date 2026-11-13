@@ -1,4 +1,6 @@
 import 'server-only';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   airQualityFor, astronomyFor, currentFor, forecastFor, groupWarnings, localNowHour, localToday, warningsFor,
   type AirQuality,
@@ -52,7 +54,7 @@ import type { Location } from './territory';
  * ## Per què HTML escrit a mà i no un component de React
  *
  * Perquè es carrega dins de la web d'un altre, i hi ha d'anar el que s'ensenya i
- * prou: uns 6 kB i les icones, que ja són fitxers, en comptes del runtime de
+ * prou: uns 6 kB més les icones, incrustades —vegeu `iconUri()`—, en comptes del runtime de
  * React i la càrrega RSC.
  *
  * ## Per què no diu d'on surt cada dada
@@ -445,6 +447,32 @@ small{font-size:.72em;font-weight:500;color:var(--ink2)}
  */
 const SIZE_SCRIPT = `<script>(function(){function s(){parent.postMessage({tempscat:1,h:Math.ceil(document.body.getBoundingClientRect().height)},'*')}addEventListener('load',s);addEventListener('resize',s);s()})()</script>`;
 
+/**
+ * Les icones van **dins** de l'HTML, i no com a `/icons/w/<nom>.svg`.
+ *
+ * Una web amb el widget fa una petició al CDN per cada visita, i cada `<img>`
+ * en seria una altra: amb set dies, sis hores i els blocs, una visita en feia
+ * vint. El pla de Vercel es paga per peticions al CDN —vegeu «Les peticions al
+ * CDN» a `AGENTS.md`—, així que un widget amb èxit hauria multiplicat per vint
+ * el que costa. Incrustades, una visita és **una** petició, i la memòria cau de
+ * cinc minuts la contesta sencera. Pesen 1–4 kB cadascuna i les repeticions les
+ * aplana el gzip.
+ *
+ * Es llegeixen de `public/` en temps d'execució: `outputFileTracingIncludes` de
+ * `next.config.ts` les fa viatjar amb la funció.
+ */
+const ICONS = new Map<string, string>();
+function iconUri(name: string): string {
+  let uri = ICONS.get(name);
+  if (!uri) {
+    if (!/^[a-z0-9-]+$/.test(name)) throw new Error(`Icona amb un nom estrany: ${name}`);
+    const svg = readFileSync(join(process.cwd(), 'public', 'icons', 'w', `${name}.svg`), 'utf8');
+    uri = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+    ICONS.set(name, uri);
+  }
+  return uri;
+}
+
 /** El `title` de l'iframe i de la pàgina de dins. */
 export function widgetTitle(loc: Location, lang: Lang): string {
   return tr(lang, `El temps ${aName(loc.nom)}`, `El tiempo ${aName(loc.nom, lang)}`);
@@ -465,9 +493,9 @@ export function renderWidget(loc: Location, raw: WidgetData, o: WidgetOptions): 
     loc, d, o: opts, daily, todayIso,
     today: daily.find((x) => x.date === todayIso) ?? null,
     t: (ca, es) => tr(o.lang, ca, es),
-    img: (name, size, alt = '') => `<img src="/icons/w/${name}.svg" width="${size}" height="${size}" alt="${esc(alt)}">`,
+    img: (name, size, alt = '') => `<img src="${iconUri(name)}" width="${size}" height="${size}" alt="${esc(alt)}">`,
     sky: (code, isDay, size) => (opts.icons
-      ? `<img src="/icons/w/${weatherIconName(code, isDay)}.svg" width="${size}" height="${size}" alt="${esc(codeLabel(weatherCode(code), o.lang))}">`
+      ? `<img src="${iconUri(weatherIconName(code, isDay))}" width="${size}" height="${size}" alt="${esc(codeLabel(weatherCode(code), o.lang))}">`
       : ''),
   };
   const has = (p: WidgetPiece) => opts.pieces.includes(p);
