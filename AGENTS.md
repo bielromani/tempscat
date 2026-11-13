@@ -324,7 +324,7 @@ páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado.
 **Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
 interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí.
 
-Hay **cinco** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
+Hay **seis** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
 
 - `SiteSearch.tsx`, el cuadro de búsqueda de la cabecera. Va en todas las páginas, así que el
   coste se midió antes de ponerlo: **1.546 bytes en gzip**, la diferencia de sumar todos los
@@ -353,6 +353,11 @@ Hay **cinco** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar
   suscripción la crea el navegador, así que sin JavaScript la página dice qué hace falta.
   Registra `public/sw.js` **solo cuando alguien lo activa**: ese service worker no tiene
   `fetch`, no guarda nada y solo enseña la notificación.
+
+- `WidgetBuilder.tsx`, el configurador del widget, y solo en `/widget` (13 de noviembre de 2026).
+  Las casillas redibujan la vista previa al momento, que es lo que pide una herramienta. El
+  widget que se pone en otra web **no** es esto: es HTML de servidor sin React
+  (`src/lib/widget.ts`), con un solo script de una línea que anuncia su altura.
 
 El buscador y el menú son mejoras **encima** de algo que ya funcionaba sin JavaScript, y lo
 dejan funcionando: el buscador sigue siendo un `<form method="get">` que abre `/cerca` —por eso
@@ -1650,3 +1655,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+- **El widget per a altres webs: per peces, sense espai reservat i amb l'enllaç fora.** (13 de
+  novembre de 2026.) `/widget/<comarca>/<municipi>?mostra=avisos,vent,aire,mar,bandera,neu&dies=5&tema=clar`
+  és una route handler (`src/app/widget/[...lloc]/route.ts`) que torna HTML escrit a mà
+  (`src/lib/widget.ts`): uns 6 kB, cinc minuts al CDN i `noindex`. Els avisos i les banderes
+  **no ocupen lloc quan no n'hi ha** —ho va demanar l'usuari—, així que l'alçada no és fixa: el
+  widget l'anuncia amb `postMessage` i el codi que es copia porta les línies que l'escolten.
+  Els paràmetres que no són a la llista donen 404, perquè cada consulta diferent és una
+  entrada nova de la memòria cau. El widget **no porta línia de fonts** (també demanat): la
+  dada no és la de la font tal com ve, i la fitxa, on porta l'enllaç, ho explica. L'enllaç
+  que compta per als cercadors és el `<a>` de **fora** de l'iframe, cap a la fitxa del poble.
+  La marca és **TempsCat**, amb majúscules, des del mateix dia; el domini segueix sent
+  `tempscat.cat`.

@@ -136,8 +136,8 @@ export function PushAlerts(
     case 'ios':
       return (
         <p>
-          {t('A l’iPhone i l’iPad, primer cal afegir el web a la pantalla d’inici: toqueu el botó de compartir de Safari i després «Afegeix a la pantalla d’inici». Obriu tempscat des d’aquella icona, torneu a aquesta pàgina i ja ho podreu activar (cal iOS 16.4 o posterior).',
-            'En el iPhone y el iPad, primero hay que añadir la web a la pantalla de inicio: toque el botón de compartir de Safari y después «Añadir a pantalla de inicio». Abra tempscat desde ese icono, vuelva a esta página y ya podrá activarlo (hace falta iOS 16.4 o posterior).')}
+          {t('A l’iPhone i l’iPad, primer cal afegir el web a la pantalla d’inici: toqueu el botó de compartir de Safari i després «Afegeix a la pantalla d’inici». Obriu TempsCat des d’aquella icona, torneu a aquesta pàgina i ja ho podreu activar (cal iOS 16.4 o posterior).',
+            'En el iPhone y el iPad, primero hay que añadir la web a la pantalla de inicio: toque el botón de compartir de Safari y después «Añadir a pantalla de inicio». Abra TempsCat desde ese icono, vuelva a esta página y ya podrá activarlo (hace falta iOS 16.4 o posterior).')}
         </p>
       );
     case 'denied':

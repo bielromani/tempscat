@@ -36,7 +36,7 @@ import { alternatesFor } from '@/lib/site';
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getLang();
   return {
-    title: tr(lang, 'Privadesa i galetes · tempscat', 'Privacidad y cookies · tempscat'),
+    title: tr(lang, 'Privadesa i galetes · TempsCat', 'Privacidad y cookies · TempsCat'),
     description: tr(lang,
       'Quines dades personals tracta tempscat.cat (gairebé cap), qui les tracta i com exercir-hi els vostres drets. El lloc no fa servir galetes.',
       'Qué datos personales trata tempscat.cat (casi ninguno), quién los trata y cómo ejercer sus derechos. El sitio no utiliza cookies.'),

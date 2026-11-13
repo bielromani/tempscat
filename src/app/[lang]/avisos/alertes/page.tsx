@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getLang();
   return {
-    title: tr(lang, 'Avisos al mòbil · tempscat', 'Avisos en el móvil · tempscat'),
+    title: tr(lang, 'Avisos al mòbil · TempsCat', 'Avisos en el móvil · TempsCat'),
     description: tr(lang,
       'Rebeu al mòbil els avisos oficials taronja i vermell de l’AEMET per als llocs que trieu. '
       + 'Sense compte, sense correu i es poden apagar quan vulgueu.',

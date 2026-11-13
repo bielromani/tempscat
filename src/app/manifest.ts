@@ -16,8 +16,8 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'tempscat · El temps a Catalunya',
-    short_name: 'tempscat',
+    name: 'TempsCat · El temps a Catalunya',
+    short_name: 'TempsCat',
     description: 'El temps a cada poble de Catalunya, amb la seva altitud i l’estació que el mesura.',
     lang: 'ca',
     start_url: '/',

@@ -4,7 +4,7 @@ import { OG_SIZE, ogImage } from '@/lib/og';
 import { comarcaOf, locationByPath } from '@/lib/territory';
 
 /** La imatge per compartir la fitxa d'un municipi. Què hi va i què no, a `src/lib/og.tsx`. */
-export const alt = 'El temps del municipi, a tempscat';
+export const alt = 'El temps del municipi, a TempsCat';
 export const size = OG_SIZE;
 export const contentType = 'image/png';
 

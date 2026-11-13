@@ -1470,6 +1470,34 @@ a.tram-town:hover { text-decoration: underline; }
 .btn-primary:hover { background: var(--brand); filter: brightness(1.1); }
 .btn-quiet { font-size: 14px; padding: 5px 13px; }
 
+/* ── El configurador del widget (`WidgetBuilder.tsx`) ──────────────────────── */
+.widget-builder { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); margin-top: 24px; }
+@media (min-width: 900px) { .widget-builder { grid-template-columns: 300px minmax(0, 1fr); } }
+.wb-options { display: grid; gap: 18px; align-content: start; }
+.wb-options fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.wb-options legend { font-weight: 650; margin-bottom: 6px; }
+.wb-fixed { font-size: 13px; color: var(--muted); }
+.wb-check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.wb-check input { margin-top: 3px; width: 17px; height: 17px; accent-color: var(--brand); flex: none; }
+.wb-check small { display: block; font-size: 12.5px; color: var(--muted); }
+.chips button {
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 14px;
+  background: var(--accent-soft); color: var(--ink); cursor: pointer;
+}
+.chips button[aria-pressed="true"] { background: var(--brand); border-color: transparent; color: white; font-weight: 600; }
+.wb-preview { display: grid; gap: 6px; align-content: start; justify-items: start; min-width: 0; order: -1; }
+@media (min-width: 900px) { .wb-preview { order: 0; position: sticky; top: 16px; align-self: start; } }
+.wb-preview iframe { display: block; transition: height .15s; }
+.wb-link { font-size: 13px; }
+.wb-code { justify-self: stretch; margin-top: 18px; display: grid; gap: 8px; }
+.wb-code-head { display: flex; justify-content: space-between; align-items: center; font-weight: 650; }
+.wb-code-head button { background: var(--brand); color: white; border: 0; border-radius: 8px; padding: 6px 14px; font-weight: 600; cursor: pointer; }
+.wb-code textarea {
+  width: 100%; font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--ink-2);
+  background: oklch(0% 0 0 / 0.25); border: 1px solid var(--line); border-radius: 10px; padding: 10px; resize: vertical;
+}
+.wb-code p { font-size: 13px; color: var(--muted); }
+
 } /* @layer components */
 
 /* ── Fora de la capa: regles que han de guanyar a les utilitats ─────────────── */
