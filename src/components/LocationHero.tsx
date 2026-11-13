@@ -390,7 +390,7 @@ export function LocationHero({
             {breadcrumbs.slice(0, -1).map((b, i) => (
               <li key={b.path} className="flex items-center gap-x-1.5">
                 {i > 0 && <span aria-hidden className="opacity-60">›</span>}
-                <Link href={b.path} className="no-underline opacity-90 hover:opacity-100" style={{ color: 'inherit' }}>
+                <Link href={b.path} prefetch={b.path === '/' ? false : undefined} className="no-underline opacity-90 hover:opacity-100" style={{ color: 'inherit' }}>
                   {b.nom}
                 </Link>
               </li>

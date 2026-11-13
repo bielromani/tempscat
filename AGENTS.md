@@ -1683,16 +1683,24 @@ cuota para exactamente la misma información.
   en una setmana a `/`**, totes en memòria cau (99 %), en ràfegues de fins a 230.000 en una
   hora. Les feien sis IPs —connexions domèstiques de Telefónica i Digi i la xarxa de la
   CCMA— amb navegadors normals de Windows, dues o tres per segon cadascuna, i **només a `/`**.
-  La portada oberta en un navegador no es torna a demanar sola (comprovat), així que és algun
-  programa o extensió que recarrega.
+  **No era cap programa: era el nostre web.** Agrupant a Observability per tipus de contingut,
+  per `Referrer URL` i per `Prefetch Request`, les 518.000 peticions d'un dia a `/` eren
+  **totes precàrregues** (`text/x-component`) fetes des de pestanyes obertes en una altra
+  pàgina —`/baix-camp/cambrils`, `/val-d-aran`, `/dades`—, cadascuna a uns 16 per segon durant
+  hores: el router de Next tornava a precarregar l'enllaç del logo en bucle. Només passava amb
+  `/` (la ruta següent en feia 3.300) i en local, amb `next start`, **no es reprodueix**: és
+  com Vercel resol la precàrrega de `/`, que es reescriu a `/ca` amb una regla pròpia. Per
+  això **cap enllaç a `/` fa precàrrega** (`prefetch={false}` al logo, al peu, a la molla
+  «Catalunya» de `PageHero` i `LocationHero` i a les pàgines d'error). Un enllaç nou a la
+  portada, igual. Per comprovar-ho: Observability, `requestPath = /` agrupat per `Referrer URL`.
   Tres coses que no són evidents. **Una petició servida des de la memòria cau compta igual**:
   el `HIT` estalvia la funció, no la petició. **El que el Firewall denega, desafia o limita no
   compta com a petició al CDN** (documentació de preus del WAF), així que la palanca és el
   Firewall i no el codi. I **el límit de peticions es paga a part**: 0,50 $ per milió de
   peticions que la regla avalua; per això la regla només mira `/` i no tot el web. La regla és
-  «Portada: 20 peticions per minut i IP», amb 429 i l'IP bloquejada **una hora** després
-  d'excedir-lo; una hora i no un minut perquè, si no, el programa tornaria a passar vint
-  peticions cada minut.
+  «Portada: 60 peticions per minut i IP», amb 429 i l'IP bloquejada **una hora** després
+  d'excedir-lo. El bloqueig és **de tot el web**, no només de `/`: a 20 per minut va
+  bloquejar el mateix autor mentre navegava, per la precàrrega en bucle.
   Per mirar-ho: **Firewall → Traffic** dona les IPs, els agents i els camins de les últimes
   24 h, que és el que va trobar això; Observability → CDN Requests, per camí i per robot; i
   **Usage → CDN Requests per projecte**, que és el número que mana. El tram el canvia
