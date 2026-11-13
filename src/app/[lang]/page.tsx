@@ -152,8 +152,8 @@ export default async function Home() {
             <span className="home-promo-title">{t('El temps del vostre poble, a la vostra web', 'El tiempo de su pueblo, en su web')}</span>
             <span className="home-promo-lead">
               {t(
-                'Gratuït i a mida: trieu el poble, la mida i què hi surt. Sense galetes.',
-                'Gratuito y a medida: elija el pueblo, el tamaño y qué aparece. Sin cookies.',
+                'En temps real, gratuït i a mida: trieu el poble, la mida i què hi surt. Sense cookies.',
+                'En tiempo real, gratis y a medida: elija el pueblo, el tamaño y qué aparece. Sin cookies.',
               )}
             </span>
             <span className="home-promo-cta">{t('Creeu el vostre widget ›', 'Cree su widget ›')}</span>
