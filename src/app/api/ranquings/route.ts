@@ -20,7 +20,12 @@ import { rankings, type PlaceRow, type StationRow } from '@/lib/rankings';
  * decidido no tener, y se colaba por la puerta de atrás.
  */
 
-export const revalidate = 600;
+/**
+ * Generada a cada petició, amb cinc minuts al CDN: vegeu la nota de la memòria
+ * cau a `src/app/api/lloc/[...slug]/route.ts`. Amb `revalidate = 600` (ISR), el
+ * 13 de novembre de 2026 la primera petició va tornar els extrems del dia 6.
+ */
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const r = await rankings();
@@ -90,7 +95,8 @@ export async function GET() {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=3600',
+      'Cache-Control': 'public, max-age=0, must-revalidate',
+      'Vercel-CDN-Cache-Control': 'max-age=300',
       'X-Robots-Tag': 'noindex',
     },
   });

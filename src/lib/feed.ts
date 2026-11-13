@@ -4,7 +4,7 @@ import { codeLabel, weatherCode } from './weather-codes';
 import { narrativeFor } from './narrative';
 import { sourceText } from './sea';
 import {
-  airQualityFor, currentFor, forecastFor, localNowHour, localToday, rainWarningsOf, warningsFor,
+  airQualityFor, currentFor, forecastFor, localNowHour, localToday, rainWarningsOf, warningsCheckedAt, warningsFor,
 } from './weather';
 import { comarcaOf, locationById, type Location } from './territory';
 import { phenomenonName } from './warning-labels';
@@ -39,8 +39,64 @@ const LICENSE: Record<Lang, string> = {
   es: 'Datos bajo CC-BY 4.0. Hay que citar la fuente de cada bloque, indicada en "sources".',
 };
 
+/**
+ * Les hores de sèrie horària: per defecte 48 i com a molt 168.
+ *
+ * El sostre de 168 és el de la documentació, però **la sèrie en porta menys**:
+ * la finestra horària de la predicció són cinc dies (120 h, i 119 després del
+ * desplaçament de la pluja a `mergeHourly`), així que qui en demana 168 en rep
+ * les que hi ha, i `forecast.hourly_count` diu quantes. Validar-ho aquí, en un
+ * sol lloc, és el que fa que `?hours=abc` o `?hours=999` donin un 400 en
+ * comptes de les 48 per defecte en silenci: un consumidor que es creu que en
+ * rep 999 i en rep 48 no veu cap error.
+ */
+export const FEED_HOURS = { default: 48, max: 168 } as const;
+
+/** `null` si no és una xifra entera entre 1 i 168. */
+export function parseFeedHours(raw: string | null): number | undefined | null {
+  if (raw == null || raw === '') return undefined;
+  if (!/^\d+$/.test(raw)) return null;
+  const n = Number(raw);
+  return n >= 1 && n <= FEED_HOURS.max ? n : null;
+}
+
+/**
+ * Les unitats de cada camp, dins de la resposta.
+ *
+ * El vent va en **m/s** —com a la XEMA i com a `variables.ts`— i només
+ * `wind_speed_kmh`, `wind_gust_kmh` i el CSV el porten en km/h. Un consumidor que
+ * llegeix `wind_gust: 12` i el pinta com a km/h no rep cap error: rep una ratxa
+ * tres vegades i mitja més fluixa. Va dins del JSON perquè és on mira qui en fa
+ * un adaptador, i amb la clau del camp tal com surt.
+ */
+const UNITS = {
+  temperature: '°C',
+  apparent_temperature: '°C',
+  dew_point: '°C',
+  humidity: '%',
+  cloud_cover: '%',
+  precipitation: 'mm',
+  precipitation_probability: '%',
+  snowfall: 'cm',
+  wind_speed: 'm/s',
+  wind_gust: 'm/s',
+  wind_max: 'm/s',
+  wind_gust_max: 'm/s',
+  wind_speed_kmh: 'km/h',
+  wind_gust_kmh: 'km/h',
+  wind_direction: '°',
+  pressure_station: 'hPa',
+  uv_index: 'UV',
+  freezing_level: 'm',
+  snow_level: 'm',
+  elevation: 'm',
+  distance_km: 'km',
+  european_aqi: 'EAQI',
+  pollutants: 'µg/m³',
+} as const;
+
 export interface FeedOptions {
-  /** Horas de serie horaria. Por defecto 48; el techo es el horizonte del modelo. */
+  /** Horas de serie horaria: ver `FEED_HOURS`. */
   hours?: number;
   /**
    * L'idioma dels textos (llicència, fenomen, temps, capçaleres del CSV). Els
@@ -57,7 +113,7 @@ const r0 = (v: number | null | undefined) =>
   v == null || !Number.isFinite(v) ? null : Math.round(v);
 
 export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
-  const hours = Math.max(1, Math.min(168, opts.hours ?? 48));
+  const hours = Math.max(1, Math.min(FEED_HOURS.max, opts.hours ?? FEED_HOURS.default));
   const lang = opts.lang ?? 'ca';
 
   const comarca = comarcaOf(loc);
@@ -66,8 +122,8 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
     : locationById(loc.parentId ?? '') ?? null;
 
   // Las cuatro a la vez: son lecturas independientes de instantáneas distintas.
-  const [current, forecast, air, warnings] = await Promise.all([
-    currentFor(loc), forecastFor(loc), airQualityFor(loc), warningsFor(loc),
+  const [current, forecast, air, warnings, warningsAt] = await Promise.all([
+    currentFor(loc), forecastFor(loc), airQualityFor(loc), warningsFor(loc), warningsCheckedAt(),
   ]);
   const nowHour = localNowHour();
   const today = localToday();
@@ -86,9 +142,34 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
     generated_at: new Date().toISOString(),
     license: LICENSE[lang],
     sources: [...new Set(sources)],
+    units: UNITS,
+    /*
+     * De quan és cada bloc. `observation`, `forecast` i `air_quality` ja porten
+     * la seva hora a dins. `summary`, `day_parts` i `rain_windows` es calculen en
+     * aquesta petició a partir de la predicció i de l'observació, així que la seva
+     * hora és la d'aquelles dues; `warnings`, la de l'última consulta a l'AEMET,
+     * que és el que diu si una llista buida vol dir «cap avís» o «no se sap».
+     */
+    data_times: {
+      observation: current?.observedAt ?? null,
+      forecast: forecast?.issuedAt ?? null,
+      air_quality: air?.observedAt ?? null,
+      warnings: warningsAt,
+      summary: forecast?.issuedAt ?? null,
+    },
 
     location: {
+      /**
+       * El `codi_13` del Nomenclàtor de l'IDESCAT: els sis primers dígits són el
+       * municipi i els set últims l'entitat (zeros per al municipi sencer). Els
+       * barris, que no són al Nomenclàtor, porten el municipi, una `B` i el codi
+       * del barri. Per creuar amb altres fonts, millor els dos camps de sota.
+       */
       id: loc.id,
+      /** Codi de municipi de sis xifres (INE amb el dígit de control), el que fa servir l'IDESCAT. */
+      municipality_code: loc.municipiCodi ?? null,
+      /** Codi INE de cinc xifres, el que fan servir l'AEMET i l'INE. */
+      ine_code: loc.municipiIne5 ?? null,
       name: loc.nom,
       level: loc.level,
       path: loc.path,
@@ -144,6 +225,7 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
       wind_speed_kmh: r1(current.windSpeed != null ? msToKmh(current.windSpeed) : null),
       wind_direction: current.windDirection,
       wind_gust: current.windGust,
+      wind_gust_kmh: r0(current.windGust != null ? msToKmh(current.windGust) : null),
       pressure_station: current.pressure,
       precipitation_24h: current.precip24h,
       temperature_max_today: current.todayMax,
@@ -204,6 +286,8 @@ export async function locationFeed(loc: Location, opts: FeedOptions = {}) {
       elevation_correction_m: forecast.altitudeCorrectionM,
       /** Falso mientras no exista la verificación por acierto: hoy los modelos pesan igual. */
       skill_weighted: forecast.skillWeighted,
+      /** Quantes hores porta `hourly`: les demanades, o menys si la sèrie no arriba. */
+      hourly_count: Math.min(hours, forecast.hourly.length),
       hourly: forecast.hourly.slice(0, hours).map((h) => ({
         time: h.time,
         temperature: h.temperature,
@@ -289,7 +373,7 @@ const CSV_COLUMNS = [
  * nombre de la columna lo dice para que no haya duda.
  */
 export async function locationCsv(loc: Location, opts: FeedOptions = {}): Promise<string> {
-  const hours = Math.max(1, Math.min(168, opts.hours ?? 48));
+  const hours = Math.max(1, Math.min(FEED_HOURS.max, opts.hours ?? FEED_HOURS.default));
   const lang = opts.lang ?? 'ca';
   const forecast = await forecastFor(loc);
   if (!forecast) return tr(lang, `# Sense predicció per a ${loc.nom}\n`, `# Sin predicción para ${loc.nom}\n`);
