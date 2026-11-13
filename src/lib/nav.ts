@@ -84,6 +84,7 @@ export function sections(lang: Lang): NavGroup[] {
       links: [
         { href: '/estacions', label: t('Estacions', 'Estaciones'), blurb: t('Les 189 estacions del Meteocat, una per una.', 'Las 189 estaciones del Meteocat, una a una.') },
         { href: '/dades', label: t('Dades obertes', 'Datos abiertos'), blurb: t('Tot en JSON i en CSV, per reutilitzar-ho.', 'Todo en JSON y en CSV, para reutilizarlo.') },
+        { href: '/widget', label: t('El temps a la vostra web', 'El tiempo en su web'), blurb: t('Un widget gratuït del vostre poble, a mida.', 'Un widget gratuito de su pueblo, a medida.') },
         { href: '/estat', label: t('Estat de les dades', 'Estado de los datos'), blurb: t('Quan s’ha actualitzat cada font.', 'Cuándo se ha actualizado cada fuente.') },
       ],
     },
@@ -94,11 +95,11 @@ export function sections(lang: Lang): NavGroup[] {
 export const CAPITAL_PATHS = ['/barcelones/barcelona', '/girones/girona', '/segria/lleida', '/tarragones/tarragona'];
 
 /**
- * Els accessos ràpids de sota el cercador: les capitals i dos llocs de muntanya.
- * Surten a la portada i a la pàgina de «no trobada», que han de dir el mateix.
+ * Els accessos ràpids de la pàgina de «no trobada»: les quatre capitals.
+ *
+ * A la portada hi eren també, sota el cercador, amb Vielha i Puigcerdà, i es
+ * van treure el 13 de novembre de 2026: les capitals ja hi surten just a sota
+ * amb el temps d'ara, i dos llocs de muntanya triats a mà no deien per què
+ * aquells i no uns altres.
  */
-export const QUICK_PLACES = [
-  ...CAPITAL_PATHS,
-  '/val-d-aran/vielha-e-mijaran/vielha',
-  '/cerdanya/puigcerda',
-];
+export const QUICK_PLACES = CAPITAL_PATHS;

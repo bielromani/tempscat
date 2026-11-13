@@ -1027,7 +1027,68 @@ button:focus-visible,
 }
 
 @media (min-width: 1024px) {
-  .home-top { grid-template-columns: minmax(0, 1fr) minmax(0, 31rem); gap: 48px; padding-top: 12px; }
+  /* L'anunci del widget va sota el cercador, a la columna del títol, i el mapa
+     ocupa les dues files de la dreta. Al mòbil, l'ordre del codi: títol, mapa,
+     anunci. */
+  .home-top {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 31rem);
+    grid-template-areas: "intro map" "promo map";
+    gap: 28px 48px;
+    padding-top: 12px;
+  }
+  .home-intro { grid-area: intro; align-self: end; }
+  .home-map { grid-area: map; }
+  .home-promo { grid-area: promo; align-self: start; max-width: 34rem; }
+}
+
+/* L'anunci del widget: una targeta de vidre com les altres, amb una miniatura
+   del widget dibuixada amb el temps d'ara. Sense colors que cridin: és una
+   cosa que es pot fer amb el web, no publicitat. */
+.home-promo {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 18px 14px 14px;
+  border-radius: 20px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.home-promo:hover { background: oklch(100% 0 0 / 0.11); border-color: var(--line); }
+.home-promo:hover .home-promo-mini { transform: rotate(0deg); }
+.home-promo-mini {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: 118px;
+  padding: 10px 12px 8px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #1a3b66, #0e1e35);
+  border: 1px solid oklch(100% 0 0 / 0.14);
+  box-shadow: 0 8px 20px oklch(0% 0 0 / 0.28);
+  transform: rotate(-3deg);
+  transition: transform 160ms ease;
+}
+@media (prefers-reduced-motion: reduce) { .home-promo-mini { transition: none; } }
+.home-promo-row { display: flex; align-items: center; gap: 2px; margin-left: -6px; }
+.home-promo-temp { font-size: 30px; font-weight: 300; line-height: 1; letter-spacing: -0.02em; }
+.home-promo-name { margin-top: 2px; font-size: 12.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-promo-brand { align-self: flex-end; margin-top: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.01em; color: var(--ink-2); }
+.home-promo-brand b { color: #7cc4ff; font-weight: 700; }
+.home-promo-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.home-promo-title { font-size: 16px; font-weight: 650; line-height: 1.3; }
+.home-promo-lead { font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.home-promo-cta { margin-top: 4px; font-size: 14px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+@media (max-width: 639px) {
+  .home-promo { gap: 14px; padding: 12px 14px 12px 12px; }
+  .home-promo-mini { width: 96px; padding: 8px 10px 6px; }
+  .home-promo-row svg, .home-promo-row img { width: 32px; height: 32px; }
+  .home-promo-temp { font-size: 24px; }
+  .home-promo-name { font-size: 11.5px; }
+  .home-promo-title { font-size: 15px; }
+  .home-promo-lead { font-size: 13.5px; }
 }
 
 .home-date {
@@ -1167,9 +1228,14 @@ a.extreme-place:hover { color: var(--ink); text-decoration: underline; }
 .explore-label { font-size: 15.5px; font-weight: 650; align-self: end; }
 .explore-blurb { font-size: 13.5px; line-height: 1.4; color: var(--muted); align-self: start; }
 
+/* A partir de 640 px, targetes centrades. Ull: en una columna flex,
+   `align-self: end` vol dir «a la dreta», no «a baix» com a la graella del
+   mòbil, i per això els títols havien quedat arraconats a la dreta sota una
+   icona centrada. */
 @media (min-width: 640px) {
-  .explore-link { display: flex; flex-direction: column; gap: 4px; padding: 16px; }
+  .explore-link { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 16px; text-align: center; }
   .explore-icon { margin-bottom: 8px; }
+  .explore-label, .explore-blurb { align-self: auto; }
 }
 
 
