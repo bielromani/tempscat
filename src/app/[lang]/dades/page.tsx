@@ -88,7 +88,8 @@ function Endpoint({
       </Code>
       <p className="mt-3 text-[15px] leading-relaxed text-[var(--ink-2)]">{children}</p>
       <p className="card-foot pt-3" style={{ marginTop: 'auto' }}>
-        <Link href={example} className="font-mono text-[13px] [overflow-wrap:anywhere]">{example} ›</Link>
+        {/* Sense `prefetch`: és una resposta JSON (la de `/api/llocs` fa 1 MB), no una pàgina. */}
+        <Link href={example} prefetch={false} className="font-mono text-[13px] [overflow-wrap:anywhere]">{example} ›</Link>
       </p>
     </li>
   );
@@ -215,6 +216,18 @@ export default async function DadesPage() {
             Els extrems del dia: on ha fet la màxima i la mínima, quina estació ha
             tingut més amplitud tèrmica, on ha plogut més i les ratxes més fortes.
           </Endpoint>
+
+          <Endpoint path="/api/llocs" example="/api/llocs">
+            Tots els llocs amb fitxa —municipis, nuclis i barris— amb el codi de
+            municipi, el codi INE, les coordenades i el <C>path</C> que cal demanar a{' '}
+            <C>/api/lloc</C>.
+          </Endpoint>
+
+          <Endpoint path="/api/punt?lat={lat}&lon={lon}" example="/api/punt?lat=41.39&lon=2.17">
+            El lloc que toca a una coordenada, amb dos decimals (un quilòmetre): el
+            municipi on cau el punt i el nucli més proper. Torna l&apos;adreça de les
+            seves dades; amb més decimals, redirigeix a la coordenada arrodonida.
+          </Endpoint>
         </ul>
       </Section>
 
@@ -235,8 +248,10 @@ export default async function DadesPage() {
                     Hores de sèrie horària{' '}
                     <strong className="font-semibold text-[var(--ink)]">comptades des de les 00:00
                     d&apos;avui</strong>, no des d&apos;ara: el feed torna el mateix que dibuixa
-                    la pàgina, dia sencer inclòs. Per defecte 48; el màxim és 168, que és
-                    l&apos;horitzó del model.
+                    la pàgina, dia sencer inclòs. Ha de ser un nombre enter entre 1 i 168;
+                    per defecte, 48. La sèrie horària arriba a uns cinc dies, així que se&apos;n
+                    poden rebre menys de les demanades: <C>forecast.hourly_count</C> diu
+                    quantes en porta. Un valor que no sigui vàlid torna un error 400.
                     <span className="mt-1.5 block">
                       Per a les pròximes N hores, <C>forecast.now</C> porta l&apos;hora en curs
                       i el seu índex dins la sèrie: així no cal recalcular la zona horària de
@@ -252,6 +267,7 @@ export default async function DadesPage() {
                     <span className="mt-1.5 block">
                       <Link
                         href={`${EXAMPLE}?format=csv`}
+                        prefetch={false}
                         className="font-mono text-[13px] [overflow-wrap:anywhere]"
                         style={{ color: 'var(--accent)' }}
                       >
@@ -268,6 +284,26 @@ export default async function DadesPage() {
 
       <Section id="camps" title="Què porta cada resposta">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4">
+          <div className="card prose">
+            <h3 style={{ marginTop: 0 }}>Les unitats</h3>
+            <p>
+              El vent i les ratxes van en <strong>m/s</strong>, com a la XEMA:{' '}
+              <C>wind_speed</C>, <C>wind_gust</C>, <C>wind_max</C> i <C>wind_gust_max</C>.
+              Només <C>wind_speed_kmh</C>, <C>wind_gust_kmh</C> i el CSV porten km/h.
+              Cada resposta porta un camp <C>units</C> amb la unitat de cada camp.
+            </p>
+          </div>
+          <div className="card prose">
+            <h3 style={{ marginTop: 0 }}>Els codis i les hores</h3>
+            <p>
+              <C>location.id</C> és el codi de 13 xifres del Nomenclàtor de l&apos;IDESCAT.
+              Per creuar amb altres fonts hi ha <C>municipality_code</C>, el codi de
+              municipi de sis xifres de l&apos;IDESCAT, i <C>ine_code</C>, el de cinc de
+              l&apos;INE i l&apos;AEMET. <C>data_times</C> diu de quan és cada bloc,
+              també els avisos: una llista buida amb una hora recent vol dir que no
+              n&apos;hi ha.
+            </p>
+          </div>
           <div className="card prose">
             <h3 style={{ marginTop: 0 }}>La procedència de cada número</h3>
             <p>
@@ -452,6 +488,18 @@ function DatosAbiertos() {
             Los extremos del día: dónde se ha registrado la máxima y la mínima, qué estación ha
             tenido más amplitud térmica, dónde ha llovido más y las rachas más fuertes.
           </Endpoint>
+
+          <Endpoint path="/api/llocs" example="/api/llocs">
+            Todos los lugares con ficha —municipios, núcleos y barrios— con el código de
+            municipio, el código INE, las coordenadas y el <C>path</C> que hay que pedir a{' '}
+            <C>/api/lloc</C>.
+          </Endpoint>
+
+          <Endpoint path="/api/punt?lat={lat}&lon={lon}" example="/api/punt?lat=41.39&lon=2.17">
+            El lugar que corresponde a una coordenada, con dos decimales (un kilómetro): el
+            municipio donde cae el punto y el núcleo más cercano. Devuelve la dirección de
+            sus datos; con más decimales, redirige a la coordenada redondeada.
+          </Endpoint>
         </ul>
       </Section>
 
@@ -472,8 +520,10 @@ function DatosAbiertos() {
                     Horas de serie horaria{' '}
                     <strong className="font-semibold text-[var(--ink)]">contadas desde las 00:00
                     de hoy</strong>, no desde ahora: el feed devuelve lo mismo que dibuja
-                    la página, día entero incluido. Por defecto 48; el máximo es 168, que es
-                    el horizonte del modelo.
+                    la página, día entero incluido. Tiene que ser un número entero entre 1 y
+                    168; por defecto, 48. La serie horaria llega a unos cinco días, así que se
+                    pueden recibir menos de las pedidas: <C>forecast.hourly_count</C> dice
+                    cuántas lleva. Un valor que no sea válido devuelve un error 400.
                     <span className="mt-1.5 block">
                       Para las próximas N horas, <C>forecast.now</C> lleva la hora en curso
                       y su índice dentro de la serie: así no hace falta recalcular la zona horaria de
@@ -489,6 +539,7 @@ function DatosAbiertos() {
                     <span className="mt-1.5 block">
                       <Link
                         href={`${EXAMPLE}?format=csv`}
+                        prefetch={false}
                         className="font-mono text-[13px] [overflow-wrap:anywhere]"
                         style={{ color: 'var(--accent)' }}
                       >
@@ -505,6 +556,25 @@ function DatosAbiertos() {
 
       <Section id="camps" title="Qué lleva cada respuesta">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4">
+          <div className="card prose">
+            <h3 style={{ marginTop: 0 }}>Las unidades</h3>
+            <p>
+              El viento y las rachas van en <strong>m/s</strong>, como en la XEMA:{' '}
+              <C>wind_speed</C>, <C>wind_gust</C>, <C>wind_max</C> y <C>wind_gust_max</C>.
+              Solo <C>wind_speed_kmh</C>, <C>wind_gust_kmh</C> y el CSV llevan km/h.
+              Cada respuesta lleva un campo <C>units</C> con la unidad de cada campo.
+            </p>
+          </div>
+          <div className="card prose">
+            <h3 style={{ marginTop: 0 }}>Los códigos y las horas</h3>
+            <p>
+              <C>location.id</C> es el código de 13 cifras del Nomenclàtor del IDESCAT.
+              Para cruzar con otras fuentes están <C>municipality_code</C>, el código de
+              municipio de seis cifras del IDESCAT, e <C>ine_code</C>, el de cinco del INE
+              y de AEMET. <C>data_times</C> dice de cuándo es cada bloque, también los
+              avisos: una lista vacía con una hora reciente quiere decir que no hay.
+            </p>
+          </div>
           <div className="card prose">
             <h3 style={{ marginTop: 0 }}>La procedencia de cada número</h3>
             <p>

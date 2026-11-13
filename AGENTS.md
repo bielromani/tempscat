@@ -1698,6 +1698,22 @@ cuota para exactamente la misma información.
   **Usage → CDN Requests per projecte**, que és el número que mana. El tram el canvia
   **Billing → Flat Rate CDN → Configure**.
 
+- **Les route handlers amb dades d'ara tampoc no poden ser ISR.** (13 de novembre de 2026.)
+  `/api/ranquings` va tornar, a la primera petició, els extrems del **6 de novembre** el dia
+  13: tenia `revalidate = 600` i `stale-while-revalidate=3600`, i ISR serveix primer la còpia
+  vella encara que tingui dies. És el mateix que ja s'havia arreglat a les pàgines
+  (`LIVE_PAGES`), però les route handlers no passen per aquella llista. `/api/lloc`,
+  `/api/ranquings` i `/avisos/feed` porten ara `dynamic = 'force-dynamic'` i
+  `Vercel-CDN-Cache-Control: max-age=300`. Una route handler nova amb dades d'ara, igual.
+  Al mateix temps, a petició d'un consumidor de l'API: `units` a la resposta —el vent va en
+  **m/s**, i qui ho llegeix com a km/h no veu cap error—; `municipality_code` (sis xifres,
+  IDESCAT) i `ine_code` (cinc, INE i AEMET) a `location` —`id` és el `codi_13` del
+  Nomenclàtor—; `data_times`, que diu també quan es van mirar els avisos; `hours` validat
+  (un enter d'1 a 168, i si no 400) amb `forecast.hourly_count`, perquè la sèrie en porta
+  119 i abans `?hours=999` tornava 48 en silenci; i `/api/llocs` i `/api/punt`. Els enllaços
+  d'exemple de `/dades` porten `prefetch={false}`: `/api/llocs` fa 1 MB i el `<Link>`
+  l'hauria baixat a cada visita.
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.

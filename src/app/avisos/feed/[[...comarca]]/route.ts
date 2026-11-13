@@ -23,7 +23,12 @@ import { langFromHost, tr } from '@/lib/lang';
  * pasa por [lang], así que el idioma sale del dominio de la petición. Cada
  * dominio tiene su caché, y los identificadores llevan su propio dominio.
  */
-export const revalidate = 300;
+/*
+ * Generat a cada petició, amb cinc minuts al CDN. Amb `revalidate` (ISR), un
+ * feed que ningú no havia demanat en dies tornava a la primera petició els
+ * avisos de dies enrere: vegeu `src/app/api/lloc/[...slug]/route.ts`.
+ */
+export const dynamic = 'force-dynamic';
 
 /*
  * El dominio de verdad, no uno escrito a mano.
@@ -64,7 +69,8 @@ export async function GET(
   const headers = {
     'Access-Control-Allow-Origin': '*',
     // Cinco minutos, como la página: en un episodio el retraso se nota.
-    'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=900',
+    'Cache-Control': 'public, max-age=0, must-revalidate',
+    'Vercel-CDN-Cache-Control': 'max-age=300',
   };
 
   if (new URL(req.url).searchParams.get('format') === 'ics') {

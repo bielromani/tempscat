@@ -430,6 +430,16 @@ export async function warningsFor(loc: Location): Promise<Warning[]> {
 }
 
 /**
+ * Quan es va consultar l'AEMET per última vegada. Una llista d'avisos buida no
+ * diu res sense aquesta hora: pot voler dir «no n'hi ha» o «fa un dia que no es
+ * mira». La fa servir el feed de `/api/lloc`.
+ */
+export async function warningsCheckedAt(): Promise<string | null> {
+  const snap = await snapshot<Warning[]>('warnings');
+  return snap?.fetchedAt ?? null;
+}
+
+/**
  * Els avisos de pluja i de tempesta d'un lloc, amb les hores en hora de Madrid.
  *
  * És el que necessita `narrativeFor()` per no escriure «sempre feble» sota un

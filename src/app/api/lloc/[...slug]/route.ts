@@ -1,4 +1,4 @@
-import { locationCsv, locationFeed } from '@/lib/feed';
+import { locationCsv, locationFeed, parseFeedHours, FEED_HOURS } from '@/lib/feed';
 import { langFromHost, tr } from '@/lib/lang';
 import { locationByPath } from '@/lib/territory';
 
@@ -20,15 +20,21 @@ import { locationByPath } from '@/lib/territory';
  *    imposible.
  *  · **`X-Robots-Tag: noindex`.** El riesgo declarado de este proyecto es el
  *    *index bloat* de 4.293 rutas; duplicarlas en JSON sería alimentarlo.
- *  · **`s-maxage=600`**, la cadencia del worker de observación, con
- *    `stale-while-revalidate` para que nadie espere a la regeneración.
+ *  · **Cinc minuts al CDN i prou**, com les fitxes (`LIVE_PAGES` a
+ *    `next.config.ts`). Abans era ISR —`revalidate = 600` amb
+ *    `stale-while-revalidate=3600`— i ISR serveix primer la còpia vella: un
+ *    endpoint que ningú no havia demanat en dies tornava, a la primera petició,
+ *    dades de dies enrere. Va passar amb `/api/ranquings`, que va donar les del
+ *    6 de novembre el 13. Passats els cinc minuts no se serveix la vella: es
+ *    torna a generar.
  */
 
-export const revalidate = 600;
+export const dynamic = 'force-dynamic';
 
 const HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=3600',
+  'Cache-Control': 'public, max-age=0, must-revalidate',
+  'Vercel-CDN-Cache-Control': 'max-age=300',
   'X-Robots-Tag': 'noindex',
 };
 
@@ -73,7 +79,14 @@ export async function GET(
   }
 
   const url = new URL(req.url);
-  const hours = Number(url.searchParams.get('hours')) || undefined;
+  const hours = parseFeedHours(url.searchParams.get('hours'));
+  if (hours === null) {
+    return json({ error: tr(
+      lang,
+      `«hours» ha de ser un nombre enter entre 1 i ${FEED_HOURS.max}. Sense, en torna ${FEED_HOURS.default}.`,
+      `«hours» debe ser un número entero entre 1 y ${FEED_HOURS.max}. Sin él, devuelve ${FEED_HOURS.default}.`,
+    ) }, 400);
+  }
 
   if (url.searchParams.get('format') === 'csv') {
     return new Response(await locationCsv(loc, { hours, lang }), {
