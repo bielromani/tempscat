@@ -1701,6 +1701,15 @@ cuota para exactamente la misma información.
   «Portada: 60 peticions per minut i IP», amb 429 i l'IP bloquejada **una hora** després
   d'excedir-lo. El bloqueig és **de tot el web**, no només de `/`: a 20 per minut va
   bloquejar el mateix autor mentre navegava, per la precàrrega en bucle.
+  **El compte sencer no ha de passar d'1 M de peticions al mes** —és el que inclou el Pro, i
+  és de l'equip, no del projecte—, així que des del 13 de novembre de 2026 el Flat Rate està
+  **desactivat** (es paga per ús, a 2 $ el milió) i als tres projectes grans (tempscat, opos i
+  alinea) hi ha dues regles més: **SE Ranking denegat** (un rastrejador d'enllaços per a SEO
+  que no aporta res) i **«Robots grossos: 5 peticions per minut»** per JA4, per a
+  `OAI-SearchBot|Amzn-SearchBot|ExaBot|GoogleOther|ClaudeBot`. OAI-SearchBot en feia 128.000
+  per setmana, més que tota la gent. Limitar no és bloquejar: a 5 per minut són 7.200 pàgines
+  al dia i el web en té 4.300, així que segueix sortint a ChatGPT. Si un robot nou es posa al
+  capdamunt de **Observability → CDN Requests → Bot Name**, va a la mateixa regla.
   Per mirar-ho: **Firewall → Traffic** dona les IPs, els agents i els camins de les últimes
   24 h, que és el que va trobar això; Observability → CDN Requests, per camí i per robot; i
   **Usage → CDN Requests per projecte**, que és el número que mana. El tram el canvia
