@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CAPITAL_PATHS as CAPITALS, QUICK_PLACES as QUICK, sections } from '@/lib/nav';
+import { CAPITAL_PATHS as CAPITALS, sections } from '@/lib/nav';
 import { getLang } from '@/lib/i18n';
 import { tr } from '@/lib/lang';
 import { allComarques, buildSummary, locationByPath, type Location } from '@/lib/territory';
@@ -70,7 +70,6 @@ export default async function Home() {
     temperatureMap(),
     Promise.all(capitals.map(capitalNow)),
   ]);
-  const quick = QUICK.map((p) => locationByPath(p)).filter((l): l is Location => l != null);
   const comarques = allComarques();
   const summary = buildSummary() as { published: number };
   const groups = groupWarnings(warnings);
@@ -102,11 +101,6 @@ export default async function Home() {
           <div className="mt-6">
             <SiteSearch lang={lang} variant="page" />
           </div>
-          <ul className="chips mt-4" aria-label={t('Accessos ràpids', 'Accesos rápidos')}>
-            {quick.map((l) => (
-              <li key={l.path}><Link href={l.path}>{placeName(l.nom, lang)}</Link></li>
-            ))}
-          </ul>
         </header>
 
         {/*
@@ -131,6 +125,40 @@ export default async function Home() {
             </p>
           </section>
         )}
+
+        {/*
+          El widget, dit com el que és: una cosa que es pot fer amb el web.
+
+          Sota el cercador al PC i sota el mapa al mòbil, i és el mateix element:
+          ho decideix la graella de `.home-top` amb `grid-template-areas`, no
+          dues còpies. La miniatura és un dibuix fet amb les dades de Barcelona
+          d'ara mateix —les de la primera targeta de capitals, que ja s'han
+          llegit—, no una captura: així no envelleix i no costa cap petició.
+        */}
+        <Link href="/widget" className="home-promo">
+          <span className="home-promo-mini" aria-hidden="true">
+            {caps[0] && (
+              <>
+                <span className="home-promo-row">
+                  {caps[0].code != null && <WeatherIcon code={caps[0].code} isDay={caps[0].isDay} size={40} lang={lang} />}
+                  <span className="home-promo-temp tnum">{caps[0].temp != null ? `${num(caps[0].temp)}°` : '—'}</span>
+                </span>
+                <span className="home-promo-name">{placeName(caps[0].loc.nom, lang)}</span>
+              </>
+            )}
+            <span className="home-promo-brand">Temps<b>Cat</b></span>
+          </span>
+          <span className="home-promo-text">
+            <span className="home-promo-title">{t('El temps del vostre poble, a la vostra web', 'El tiempo de su pueblo, en su web')}</span>
+            <span className="home-promo-lead">
+              {t(
+                'En temps real, gratuït i a mida: trieu el poble, la mida i què hi surt. Sense cookies.',
+                'En tiempo real, gratis y a medida: elija el pueblo, el tamaño y qué aparece. Sin cookies.',
+              )}
+            </span>
+            <span className="home-promo-cta">{t('Creeu el vostre widget ›', 'Cree su widget ›')}</span>
+          </span>
+        </Link>
       </div>
 
       {caps.length > 0 && (

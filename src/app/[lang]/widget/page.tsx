@@ -65,8 +65,8 @@ export default async function WidgetPage({ searchParams }: {
         icon="partly-cloudy-day"
         title={t('El temps del vostre poble, a la vostra web', 'El tiempo de su pueblo, en su web')}
         lead={t(
-          'Un requadre amb el temps d’ara i la predicció de qualsevol poble de Catalunya. Trieu què hi surt —els avisos, el vent, l’aire, el mar o la neu— i copieu el codi. No porta galetes i s’actualitza sol.',
-          'Un recuadro con el tiempo de ahora y la previsión de cualquier pueblo de Cataluña. Elija qué aparece —los avisos, el viento, el aire, el mar o la nieve— y copie el código. No lleva cookies y se actualiza solo.',
+          'Un requadre amb el temps d’ara i la predicció de qualsevol poble de Catalunya. Trieu què hi surt —els avisos, el vent, l’aire, el mar o la neu— i copieu el codi. S’actualitza sol, en temps real, i no porta cookies.',
+          'Un recuadro con el tiempo de ahora y la previsión de cualquier pueblo de Cataluña. Elija qué aparece —los avisos, el viento, el aire, el mar o la nieve— y copie el código. Se actualiza solo, en tiempo real, y no lleva cookies.',
         )}
       >
         <form method="get" action="/widget" className="mt-6 flex flex-wrap gap-2">
