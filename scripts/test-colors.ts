@@ -150,10 +150,21 @@ for (const { text } of sources) {
   for (const m of text.matchAll(/['"\[](--[\w-]+)['"\]]?\s*(?:as string\])?\s*:/g)) defined.add(m[1]);
 }
 
+/*
+ * I les que un fitxer es defineix per a ell sol.
+ *
+ * El widget (`src/lib/widget.ts`) és una pàgina a part, sense `globals.css`: porta
+ * el seu propi `<style>` dins d'una cadena, amb les seves variables a `:root`.
+ * Valen **només dins d'aquell fitxer** —fora, `--tile` no existeix—, i per això
+ * no van al conjunt de les globals.
+ */
+const localDefs = (text: string) => new Set([...text.matchAll(/[{;]\s*(--[\w-]+)\s*:/g)].map((m) => m[1]));
+
 const used = new Map<string, string[]>();
 for (const { file, text } of sources) {
+  const local = localDefs(text);
   for (const m of text.matchAll(/var\((--[\w-]+)\s*\)/g)) {
-    if (defined.has(m[1])) continue;
+    if (defined.has(m[1]) || local.has(m[1])) continue;
     const rel = relative(ROOT, file).split(sep).join('/');
     if (!used.has(m[1])) used.set(m[1], []);
     if (!used.get(m[1])!.includes(rel)) used.get(m[1])!.push(rel);

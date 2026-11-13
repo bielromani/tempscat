@@ -30,7 +30,7 @@ export function Logo({ size = 30, id }: { size?: number; id: string }) {
         <path d="M2.5 26 L11 14.5 L15.8 20.5 L19.5 16 L29.5 26 Z" fill="#fff" />
         <path d="M11 14.5 L13.2 17.4 L11.8 17 L10.6 18 L9.6 16.7 Z" fill="#DDEBFF" />
       </svg>
-      <span className="brand-word">temps<b>cat</b></span>
+      <span className="brand-word">Temps<b>Cat</b></span>
     </span>
   );
 }

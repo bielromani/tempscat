@@ -77,10 +77,11 @@ const LIVE_PAGES = [
   '/aire',
   '/estat',
   '/dades/encert',
+  '/widget', // el `?lloc=` la fa dinàmica
 ];
 
 /** Les rutes que no són pàgines i que tenen un segment dinàmic. Vegeu `rewrites()`. */
-const NOT_PAGES = '(?!api/|base/|relleu/|vent/|radar/t/|cameres/i/|mapa/geo/|avisos/feed|sitemap/|_next/)';
+const NOT_PAGES = '(?!api/|widget/|base/|relleu/|vent/|radar/t/|cameres/i/|mapa/geo/|avisos/feed|sitemap/|_next/)';
 
 /** El castellà: qualsevol domini que comenci per `es.` (`es.tempscat.cat`, `es.localhost`). */
 const ES_HOST = { type: 'host' as const, value: 'es\\..*' };
@@ -104,6 +105,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     // I la lletra de les imatges per compartir, que `src/lib/og.tsx` llegeix igual: en temps d'execució.
     '/**': ['./data/build/**', './assets/fonts/**'],
+    // Les icones del widget, que van incrustades a l'HTML: vegeu `iconUri()` a `src/lib/widget.ts`.
+    '/widget/[...lloc]': ['./public/icons/w/**'],
   },
 
   /*

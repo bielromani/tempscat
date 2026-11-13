@@ -8,7 +8,7 @@ import { comarcaOf, locationById, locationByPath } from '@/lib/territory';
  * perquè, sense ella, el nucli heretaria la imatge del seu municipi i Lilla es
  * compartiria amb el nom de Montblanc.
  */
-export const alt = 'El temps del nucli, a tempscat';
+export const alt = 'El temps del nucli, a TempsCat';
 export const size = OG_SIZE;
 export const contentType = 'image/png';
 

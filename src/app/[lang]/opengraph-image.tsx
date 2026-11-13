@@ -9,7 +9,7 @@ import { isLang, tr } from '@/lib/lang';
  * sense canviar l'adreça de la imatge (`generateImageMetadata`): es queda en
  * català, que és el que llegeix qui no veu la imatge, no qui la veu.
  */
-export const alt = 'tempscat, el temps a cada poble de Catalunya';
+export const alt = 'TempsCat, el temps a cada poble de Catalunya';
 export const size = OG_SIZE;
 export const contentType = 'image/png';
 

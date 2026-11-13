@@ -4,7 +4,7 @@ import { OG_SIZE, ogImage } from '@/lib/og';
 import { comarcaBySlug, municipisOfComarca } from '@/lib/territory';
 
 /** La imatge per compartir la pàgina d'una comarca. */
-export const alt = 'El temps de la comarca, a tempscat';
+export const alt = 'El temps de la comarca, a TempsCat';
 export const size = OG_SIZE;
 export const contentType = 'image/png';
 

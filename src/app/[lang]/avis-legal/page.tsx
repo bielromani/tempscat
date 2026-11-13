@@ -22,7 +22,7 @@ import { alternatesFor } from '@/lib/site';
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getLang();
   return {
-    title: tr(lang, 'Avís legal · tempscat', 'Aviso legal · tempscat'),
+    title: tr(lang, 'Avís legal · TempsCat', 'Aviso legal · TempsCat'),
     description: tr(lang,
       'Titular del lloc, condicions d’ús de la informació meteorològica i llicències de les dades que s’hi publiquen.',
       'Titular del sitio, condiciones de uso de la información meteorológica y licencias de los datos que se publican.'),
@@ -48,7 +48,7 @@ export default async function AvisLegal() {
         title="Avís legal"
         lead={(
           <>
-            tempscat és un lloc web personal i sense ànim de lucre que publica
+            TempsCat és un lloc web personal i sense ànim de lucre que publica
             informació meteorològica de Catalunya a partir de dades obertes.
           </>
         )}
@@ -196,7 +196,7 @@ function AvisoLegal() {
         title="Aviso legal"
         lead={(
           <>
-            tempscat es un sitio web personal y sin ánimo de lucro que publica
+            TempsCat es un sitio web personal y sin ánimo de lucro que publica
             información meteorológica de Cataluña a partir de datos abiertos.
           </>
         )}
