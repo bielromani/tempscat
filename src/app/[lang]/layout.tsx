@@ -54,14 +54,14 @@ export async function generateMetadata(): Promise<Metadata> {
    */
   metadataBase: new URL(siteUrl(lang)),
   title: {
-    default: tr(lang, 'El temps a Catalunya · tempscat', 'El tiempo en Cataluña · tempscat'),
+    default: tr(lang, 'El temps a Catalunya · TempsCat', 'El tiempo en Cataluña · TempsCat'),
     template: '%s',
   },
   description: tr(lang,
     'El temps a cada poble de Catalunya: l’observació de l’estació més propera, corregida per l’altitud, i la predicció hora a hora i a catorze dies.',
     'El tiempo en cada pueblo de Cataluña: la observación de la estación más cercana, corregida por la altitud, y la predicción hora a hora y a catorce días.'),
   alternates: alternatesFor('/'),
-  openGraph: { locale: OG_LOCALE[lang], type: 'website', siteName: 'tempscat' },
+  openGraph: { locale: OG_LOCALE[lang], type: 'website', siteName: 'TempsCat' },
   // La imatge gran en compartir: la fan els `opengraph-image.tsx` (vegeu `src/lib/og.tsx`).
   twitter: { card: 'summary_large_image' },
   /*
@@ -110,7 +110,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <JsonLd data={graph(
           {
             '@type': 'WebSite',
-            name: 'tempscat',
+            name: 'TempsCat',
             alternateName: t('El temps a Catalunya', 'El tiempo en Cataluña'),
             url: absolute('/', lang),
             inLanguage: LOCALE[lang],
@@ -146,7 +146,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="site-top">
           {/* `relative`: al mòbil, els suggeriments del cercador es col·loquen contra aquesta fila. */}
           <div className="relative mx-auto flex h-16 max-w-[70rem] items-center gap-x-6 px-5">
-            <Link href="/" aria-label={t('tempscat, a la portada', 'tempscat, a la portada')} className="shrink-0 no-underline">
+            <Link href="/" aria-label={t('TempsCat, a la portada', 'TempsCat, a la portada')} className="shrink-0 no-underline">
               <Logo id="top" />
             </Link>
 
@@ -203,7 +203,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="mx-auto max-w-[70rem] px-5 py-12">
             <div className="grid gap-10 lg:grid-cols-[1.4fr_3fr]">
               <div>
-                <Link href="/" aria-label={t('tempscat, a la portada', 'tempscat, a la portada')} className="no-underline">
+                <Link href="/" aria-label={t('TempsCat, a la portada', 'TempsCat, a la portada')} className="no-underline">
                   <Logo id="foot" />
                 </Link>
                 <p className="mt-3 max-w-xs text-sm leading-relaxed text-[var(--muted)]">

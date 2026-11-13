@@ -214,6 +214,7 @@ npm run check:coherence   # que una fitxa no es contradigui · contra l'HTML ser
                           # els dos els corre `web.yml` després de cada desplegament i cada dia
 npm run check:workflows   # claus repetides, `npm run` inexistents i workflows sense feines
 npm run check:castella    # que al castellà no hi quedi català · contra el servidor en marxa (docs/14)
+npm run check:widget      # que al widget no hi quedi res tallat i sigui una sola petició · amb Chrome
 npm run test:colors       # que el color que rep el mapa sigui el que pinta el navegador
 npm run test:wind         # que el vent vagi cap on ha d'anar · amb `-- --api`, contra la marinada
 npm run test:warnings     # que la pila d'avisos d'un lloc no perdi mai cap avís
@@ -324,7 +325,7 @@ páginas, un generativo produce cuatro mil afirmaciones que nadie ha comprobado.
 **Cero JavaScript propio es una regla de las páginas territoriales, no del sitio.** Los mapas
 interactivos y el tauler viven en `/mapa` y `/tauler` y cargan su código solo ahí.
 
-Hay **cinco** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
+Hay **seis** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar:
 
 - `SiteSearch.tsx`, el cuadro de búsqueda de la cabecera. Va en todas las páginas, así que el
   coste se midió antes de ponerlo: **1.546 bytes en gzip**, la diferencia de sumar todos los
@@ -353,6 +354,11 @@ Hay **cinco** `'use client'` en el proyecto, y ninguno cambia una ficha de lugar
   suscripción la crea el navegador, así que sin JavaScript la página dice qué hace falta.
   Registra `public/sw.js` **solo cuando alguien lo activa**: ese service worker no tiene
   `fetch`, no guarda nada y solo enseña la notificación.
+
+- `WidgetBuilder.tsx`, el configurador del widget, y solo en `/widget` (13 de noviembre de 2026).
+  Las casillas redibujan la vista previa al momento, que es lo que pide una herramienta. El
+  widget que se pone en otra web **no** es esto: es HTML de servidor sin React
+  (`src/lib/widget.ts`), con un solo script de una línea que anuncia su altura.
 
 El buscador y el menú son mejoras **encima** de algo que ya funcionaba sin JavaScript, y lo
 dejan funcionando: el buscador sigue siendo un `<form method="get">` que abre `/cerca` —por eso
@@ -1642,6 +1648,55 @@ cuota para exactamente la misma información.
   arreglament és un `proxy.ts` que contesti abans de renderitzar, i no compensa: correria a
   cada petició de pàgina per 903 404 de 381.000 peticions en una setmana, la majoria robots.
   El perquè sencer és a `src/app/not-found.tsx`.
+
+- **El widget per a altres webs: per peces, sense espai reservat i amb l'enllaç fora.** (13 de
+  novembre de 2026.) `/widget/<comarca>/<municipi>?format=mini|targeta|apaisat&mostra=…&dies=0|3|5|7&tema=clar&icones=0`
+  és una route handler (`src/app/widget/[...lloc]/route.ts`) que torna HTML escrit a mà
+  (`src/lib/widget.ts`): cinc minuts al CDN i `noindex`. El configurador és `/widget`
+  (`WidgetBuilder.tsx`). Coses que no són evidents:
+  **Els avisos i les banderes no ocupen lloc quan no n'hi ha** —ho va demanar l'usuari—, així
+  que l'alçada no és fixa: el widget l'anuncia amb `postMessage` i el codi que es copia porta
+  les línies que l'escolten.
+  **`prova=1` hi posa avisos, banderes i neu inventats** perquè el configurador ensenyi com queda
+  el dia que n'hi ha. Porta el rètol «Exemple» al peu, el codi copiat no el porta mai, i
+  l'alçada del codi es mesura amb un segon iframe **sense** `prova`.
+  **Les icones van incrustades a l'HTML**, en base64 (`iconUri()`): cada `<img>` seria una
+  petició al CDN per visita de cada web que el porti, i una visita en feia vint-i-quatre. Ara
+  és **una**. `outputFileTracingIncludes` porta `public/icons/w` a la funció, i la CSP només
+  deixa `img-src data:`.
+  **L'enllaç que compta per als cercadors és el `<a>` de fora de l'iframe**, cap a la fitxa del
+  poble, en HTML pla —ni dins de l'iframe ni escrit per l'script—, amb el nom del poble com a
+  text i sense `nofollow`.
+  Els paràmetres que no són a la llista donen 404, perquè cada consulta diferent és una
+  entrada nova de la memòria cau. El widget **no porta línia de fonts** (també demanat): la
+  dada no és la de la font tal com ve, i la fitxa, on porta l'enllaç, ho explica. La marca és
+  **TempsCat**, només lletres i sense icona; el domini segueix sent `tempscat.cat`.
+  `npm run check:widget` obre Chrome sense finestra (CDP, sense dependències) i mira 240 vistes
+  —quatre llocs, els tres formats, totes les amplades, amb icones i sense— buscant text tallat,
+  res que surti per la dreta i qualsevol petició que no sigui l'HTML. Contra el servidor en
+  marxa, com `check:castella`, que ara també passa pel widget.
+
+- **El pla Pro porta un milió de peticions al CDN al mes per a tot el compte, i un
+  programa que recarregava la portada se n'havia menjat el 80 %.** (13 de novembre de 2026.)
+  Vercel va avisar que el compte passaria al tram «Flat Rate CDN 10M» (20 $ al mes més) el
+  20 de novembre. Del cicle, 3,06 M de peticions: 2,57 M de tempscat, i d'aquestes, **1,5 M
+  en una setmana a `/`**, totes en memòria cau (99 %), en ràfegues de fins a 230.000 en una
+  hora. Les feien sis IPs —connexions domèstiques de Telefónica i Digi i la xarxa de la
+  CCMA— amb navegadors normals de Windows, dues o tres per segon cadascuna, i **només a `/`**.
+  La portada oberta en un navegador no es torna a demanar sola (comprovat), així que és algun
+  programa o extensió que recarrega.
+  Tres coses que no són evidents. **Una petició servida des de la memòria cau compta igual**:
+  el `HIT` estalvia la funció, no la petició. **El que el Firewall denega, desafia o limita no
+  compta com a petició al CDN** (documentació de preus del WAF), així que la palanca és el
+  Firewall i no el codi. I **el límit de peticions es paga a part**: 0,50 $ per milió de
+  peticions que la regla avalua; per això la regla només mira `/` i no tot el web. La regla és
+  «Portada: 20 peticions per minut i IP», amb 429 i l'IP bloquejada **una hora** després
+  d'excedir-lo; una hora i no un minut perquè, si no, el programa tornaria a passar vint
+  peticions cada minut.
+  Per mirar-ho: **Firewall → Traffic** dona les IPs, els agents i els camins de les últimes
+  24 h, que és el que va trobar això; Observability → CDN Requests, per camí i per robot; i
+  **Usage → CDN Requests per projecte**, que és el número que mana. El tram el canvia
+  **Billing → Flat Rate CDN → Configure**.
 
 # This is NOT the Next.js you know
 

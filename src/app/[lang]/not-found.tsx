@@ -39,7 +39,7 @@ import { locationByPath } from '@/lib/territory';
  * i no pot saber en quin domini s'ha demanat.
  */
 export const metadata: Metadata = {
-  title: 'Pàgina no trobada · Página no encontrada · tempscat',
+  title: 'Pàgina no trobada · Página no encontrada · TempsCat',
   robots: { index: false, follow: true },
   alternates: { canonical: null },
 };

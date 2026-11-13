@@ -48,6 +48,7 @@
     "check:credentials": "node --env-file-if-exists=.env.local scripts/check-credentials.ts",
     "check:jsonld": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-jsonld.ts",
     "check:coherence": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-coherence.ts",
+    "check:widget": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-widget.ts",
     "check:castella": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-castella.ts",
     "test:narrative": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-narrative.ts",
     "test:wind": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-wind.ts",
