@@ -146,7 +146,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="site-top">
           {/* `relative`: al mòbil, els suggeriments del cercador es col·loquen contra aquesta fila. */}
           <div className="relative mx-auto flex h-16 max-w-[70rem] items-center gap-x-6 px-5">
-            <Link href="/" aria-label={t('TempsCat, a la portada', 'TempsCat, a la portada')} className="shrink-0 no-underline">
+            <Link href="/" prefetch={false} aria-label={t('TempsCat, a la portada', 'TempsCat, a la portada')} className="shrink-0 no-underline">
               <Logo id="top" />
             </Link>
 
@@ -203,7 +203,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="mx-auto max-w-[70rem] px-5 py-12">
             <div className="grid gap-10 lg:grid-cols-[1.4fr_3fr]">
               <div>
-                <Link href="/" aria-label={t('TempsCat, a la portada', 'TempsCat, a la portada')} className="no-underline">
+                <Link href="/" prefetch={false} aria-label={t('TempsCat, a la portada', 'TempsCat, a la portada')} className="no-underline">
                   <Logo id="foot" />
                 </Link>
                 <p className="mt-3 max-w-xs text-sm leading-relaxed text-[var(--muted)]">
