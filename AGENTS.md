@@ -1705,10 +1705,13 @@ cuota para exactamente la misma información.
   és de l'equip, no del projecte—, així que des del 13 de novembre de 2026 el Flat Rate està
   **desactivat** (es paga per ús, a 2 $ el milió) i als tres projectes grans (tempscat, opos i
   alinea) hi ha dues regles més: **SE Ranking denegat** (un rastrejador d'enllaços per a SEO
-  que no aporta res) i **«Robots grossos: 5 peticions per minut»** per JA4, per a
-  `OAI-SearchBot|Amzn-SearchBot|ExaBot|GoogleOther|ClaudeBot`. OAI-SearchBot en feia 128.000
-  per setmana, més que tota la gent. Limitar no és bloquejar: a 5 per minut són 7.200 pàgines
-  al dia i el web en té 4.300, així que segueix sortint a ChatGPT. Si un robot nou es posa al
+  que no aporta res) i **«Robots grossos: 2 peticions per minut»** per JA4 (eren 5 fins al 17
+  de novembre), per a `OAI-SearchBot|Amzn-SearchBot|ExaBot|GoogleOther|ClaudeBot|PerplexityBot`.
+  OAI-SearchBot en feia 128.000 per setmana, més que tota la gent. Limitar no és bloquejar: a 2
+  per minut són 2.880 pàgines al dia **per empremta**, i el web en té 4.300, així que segueix
+  sortint a ChatGPT. Al pla Pro el límit només es pot comptar per IP o per JA4 —per
+  User-Agent, que posaria un sostre a tot el robot, no s'hi pot—, i un robot gran arriba amb
+  diverses empremtes: el sostre real és aquest per el nombre d'empremtes. Si un robot nou es posa al
   capdamunt de **Observability → CDN Requests → Bot Name**, va a la mateixa regla.
   Per mirar-ho: **Firewall → Traffic** dona les IPs, els agents i els camins de les últimes
   24 h, que és el que va trobar això; Observability → CDN Requests, per camí i per robot; i
