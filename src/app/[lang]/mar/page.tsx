@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { windCardinal } from '@/lib/variables';
 import { articleFirst, dateShort, dayTiny, deWord, fromDirection, num, placeName } from '@/lib/format';
 import { fold, match, matchWithContext } from '@/lib/search-match';

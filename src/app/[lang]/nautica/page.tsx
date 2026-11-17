@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { beaufort, nauticalConditions, periodMeaning, type SeaStretch } from '@/lib/activities';
 import { douglas, FLAG_SHOW_HOURS, flagStyle } from '@/lib/sea';
 import { windCardinal } from '@/lib/variables';

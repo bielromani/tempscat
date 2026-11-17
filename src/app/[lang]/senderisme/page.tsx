@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { beaufort, hikingConditions, MOUNTAIN_M } from '@/lib/activities';
 import { windCardinal } from '@/lib/variables';
 import { PointsMap } from '@/components/PointsMap';

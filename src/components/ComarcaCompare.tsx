@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { temperatureColor, temperatureInk } from '@/lib/scales';
 import { aName, deName, monthOf, num, ordinal, placeName, signed, temp } from '@/lib/format';
 import { tr, type Lang } from '@/lib/lang';

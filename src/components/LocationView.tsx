@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { Meteogram } from './Meteogram';
 import { WarningBanner } from './WarningBanner';
 import { LocationHero } from './LocationHero';

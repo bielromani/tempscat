@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- El por qué está en eslint.config.mjs: el
    worker ya ha desat cada fotograma en les dues mides que la web ensenya, i `next/image`
    només hi afegiria una quota de plataforma per repetir una feina feta. */
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { aName, ago, int, num } from '@/lib/format';
 import { cameraImage, type CameraNow } from '@/lib/cameras';
 import { getLang } from '@/lib/i18n';

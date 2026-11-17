@@ -44,6 +44,19 @@ const eslintConfig = defineConfig([
     files: ["src/app/cameres/**/*.tsx"],
     rules: { "@next/next/no-img-element": "off" },
   },
+  {
+    /*
+     * Els enllaços van per `@/components/Link`, que no precarrega. El de Next
+     * precarrega cada enllaç visible, i cada precàrrega és una petició al CDN:
+     * eren 12 de les 43 d'una visita a una fitxa. Vegeu el component.
+     */
+    ignores: ["src/components/Link.tsx"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        paths: [{ name: "next/link", message: "Fes servir @/components/Link, que no precarrega (cada precàrrega és una petició al CDN)." }],
+      }],
+    },
+  },
 ]);
 
 export default eslintConfig;

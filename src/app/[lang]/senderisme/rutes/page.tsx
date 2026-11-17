@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { allAxes, allRoutes, refApart, type Route } from '@/lib/routes';
 import { allComarques } from '@/lib/territory';
 import { comarcaName, deName, int, num, placeName } from '@/lib/format';

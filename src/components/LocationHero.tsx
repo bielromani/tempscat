@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/Link';
 import type { CurrentConditions, LocationForecast } from '@/lib/forecast-types';
 import type { Location } from '@/lib/territory';
 import { codeLong, weatherCode } from '@/lib/weather-codes';

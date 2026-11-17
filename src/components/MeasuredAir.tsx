@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { dateShort, num } from '@/lib/format';
 import { stationKind, type NearestAirStation } from '@/lib/air-stations';
 import { AIR_VARIABLES, type AirSlug } from '@/lib/air-variables';

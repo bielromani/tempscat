@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { dateFull, deName, num, signed } from '@/lib/format';
 import { droughtLevel, gaugeName, reservoirColor, reservoirTitle, type WaterNearby } from '@/lib/water';
 import { sourceText } from '@/lib/sea';

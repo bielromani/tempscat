@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { altitudeColor, temperatureColor, temperatureInk } from '@/lib/scales';
 import { capFirst, comarcaName, int, num, stationShort } from '@/lib/format';
 import { fold, match } from '@/lib/search-match';

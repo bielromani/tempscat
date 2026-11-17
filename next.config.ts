@@ -224,6 +224,19 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
+      /*
+       * Les icones del temps i les textures del cel, una setmana al navegador.
+       * Per defecte `public/` surt amb `max-age=0, must-revalidate`, i això vol
+       * dir que cada visita torna a preguntar per cada fitxer: 19 de les 43
+       * peticions al CDN d'una fitxa, i una petició contestada amb un 304 compta
+       * igual que una de servida. Els noms no porten versió: **si es canvia una
+       * textura o una icona, es canvia el nom**, o qui ja l'ha vista la seguirà
+       * veient vella fins a una setmana.
+       */
+      ...['/icons/:path*', '/cel/:path*'].map((source) => ({
+        source,
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800' }],
+      })),
       // Ver «Les pàgines amb dades d'ara», a dalt.
       ...LIVE_PAGES.map((source) => ({
         source,

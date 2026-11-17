@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { PointsMap } from '@/components/PointsMap';
 import { mapOutline } from '@/lib/map';
 import { capFirst, dateFull, dateLong, deName, hourSpoken, int, num, placeName, signed } from '@/lib/format';

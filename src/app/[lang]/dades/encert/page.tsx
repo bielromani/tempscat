@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { temperatureCompare } from '@/lib/weather';
 import { stationByCodi } from '@/lib/territory';
 import { dateShort, int, num } from '@/lib/format';
