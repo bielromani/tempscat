@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { deName, int, num, ordinal } from '@/lib/format';
 import type { RainConditions } from '@/lib/conditions';
 import type { RainProgress } from '@/lib/climate-math';

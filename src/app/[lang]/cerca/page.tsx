@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { MIN_QUERY, search } from '@/lib/search';
 import { kindLabel } from '@/lib/search-kinds';
 import { getLang } from '@/lib/i18n';

@@ -1715,6 +1715,21 @@ cuota para exactamente la misma información.
   **Usage → CDN Requests per projecte**, que és el número que mana. El tram el canvia
   **Billing → Flat Rate CDN → Configure**.
 
+- **Una visita a una fitxa eren 43 peticions al CDN, i ara n'és una.** (17 de novembre de
+  2026.) Mesurat a producció a `/baix-camp/cambrils`: l'HTML, **12 precàrregues** —cada
+  enllaç visible, dues o tres vegades: `/radar` i `/avisos/alertes` en feien tres—, **17
+  icones** i dues textures del cel, i la resta de `/_next/static`. Les icones i les textures
+  sortien amb `max-age=0, must-revalidate`, o sigui que cada visita les tornava a preguntar, i
+  un 304 compta com una petició. Dues coses, i cap no la veu el lector:
+  **Cap `<Link>` precarrega.** Tots els enllaços passen per `@/components/Link`, que porta
+  `prefetch={false}` per defecte, i el lint prohibeix importar `next/link` enlloc més. La
+  pàgina es demana en clicar, com sense JavaScript.
+  **`/icons/*` i `/cel/*` es guarden una setmana al navegador** (`headers()` de
+  `next.config.ts`). Els noms no porten versió: **si es canvia una icona o una textura, es
+  canvia el nom del fitxer.**
+  Mesurat amb `next start`: la primera visita, 31 peticions i cap precàrrega; la segona fitxa,
+  **2** (l'HTML i una icona que la primera no tenia).
+
 - **Les route handlers amb dades d'ara tampoc no poden ser ISR.** (13 de novembre de 2026.)
   `/api/ranquings` va tornar, a la primera petició, els extrems del **6 de novembre** el dia
   13: tenia `revalidate = 600` i `stale-while-revalidate=3600`, i ISR serveix primer la còpia

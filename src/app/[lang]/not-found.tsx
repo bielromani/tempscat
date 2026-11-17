@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { SiteSearch } from '@/components/SiteSearch';
 import { QUICK_PLACES, sections as navSections } from '@/lib/nav';
 import { getLang } from '@/lib/i18n';

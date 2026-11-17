@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { TemperatureLegend, TemperatureMap } from '@/components/TemperatureMap';
 import { JsonLd, breadcrumbLd, graph } from '@/components/JsonLd';
 import { PageHero, Section, StatGrid } from '@/components/PageHero';

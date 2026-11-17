@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { articleFirst, dateLong, num, placeName } from '@/lib/format';
 import { zoneLabel } from '@/lib/zones';
 import { sourceText } from '@/lib/sea';

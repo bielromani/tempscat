@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { rankings, type PlaceRow, type StationRow } from '@/lib/rankings';
 import { PointsMap } from '@/components/PointsMap';
 import { TemperatureLegend } from '@/components/TemperatureMap';

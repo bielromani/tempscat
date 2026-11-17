@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { allCameras, cameraImage, CAMERA_SHOW_HOURS } from '@/lib/cameras';
 import { anchorSlug } from '@/lib/zones';
 import { aName, ago, dateFull, int } from '@/lib/format';

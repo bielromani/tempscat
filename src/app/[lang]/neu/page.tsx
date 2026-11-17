@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import {
   aName, ago, capFirst, comarcaName, dateFull, dateShort, int, num, placeName, relativeDay, stationShort,
 } from '@/lib/format';

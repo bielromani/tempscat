@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { windCardinal } from '@/lib/variables';
 import { ago, deName, hour, num } from '@/lib/format';
 import {

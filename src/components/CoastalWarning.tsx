@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { dateTimeLong } from '@/lib/format';
 import { phenomenonName, zoneName } from '@/lib/warning-labels';
 import type { Warning } from '@/lib/warning-stack';

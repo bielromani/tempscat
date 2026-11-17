@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { WindRose } from './WindRose';
 import { StatGrid, type HeroStat } from './PageHero';
 import { msToKmh } from '@/lib/variables';

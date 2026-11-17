@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import Link from 'next/link';
+import Link from '@/components/Link';
 import { Inter } from 'next/font/google';
 import { Logo } from '@/components/Logo';
 import { absolute, alternatesFor, ES_PUBLIC, IS_PRODUCTION, siteUrl } from '@/lib/site';
