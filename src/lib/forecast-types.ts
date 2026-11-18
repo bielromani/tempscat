@@ -143,4 +143,10 @@ export interface LocationForecast {
    * modelos pesan lo mismo. Decirlo evita prometer una precisión no demostrada.
    */
   skillWeighted: boolean;
+  /**
+   * Si el cel de l'hora en curs l'ha corregit el radar, i de quin marc.
+   * `radar-dry`: el model hi posava pluja i el radar no en veu; `radar-wet`, al
+   * revés. `at`, l'hora local de Madrid del marc. Vegeu `src/lib/radar-now.ts`.
+   */
+  nowRadar?: { by: 'radar-dry' | 'radar-wet'; at: string } | null;
 }
