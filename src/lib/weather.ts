@@ -6,6 +6,7 @@ import {
 } from './variables';
 import { moonPhase, nextMoonEvents, sunTimes } from './astronomy';
 import { airCellKey } from './air-grid';
+import { aqiWithNo2, correctNo2, no2Correction, no2SubIndex, type No2Correction, type No2Donor } from './air-correction';
 import type { MonthProgress, RainProgress } from './climate-math';
 import { windShard, type WindIndex } from './wind';
 import {
@@ -683,6 +684,8 @@ interface AirCellShard {
   times: string[];
   cell: AirCellData;
   cellDeg: number;
+  /** Les estacions que corregeixen el NO₂ prop d'aquesta cel·la. Vegeu `air-correction.ts`. */
+  no2?: { donors: No2Donor[]; from: string; to: string };
 }
 
 export interface PollenReading {
@@ -705,6 +708,11 @@ export interface AirQuality {
   hourly: Array<{ time: string; aqi: number | null }>;
   /** Lado de la celda en km, para poder decir a qué resolución es el dato. */
   cellKm: number;
+  /**
+   * Si el NO₂ —i per tant l'índex— va corregit amb les estacions del voltant,
+   * quina estació hi pesa més. Null: és CAMS sol.
+   */
+  no2Corrected: (No2Correction & { from: string; to: string }) | null;
   observedAt: string;
   issuedAt: string;
   source: string;
@@ -730,7 +738,29 @@ export async function airQualityFor(loc: Location, lang: Lang = 'ca'): Promise<A
 
   const times = snap.data.times;
   const i = nowIndex(times);
-  const at = (slug: AirSlug, idx = i): number | null => cell.values[slug]?.[idx] ?? null;
+
+  /*
+   * El NO₂ al punt exacte de la fitxa, no a la cel·la: les estacions de la
+   * XVPCA del voltant diuen quant s'equivoca CAMS per aquí. Es corregeix la
+   * sèrie sencera —concentració, subíndex i índex— abans de llegir-ne res, així
+   * que l'índex, qui el marca, el perfil i els màxims diaris surten tots del
+   * mateix número. Vegeu `src/lib/air-correction.ts`.
+   */
+  const corr = snap.data.no2 ? no2Correction(loc.lat, loc.lon, snap.data.no2.donors) : null;
+  const values: AirCellData['values'] = corr ? { ...cell.values } : cell.values;
+  if (corr && cell.values.no2) {
+    const no2 = cell.values.no2.map((v) => (v == null ? null : Math.round(correctNo2(v, corr.logRatio) * 10) / 10));
+    const sub = no2.map((v) => (v == null ? null : Math.round(no2SubIndex(v))));
+    values.no2 = no2;
+    values.aqi_no2 = sub;
+    values.aqi = (cell.values.aqi ?? []).map((a, k) => (sub[k] == null ? a : aqiWithNo2(a, {
+      pm2_5: cell.values.aqi_pm2_5?.[k] ?? null,
+      pm10: cell.values.aqi_pm10?.[k] ?? null,
+      no2: cell.values.aqi_no2?.[k] ?? null,
+      o3: cell.values.aqi_o3?.[k] ?? null,
+    }, sub[k]!)));
+  }
+  const at = (slug: AirSlug, idx = i): number | null => values[slug]?.[idx] ?? null;
 
   const aqi = at('aqi');
 
@@ -781,7 +811,7 @@ export async function airQualityFor(loc: Location, lang: Lang = 'ca'): Promise<A
   // mañana conviene salir a correr.
   const byDay = new Map<string, Array<{ time: string; v: number }>>();
   times.forEach((t, idx) => {
-    const v = cell.values.aqi?.[idx];
+    const v = values.aqi?.[idx];
     if (v == null) return;
     const day = t.slice(0, 10);
     const arr = byDay.get(day) ?? [];
@@ -805,6 +835,7 @@ export async function airQualityFor(loc: Location, lang: Lang = 'ca'): Promise<A
     // 0,1° de latitud son 11,1 km; de longitud, a 41,5° N, unos 8,3. Se da el
     // lado mayor: redondear a la baja vendería más precisión de la que hay.
     cellKm: Math.round(snap.data.cellDeg * 111),
+    no2Corrected: corr && snap.data.no2 ? { ...corr, from: snap.data.no2.from, to: snap.data.no2.to } : null,
     observedAt: times[i] ?? '',
     issuedAt: snap.fetchedAt,
     source: snap.source,

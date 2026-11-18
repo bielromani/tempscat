@@ -26,7 +26,9 @@ import { tr, type Lang } from '@/lib/lang';
  *
  *  · **Se dice que el dato es de una celda de 11 km.** Es la resolución real de
  *    CAMS. Fingir un valor de calle sería inventar precisión, que es justo lo
- *    que este sitio no hace con las temperaturas.
+ *    que este sitio no hace con las temperaturas. Desde noviembre de 2026 el NO₂
+ *    va corregido al punto con las estaciones de la XVPCA del voltant
+ *    (`src/lib/air-correction.ts`), y entonces el pie dice cuál pesa más.
  */
 
 interface Props {
@@ -184,7 +186,26 @@ export async function AirQuality({ air, today, lang: given }: Props) {
       )}
 
       <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-        {lang === 'es' ? (
+        {air.no2Corrected ? (
+          lang === 'es' ? (
+            <>
+              {sourceText(air.source, lang)}. Es un modelo, que trabaja con celdas de {air.cellKm} km de
+              lado. El dióxido de nitrógeno —y con él el índice— está corregido para este punto con
+              lo que el modelo se ha equivocado los últimos 30 días en las estaciones de la XVPCA de
+              alrededor; la que más pesa es {air.no2Corrected.nearest.name}, a{' '}
+              {num(air.no2Corrected.nearest.km, 0)} km. El resto de contaminantes son los de la celda.
+              Dato de las {hour(air.observedAt)}.
+            </>
+          ) : (
+            <>
+              {air.source}. És un model, que treballa amb cel·les de {air.cellKm} km de costat. El
+              diòxid de nitrogen —i amb ell l&apos;índex— va corregit per a aquest punt amb el que el
+              model s&apos;ha equivocat els últims 30 dies a les estacions de la XVPCA del voltant; la
+              que més hi pesa és {air.no2Corrected.nearest.name}, a {num(air.no2Corrected.nearest.km, 0)} km.
+              La resta de contaminants són els de la cel·la. Dada de les {hour(air.observedAt)}.
+            </>
+          )
+        ) : lang === 'es' ? (
           <>
             {sourceText(air.source, lang)}. Es un modelo, no una estación: el valor corresponde a una
             celda de {air.cellKm} km de lado, que es la resolución real de CAMS, y
