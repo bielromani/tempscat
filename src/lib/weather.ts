@@ -30,6 +30,7 @@ import { LEVEL_RANK, type Warning } from './warning-stack';
 import type { RainWarning } from './narrative';
 import type { MeasuredRain } from './recent-rain';
 import { WARNING_ZONES_SHARD, type WarningZones } from './warning-zones';
+import { RADAR_NOW_MAX_AGE_MIN, RADAR_NOW_SHARD, radarVerdict, type RadarNow } from './radar-now';
 import {
   MODEL_ONLY_WEIGHT, NOW_MAX_AGE_MIN, NOW_SHARD, type NowTemperature,
 } from './now-temperature';
@@ -342,7 +343,10 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
   if (!loc.forecastPointId || !loc.comarcaCodi) return null;
   // Solo el trozo de su comarca. El punto de un municipio de frontera está
   // duplicado en los dos trozos justamente para que aquí no haya que buscarlo.
-  const snap = await snapshot<ForecastData>(forecastShard(loc.comarcaCodi));
+  const [snap, radarNow] = await Promise.all([
+    snapshot<ForecastData>(forecastShard(loc.comarcaCodi)),
+    snapshot<RadarNow>(RADAR_NOW_SHARD),
+  ]);
   if (!snap) return null;
   const byModel = snap.data.points[loc.forecastPointId];
   if (!byModel) return null;
@@ -362,6 +366,26 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
   const hourly = mergeHourly(byModel, times, {
     tempCorrection, lat: loc.lat ?? null, lon: loc.lon ?? null,
   });
+
+  /*
+   * L'hora en curs, contrastada amb el radar: el model pot posar pluja a una
+   * hora en què el radar de fa deu minuts no en veu cap, i al revés. Només
+   * aquesta hora: les següents són predicció i ho continuen sent. El criteri
+   * és a `radar-now.ts`.
+   */
+  let nowRadar: LocationForecast['nowRadar'] = null;
+  const radarAge = radarNow ? (Date.now() - Date.parse(radarNow.data.at)) / 60_000 : Infinity;
+  if (radarNow && radarAge <= RADAR_NOW_MAX_AGE_MIN) {
+    const nowIso = localNowHour();
+    const i = hourly.findIndex((h) => h.time.slice(0, 13) === nowIso);
+    const verdict = i >= 0 ? radarVerdict(hourly[i], radarNow.data.points[loc.forecastPointId]) : null;
+    if (verdict) {
+      hourly[i] = { ...hourly[i], weatherCode: verdict.weatherCode, precipitation: verdict.precipitation };
+      // A l'hora de Madrid, que és com la llegeix la pàgina.
+      const at = new Date(radarNow.data.at).toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).replace(' ', 'T');
+      nowRadar = { by: verdict.by, at };
+    }
+  }
 
   /*
    * El resumen por días ya viene hecho del worker cuando el fichero lo trae.
@@ -395,6 +419,7 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
     issuedAt: snap.fetchedAt,
     source: snap.source,
     skillWeighted: false,
+    nowRadar,
   };
 }
 

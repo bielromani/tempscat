@@ -31,14 +31,16 @@
  *
  * Salida: data/cache/radar.json + data/cache/radar/<marca>/<z>_<x>_<y>.png
  */
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { fetchWithRetry, throttledMap } from '../lib/http.ts';
 import {
   CACHE, DAILY_LIMITS, QuotaGuard, markForPublish, publish, recordFreshness, reportFailure, syncState, writeSnapshot,
 } from '../lib/store.ts';
-import { CATALUNYA_BBOX, tileGrid, type TileGrid } from '../../src/lib/mercator.ts';
+import { CATALUNYA_BBOX, project, tileGrid, type TileGrid } from '../../src/lib/mercator.ts';
+import { HERE_KM, NEAR_KM, RADAR_NOW_SHARD, pixelDbz, type RadarNow } from '../../src/lib/radar-now.ts';
+import { build } from '../lib/paths.ts';
 
 const API = 'https://api.rainviewer.com/public/weather-maps.json';
 
@@ -123,6 +125,67 @@ function toLocal(unix: number): string {
     .toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
     .replace(' ', 'T')
     .slice(0, 16);
+}
+
+/**
+ * Per a cada punt de predicció, la pluja que el radar hi veu ara. Les fitxes
+ * la fan servir per contrastar el cel de l'hora en curs (`src/lib/radar-now.ts`).
+ *
+ * Es mira a les tessel·les ja desades: els marcs passats no canvien mai, i a
+ * Actions, on el disc arrenca buit, aquesta mateixa volta les acaba d'escriure.
+ * Només es desen els punts amb pluja a prop, així que un dia sec el fitxer va
+ * gairebé buit.
+ */
+async function radarNowOf(frames: number[], grid: TileGrid, tiles: Array<{ x: number; y: number }>): Promise<RadarNow> {
+  const points = JSON.parse(readFileSync(build('forecast-points.json'), 'utf8')) as Array<{ id: string; lat: number; lon: number }>;
+
+  // Un mosaic de dBZ per marc: un byte per píxel, zero on no plou.
+  const mosaics: Uint8Array[] = [];
+  for (const time of frames) {
+    const m = new Uint8Array(grid.width * grid.height);
+    for (const t of tiles) {
+      const file = join(RADAR_DIR, String(time), `${Z}_${t.x}_${t.y}.png`);
+      const { data, info } = await sharp(readFileSync(file)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      const ox = (t.x - grid.x0) * TILE;
+      const oy = (t.y - grid.y0) * TILE;
+      for (let y = 0; y < info.height; y++) {
+        for (let x = 0; x < info.width; x++) {
+          const i = (y * info.width + x) * 4;
+          if (data[i + 3] === 0) continue;
+          m[(oy + y) * grid.width + ox + x] = pixelDbz(data[i], data[i + 1], data[i + 2], data[i + 3]);
+        }
+      }
+    }
+    mosaics.push(m);
+  }
+
+  const maxWithin = (m: Uint8Array, cx: number, cy: number, r: number): number => {
+    let best = 0;
+    for (let dy = -Math.ceil(r); dy <= Math.ceil(r); dy++) {
+      const y = Math.round(cy) + dy;
+      if (y < 0 || y >= grid.height) continue;
+      for (let dx = -Math.ceil(r); dx <= Math.ceil(r); dx++) {
+        if (dx * dx + dy * dy > r * r) continue;
+        const x = Math.round(cx) + dx;
+        if (x < 0 || x >= grid.width) continue;
+        const v = m[y * grid.width + x];
+        if (v > best) best = v;
+      }
+    }
+    return best;
+  };
+
+  const out: RadarNow['points'] = {};
+  for (const p of points) {
+    const [cx, cy] = project(grid, p.lon, p.lat);
+    // Quilòmetres per píxel a aquesta latitud.
+    const kmPx = (40075 * Math.cos((p.lat * Math.PI) / 180)) / (2 ** Z * TILE);
+    const near = Math.max(...mosaics.map((m) => maxWithin(m, cx, cy, NEAR_KM / kmPx)));
+    if (!near) continue;
+    const here = maxWithin(mosaics[mosaics.length - 1], cx, cy, HERE_KM / kmPx);
+    out[p.id] = [near, here];
+  }
+  return { at: new Date(frames[frames.length - 1] * 1000).toISOString(), frames: frames.length, points: out };
 }
 
 async function main() {
@@ -235,6 +298,13 @@ async function main() {
 
   const newest = selected[selected.length - 1];
   writeSnapshot('radar', 'RainViewer', data, new Date(newest.time * 1000).toISOString());
+
+  // Els dos últims marcs observats: vint minuts, perquè un ruixat que acaba de
+  // passar no es doni per sec.
+  const lastTwo = selected.filter((f) => f.kind === 'past').slice(-2).map((f) => f.time);
+  const now = await radarNowOf(lastTwo, grid, tiles);
+  writeSnapshot(RADAR_NOW_SHARD, 'RainViewer', now, now.at);
+  console.log(`Radar d'ara: ${Object.keys(now.points).length} punts de predicció amb pluja a menys de ${NEAR_KM} km`);
   recordFreshness({
     source: 'radar',
     lastSuccessAt: new Date().toISOString(),

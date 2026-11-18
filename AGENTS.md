@@ -100,6 +100,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/push-alerts.ts` | Quin avís va al mòbil de qui i quan: taronja amunt, silenci de nit, un per episodi |
 | `src/lib/warning-when.ts` | Quan val un avís, en una línia: la targeta i la notificació ho diuen igual |
 | `src/lib/air-correction.ts` | El NO₂ de CAMS corregit al punt amb les estacions de la XVPCA del voltant |
+| `src/lib/radar-now.ts` | Si el radar d'ara contradiu el cel que el model posa a l'hora en curs |
 
 ## Dónde viven los datos vivos
 
@@ -1757,6 +1758,19 @@ cuota para exactamente la misma información.
   unitats de la quota d'aire per volta. Les estacions donants van dins de cada tros de cel·la
   —només les que poden tocar-ne algun punt—, no en un fitxer a part: la fitxa no baixa res
   més. `npm run test:air`.
+- **El cel d'ara el contrasta el radar.** (18 de novembre de 2026.) A les 21 h la fitxa de
+  Barcelona deia «Pluja feble» amb el radar net damunt de la ciutat: la icona i el nom del
+  cel de l'hora en curs eren els del model, i el model hi posava 0,3 mm. Ara el worker del
+  radar desa, per a cada un dels 3.190 punts de predicció, el dBZ màxim a menys de 4 km en
+  els dos últims marcs i a menys d'1,5 km a l'últim (`radar-ara`, només els punts amb
+  pluja), i `forecastFor()` corregeix **només l'hora en curs**: si el model diu pluja i el
+  radar no en veu, cel dels núvols del model i 0 mm; si diu sec i el radar hi veu 20 dBZ o
+  més, pluja. El titular ho diu en una línia. Les hores següents són predicció i no es toquen.
+  **La frontera de la pluja és l'opacitat del píxel**: l'esquema Universal Blue pinta per
+  sota de 15 dBZ (uns 0,3 mm/h) un vel beix translúcid, que és el que el radar veu a l'aire
+  i sovint no arriba a terra —aquell vespre, a Barcelona, 0 dBZ—, i a partir de 15, colors
+  opacs. Comptant qualsevol píxel amb tinta, Barcelona hauria seguit plovent. Amb el radar
+  de més de 30 minuts no es corregeix res. `npm run test:radar`.
 
 - **Les route handlers amb dades d'ara tampoc no poden ser ISR.** (13 de novembre de 2026.)
   `/api/ranquings` va tornar, a la primera petició, els extrems del **6 de novembre** el dia

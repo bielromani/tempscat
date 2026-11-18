@@ -97,6 +97,7 @@ const TTL_MS: Array<[RegExp, number]> = [
   [/^xema-current$/, 2 * 60_000],       // el worker corre cada 10 min
   [/^temperatura-ara$/, 2 * 60_000],    // la treu el mateix worker
   [/^radar$/, 2 * 60_000],
+  [/^radar-ara$/, 2 * 60_000],         // el cel d'ara de cada fitxa, del mateix worker
   [/^warnings$/, 2 * 60_000],
   [/^sea$/, 10 * 60_000],
   /*

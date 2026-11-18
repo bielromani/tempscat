@@ -6,7 +6,7 @@ import { sourceText } from '@/lib/sea';
 import { tr, type Lang } from '@/lib/lang';
 import { unratedRainLabel } from '@/lib/narrative';
 import { skyStyle, drawsRain, drawsSnow } from '@/lib/sky';
-import { aNameParts, ago, deName, fromDirection, int, num, signed } from '@/lib/format';
+import { aNameParts, ago, deName, fromDirection, hourSpoken, int, num, signed } from '@/lib/format';
 import { feelsCause, msToKmh, windCardinal } from '@/lib/variables';
 import { WeatherIcon } from './WeatherIcon';
 
@@ -63,12 +63,14 @@ interface Props {
    * `unratedRainLabel()`.
    */
   rainWarned?: boolean;
+  /** El cel d'ara l'ha corregit el radar. Vegeu `src/lib/radar-now.ts`. */
+  nowRadar?: LocationForecast['nowRadar'];
   lang?: Lang;
 }
 
 export function LocationHero({
   loc, comarcaLabel, breadcrumbs, current, nowHour, today, hour, sunriseH, sunsetH, moonPhase,
-  rainWarned = false, lang = 'ca',
+  rainWarned = false, nowRadar = null, lang = 'ca',
 }: Props) {
   const tx = (ca: string, es: string) => tr(lang, ca, es);
   const sky = skyStyle({
@@ -447,6 +449,24 @@ export function LocationHero({
             </span>
           )}
         </p>
+        {/*
+          Quan el cel d'ara no és el del model sinó el del radar, es diu: la
+          icona i el nom de dalt no coincideixen amb la columna «Ara» de la
+          predicció que el model feia, i qui ho compari ha de saber per què.
+        */}
+        {nowRadar && (
+          <p className="mt-1 text-[13px] opacity-85">
+            {nowRadar.by === 'radar-dry'
+              ? tx(
+                `El radar de ${hourSpoken(nowRadar.at)} no hi veu pluja, tot i que el model n'esperava a aquesta hora.`,
+                `El radar de ${hourSpoken(nowRadar.at, 'es')} no ve lluvia aquí, aunque el modelo la esperaba a esta hora.`,
+              )
+              : tx(
+                `El radar de ${hourSpoken(nowRadar.at)} hi veu pluja, tot i que el model no n'esperava a aquesta hora.`,
+                `El radar de ${hourSpoken(nowRadar.at, 'es')} ve lluvia aquí, aunque el modelo no la esperaba a esta hora.`,
+              )}
+          </p>
+        )}
         {/*
           La sensació, amb la causa quan es pot comprovar.
 

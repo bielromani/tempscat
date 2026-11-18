@@ -239,6 +239,7 @@ export function LocationView({
         breadcrumbs={breadcrumbs}
         current={current}
         nowHour={nowHour}
+        nowRadar={forecast?.nowRadar}
         today={todayPoint}
         hour={localClockHour()}
         sunriseH={decimalHour(astro?.sunrise)}
