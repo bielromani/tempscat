@@ -42,6 +42,8 @@ import {
   aqiBand, type AirSlug,
 } from '../../src/lib/air-variables.ts';
 import { callWeight } from '../../src/lib/variables.ts';
+import { NO2_PAST_DAYS, no2Donors, type No2Check } from '../lib/air-no2.ts';
+import { NO2_RANGE_KM, kmBetween, type No2Donor } from '../../src/lib/air-correction.ts';
 
 interface ForecastPoint {
   id: string; lat: number; lon: number; altitud: number | null;
@@ -60,6 +62,11 @@ export interface AirQualityData {
   cells: Record<string, AirCellData>;
   /** Lado de la celda, para que la página pueda decir la resolución real. */
   cellDeg: number;
+  /**
+   * Les estacions que corregeixen el NO₂ i com ha anat la comprovació. Absent
+   * si la XVPCA no ha respost: llavors la pàgina ensenya CAMS sol.
+   */
+  no2?: { donors: No2Donor[]; check: No2Check; from: string; to: string };
 }
 
 const HOST = 'https://air-quality-api.open-meteo.com/v1/air-quality';
@@ -189,6 +196,34 @@ async function main() {
     throw new Error('Cap cel·la amb dades: no s’escriu res per no buidar el fitxer anterior.');
   }
 
+  // ── El NO₂, corregit amb les estacions ─────────────────────────────────
+  //
+  // Vegeu `src/lib/air-correction.ts`. Si la XVPCA o la petició a CAMS fallen,
+  // les cel·les es publiquen igual, sense correcció: CAMS sol és el que hi havia
+  // abans, i no és fals. El que no es fa és publicar una correcció a mitges.
+  const no2Cost = callWeight(1, NO2_PAST_DAYS + 1, 80);
+  if (quota.canSpend('open-meteo-air', no2Cost)) {
+    try {
+      const no2 = await no2Donors();
+      quota.spend('open-meteo-air', callWeight(1, NO2_PAST_DAYS + 1, no2.requested));
+      const { donors, check, from, to } = no2;
+      result.no2 = { donors, check, from, to };
+      console.log(`\nNO₂ corregit amb ${donors.length} estacions (${from} → ${to})`);
+      console.log(`  deixant-ne una fora, ${check.stations} estacions de fons: error horari ${check.rmseCams} → ${check.rmseCorrected} µg/m³`);
+      console.log(`  millora a ${check.better}, empitjora a ${check.worse}`);
+      if (check.rmseCorrected > check.rmseCams) {
+        // Que la correcció deixi de millorar CAMS no és una avaria de ningú, però
+        // vol dir que no s'ha de fer servir: es publica CAMS sol i queda dit.
+        console.warn('  ← la correcció no millora CAMS en aquesta finestra: no es fa servir');
+        result.no2 = undefined;
+      }
+    } catch (err) {
+      console.warn(`\nNO₂ sense corregir: ${String(err).slice(0, 160)}`);
+    }
+  } else {
+    console.warn('\nNO₂ sense corregir: no queda quota per demanar CAMS a les estacions');
+  }
+
   // ── Informe ───────────────────────────────────────────────────────────────
   //
   // No es decoración: es la única forma de detectar que una variable ha dejado
@@ -236,7 +271,13 @@ async function main() {
    */
   writeSnapshot('air-quality', source, result, dataTs);
   for (const [key, cell] of Object.entries(result.cells)) {
-    writeSnapshot(airShard(key), source, { times: result.times, cell, cellDeg: result.cellDeg }, dataTs);
+    // Cada trosset porta només les estacions que poden tocar algun punt de la
+    // cel·la: l'abast més mitja diagonal de la cel·la (uns 7 km).
+    const [cLat, cLon] = key.split(',').map(Number);
+    const no2 = result.no2
+      ? { donors: result.no2.donors.filter((d) => kmBetween(cLat, cLon, d.lat, d.lon) <= NO2_RANGE_KM + 7), from: result.no2.from, to: result.no2.to }
+      : undefined;
+    writeSnapshot(airShard(key), source, { times: result.times, cell, cellDeg: result.cellDeg, no2 }, dataTs);
   }
   console.log(`
 → ${Object.keys(result.cells).length} trossos a data/cache/air/`);

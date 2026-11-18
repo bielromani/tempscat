@@ -99,6 +99,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/push-store.ts` | On es desen les subscripcions dels avisos al mòbil, en un cubell **privat** |
 | `src/lib/push-alerts.ts` | Quin avís va al mòbil de qui i quan: taronja amunt, silenci de nit, un per episodi |
 | `src/lib/warning-when.ts` | Quan val un avís, en una línia: la targeta i la notificació ho diuen igual |
+| `src/lib/air-correction.ts` | El NO₂ de CAMS corregit al punt amb les estacions de la XVPCA del voltant |
 | `src/lib/radar-now.ts` | Si el radar d'ara contradiu el cel que el model posa a l'hora en curs |
 
 ## Dónde viven los datos vivos
@@ -1734,6 +1735,29 @@ cuota para exactamente la misma información.
   Mesurat amb `next start`: la primera visita, 31 peticions i cap precàrrega; la segona fitxa,
   **2** (l'HTML i una icona que la primera no tenia).
 
+- **El NO₂ de les fitxes ja no és la cel·la de CAMS: és CAMS corregit amb les estacions.** (18
+  de novembre de 2026.) Vallvidrera sortia amb pitjor aire que el centre de Barcelona: CAMS
+  treballa a cel·les d'11 km, la de Vallvidrera és la de la Ronda de Dalt i l'Hospitalet, i la
+  del centre té mig mar. I el que mesuren les estacions és al revés: l'Observatori Fabra, a 415
+  m a Collserola, **7 µg/m³** de mitjana amb CAMS posant-n'hi 30; Palau Reial, Sants i
+  Ciutadella, 15–20 amb CAMS a 33. CAMS posa massa NO₂ a tota l'àrea de Barcelona.
+  Ara cada estació de fons i industrial de la XVPCA diu quant s'equivoca CAMS al seu punt
+  —`ln((mesurat+1)/(CAMS+1))`, mitjana de 30 dies, amb CAMS demanat **a la coordenada de
+  l'estació**— i cada fitxa rep la mitjana pesada de les de menys de 15 km
+  (`src/lib/air-correction.ts`). Es corregeixen la concentració, el subíndex i l'índex de
+  tota la sèrie abans de llegir-ne res, a `airQualityFor`, així que la fitxa, el widget, el
+  feed i l'API diuen el mateix. Deixant cada estació fora, l'error horari passa de 14,8 a
+  10,7 µg/m³ (92 dies, agost–novembre). Quatre coses que no són evidents:
+  **Només el NO₂.** Amb el PM2,5, el PM10 i l'ozó la meitat de les estacions empitjoraven.
+  **En raó, no sumant**: sumant µg l'error baixava la meitat. **El trànsit d'OpenStreetMap no
+  hi és**: provat com a covariable i no hi afegia res, amb una descàrrega de 114 MB i ODbL.
+  I **les estacions de trànsit no són donants**: mesuren el carrer.
+  El worker de l'aire ho torna a comprovar a cada volta (`no2.check` a `air-quality.json`) i,
+  si un dia la correcció no millora CAMS en la finestra, publica CAMS sol. Si la XVPCA no
+  respon, igual: les cel·les surten sense correcció, que és el que hi havia. Cost: unes 170
+  unitats de la quota d'aire per volta. Les estacions donants van dins de cada tros de cel·la
+  —només les que poden tocar-ne algun punt—, no en un fitxer a part: la fitxa no baixa res
+  més. `npm run test:air`.
 - **El cel d'ara el contrasta el radar.** (18 de novembre de 2026.) A les 21 h la fitxa de
   Barcelona deia «Pluja feble» amb el radar net damunt de la ciutat: la icona i el nom del
   cel de l'hora en curs eren els del model, i el model hi posava 0,3 mm. Ara el worker del
