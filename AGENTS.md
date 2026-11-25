@@ -101,6 +101,7 @@ quién hiciera la cuenta. Fuera de ese caso, duplica antes que romper uno de los
 | `src/lib/warning-when.ts` | Quan val un avís, en una línia: la targeta i la notificació ho diuen igual |
 | `src/lib/air-correction.ts` | El NO₂ de CAMS corregit al punt amb les estacions de la XVPCA del voltant |
 | `src/lib/radar-now.ts` | Si el radar d'ara contradiu el cel que el model posa a l'hora en curs |
+| `src/lib/daily-bias.ts` | La màxima i la mínima previstes, corregides amb l'error del model a les estacions |
 
 ## Dónde viven los datos vivos
 
@@ -1771,6 +1772,28 @@ cuota para exactamente la misma información.
   i sovint no arriba a terra —aquell vespre, a Barcelona, 0 dBZ—, i a partir de 15, colors
   opacs. Comptant qualsevol píxel amb tinta, Barcelona hauria seguit plovent. Amb el radar
   de més de 30 minuts no es corregeix res. `npm run test:radar`.
+
+- **La màxima i la mínima previstes, corregides amb les estacions.** (25 de novembre de
+  2026.) Comparada poble a poble, la fitxa perdia amb l'AEMET per 0,2 graus a la màxima i a
+  la mínima, i amb yr.no empatava o perdia: els models **aplanen el dia** —a la XEMA, la
+  màxima sortia 1,1 °C baixa i la mínima 1,3 alta, a tots els models i horitzons— i la
+  fitxa ho heretava. Ara `worker:verify` publica cada dia `verify/biaix`: per a cada
+  estació, l'error mitjà de `best_match` a la seva màxima i mínima dels últims 30 dies, amb
+  la predicció d'un dia abans (la desada a `verify/pendent/`) contra la sèrie diària de la
+  XEMA. Es recalcula sencer cada vegada, sense cap estat que es quedi a mitges.
+  `forecastFor()` en fa la mitjana pesada a menys de 40 km (escales de 25 km i 300 m,
+  ε 0,1) i la resta a la màxima i la mínima de **tots** els dies; les hores es mouen entre
+  la correcció de la mínima i la de la màxima segons on cauen dins del dia, perquè la
+  taula horària no contradigui la llista. Deixant cada estació fora: màxima de demà
+  1,40 → **0,93** °C (AEMET 1,14, yr.no 1,39), mínima 1,71 → **1,33** (AEMET 1,50), i guanya
+  també a tres dies. Tres coses que no són evidents:
+  **L'error és el de `best_match` a l'estació, no el de la fitxa**: aquell es desa des del
+  setembre a 166 estacions, i té el mateix biaix. **La fitxa que es puntua contra els rivals
+  porta la correcció sense la seva pròpia estació**, o es mesuraria amb trampa. I **un
+  error de més de nou dies no es fa servir**: si el worker s'atura, la predicció torna a ser
+  la del model. De passada, la captura dels models descarta els dies amb menys de 20 hores:
+  AROME arriba a unes 42, i la «màxima» del segon dia, feta amb la matinada, sortia 6 °C
+  baixa. `npm run test:bias`.
 
 - **Les route handlers amb dades d'ara tampoc no poden ser ISR.** (13 de novembre de 2026.)
   `/api/ranquings` va tornar, a la primera petició, els extrems del **6 de novembre** el dia
