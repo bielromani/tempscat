@@ -84,6 +84,10 @@ import {
 } from '../lib/store.ts';
 import { aggregateDaily, mergeHourly, type PointForecast } from '../../src/lib/forecast-merge.ts';
 import { LAPSE_RATE } from '../../src/lib/variables.ts';
+import {
+  BIAS_MIN_DAYS, BIAS_WINDOW_DAYS, DAILY_BIAS_SHARD, biasCorrectionAt, correctSeries,
+  type BiasStation, type DailyBias,
+} from '../../src/lib/daily-bias.ts';
 import { instantOf } from '../../src/lib/format.ts';
 import { FORECAST_INDEX, forecastShard, type ForecastIndex } from '../../src/lib/shards.ts';
 import {
@@ -287,6 +291,27 @@ async function main() {
     console.log(`Puntuat ${yesterday}: ${scored} comparacions · ${scores.scored.length} dies acumulats`);
   }
 
+  // ── 1b. L'error de cada estació, per corregir la màxima i la mínima ──────
+  /*
+   * Si no surt, no es publica res nou: la fitxa segueix amb el de la volta
+   * anterior, i passada una setmana el deixa de fer servir (`forecastFor`).
+   * Que falli una font no ha d'aturar la captura, que és el que no es pot
+   * refer l'endemà.
+   */
+  let bias: DailyBias | null = null;
+  try {
+    bias = await dailyBias(stations, today, quota);
+    writeSnapshot(DAILY_BIAS_SHARD, 'Open-Meteo + Meteocat XEMA', bias, bias.to);
+    const used = bias.stations.filter((b) => b.tMax != null);
+    const mean = (k: 'tMax' | 'tMin') => used.reduce((a, b) => a + (b[k] ?? 0), 0) / Math.max(1, used.length);
+    console.log(
+      `Error del model a les estacions, del ${bias.from} al ${bias.to}: ${used.length} estacions`
+      + ` · màxima ${mean('tMax').toFixed(2)} °C · mínima ${mean('tMin').toFixed(2)} °C`,
+    );
+  } catch (err) {
+    console.warn(`No s'ha pogut calcular l'error de les estacions: ${(err as Error).message}`);
+  }
+
   // ── 2. Capturar els dies que vindran ────────────────────────────────────
   const index = await pullSnapshot<ForecastIndex>(FORECAST_INDEX);
   if (!index) throw new Error('no hi ha índex de predicció: no es pot capturar res');
@@ -353,6 +378,14 @@ async function main() {
         const target = plusDays(today, lead);
         const d = daily.find((x) => x.date === target);
         if (!d) continue;
+        /*
+         * Només un dia sencer. AROME arriba a unes 42 hores: el segon dia en
+         * porta només la matinada, i la «màxima» d'aquelles hores sortia 6 °C
+         * per sota de la de debò —un model que semblava espatllat a dos dies
+         * vista i no ho estava—.
+         */
+        const hoursWithT = hourly.filter((h) => h.time.slice(0, 10) === target && h.temperature != null).length;
+        if (hoursWithT < 20) continue;
         const slot = (captured[String(lead)][pair.station.codi] ??= {});
         slot[model] = {
           tMax: d.tMax != null ? Math.round((d.tMax - drop) * 10) / 10 : null,
@@ -364,7 +397,7 @@ async function main() {
   }
 
   // ── 2b. El que diu aquest web i el que diuen els altres, del mateix poble ──
-  const h2h = await captureHeadToHead(headToHead, foundTown, times, today, quota);
+  const h2h = await captureHeadToHead(headToHead, foundTown, times, today, quota, bias);
   for (const lead of LEADS) {
     for (const [codi, bySource] of Object.entries(h2h.daily[String(lead)] ?? {})) {
       Object.assign((captured[String(lead)][codi] ??= {}), bySource);
@@ -472,6 +505,73 @@ async function main() {
 }
 
 /**
+ * L'error que el model fa a la màxima i a la mínima de cada estació, els
+ * últims `BIAS_WINDOW_DAYS` dies, amb la predicció d'un dia abans.
+ *
+ * La predicció és la de `best_match` desada a `verify/pendent/<dia>`, que hi
+ * és des del setembre de 2026 a totes les estacions aparellades; la veritat, la
+ * sèrie diària de la XEMA (`7bvh-jvq2`), que va dos dies tard. Tot es torna a
+ * calcular cada vegada a partir del que ja hi ha desat: no hi ha cap estat que
+ * es pugui quedar a mitges.
+ */
+async function dailyBias(stations: Station[], today: string, quota: QuotaGuard): Promise<DailyBias> {
+  const to = plusDays(today, -2);
+  const from = plusDays(to, -(BIAS_WINDOW_DAYS - 1));
+
+  const rows = await fetchJson<Array<{ codi_estacio: string; data_lectura: string; codi_variable: string; valor: string }>>(
+    'https://analisi.transparenciacatalunya.cat/resource/7bvh-jvq2.json?' + new URLSearchParams({
+      $select: 'codi_estacio,data_lectura,codi_variable,valor',
+      $where: `data_lectura >= '${from}' AND data_lectura <= '${to}T23:59:59' AND codi_variable in('1001','1002')`,
+      $limit: '50000',
+    }),
+    { timeoutMs: 120_000 },
+  );
+  quota.spend('socrata', 1);
+  const truth = new Map<string, { tMax?: number; tMin?: number }>();
+  for (const r of rows) {
+    const v = Number(r.valor);
+    if (!Number.isFinite(v)) continue;
+    const key = `${r.codi_estacio}|${r.data_lectura.slice(0, 10)}`;
+    const t = truth.get(key) ?? {};
+    if (r.codi_variable === '1001') t.tMax = v; else t.tMin = v;
+    truth.set(key, t);
+  }
+  if (!truth.size) throw new Error(`la sèrie diària de la XEMA no té res del ${from} al ${to}`);
+
+  const sums = new Map<string, { sx: number; nx: number; sn: number; nn: number; days: number }>();
+  for (let day = from; day <= to; day = plusDays(day, 1)) {
+    const pending = (await pullSnapshot<Pending>(pendingShard(day)))?.data;
+    const lead1 = pending?.byLead['1']?.stations;
+    if (!lead1) continue;
+    for (const [codi, byModel] of Object.entries(lead1)) {
+      const said = byModel.best_match;
+      const got = truth.get(`${codi}|${day}`);
+      if (!said || !got) continue;
+      const acc = sums.get(codi) ?? { sx: 0, nx: 0, sn: 0, nn: 0, days: 0 };
+      let any = false;
+      if (said.tMax != null && got.tMax != null) { acc.sx += said.tMax - got.tMax; acc.nx++; any = true; }
+      if (said.tMin != null && got.tMin != null) { acc.sn += said.tMin - got.tMin; acc.nn++; any = true; }
+      if (any) acc.days++;
+      sums.set(codi, acc);
+    }
+  }
+
+  const byCodi = new Map(stations.map((s) => [s.codi, s]));
+  const out: BiasStation[] = [];
+  for (const [codi, a] of sums) {
+    const s = byCodi.get(codi);
+    if (!s || s.altitud == null) continue;
+    const tMax = a.nx >= BIAS_MIN_DAYS ? Math.round((a.sx / a.nx) * 100) / 100 : null;
+    const tMin = a.nn >= BIAS_MIN_DAYS ? Math.round((a.sn / a.nn) * 100) / 100 : null;
+    if (tMax == null && tMin == null) continue;
+    out.push({ codi, nom: s.nom, lat: s.lat, lon: s.lon, alt: s.altitud, tMax, tMin, n: a.days });
+  }
+  if (!out.length) throw new Error("cap estació amb prou dies per calcular-ne l'error");
+  out.sort((a, b) => a.codi.localeCompare(b.codi));
+  return { from, to, stations: out };
+}
+
+/**
  * El que diu la fitxa d'un poble i el que en diuen els altres, per a cada
  * antelació: l'AEMET, yr.no i, quan hi hagi clau, el Meteocat.
  *
@@ -492,6 +592,7 @@ async function captureHeadToHead(
   times: string[],
   today: string,
   quota: QuotaGuard,
+  bias: DailyBias | null,
 ): Promise<{
   daily: Record<string, Record<string, Record<string, Predicted>>>;
   ahead: AheadCapture;
@@ -541,10 +642,15 @@ async function captureHeadToHead(
 
     const modelElev = byModel[models[0]].modelElevation;
     const dAlt = town.altitud != null && modelElev != null ? town.altitud - modelElev : 0;
-    const hourly = mergeHourly(byModel, times, {
+    let hourly = mergeHourly(byModel, times, {
       tempCorrection: -dAlt * LAPSE_RATE, lat: town.lat, lon: town.lon,
     });
-    const daily = aggregateDaily(hourly, { lat: town.lat, lon: town.lon });
+    let daily = aggregateDaily(hourly, { lat: town.lat, lon: town.lon });
+    // La fitxa porta la correcció de les estacions: es desa el que ensenya.
+    // Sense la de la mateixa estació que la puntuarà, que seria fer trampa.
+    const others = bias ? { ...bias, stations: bias.stations.filter((b) => b.codi !== station.codi) } : null;
+    const corr = others ? biasCorrectionAt(town.lat, town.lon, town.altitud ?? null, others) : null;
+    if (corr) ({ hourly, daily } = correctSeries(hourly, daily, corr));
 
     for (const lead of LEADS) {
       const target = plusDays(today, lead);

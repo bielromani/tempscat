@@ -179,6 +179,18 @@ export function withObservedToday(daily: DailyPoint[], today: string, current: C
   });
 }
 
+/** «Ara hi suma +0,8 °C a la màxima, i la mínima es queda igual.» Un zero no es diu com a xifra. */
+function biasNow(c: { tMax: number; tMin: number }, lang: Lang): string {
+  const part = (v: number, ca: string, es: string) => (Math.abs(v) < 0.05 ? null : tr(lang,
+    `${signed(v, 1, '°C')} a la ${ca}`, `${signed(v, 1, '°C')} a la ${es}`));
+  const mx = part(c.tMax, 'màxima', 'máxima');
+  const mn = part(c.tMin, 'mínima', 'mínima');
+  if (mx && mn) return tr(lang, `Ara hi suma ${mx} i ${mn}.`, `Ahora suma ${mx} y ${mn}.`);
+  if (mx) return tr(lang, `Ara hi suma ${mx}, i la mínima es queda igual.`, `Ahora suma ${mx}, y la mínima se queda igual.`);
+  if (mn) return tr(lang, `Ara hi suma ${mn}, i la màxima es queda igual.`, `Ahora suma ${mn}, y la máxima se queda igual.`);
+  return tr(lang, 'Ara mateix no hi canvia res.', 'Ahora mismo no cambia nada.');
+}
+
 export function LocationView({
   loc, comarca, breadcrumbs, current, forecast, warnings, astro, history,
   siblings, siblingsLabel, neighbours, neighboursLabel, description,
@@ -385,6 +397,7 @@ export function LocationView({
                 `corregit ${signed(forecast.altitudeCorrectionM, 0, 'm')} d'altitud`,
                 `corregido ${signed(forecast.altitudeCorrectionM, 0, 'm')} de altitud`,
               ),
+              forecast.biasCorrection && t('màximes i mínimes corregides amb les estacions', 'máximas y mínimas corregidas con las estaciones'),
             ])}
           >
             <div className="card">
@@ -614,6 +627,22 @@ export function LocationView({
         gràfic ja diu «Un sol model de predicció»: parlar al peu del pes dels
         models en «aquest consens» contradeia la mateixa pàgina.
       */}
+      {/*
+        D'on surt la màxima i la mínima: el model, corregit amb el que s'ha
+        equivocat a les estacions. Es diu quant i amb quina estació, com la
+        temperatura d'ara. El mètode és a `daily-bias.ts`.
+      */}
+      {forecast?.biasCorrection && (
+        <p className="mt-10 text-xs leading-relaxed text-[var(--muted)]">
+          {t(
+            `La màxima i la mínima de cada dia, i les hores amb elles, van corregides amb el que el model s'ha equivocat els últims 30 dies a les estacions de la XEMA del voltant; la que més hi pesa és ${forecast.biasCorrection.nearest.nom}, a ${num(forecast.biasCorrection.nearest.km, 0)} km. ${biasNow(forecast.biasCorrection, 'ca')}`,
+            `La máxima y la mínima de cada día, y las horas con ellas, están corregidas con lo que el modelo se ha equivocado los últimos 30 días en las estaciones de la XEMA de alrededor; la que más pesa es ${forecast.biasCorrection.nearest.nom}, a ${num(forecast.biasCorrection.nearest.km, 0)} km. ${biasNow(forecast.biasCorrection, 'es')}`,
+          )}{' '}
+          <Link href="/dades/encert" className="underline decoration-1 underline-offset-2">
+            {t('Quant encerta', 'Cuánto acierta')}
+          </Link>
+        </p>
+      )}
       {forecast && !forecast.skillWeighted && forecast.nModels > 1 && (
         <p className="mt-10 text-xs leading-relaxed text-[var(--muted)]">
           {t(

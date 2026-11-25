@@ -149,4 +149,13 @@ export interface LocationForecast {
    * revés. `at`, l'hora local de Madrid del marc. Vegeu `src/lib/radar-now.ts`.
    */
   nowRadar?: { by: 'radar-dry' | 'radar-wet'; at: string } | null;
+  /**
+   * El que s'ha sumat a la màxima i a la mínima de cada dia per l'error que
+   * el model fa a les estacions del voltant, i de quins dies és aquest error.
+   * Vegeu `src/lib/daily-bias.ts`.
+   */
+  biasCorrection?: {
+    tMax: number; tMin: number; nearest: { nom: string; km: number }; stations: number;
+    from: string; to: string;
+  } | null;
 }

@@ -30,6 +30,7 @@ import { LEVEL_RANK, type Warning } from './warning-stack';
 import type { RainWarning } from './narrative';
 import type { MeasuredRain } from './recent-rain';
 import { WARNING_ZONES_SHARD, type WarningZones } from './warning-zones';
+import { DAILY_BIAS_SHARD, biasCorrectionAt, correctSeries, type DailyBias } from './daily-bias';
 import { RADAR_NOW_MAX_AGE_MIN, RADAR_NOW_SHARD, radarVerdict, type RadarNow } from './radar-now';
 import {
   MODEL_ONLY_WEIGHT, NOW_MAX_AGE_MIN, NOW_SHARD, type NowTemperature,
@@ -343,9 +344,10 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
   if (!loc.forecastPointId || !loc.comarcaCodi) return null;
   // Solo el trozo de su comarca. El punto de un municipio de frontera está
   // duplicado en los dos trozos justamente para que aquí no haya que buscarlo.
-  const [snap, radarNow] = await Promise.all([
+  const [snap, radarNow, bias] = await Promise.all([
     snapshot<ForecastData>(forecastShard(loc.comarcaCodi)),
     snapshot<RadarNow>(RADAR_NOW_SHARD),
+    snapshot<DailyBias>(DAILY_BIAS_SHARD),
   ]);
   if (!snap) return null;
   const byModel = snap.data.points[loc.forecastPointId];
@@ -363,7 +365,7 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
 
   const times = snap.data.times.slice(0, hours);
 
-  const hourly = mergeHourly(byModel, times, {
+  let hourly = mergeHourly(byModel, times, {
     tempCorrection, lat: loc.lat ?? null, lon: loc.lon ?? null,
   });
 
@@ -405,10 +407,27 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
    * s'ha acabat, amb la predicció que se'n feia i no el que va passar.
    */
   const today = localToday();
-  const daily: DailyPoint[] = (stored
+  let daily: DailyPoint[] = (stored
     ? fromStored(stored, tempCorrection, loc, hourly)
     : aggregateDaily(hourly, { lat: loc.lat ?? null, lon: loc.lon ?? null })
   ).filter((d) => d.date >= today);
+
+  /*
+   * La màxima i la mínima, i les hores amb elles, corregides amb l'error que
+   * el model està fent a les estacions del voltant: els models aplanen el dia
+   * i, sense això, la màxima sortia 1,1 °C baixa i la mínima 1,3 alta. El
+   * mètode i les xifres són a `daily-bias.ts`. Sense estacions a l'abast, o
+   * sense el fitxer, la predicció es queda com la dona el model.
+   */
+  // Un error d'estacions de fa més d'una setmana ja no és el d'ara: si el
+  // worker s'atura, la predicció torna a ser la del model sense dir res fals.
+  const biasFresh = bias != null && bias.data.to >= addDaysIso(today, -9);
+  const biasCorrection = biasFresh && loc.lat != null && loc.lon != null
+    ? biasCorrectionAt(loc.lat, loc.lon, loc.altitud ?? null, bias.data)
+    : null;
+  if (biasCorrection) {
+    ({ hourly, daily } = correctSeries(hourly, daily, biasCorrection));
+  }
 
   return {
     hourly,
@@ -420,7 +439,15 @@ export async function forecastFor(loc: Location, hours = 336): Promise<LocationF
     source: snap.source,
     skillWeighted: false,
     nowRadar,
+    biasCorrection: biasCorrection ? { ...biasCorrection, from: bias!.data.from, to: bias!.data.to } : null,
   };
+}
+
+/** `AAAA-MM-DD` més o menys uns dies. */
+function addDaysIso(day: string, n: number): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 // ── Avisos oficiales ────────────────────────────────────────────────────────
