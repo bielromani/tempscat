@@ -930,6 +930,12 @@ export const DAILY_LIMITS: Record<string, number> = {
    * municipis al dia, mireu-ne el límit el dia que arribi la clau.
    */
   'meteocat': 300,
+  /*
+   * OpenWeather (One Call 3.0, pla «by Call»): mil peticions de franc al dia, i
+   * a partir d'aquí es paguen. Se'n fan unes 140. El sostre de l'API s'ha de
+   * posar també al seu tauler, a 1.000, perquè un error aquí no costi diners.
+   */
+  'openweather': 900,
 };
 
 /**
