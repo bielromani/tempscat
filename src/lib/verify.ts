@@ -130,13 +130,16 @@ export function emptyScores(): Scores {
 /**
  * Els que publiquen una predicció per a un lloc concret i que es pot desar el
  * mateix dia. La clau és la que porten a `Pending` i a `Scores.duels`.
- * Google, Apple o eltiempo.es no hi són perquè no en publiquen cap que es
- * pugui consultar així.
+ * Apple (WeatherKit) i Tomorrow.io no hi són perquè les seves condicions
+ * prohibeixen desar-ne les dades o fer-ne comparatives; Google, perquè només
+ * deixa desar trenta dies la predicció del dia en curs, i es compara a part i
+ * en privat (`google-verify.ts`).
  */
 export const RIVALS = {
   aemet: 'AEMET',
   yrno: 'yr.no (MET Norway)',
   meteocat: 'Meteocat',
+  openweather: 'OpenWeather',
 } as const;
 export type Rival = keyof typeof RIVALS;
 

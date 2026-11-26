@@ -77,7 +77,7 @@ import { build } from '../lib/paths.ts';
 import { fetchJson, fetchWithRetry, sleep } from '../lib/http.ts';
 import {
   distKm, headToHeadPairs, yrnoAt, yrnoDaily, yrnoSeries,
-  type Daily, type HeadToHead, type Station, type YrStep,
+  type Daily, type HeadToHead, type Station, type Town, type YrStep,
 } from '../lib/head-to-head.ts';
 import {
   DAILY_LIMITS, QuotaGuard, publish, pullSnapshot, recordFreshness, reportFailure, syncState, writeSnapshot,
@@ -627,6 +627,15 @@ async function captureHeadToHead(
     console.log('Sense METEOCAT_API_KEY: no es desa la comparació amb el Meteocat.');
   }
 
+  const owmKey = process.env.OPENWEATHER_API_KEY;
+  if (owmKey) {
+    rivals.openweather = await eachTown(
+      'OpenWeather', order, (ine) => openWeatherDaily(byIne.get(ine)!.town, owmKey, quota),
+    );
+  } else {
+    console.log('Sense OPENWEATHER_API_KEY: no es desa la comparació amb OpenWeather.');
+  }
+
   const aemetKey = process.env.AEMET_API_KEY;
   if (aemetKey) {
     rivals.aemet = await eachTown("l'AEMET", order, (ine) => aemetDaily(ine, aemetKey, quota), AEMET_BUDGET_MS);
@@ -756,6 +765,42 @@ async function meteocatDaily(ine6: string, key: string, quota: QuotaGuard): Prom
     out.set(d.data.slice(0, 10), {
       tMax: typeof d.variables?.tmax?.valor === 'number' ? d.variables.tmax.valor : null,
       tMin: typeof d.variables?.tmin?.valor === 'number' ? d.variables.tmin.valor : null,
+    });
+  }
+  return out;
+}
+
+const OWM_BASE = 'https://api.openweathermap.org/data/3.0/onecall';
+
+/**
+ * La predicció diària d'OpenWeather (One Call 3.0): màxima i mínima per data.
+ *
+ * És la que hi ha darrere de moltes aplicacions del temps genèriques, i les
+ * seves dades són CC BY-SA 4.0: es poden desar i comparar dient d'on surten.
+ * El pla «One Call by Call» en dona mil peticions al dia de franc; aquí se'n fa
+ * una per municipi, unes 140.
+ *
+ * `dt` és el migdia local del dia en segons UTC, i la data surt de sumar-hi
+ * `timezone_offset`: llegida en UTC, a la mitjanit d'hivern cauria igual, però
+ * no hi ha cap motiu per dependre'n.
+ */
+async function openWeatherDaily(town: Town, key: string, quota: QuotaGuard): Promise<Map<string, Daily>> {
+  await sleep(200);
+  const url = `${OWM_BASE}?lat=${town.lat.toFixed(4)}&lon=${town.lon.toFixed(4)}`
+    + `&exclude=current,minutely,hourly,alerts&units=metric&appid=${encodeURIComponent(key)}`;
+  const body = await fetchJson<{
+    timezone_offset?: number;
+    daily?: Array<{ dt: number; temp?: { max?: number; min?: number } }>;
+  }>(url, { timeoutMs: 30_000 });
+  quota.spend('openweather', 1);
+  if (!Array.isArray(body.daily)) throw new Error('resposta sense `daily`: ha canviat el format?');
+  const offset = body.timezone_offset ?? 0;
+  const out = new Map<string, Daily>();
+  for (const d of body.daily) {
+    const date = new Date((d.dt + offset) * 1000).toISOString().slice(0, 10);
+    out.set(date, {
+      tMax: typeof d.temp?.max === 'number' ? Math.round(d.temp.max * 10) / 10 : null,
+      tMin: typeof d.temp?.min === 'number' ? Math.round(d.temp.min * 10) / 10 : null,
     });
   }
   return out;
