@@ -28,6 +28,15 @@ export interface FetchOptions {
 const UA = 'meteo-catalunya/0.1 (proyecto de datos abiertos; contacto en el repositorio)';
 
 /**
+ * La URL tal com pot sortir en un missatge d'error: sense el valor de cap
+ * paràmetre que porti una clau. Google (`key=`) i OpenWeather (`appid=`) la
+ * volen a l'adreça, i el registre d'Actions d'un repositori públic és públic.
+ */
+export function safeUrl(url: string): string {
+  return url.replace(/([?&](?:key|appid|api_key|apikey|token|access_token)=)[^&#\s]*/gi, '$1***');
+}
+
+/**
  * `fetch` con reintentos, backoff exponencial y timeout.
  *
  * Los 4xx no se reintentan: un 404 o un 400 no mejoran esperando. Solo se
@@ -61,7 +70,7 @@ export async function fetchWithRetry(url: string, opts: FetchOptions = {}): Prom
         });
         if (res.ok || passStatus.includes(res.status)) return res;
         if (res.status >= 400 && res.status < 500 && res.status !== 429) {
-          throw new Error(`HTTP ${res.status} en ${url.slice(0, 120)}… (no se reintenta)`);
+          throw new Error(`HTTP ${res.status} en ${safeUrl(url).slice(0, 120)}… (no se reintenta)`);
         }
         if (res.status === 429) {
           const ra = res.headers.get('retry-after');
@@ -78,7 +87,7 @@ export async function fetchWithRetry(url: string, opts: FetchOptions = {}): Prom
       lastError = err;
     }
   }
-  throw new Error(`Fallo tras ${retries + 1} intentos: ${url.slice(0, 150)}…\n  ${String(lastError)}`);
+  throw new Error(`Fallo tras ${retries + 1} intentos: ${safeUrl(url).slice(0, 150)}…\n  ${String(lastError)}`);
 }
 
 export async function fetchJson<T>(url: string, opts?: FetchOptions): Promise<T> {

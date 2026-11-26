@@ -11,6 +11,9 @@ import { readFileSync } from 'node:fs';
 import { build } from './paths.ts';
 import { fetchJson, sleep } from './http.ts';
 import type { QuotaGuard } from './store.ts';
+import { aggregateDaily, mergeHourly, type PointForecast } from '../../src/lib/forecast-merge.ts';
+import { LAPSE_RATE } from '../../src/lib/variables.ts';
+import { biasCorrectionAt, correctSeries, type DailyBias } from '../../src/lib/daily-bias.ts';
 
 export interface Station {
   codi: string; nom: string; lat: number; lon: number;
@@ -178,4 +181,72 @@ export function yrnoAt(series: YrStep[], ms: number): number | null {
     }
   }
   return null;
+}
+
+/**
+ * El que ensenya la fitxa d'un poble, hora a hora i dia a dia: tots els models
+ * del seu punt, baixats a la cota del poble, i amb la correcció de les
+ * estacions (`daily-bias.ts`) **sense la de l'estació que la puntuarà**, que
+ * seria fer trampa.
+ *
+ * És el càlcul de `forecastFor()`, que no es pot importar perquè llegeix del
+ * magatzem amb `server-only`; les funcions que fan la feina són les mateixes.
+ * El fan servir la comparació diària i la de Google: amb dues còpies, un dia
+ * cadascuna mesuraria una fitxa diferent.
+ */
+export function fitxaSeries(
+  town: Town,
+  stationCodi: string,
+  byModel: Record<string, PointForecast>,
+  times: string[],
+  bias: DailyBias | null,
+): { hourly: ReturnType<typeof mergeHourly>; daily: ReturnType<typeof aggregateDaily> } | null {
+  const models = Object.keys(byModel);
+  if (!models.length) return null;
+  const modelElev = byModel[models[0]].modelElevation;
+  const dAlt = town.altitud != null && modelElev != null ? town.altitud - modelElev : 0;
+  let hourly = mergeHourly(byModel, times, {
+    tempCorrection: -dAlt * LAPSE_RATE, lat: town.lat, lon: town.lon,
+  });
+  let daily = aggregateDaily(hourly, { lat: town.lat, lon: town.lon });
+  const others = bias ? { ...bias, stations: bias.stations.filter((b) => b.codi !== stationCodi) } : null;
+  const corr = others ? biasCorrectionAt(town.lat, town.lon, town.altitud ?? null, others) : null;
+  if (corr) ({ hourly, daily } = correctSeries(hourly, daily, corr));
+  return { hourly, daily };
+}
+
+const OWM_BASE = 'https://api.openweathermap.org/data/3.0/onecall';
+
+/**
+ * La predicció diària d'OpenWeather (One Call 3.0): màxima i mínima per data.
+ *
+ * És la que hi ha darrere de moltes aplicacions del temps genèriques, i les
+ * seves dades són CC BY-SA 4.0: es poden desar i comparar dient d'on surten.
+ * El pla «One Call by Call» en dona mil peticions al dia de franc; aquí se'n fa
+ * una per municipi, unes 140.
+ *
+ * `dt` és el migdia local del dia en segons UTC, i la data surt de sumar-hi
+ * `timezone_offset`: llegida en UTC, a la mitjanit d'hivern cauria igual, però
+ * no hi ha cap motiu per dependre'n.
+ */
+export async function openWeatherDaily(town: Town, key: string, quota: QuotaGuard): Promise<Map<string, Daily>> {
+  await sleep(200);
+  const url = `${OWM_BASE}?lat=${town.lat.toFixed(4)}&lon=${town.lon.toFixed(4)}`
+    + `&exclude=current,minutely,hourly,alerts&units=metric&appid=${encodeURIComponent(key)}`;
+  const body = await fetchJson<{
+    timezone_offset?: number;
+    daily?: Array<{ dt: number; temp?: { max?: number; min?: number } }>;
+  }>(url, { timeoutMs: 30_000 });
+  quota.spend('openweather', 1);
+  if (!Array.isArray(body.daily)) throw new Error('resposta sense `daily`: ha canviat el format?');
+  const offset = body.timezone_offset ?? 0;
+  const out = new Map<string, Daily>();
+  for (const d of body.daily) {
+    const date = new Date((d.dt + offset) * 1000).toISOString().slice(0, 10);
+    out.set(date, {
+      tMax: typeof d.temp?.max === 'number' ? Math.round(d.temp.max * 10) / 10 : null,
+      tMin: typeof d.temp?.min === 'number' ? Math.round(d.temp.min * 10) / 10 : null,
+    });
+  }
+  return out;
 }

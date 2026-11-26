@@ -936,6 +936,12 @@ export const DAILY_LIMITS: Record<string, number> = {
    * posar també al seu tauler, a 1.000, perquè un error aquí no costi diners.
    */
   'openweather': 900,
+  /*
+   * Google Weather API: 10.000 usos gratuïts al mes i a partir d'aquí es paguen.
+   * Se'n fan unes 140 al dia, un cop (`google-verify.ts`). Al seu tauler hi ha
+   * d'haver també un sostre diari, que és el que talla de debò.
+   */
+  'google': 300,
 };
 
 /**
