@@ -37,6 +37,8 @@
     "worker:verify": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/forecast-verify.ts",
     "worker:compare": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/temperature-compare.ts",
     "worker:hora": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/hourly-verify.ts",
+    "worker:google": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/google-verify.ts",
+    "google:encert": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/google-encert.ts",
     "workers:daily": "npm run worker:history && npm run worker:air && npm run worker:air-stations && npm run worker:water",
     "test:astronomy": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-astronomy.ts",
     "worker:air": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/workers/air-quality.ts",

@@ -202,6 +202,8 @@ npm run worker:verify     # quant encerta cada model, contra la XEMA · un cop a
 npm run worker:compare    # la temperatura d'ara de les fitxes contra la dels models · un cop al dia
 npm run worker:hora       # la temperatura de les fitxes contra la de yr.no, ara i cada hora de demà · cada hora
 npm run worker:push       # avisos taronja i vermells al mòbil · darrere de worker:warnings, cada 15 min
+npm run worker:google     # Google contra la fitxa, en privat · a camp.yml; `-- --check` prova les claus
+npm run google:encert     # els resultats de Google, en local (llegeix el cubell privat)
 ```
 
 Pruebas:
@@ -1818,3 +1820,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+- **Google es compara en privat, i el que diu s'esborra.** (26 de novembre de 2026.) Les
+  condicions de la Weather API només deixen desar **trenta dies** la predicció del dia en curs
+  i prohibeixen refer cap producte seu. `worker:google` (`google-verify.ts`, una feina de
+  `camp.yml`) la demana a les 07:50 de Madrid —el dia de Google va de 07 a 07 i a aquella hora
+  ja ha començat—, la desa al **cubell privat** amb la fitxa, yr.no i OpenWeather de la mateixa
+  hora, i l'endemà a partir de les 10 la puntua contra la XEMA i l'esborra. La mínima de Google
+  és la de la nit **següent** (de 07 a 07), així que es compara `tMinNit` contra la XEMA en
+  aquella finestra, i no la mínima natural. **Cap xifra de Google al registre d'Actions**, que en
+  un repositori públic és públic: els resultats es miren amb `npm run google:encert`. I les URL
+  dels errors d'HTTP passen per `safeUrl()` (`scripts/lib/http.ts`), perquè Google i OpenWeather
+  volen la clau a l'adreça. **Apple (WeatherKit) i Tomorrow.io no hi són**: les seves condicions
+  prohibeixen desar-ne les dades o fer-ne comparatives, també en privat.

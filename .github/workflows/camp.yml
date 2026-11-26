@@ -27,6 +27,11 @@ on:
     # perquè el planificador de GitHub no compleix les cadències curtes.
     - cron: '50 * * * *'
   workflow_dispatch:
+    inputs:
+      check:
+        description: 'Només comprovar les claus de Google i OpenWeather, sense desar res'
+        type: boolean
+        default: false
 
 concurrency:
   group: camp
@@ -65,3 +70,24 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: npm run worker:hora
+
+  # Google contra la fitxa, en privat (`scripts/workers/google-verify.ts`). Corre
+  # cada hora però només fa feina a les 07:50 de Madrid —captura el dia en curs,
+  # que és l'únic que les condicions de Google deixen desar— i l'endemà a partir
+  # de les 10, quan el puntua contra la XEMA i l'esborra. Va al cubell privat,
+  # i el registre no porta cap xifra de Google.
+  google:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+      DATA_BASE_URL: ${{ secrets.DATA_BASE_URL || vars.DATA_BASE_URL }}
+      PUSH_R2_BUCKET: ${{ secrets.PUSH_R2_BUCKET || vars.PUSH_R2_BUCKET }}
+      PUSH_R2_ACCESS_KEY_ID: ${{ secrets.PUSH_R2_ACCESS_KEY_ID }}
+      PUSH_R2_SECRET_ACCESS_KEY: ${{ secrets.PUSH_R2_SECRET_ACCESS_KEY }}
+      GOOGLE_WEATHER_API_KEY: ${{ secrets.GOOGLE_WEATHER_API_KEY }}
+      OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: npm run worker:google -- ${{ inputs.check && '--check' || '' }}
