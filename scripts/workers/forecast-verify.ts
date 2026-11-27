@@ -76,7 +76,7 @@ import { readFileSync } from 'node:fs';
 import { build } from '../lib/paths.ts';
 import { fetchJson, fetchWithRetry, sleep } from '../lib/http.ts';
 import {
-  distKm, fitxaSeries, headToHeadPairs, openWeatherDaily, yrnoAt, yrnoDaily, yrnoSeries,
+  distKm, fitxaSeries, headToHeadPairs, meteocatDaily, openWeatherDaily, yrnoAt, yrnoDaily, yrnoSeries,
   type Daily, type HeadToHead, type Station, type YrStep,
 } from '../lib/head-to-head.ts';
 import {
@@ -725,38 +725,6 @@ async function eachTown(
     ` · ${Math.round((Date.now() - started) / 1000)} s`,
   );
   return byIne;
-}
-
-const METEOCAT_BASE = 'https://api.meteo.cat/pronostic/v1/municipal';
-
-/**
- * La predicció municipal del Meteocat: màxima i mínima per data.
- *
- * **Preparat però apagat**: només corre si hi ha `METEOCAT_API_KEY`. El pla
- * gratuït de la seva API prohibeix difondre a tercers el que retorna (vegeu
- * `docs/09-legal-y-costes.md`), així que no se n'ensenya mai cap xifra: només
- * entra a la comparació, i abans de publicar-ne el resultat s'ha de tenir per
- * escrit del Meteocat que es pot.
- *
- * El codi és l'INE de sis xifres, amb el dígit de control, que és el que porta
- * la XEMA. El format de la resposta no s'ha pogut provar sense clau: si no és
- * el que s'espera, llança, i ho diu el registre de cada municipi.
- */
-async function meteocatDaily(ine6: string, key: string, quota: QuotaGuard): Promise<Map<string, Daily>> {
-  await sleep(250);
-  const body = await fetchJson<{
-    dies?: Array<{ data: string; variables?: { tmax?: { valor?: number }; tmin?: { valor?: number } } }>;
-  }>(`${METEOCAT_BASE}/${ine6}`, { headers: { 'X-Api-Key': key }, timeoutMs: 30_000 });
-  quota.spend('meteocat', 1);
-  if (!Array.isArray(body.dies)) throw new Error('resposta sense `dies`: ha canviat el format?');
-  const out = new Map<string, Daily>();
-  for (const d of body.dies) {
-    out.set(d.data.slice(0, 10), {
-      tMax: typeof d.variables?.tmax?.valor === 'number' ? d.variables.tmax.valor : null,
-      tMin: typeof d.variables?.tmin?.valor === 'number' ? d.variables.tmin.valor : null,
-    });
-  }
-  return out;
 }
 
 /**

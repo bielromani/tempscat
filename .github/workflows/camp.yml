@@ -29,7 +29,7 @@ on:
   workflow_dispatch:
     inputs:
       check:
-        description: 'Només comprovar les claus de Google i OpenWeather, sense desar res'
+        description: 'Només comprovar les claus de Google, OpenWeather i el Meteocat, sense desar res'
         type: boolean
         default: false
 
@@ -87,6 +87,8 @@ jobs:
       PUSH_R2_SECRET_ACCESS_KEY: ${{ secrets.PUSH_R2_SECRET_ACCESS_KEY }}
       GOOGLE_WEATHER_API_KEY: ${{ secrets.GOOGLE_WEATHER_API_KEY }}
       OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+      # Només per a `--check`: la comparació amb el Meteocat la fa `diari.yml`.
+      METEOCAT_API_KEY: ${{ secrets.METEOCAT_API_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup

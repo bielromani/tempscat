@@ -48,7 +48,7 @@
  * esperat.
  */
 import {
-  fitxaSeries, headToHeadPairs, madridDate, openWeatherDaily, yrnoSeries,
+  fitxaSeries, headToHeadPairs, madridDate, meteocatDaily, openWeatherDaily, yrnoSeries,
   type HeadToHead, type YrStep,
 } from '../lib/head-to-head.ts';
 import { fetchJson } from '../lib/http.ts';
@@ -359,6 +359,20 @@ async function check(googleKey: string | undefined, quota: QuotaGuard): Promise<
   } else {
     console.log('OpenWeather: no hi ha OPENWEATHER_API_KEY');
     bad = true;
+  }
+  const meteocatKey = process.env.METEOCAT_API_KEY;
+  if (meteocatKey) {
+    try {
+      const days = await meteocatDaily(p.ine6, meteocatKey, quota);
+      const ok = days.get(date)?.tMax != null || days.get(plusDays(date, 1))?.tMax != null;
+      console.log(`Meteocat: ${ok ? `resposta bona, ${days.size} dies` : 'resposta sense màximes: ha canviat el format?'}`);
+      bad ||= !ok;
+    } catch (err) {
+      console.log(`Meteocat: ${(err as Error).message}`);
+      bad = true;
+    }
+  } else {
+    console.log('Meteocat: no hi ha METEOCAT_API_KEY');
   }
   console.log(`Cubell privat: ${pushStoreConfig() ? 'configurat' : 'no configurat'}`);
   if (bad) process.exitCode = 1;
