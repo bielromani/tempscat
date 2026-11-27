@@ -366,6 +366,22 @@ async function check(googleKey: string | undefined, quota: QuotaGuard): Promise<
       const days = await meteocatDaily(p.ine6, meteocatKey, quota);
       const ok = days.get(date)?.tMax != null || days.get(plusDays(date, 1))?.tMax != null;
       console.log(`Meteocat: ${ok ? `resposta bona, ${days.size} dies` : 'resposta sense màximes: ha canviat el format?'}`);
+      if (!ok) {
+        // L'estructura, sense cap valor: el registre és públic i les dades del Meteocat no es difonen.
+        const raw = await fetchJson<unknown>(
+          `https://api.meteo.cat/pronostic/v1/municipal/${p.ine6}`,
+          { headers: { 'X-Api-Key': meteocatKey }, timeoutMs: 30_000 },
+        );
+        const shape = (v: unknown, depth: number): unknown => {
+          if (Array.isArray(v)) return v.length ? [shape(v[0], depth), `×${v.length}`] : [];
+          if (v && typeof v === 'object') {
+            if (depth > 4) return '{…}';
+            return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, shape(x, depth + 1)]));
+          }
+          return typeof v;
+        };
+        console.log(`Meteocat, estructura: ${JSON.stringify(shape(raw, 0))}`);
+      }
       bad ||= !ok;
     } catch (err) {
       console.log(`Meteocat: ${(err as Error).message}`);
