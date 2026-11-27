@@ -264,20 +264,30 @@ const METEOCAT_BASE = 'https://api.meteo.cat/pronostic/v1/municipal';
  *
  * El codi és l'INE de sis xifres, amb el dígit de control, que és el que porta
  * la XEMA. El format de la resposta no s'ha pogut provar sense clau: si no és
- * el que s'espera, llança, i ho diu el registre de cada municipi.
+ * el que s'espera, llança, i ho diu el registre de cada municipi. Provat amb
+ * clau el 27 de novembre de 2026.
  */
 export async function meteocatDaily(ine6: string, key: string, quota: QuotaGuard): Promise<Map<string, Daily>> {
   await sleep(250);
   const body = await fetchJson<{
-    dies?: Array<{ data: string; variables?: { tmax?: { valor?: number }; tmin?: { valor?: number } } }>;
+    dies?: Array<{ data: string; variables?: { tmax?: { valor?: string | number }; tmin?: { valor?: string | number } } }>;
   }>(`${METEOCAT_BASE}/${ine6}`, { headers: { 'X-Api-Key': key }, timeoutMs: 30_000 });
   quota.spend('meteocat', 1);
   if (!Array.isArray(body.dies)) throw new Error('resposta sense `dies`: ha canviat el format?');
   const out = new Map<string, Daily>();
+  /*
+   * El `valor` arriba com a text («12.3»), no com a número: comprovat el 27 de
+   * novembre de 2026, el primer dia amb clau. Llegint-lo com a número, totes
+   * les màximes sortien buides i el Meteocat no entrava mai a la comparació.
+   */
+  const num = (v: unknown) => {
+    const n = typeof v === 'string' ? Number(v.replace(',', '.')) : v;
+    return typeof n === 'number' && Number.isFinite(n) && v !== '' ? n : null;
+  };
   for (const d of body.dies) {
     out.set(d.data.slice(0, 10), {
-      tMax: typeof d.variables?.tmax?.valor === 'number' ? d.variables.tmax.valor : null,
-      tMin: typeof d.variables?.tmin?.valor === 'number' ? d.variables.tmin.valor : null,
+      tMax: num(d.variables?.tmax?.valor),
+      tMin: num(d.variables?.tmin?.valor),
     });
   }
   return out;
