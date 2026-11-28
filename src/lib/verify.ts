@@ -133,12 +133,12 @@ export function emptyScores(): Scores {
  * Apple (WeatherKit) i Tomorrow.io no hi són perquè les seves condicions
  * prohibeixen desar-ne les dades o fer-ne comparatives; Google, perquè només
  * deixa desar trenta dies la predicció del dia en curs, i es compara a part i
- * en privat (`google-verify.ts`).
+ * en privat (`google-verify.ts`). El Meteocat tampoc: el seu pla prohibeix
+ * difondre el que retorna i això es desa en públic (`meteocat-verify.ts`).
  */
 export const RIVALS = {
   aemet: 'AEMET',
   yrno: 'yr.no (MET Norway)',
-  meteocat: 'Meteocat',
   openweather: 'OpenWeather',
 } as const;
 export type Rival = keyof typeof RIVALS;

@@ -267,9 +267,6 @@ const METEOCAT_BASE = 'https://api.meteo.cat/pronostic/v1/municipal';
  * el que s'espera, llança, i ho diu el registre de cada municipi. Provat amb
  * clau el 27 de novembre de 2026.
  */
-/** Una font que no deixa demanar res més avui: qui recorre els municipis s'atura. */
-export class QuotaExhausted extends Error {}
-
 export async function meteocatDaily(ine6: string, key: string, quota: QuotaGuard): Promise<Map<string, Daily>> {
   await sleep(250);
   const res = await fetchWithRetry(`${METEOCAT_BASE}/${ine6}`, {
@@ -279,9 +276,10 @@ export async function meteocatDaily(ine6: string, key: string, quota: QuotaGuard
    * Un 429 del Meteocat és la quota del pla esgotada, no un límit per minut:
    * el 28 de novembre de 2026 va tornar 429 des de la primera petició, i
    * reintentant cada municipi cinc cops —amb el `Retry-After` que demana— es
-   * van perdre els vint minuts sencers sense cap resposta. Es para la volta.
+   * van perdre els vint minuts sencers sense cap resposta. Qui
+   * recorre els municipis s'ha d'aturar.
    */
-  if (res.status === 429) throw new QuotaExhausted('Meteocat: HTTP 429, quota del pla esgotada');
+  if (res.status === 429) throw new Error('Meteocat: HTTP 429, quota del pla esgotada');
   quota.spend('meteocat', 1);
   const body = (await res.json()) as {
     dies?: Array<{ data: string; variables?: { tmax?: { valor?: string | number }; tmin?: { valor?: string | number } } }>;

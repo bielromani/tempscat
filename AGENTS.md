@@ -203,6 +203,7 @@ npm run worker:compare    # la temperatura d'ara de les fitxes contra la dels mo
 npm run worker:hora       # la temperatura de les fitxes contra la de yr.no, ara i cada hora de demà · cada hora
 npm run worker:push       # avisos taronja i vermells al mòbil · darrere de worker:warnings, cada 15 min
 npm run worker:google     # Google contra la fitxa, en privat · a camp.yml; `-- --check` prova les claus
+npm run worker:meteocat   # el Meteocat contra la fitxa, en privat · a camp.yml; `-- --dry` en local
 npm run google:encert     # els resultats de Google, en local (llegeix el cubell privat)
 ```
 
@@ -1617,12 +1618,13 @@ cuota para exactamente la misma información.
   novembre de 2026.) Cada rival es demana pel seu compte i pot fallar pel seu compte, així que
   la comparació no surt de `models.tempscat` contra `models.aemet` —serien mitjanes sobre
   pobles i dies diferents— sinó de `Scores.duels`, on cada comparació entra a les dues bandes
-  alhora o a cap. yr.no demana un `User-Agent` amb contacte i és CC BY 4.0. El pla gratuït del
-  Meteocat **prohibeix difondre** el que retorna: entra a la comparació, però el resultat no es
-  publica sense permís seu per escrit. I només dona **100 prediccions al mes** (pla
-  «Predicció_100»): se'n demanen tres al dia, de municipis que van rodant, i un 429 vol dir
-  quota esgotada i atura la volta —reintentant-lo es van perdre vint minuts el 28 de novembre
-  de 2026—. `worker:google -- --check` diu quantes en queden.
+  alhora o a cap. yr.no demana un `User-Agent` amb contacte i és CC BY 4.0. El Meteocat es
+  compara **en privat** (`worker:meteocat`, a `camp.yml`): el pla gratuït de l'API prohibeix
+  difondre el que retorna, i els trossos de `worker:verify` són públics —les prediccions de 98
+  estacions hi van ser des del 27 de novembre de 2026, fins que es van treure—. L'API dona
+  **100 prediccions al mes** i un 429 vol dir quota esgotada: tres municipis al dia. La resta
+  surt del fitxer comarcal de dades obertes, que amb una sola petició i sense clau porta la
+  màxima i la mínima de demà i demà passat de totes les capitals.
   **Hora a hora, només yr.no**, que és l'únic que la dona per a un lloc en una API oberta:
   `worker:hora` (`hourly-verify.ts`, cada hora a `camp.yml`) desa el que ensenya ara la fitxa i
   el que diu yr.no del mateix instant, i `worker:verify` desa les 24 hores de demà de totes
