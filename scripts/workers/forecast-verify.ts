@@ -76,7 +76,7 @@ import { readFileSync } from 'node:fs';
 import { build } from '../lib/paths.ts';
 import { fetchJson, fetchWithRetry, sleep } from '../lib/http.ts';
 import {
-  distKm, fitxaSeries, headToHeadPairs, meteocatDaily, openWeatherDaily, yrnoAt, yrnoDaily, yrnoSeries,
+  distKm, fitxaSeries, headToHeadPairs, meteocatDaily, QuotaExhausted, openWeatherDaily, yrnoAt, yrnoDaily, yrnoSeries,
   type Daily, type HeadToHead, type Station, type YrStep,
 } from '../lib/head-to-head.ts';
 import {
@@ -714,6 +714,10 @@ async function eachTown(
     } catch (err) {
       failed++;
       console.log(`  ${label} ${ine}: ${(err as Error).message}`);
+      if (err instanceof QuotaExhausted) {
+        skipped = order.length - i - 1;
+        break;
+      }
     }
     if ((i + 1) % 25 === 0) {
       console.log(`  ${label}: ${i + 1} de ${order.length} · ${Math.round((Date.now() - started) / 1000)} s`);
@@ -721,7 +725,7 @@ async function eachTown(
   }
   console.log(
     `Prediccions municipals de ${label}: ${byIne.size} · fallades: ${failed}` +
-    (skipped ? ` · ${skipped} sense temps` : '') +
+    (skipped ? ` · ${skipped} sense demanar` : '') +
     ` · ${Math.round((Date.now() - started) / 1000)} s`,
   );
   return byIne;

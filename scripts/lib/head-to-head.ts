@@ -9,7 +9,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { build } from './paths.ts';
-import { fetchJson, sleep } from './http.ts';
+import { fetchJson, fetchWithRetry, sleep } from './http.ts';
 import type { QuotaGuard } from './store.ts';
 import { aggregateDaily, mergeHourly, type PointForecast } from '../../src/lib/forecast-merge.ts';
 import { LAPSE_RATE } from '../../src/lib/variables.ts';
@@ -267,12 +267,25 @@ const METEOCAT_BASE = 'https://api.meteo.cat/pronostic/v1/municipal';
  * el que s'espera, llança, i ho diu el registre de cada municipi. Provat amb
  * clau el 27 de novembre de 2026.
  */
+/** Una font que no deixa demanar res més avui: qui recorre els municipis s'atura. */
+export class QuotaExhausted extends Error {}
+
 export async function meteocatDaily(ine6: string, key: string, quota: QuotaGuard): Promise<Map<string, Daily>> {
   await sleep(250);
-  const body = await fetchJson<{
-    dies?: Array<{ data: string; variables?: { tmax?: { valor?: string | number }; tmin?: { valor?: string | number } } }>;
-  }>(`${METEOCAT_BASE}/${ine6}`, { headers: { 'X-Api-Key': key }, timeoutMs: 30_000 });
+  const res = await fetchWithRetry(`${METEOCAT_BASE}/${ine6}`, {
+    headers: { 'X-Api-Key': key }, timeoutMs: 30_000, passStatus: [429],
+  });
+  /*
+   * Un 429 del Meteocat és la quota del pla esgotada, no un límit per minut:
+   * el 28 de novembre de 2026 va tornar 429 des de la primera petició, i
+   * reintentant cada municipi cinc cops —amb el `Retry-After` que demana— es
+   * van perdre els vint minuts sencers sense cap resposta. Es para la volta.
+   */
+  if (res.status === 429) throw new QuotaExhausted('Meteocat: HTTP 429, quota del pla esgotada');
   quota.spend('meteocat', 1);
+  const body = (await res.json()) as {
+    dies?: Array<{ data: string; variables?: { tmax?: { valor?: string | number }; tmin?: { valor?: string | number } } }>;
+  };
   if (!Array.isArray(body.dies)) throw new Error('resposta sense `dies`: ha canviat el format?');
   const out = new Map<string, Daily>();
   /*

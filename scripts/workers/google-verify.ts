@@ -327,6 +327,24 @@ async function score(store: S3Config, today: string, hour: number): Promise<void
   if (changed) await putJson(store, SCORES_KEY, scores);
 }
 
+/**
+ * Quantes consultes li queden al pla del Meteocat. Només els plans i els
+ * comptadors: la resposta porta també el nom del client, i el registre
+ * d'Actions és públic.
+ */
+async function meteocatQuota(key: string): Promise<void> {
+  try {
+    const q = await fetchJson<{ plans?: Array<{
+      nom?: string; periode?: string; maxConsultes?: number; consultesRestants?: number; consultesRealitzades?: number;
+    }> }>('https://api.meteo.cat/quotes/v1/consum-actual', { headers: { 'X-Api-Key': key }, timeoutMs: 30_000, retries: 0 });
+    for (const p of q.plans ?? []) {
+      console.log(`  Meteocat, pla ${p.nom} (${p.periode}): ${p.consultesRealitzades} de ${p.maxConsultes}, en queden ${p.consultesRestants}`);
+    }
+  } catch (err) {
+    console.log(`  Meteocat, quota: ${(err as Error).message}`);
+  }
+}
+
 async function check(googleKey: string | undefined, quota: QuotaGuard): Promise<void> {
   const [p] = headToHeadPairs();
   const { date } = localNow();
@@ -387,6 +405,7 @@ async function check(googleKey: string | undefined, quota: QuotaGuard): Promise<
       console.log(`Meteocat: ${(err as Error).message}`);
       bad = true;
     }
+    await meteocatQuota(meteocatKey);
   } else {
     console.log('Meteocat: no hi ha METEOCAT_API_KEY');
   }
