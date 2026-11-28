@@ -76,7 +76,7 @@ import { readFileSync } from 'node:fs';
 import { build } from '../lib/paths.ts';
 import { fetchJson, fetchWithRetry, sleep } from '../lib/http.ts';
 import {
-  distKm, fitxaSeries, headToHeadPairs, meteocatDaily, QuotaExhausted, openWeatherDaily, yrnoAt, yrnoDaily, yrnoSeries,
+  distKm, fitxaSeries, headToHeadPairs, openWeatherDaily, yrnoAt, yrnoDaily, yrnoSeries,
   type Daily, type HeadToHead, type Station, type YrStep,
 } from '../lib/head-to-head.ts';
 import {
@@ -218,7 +218,25 @@ async function main() {
   const stored = (await pullSnapshot<Scores>(scoresShard()))?.data;
   const scores: Scores = stored?.scored ? stored : emptyScores();
 
+  /*
+   * El Meteocat va ser aquí del 27 al 28 de novembre de 2026, i aquests trossos
+   * són públics: el seu pla prohibeix difondre'n les prediccions. Es treuen
+   * dels que encara en porten, i del registre. Els dels dies que han de venir
+   * els neteja el bucle que els torna a escriure.
+   */
+  delete scores.models.meteocat;
+  delete scores.duels?.meteocat;
+  for (const day of METEOCAT_LEAKED) {
+    if (day > today) continue;
+    const old = (await pullSnapshot<Pending>(pendingShard(day)))?.data;
+    if (old && stripMeteocat(old)) {
+      writeSnapshot(pendingShard(day), 'Open-Meteo + AEMET + MET Norway', old, day);
+      console.log(`Tret el Meteocat del tros públic del ${day}.`);
+    }
+  }
+
   const pending = (await pullSnapshot<Pending>(pendingShard(yesterday)))?.data ?? null;
+  if (pending) stripMeteocat(pending);
   let scored = 0;
 
   /*
@@ -422,6 +440,7 @@ async function main() {
     const next: Pending = prev?.target === target
       ? prev
       : { target, byLead: {} };
+    stripMeteocat(next);
     next.byLead[String(lead)] = {
       issued: today,
       stations: stationsForLead,
@@ -573,7 +592,7 @@ async function dailyBias(stations: Station[], today: string, quota: QuotaGuard):
 
 /**
  * El que diu la fitxa d'un poble i el que en diuen els altres, per a cada
- * antelació: l'AEMET, yr.no i, quan hi hagi clau, el Meteocat.
+ * antelació: l'AEMET, yr.no i OpenWeather. El Meteocat, en privat: `meteocat-verify.ts`.
  *
  * La fitxa es calcula com `forecastFor()`: tots els models del punt del poble,
  * amb la correcció de la cota del poble contra la que suposa el primer model,
@@ -586,9 +605,6 @@ async function dailyBias(stations: Station[], today: string, quota: QuotaGuard):
  * ha la fitxa i **almenys un** rival; l'emparellament fi —la mateixa estació i
  * el mateix dia a les dues bandes— el fa la puntuació (`Scores.duels`).
  */
-/** Prediccions del Meteocat per dia: el pla en dona 100 al mes. */
-const METEOCAT_PER_DAY = 3;
-
 async function captureHeadToHead(
   pairs: HeadToHead[],
   points: Map<string, ShardPoint>,
@@ -620,25 +636,6 @@ async function captureHeadToHead(
     yrSeries.set(ine, series);
     return yrnoDaily(series);
   });
-
-  const meteocatKey = process.env.METEOCAT_API_KEY;
-  if (meteocatKey) {
-    /*
-     * El pla gratuït del Meteocat són **100 prediccions al mes** («Predicció_100»,
-     * comprovat a `/quotes/v1/consum-actual` el 28 de novembre de 2026), no
-     * 140 al dia. Se'n demanen tres cada dia, i cada dia tres municipis
-     * diferents: en un mes i mig han passat tots. Les deu que sobren són per a
-     * `worker:google -- --check`, que en gasta una cada vegada.
-     */
-    const day = Math.floor(Date.parse(`${today}T00:00:00Z`) / 86_400_000);
-    const few = Array.from({ length: Math.min(METEOCAT_PER_DAY, ines.length) },
-      (_, k) => ines[(day * METEOCAT_PER_DAY + k) % ines.length]);
-    rivals.meteocat = await eachTown(
-      'Meteocat', few, (ine) => meteocatDaily(byIne.get(ine)!.ine6, meteocatKey, quota),
-    );
-  } else {
-    console.log('Sense METEOCAT_API_KEY: no es desa la comparació amb el Meteocat.');
-  }
 
   const owmKey = process.env.OPENWEATHER_API_KEY;
   if (owmKey) {
@@ -706,6 +703,22 @@ async function captureHeadToHead(
   return { daily: out, ahead };
 }
 
+/** Els trossos públics que van portar prediccions del Meteocat. */
+const METEOCAT_LEAKED = ['2026-11-28', '2026-11-29', '2026-11-30'];
+
+/** Treu el Meteocat d'un tros. Torna si n'hi havia. */
+function stripMeteocat(p: Pending): boolean {
+  let found = false;
+  for (const { stations } of Object.values(p.byLead)) {
+    for (const entry of Object.values(stations)) {
+      if (!('meteocat' in entry)) continue;
+      delete entry.meteocat;
+      found = true;
+    }
+  }
+  return found;
+}
+
 /** Demana un rival per a cada municipi, amb un temps màxim i comptant les fallades. */
 async function eachTown(
   label: string,
@@ -727,10 +740,6 @@ async function eachTown(
     } catch (err) {
       failed++;
       console.log(`  ${label} ${ine}: ${(err as Error).message}`);
-      if (err instanceof QuotaExhausted) {
-        skipped = order.length - i - 1;
-        break;
-      }
     }
     if ((i + 1) % 25 === 0) {
       console.log(`  ${label}: ${i + 1} de ${order.length} · ${Math.round((Date.now() - started) / 1000)} s`);
@@ -738,7 +747,7 @@ async function eachTown(
   }
   console.log(
     `Prediccions municipals de ${label}: ${byIne.size} · fallades: ${failed}` +
-    (skipped ? ` · ${skipped} sense demanar` : '') +
+    (skipped ? ` · ${skipped} sense temps` : '') +
     ` · ${Math.round((Date.now() - started) / 1000)} s`,
   );
   return byIne;

@@ -48,15 +48,13 @@
  * esperat.
  */
 import {
-  fitxaSeries, headToHeadPairs, madridDate, meteocatDaily, openWeatherDaily, yrnoSeries,
+  headToHeadPairs, madridDate, openWeatherDaily, yrnoSeries,
   type HeadToHead, type YrStep,
 } from '../lib/head-to-head.ts';
 import { fetchJson } from '../lib/http.ts';
-import { DAILY_LIMITS, QuotaGuard, pullSnapshot } from '../lib/store.ts';
-import type { PointForecast } from '../../src/lib/forecast-merge.ts';
-import { DAILY_BIAS_SHARD, type DailyBias } from '../../src/lib/daily-bias.ts';
-import { instantOf, madridToUtc } from '../../src/lib/format.ts';
-import { FORECAST_INDEX, forecastShard, type ForecastIndex } from '../../src/lib/shards.ts';
+import { fitxes, localMs, localNow, plusDays, xemaExtreme } from '../lib/private-verify.ts';
+import { DAILY_LIMITS, QuotaGuard } from '../lib/store.ts';
+import { instantOf } from '../../src/lib/format.ts';
 import { deleteKey, getJson, listKeys, pushStoreConfig, putJson } from '../../src/lib/push-store.ts';
 import type { S3Config } from '../../src/lib/s3-sign.ts';
 import type { Tally } from '../../src/lib/verify.ts';
@@ -72,7 +70,6 @@ const SCORE_HOUR = 10;
 const MAX_KEEP_DAYS = 7;
 
 const GOOGLE_BASE = 'https://weather.googleapis.com/v1/forecast/days:lookup';
-const XEMA = 'https://analisi.transparenciacatalunya.cat/resource/nzvn-apee.json';
 
 export const SOURCES = ['google', 'tempscat', 'yrno', 'openweather'] as const;
 export type Source = typeof SOURCES[number];
@@ -92,25 +89,7 @@ export interface GoogleScores {
   pairs: Partial<Record<Var, number>>;
 }
 
-interface ShardPoint { [model: string]: PointForecast }
-interface ForecastShardData { points: Record<string, ShardPoint> }
-
 const round1 = (v: number) => Math.round(v * 10) / 10;
-
-function plusDays(iso: string, n: number): string {
-  return new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-}
-
-function localNow(): { date: string; hour: number } {
-  const s = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' });
-  return { date: s.slice(0, 10), hour: Number(s.slice(11, 13)) };
-}
-
-/** Les 07:00 (o l'hora que sigui) d'un dia de Madrid, en mil·lisegons. */
-function localMs(date: string, hour: number): number {
-  const [y, m, d] = date.split('-').map(Number);
-  return madridToUtc(y, m, d, hour, 0).getTime();
-}
 
 /** La predicció de Google del dia `date`, del seu dia de 07 a 07. */
 async function googleDay(h: HeadToHead, date: string, key: string, quota: QuotaGuard): Promise<Values> {
@@ -184,28 +163,6 @@ function yrValues(series: YrStep[], date: string): Values {
   return out;
 }
 
-/** La fitxa de cada poble, llegida dels trossos de predicció com la pàgina. */
-async function fitxes(pairs: HeadToHead[]): Promise<Map<string, ReturnType<typeof fitxaSeries>>> {
-  const index = await pullSnapshot<ForecastIndex>(FORECAST_INDEX);
-  if (!index) throw new Error('no hi ha índex de predicció');
-  const wanted = new Set(pairs.map((p) => p.town.forecastPointId!));
-  const found = new Map<string, ShardPoint>();
-  for (const c of index.data.comarques) {
-    const shard = await pullSnapshot<ForecastShardData>(forecastShard(c.codi));
-    for (const [id, models] of Object.entries(shard?.data.points ?? {})) {
-      if (wanted.has(id) && !found.has(id)) found.set(id, models);
-    }
-  }
-  let bias: DailyBias | null = null;
-  try { bias = (await pullSnapshot<DailyBias>(DAILY_BIAS_SHARD))?.data ?? null; } catch { bias = null; }
-  const out = new Map<string, ReturnType<typeof fitxaSeries>>();
-  for (const p of pairs) {
-    const byModel = found.get(p.town.forecastPointId!);
-    if (byModel) out.set(p.station.codi, fitxaSeries(p.town, p.station.codi, byModel, index.data.times, bias));
-  }
-  return out;
-}
-
 async function capture(
   store: S3Config | null, date: string, googleKey: string | null, quota: QuotaGuard,
 ): Promise<void> {
@@ -250,24 +207,9 @@ async function capture(
 
 /** La màxima natural i la mínima de 07 a 07 de cada estació, de la XEMA semihorària. */
 async function truthOf(date: string): Promise<Map<string, Values>> {
-  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 19);
-  const query = async (variable: string, fn: 'max' | 'min', from: number, to: number) => {
-    const rows = await fetchJson<Array<{ codi_estacio: string; v: string; n: string }>>(
-      `${XEMA}?` + new URLSearchParams({
-        $select: `codi_estacio,${fn}(valor_lectura) as v,count(valor_lectura) as n`,
-        $where: `data_lectura > '${iso(from)}' AND data_lectura <= '${iso(to)}' AND codi_variable='${variable}'`,
-        $group: 'codi_estacio',
-        $limit: '500',
-      }),
-      { timeoutMs: 60_000 },
-    );
-    // 48 lectures de mitja hora: amb més de quatre forats, el dia no és sencer.
-    return new Map(rows.filter((r) => Number(r.n) >= 44 && Number.isFinite(Number(r.v)))
-      .map((r) => [r.codi_estacio, Number(r.v)]));
-  };
   const [max, min] = await Promise.all([
-    query('40', 'max', localMs(date, 0), localMs(plusDays(date, 1), 0)),
-    query('42', 'min', localMs(date, 7), localMs(plusDays(date, 1), 7)),
+    xemaExtreme('40', 'max', localMs(date, 0), localMs(plusDays(date, 1), 0)),
+    xemaExtreme('42', 'min', localMs(date, 7), localMs(plusDays(date, 1), 7)),
   ]);
   const out = new Map<string, Values>();
   for (const [codi, v] of max) (out.get(codi) ?? out.set(codi, {}).get(codi)!).tMax = round1(v);
@@ -379,32 +321,8 @@ async function check(googleKey: string | undefined, quota: QuotaGuard): Promise<
     bad = true;
   }
   const meteocatKey = process.env.METEOCAT_API_KEY;
+  // Només la quota: una predicció en gastaria una de les cent del mes.
   if (meteocatKey) {
-    try {
-      const days = await meteocatDaily(p.ine6, meteocatKey, quota);
-      const ok = days.get(date)?.tMax != null || days.get(plusDays(date, 1))?.tMax != null;
-      console.log(`Meteocat: ${ok ? `resposta bona, ${days.size} dies` : 'resposta sense màximes: ha canviat el format?'}`);
-      if (!ok) {
-        // L'estructura, sense cap valor: el registre és públic i les dades del Meteocat no es difonen.
-        const raw = await fetchJson<unknown>(
-          `https://api.meteo.cat/pronostic/v1/municipal/${p.ine6}`,
-          { headers: { 'X-Api-Key': meteocatKey }, timeoutMs: 30_000 },
-        );
-        const shape = (v: unknown, depth: number): unknown => {
-          if (Array.isArray(v)) return v.length ? [shape(v[0], depth), `×${v.length}`] : [];
-          if (v && typeof v === 'object') {
-            if (depth > 4) return '{…}';
-            return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, shape(x, depth + 1)]));
-          }
-          return typeof v;
-        };
-        console.log(`Meteocat, estructura: ${JSON.stringify(shape(raw, 0))}`);
-      }
-      bad ||= !ok;
-    } catch (err) {
-      console.log(`Meteocat: ${(err as Error).message}`);
-      bad = true;
-    }
     await meteocatQuota(meteocatKey);
   } else {
     console.log('Meteocat: no hi ha METEOCAT_API_KEY');
