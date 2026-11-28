@@ -1619,7 +1619,10 @@ cuota para exactamente la misma información.
   pobles i dies diferents— sinó de `Scores.duels`, on cada comparació entra a les dues bandes
   alhora o a cap. yr.no demana un `User-Agent` amb contacte i és CC BY 4.0. El pla gratuït del
   Meteocat **prohibeix difondre** el que retorna: entra a la comparació, però el resultat no es
-  publica sense permís seu per escrit.
+  publica sense permís seu per escrit. I només dona **100 prediccions al mes** (pla
+  «Predicció_100»): se'n demanen tres al dia, de municipis que van rodant, i un 429 vol dir
+  quota esgotada i atura la volta —reintentant-lo es van perdre vint minuts el 28 de novembre
+  de 2026—. `worker:google -- --check` diu quantes en queden.
   **Hora a hora, només yr.no**, que és l'únic que la dona per a un lloc en una API oberta:
   `worker:hora` (`hourly-verify.ts`, cada hora a `camp.yml`) desa el que ensenya ara la fitxa i
   el que diu yr.no del mateix instant, i `worker:verify` desa les 24 hores de demà de totes

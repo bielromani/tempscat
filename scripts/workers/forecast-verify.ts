@@ -76,7 +76,7 @@ import { readFileSync } from 'node:fs';
 import { build } from '../lib/paths.ts';
 import { fetchJson, fetchWithRetry, sleep } from '../lib/http.ts';
 import {
-  distKm, fitxaSeries, headToHeadPairs, meteocatDaily, openWeatherDaily, yrnoAt, yrnoDaily, yrnoSeries,
+  distKm, fitxaSeries, headToHeadPairs, meteocatDaily, QuotaExhausted, openWeatherDaily, yrnoAt, yrnoDaily, yrnoSeries,
   type Daily, type HeadToHead, type Station, type YrStep,
 } from '../lib/head-to-head.ts';
 import {
@@ -586,6 +586,9 @@ async function dailyBias(stations: Station[], today: string, quota: QuotaGuard):
  * ha la fitxa i **almenys un** rival; l'emparellament fi —la mateixa estació i
  * el mateix dia a les dues bandes— el fa la puntuació (`Scores.duels`).
  */
+/** Prediccions del Meteocat per dia: el pla en dona 100 al mes. */
+const METEOCAT_PER_DAY = 3;
+
 async function captureHeadToHead(
   pairs: HeadToHead[],
   points: Map<string, ShardPoint>,
@@ -620,8 +623,18 @@ async function captureHeadToHead(
 
   const meteocatKey = process.env.METEOCAT_API_KEY;
   if (meteocatKey) {
+    /*
+     * El pla gratuït del Meteocat són **100 prediccions al mes** («Predicció_100»,
+     * comprovat a `/quotes/v1/consum-actual` el 28 de novembre de 2026), no
+     * 140 al dia. Se'n demanen tres cada dia, i cada dia tres municipis
+     * diferents: en un mes i mig han passat tots. Les deu que sobren són per a
+     * `worker:google -- --check`, que en gasta una cada vegada.
+     */
+    const day = Math.floor(Date.parse(`${today}T00:00:00Z`) / 86_400_000);
+    const few = Array.from({ length: Math.min(METEOCAT_PER_DAY, ines.length) },
+      (_, k) => ines[(day * METEOCAT_PER_DAY + k) % ines.length]);
     rivals.meteocat = await eachTown(
-      'Meteocat', order, (ine) => meteocatDaily(byIne.get(ine)!.ine6, meteocatKey, quota),
+      'Meteocat', few, (ine) => meteocatDaily(byIne.get(ine)!.ine6, meteocatKey, quota),
     );
   } else {
     console.log('Sense METEOCAT_API_KEY: no es desa la comparació amb el Meteocat.');
@@ -714,6 +727,10 @@ async function eachTown(
     } catch (err) {
       failed++;
       console.log(`  ${label} ${ine}: ${(err as Error).message}`);
+      if (err instanceof QuotaExhausted) {
+        skipped = order.length - i - 1;
+        break;
+      }
     }
     if ((i + 1) % 25 === 0) {
       console.log(`  ${label}: ${i + 1} de ${order.length} · ${Math.round((Date.now() - started) / 1000)} s`);
@@ -721,7 +738,7 @@ async function eachTown(
   }
   console.log(
     `Prediccions municipals de ${label}: ${byIne.size} · fallades: ${failed}` +
-    (skipped ? ` · ${skipped} sense temps` : '') +
+    (skipped ? ` · ${skipped} sense demanar` : '') +
     ` · ${Math.round((Date.now() - started) / 1000)} s`,
   );
   return byIne;
